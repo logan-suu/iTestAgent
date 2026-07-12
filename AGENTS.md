@@ -115,7 +115,7 @@ artifact-index.json   artifacts[{id,type,path,relatedStep}]
 ## 6. 领域关键规则（务必内化）
 
 ```
-执行路径   有 XCUITest -> xcodebuild test；无测试() -> Appium/WDA Agent Flow
+执行路径   有 XCUITest -> xcodebuild test；无测试 -> Appium/WDA Agent Flow
 断言       用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索；无断言不判 passed(explored/inconclusive/needs_assertion)
 性能       主推 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate；xctrace summary 实验性(保留原始 .trace)
 baseline   首次成功 run 建立；失败/crash 不建；后续对比趋势；接受新 baseline 需确认
@@ -270,7 +270,8 @@ bun run build
 ## 14. 当前上下文
 
 ```
-目标项目   .xcworkspace（无既有测试，需自动构建签名，走 Appium/WDA 探索路径）
+iTestAgent 是一个通用工具，不绑定任何特定项目。用户在任何 iOS 项目目录中启动 itestagent 即可针对该项目工作。
+当前开发阶段以无既有测试的 iOS 项目作为验证案例，确保 Appium/WDA 探索路径可行。
 人力       1 名独立开发者(全栈, AI Native 全程)
 阶段策略   先做双 Spike(端到端真机 + 元素定位)定路线，再按 Phase 1-5 推进到 MVP
 MVP 边界   去风险 MVP：人在环路记录器 + 稳健性能趋势工具；研究级能力后置
