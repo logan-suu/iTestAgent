@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OpenCode / Agent
+.omo/
+
+# macOS
+*.dSYM/
+
+# iOS / Xcode artifacts (project analysis cache, not source)
+DerivedData/
+*.xcarchive
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# Temporary
+tmp/
+temp/
+*.tmp
