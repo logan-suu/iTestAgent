@@ -1,8 +1,76 @@
 # AGENTS.md
 
-本文件是 iTestAgent 项目的"Agent 宪法"，供 OpenCode 等 AI 编码 Agent 在本仓库工作时**首先阅读并严格遵守**。冲突时以本文件为最高优先级。
+**版本**：v1.0
+**生效日期**：2026-07-13
+**适用对象**：所有参与 iTestAgent 项目开发的 AI Agent（OpenCode 桌面版 / Codex / Cursor / Claude）及人类开发者
+**优先级**：本规约优先于任何 Agent 的默认行为。当本规约与 Agent 默认行为冲突时，以本规约为准。
+**任务追踪**：`docs/05-planning/task-status.json` 记录所有任务执行状态
+**文档索引**：`docs/INDEX.md` 提供文档摘要与模块速查
 
-## 0. 一句话项目定位
+---
+
+## 0. 项目文档与快速索引
+
+所有项目规格、架构、实现规范、AI Native 开发指南及计划均存放于 `docs/` 目录中。Agent 在执行任何编码任务前，**必须**先查阅相关文档并引用原文。
+
+### 0.1 文档目录
+
+| 文档类别 | 文件路径 | 用途 |
+|---|---|---|
+| **文档索引** | `docs/INDEX.md` | 文档摘要索引，Agent 启动时优先读取 |
+| **规格与需求** | `docs/01-spec/全量用户故事与验收标准规格书.md` | 所有用户故事与 AC 的唯一来源 |
+| **架构设计** | `docs/02-architecture/架构设计文档.md` | 分层/组件/编排内核/数据模型/流程 |
+| **技术选型** | `docs/02-architecture/技术选型文档.md` | 各层选型决策、候选对比、复用矩阵 |
+| **数据流全链路** | `docs/02-architecture/数据流全链路技术说明文档.md` | S1-S9 数据契约与落盘 |
+| **开发避坑手册** | `docs/03-implementation/开发避坑与关键注意点手册.md` | 陷阱、防御性检查清单 |
+| **AI Native 开发** | `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、质量门禁 G1-G7、反模式 |
+| **开发计划** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线及排期 |
+| **任务状态** | `docs/05-planning/task-status.json` | 每个任务的执行状态、依赖关系 |
+| **重大决策** | `docs/decisions/` | ADR 格式的架构决策与需求变更记录 |
+
+### 0.2 任务类型 → 文档快速索引（Agent 必读）
+
+**使用方式**：收到任务后，先判断任务类型，按下表确定应读取的文档和章节，使用 `read_file` 工具**只读取相关章节**（而非整篇文档）。
+
+| 任务类型 | 应读取的文档 | 重点章节/关键词 |
+|---|---|---|
+| **初次启动/建立全局认知** | `docs/INDEX.md` | 全文阅读，建立文档地图 |
+| **实现 CLI 入口** | `docs/02-architecture/架构设计文档.md` | §4~5 分层架构、CLI 组件 |
+| | `docs/02-architecture/技术选型文档.md` | §5 CLI 与 TUI 选型 |
+| **实现 TUI 交互** | `docs/02-architecture/架构设计文档.md` | §4~5 交互层 |
+| | `docs/02-architecture/技术选型文档.md` | §5 OpenTUI+Solid |
+| **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §6 Agent 编排内核 |
+| | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
+| **实现 Adapter（MCP tools）** | `docs/02-architecture/架构设计文档.md` | §5 适配层、模块边界 |
+| | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
+| **实现 Project Analyzer** | `docs/02-architecture/架构设计文档.md` | §5 project-analyzer |
+| | `docs/03-implementation/开发避坑与关键注意点手册.md` | §5 AI 过度自信 |
+| **实现 doctor / devices** | `docs/01-spec/全量用户故事与验收标准规格书.md` | E1/E2 |
+| | `docs/03-implementation/开发避坑与关键注意点手册.md` | §3 真机/签名/WDA |
+| **实现 Appium/WDA 探索** | `docs/02-architecture/技术选型文档.md` | §9 真机执行 |
+| | `docs/03-implementation/开发避坑与关键注意点手册.md` | §4 探索式测试 |
+| **实现性能采集** | `docs/02-architecture/技术选型文档.md` | §11 性能采集 |
+| | `docs/03-implementation/开发避坑与关键注意点手册.md` | §6 FPS/xctrace |
+| **实现用户故事 US-X.Y** | `docs/01-spec/全量用户故事与验收标准规格书.md` | 定位到具体 US |
+| | `docs/02-architecture/数据流全链路技术说明文档.md` | 对应 S 阶段 |
+| **实现安全/脱敏** | `docs/03-implementation/开发避坑与关键注意点手册.md` | §10 安全与隐私 |
+| | `docs/02-architecture/数据流全链路技术说明文档.md` | §15 敏感数据流 |
+| **调试/避坑** | `docs/03-implementation/开发避坑与关键注意点手册.md` | 按问题类型查找 |
+| **技术选型决策** | `docs/02-architecture/技术选型文档.md` | 对应章节 |
+| **查阅开发计划/任务** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线 |
+| | `docs/05-planning/task-status.json` | 当前任务状态、依赖关系 |
+| **查阅重大决策** | `docs/decisions/` | ADR-001~004 |
+
+### 0.3 Agent 文档读取规范
+
+1. **启动时**：Agent 自动加载本文件，并**必须**读取 `docs/INDEX.md` 以建立全局文档认知，同时读取 `docs/05-planning/task-status.json` 以确认当前任务状态。
+2. **执行任务时**：根据 §0.2 的映射表确定需读取的文档和章节，精准读取。
+3. **引用原文**：在回复中必须**逐字粘贴**相关 AC 原文或架构约束原文。
+4. **禁止推断**：严禁使用"根据常规做法，我认为应该..."之类的推断。如果文档描述模糊，Agent 必须停止编码并向人类提出澄清问题。
+
+---
+
+### 0.4 一句话项目定位
 
 iTestAgent 是一个**类似 OpenCode 的本地 TUI Agent**，但领域是 **iPhone 真机全自动化测试**：先理解 iOS 项目，再生成测试计划，驱动本机真机执行、采集证据、分析失败并输出本地报告。
 
@@ -79,6 +147,44 @@ LLM          OpenAI-compatible provider（可扩展）
 借鉴不依赖 XcodeBuildMCP / instruments-mcp-server / XcodeTraceMCP / instruments-analyzer / Periphery / Maestro flow 语义
 必须自研   Project Profile 语义、候选链路、TestPlan 编译、编排循环+权限引擎、Flow、失败归因、baseline 策略、TUI 交互体验
 ```
+
+## 3.1 Git 协作规范
+
+### 3.1.1 分支命名
+
+所有分支必须遵循 `{type}/{description}` 格式。Type 类型：
+
+| Type | 说明 | 示例 |
+|---|---|---|
+| `feat` | 新功能 | `feat/cli-entry-point` |
+| `fix` | Bug 修复 | `fix/doctor-signing-check` |
+| `docs` | 文档更新 | `docs/update-agents-md` |
+| `refactor` | 代码重构 | `refactor/engine-loop` |
+| `test` | 测试 | `test/phase1-unit-tests` |
+| `chore` | 构建/工具/依赖 | `chore/add-ci` |
+
+### 3.1.2 Commit Message 格式
+
+```
+{type}({scope}): {subject}
+
+{body}
+
+Related: US-X.Y
+```
+
+Scope 使用组件名：`cli`、`tui`、`engine`、`server`、`adapters`、`store`、`analyzer`、`docs`。
+
+### 3.1.3 提交前强制自检
+
+Agent 执行 `git commit` 前必须完成：
+1. 运行 `bun run typecheck` — 0 错误
+2. 运行 `bun run lint` — 0 违规
+3. 运行 `bun test` — 全部通过
+4. 更新 `docs/05-planning/task-status.json` 中任务状态
+5. 确保无敏感数据提交（R6）
+
+---
 
 ## 4. 架构与命名
 
@@ -157,6 +263,7 @@ Verify   对齐 AC；真机能力走真机 spike 实测；证据留档
 - 真机相关必须 Verify 用真机 spike(R3)，纯逻辑可用 mock+fixtures 但需说明
 - 有代码变更必须同步更新相关文档，避免规格漂移
 - 出现重大技术决策或需求变更时必须新增 ADR 记录到 docs/decisions/（R11）
+- 若 Explore 阶段发现文档矛盾、模糊、不可测、依赖缺失或技术过时，Agent 必须暂停编码，报告问题并等待人类决策
 ```
 
 ## 8. 质量门禁 G1-G7（并入主线前必过）
@@ -171,7 +278,67 @@ G6 证据留档  自检报告逐条对 AC；不确定项显式标注
 G7 安全合规  无敏感数据落盘明文；高风险操作有确认
 ```
 
-## 9. 在 OpenCode 中的工作约定
+## 8.1 任务状态机
+
+所有任务状态记录在 `docs/05-planning/task-status.json` 中：
+
+```
+pending -> ready -> in_progress -> done
+```
+
+| 状态 | 含义 | 谁可以变更 |
+|---|---|---|
+| `pending` | 任务已定义，依赖未满足 | 人类 |
+| `ready` | 依赖已满足，等待执行 | Agent 自动（级联） |
+| `in_progress` | Agent 正在执行 | Agent 自动 |
+| `done` | 任务完成 | Agent 自动 |
+
+**级联更新**：Agent 启动或任务完成时，遍历所有 `pending` 任务，若 `dependencies` 全部为 `done`，则翻转为 `ready`。此操作为幂等操作。
+
+### 8.2 跨阶段阻断规则
+
+阶段 N 的任务**不得**在阶段 N-1 的最后一个任务（验收/集成测试）完成前开始执行。Agent 必须先完成前一阶段验收，推进 `current_phase`，再进入下一阶段。
+
+## 9. Agent 自检清单与禁忌
+
+### 9.1 每次任务执行前
+
+```
+[ ] 已读取 docs/INDEX.md 建立全局认知
+[ ] 已读取 docs/05-planning/task-status.json 确认任务状态
+[ ] 已根据 §0.2 映射表读取对应文档章节
+[ ] 已在回复中逐字粘贴相关 AC/规则原文
+[ ] 已确认所有依赖任务状态为 done
+```
+
+### 9.2 每次提交代码前
+
+```
+[ ] bun run typecheck 通过
+[ ] bun run lint 通过
+[ ] bun test 全部通过
+[ ] 已更新 task-status.json
+[ ] 无敏感数据提交（R6）
+[ ] Commit Message 符合 §3.1.2 格式
+```
+
+### 9.3 Agent 禁忌清单
+
+| 行为 | 后果 | 说明 |
+|---|---|---|
+| 跳过 §0.2 文档映射直接编码 | 实现偏离规格 | 强制溯源，防幻觉 |
+| 接受 AI "看起来对"的核心链路为事实 | 结论错误（R4） | 必须候选+证据+用户确认 |
+| 静默降级或臆造指标 | 结果不可信（R5） | 不确定必须显式标注 |
+| 真机能力"看代码就算过" | 实际不可用（R3） | 必须真机 spike 实测 |
+| 敏感数据落盘明文 | 安全风险（R6） | 只在内存注入，落盘必脱敏 |
+| 未确认就写项目目录 | 污染项目（R7） | 默认写 ~/.itestagent/ |
+| 未出计划就进编码 | 方向错误（R8） | 先出计划等人确认 |
+| 使用 qa-* 命名 | 规范违反（R9） | 统一 itestagent-* |
+| 引入 Effect-TS/事件溯源 | 过度设计（R10） | AI SDK + MCP 即可 |
+| 跳过任务状态更新 | 进度丢失 | task-status.json 必须同步 |
+| **Agent 自动合并 PR** | 禁止 | 合并必须由人类手动执行 |
+
+## 10. 在 OpenCode 中的工作约定
 
 ```
 - 优先读本文件与相关规格章节，再动手；不要凭想象实现
@@ -200,7 +367,7 @@ docs/05-planning/              (开发计划与任务追踪)
 AGENTS.md
 ```
 
-## 10. 常用命令（用户侧行为，实现须对齐）
+## 11. 常用命令（用户侧行为，实现须对齐）
 
 ```
 itestagent                 # 进入 TUI(核心入口)
@@ -223,7 +390,7 @@ bun test
 bun run build
 ```
 
-## 11. 任务模板（贴给 Agent 用）
+## 12. 任务模板（贴给 Agent 用）
 
 实现任务：
 
@@ -250,7 +417,7 @@ bun run build
 要求：先给 >=3 假设按证据排序 -> 最小复现验证 -> 根因确认后最小修复+回归 -> 证据不足则 inconclusive
 ```
 
-## 12. 反模式（禁止）
+## 13. 反模式（禁止）
 
 ```
 - 一次性生成整模块不分步验证
@@ -264,7 +431,7 @@ bun run build
 - 使用 qa-* 命名
 ```
 
-## 13. 完成定义（DoD）
+## 14. 完成定义（DoD）
 
 一个任务“完成”当且仅当：
 
@@ -287,7 +454,7 @@ bun run build
 [ ] 相关文档已同步更新，无规格漂移
 ```
 
-## 14. 当前上下文
+## 15. 当前上下文
 
 ```
 iTestAgent 是一个通用工具，不绑定任何特定项目。用户在任何 iOS 项目目录中启动 itestagent 即可针对该项目工作。

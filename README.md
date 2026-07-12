@@ -146,7 +146,7 @@ itestagent
 
 ```
 iTestAgent/
-├── AGENTS.md              # 项目宪法（AI Agent 首先阅读）
+├── AGENTS.md              # 项目宪法（版本/红线/Git 规范/EPCC-V/Agent 自检清单）
 ├── .opencode/commands/    # OpenCode 自定义命令（14 条）
 └── docs/
     ├── INDEX.md
