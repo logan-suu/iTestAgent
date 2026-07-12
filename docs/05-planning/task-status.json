@@ -641,31 +641,31 @@
   "decisions": [
     {
       "id": "ADR-001",
-      "date": "2026-07-12T16:00:00Z",
-      "title": "消除项目概述.md，内容分发至其他规格文档",
+      "date": "2026-07-12",
+      "title": "MVP 定位——人在环路的真机测试记录器，而非全自动测试 Agent",
       "status": "resolved",
-      "adr_file": "docs/decisions/ADR-001-eliminate-project-overview.md"
+      "adr_file": "docs/decisions/ADR-001-de-risk-mvp.md"
     },
     {
       "id": "ADR-002",
-      "date": "2026-07-12T15:30:00Z",
-      "title": "移除所有文档中的具体项目名引用",
+      "date": "2026-07-12",
+      "title": "核心链路不自动断定——候选+证据+用户确认",
       "status": "resolved",
-      "adr_file": "docs/decisions/ADR-002-remove-project-names.md"
+      "adr_file": "docs/decisions/ADR-002-candidate-links-not-auto.md"
     },
     {
       "id": "ADR-003",
-      "date": "2026-07-12T18:00:00Z",
-      "title": "docs/ 目录按分层结构重组",
+      "date": "2026-07-12",
+      "title": "性能指标策略——主推 hitches/hangs，FPS 近似，xctrace summary 实验性",
       "status": "resolved",
-      "adr_file": "docs/decisions/ADR-003-restructure-docs-directory.md"
+      "adr_file": "docs/decisions/ADR-003-performance-metrics-strategy.md"
     },
     {
       "id": "ADR-004",
-      "date": "2026-07-12T18:30:00Z",
-      "title": "新增 task-status.json、14 条自定义命令、INDEX.md",
+      "date": "2026-07-12",
+      "title": "报告形态——三件套（summary.md + result.json + artifact-index.json），不输出 HTML",
       "status": "resolved",
-      "adr_file": "docs/decisions/ADR-004-task-status-commands-index.md"
+      "adr_file": "docs/decisions/ADR-004-report-three-piece.md"
     }
   ]
 }

@@ -18,7 +18,7 @@
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7、反模式 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~26-32 周） |
 | **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 48 个任务、依赖关系、当前进度 |
-| **架构决策** | `decisions/` | `ADR-001~004` | 关键架构决策记录（Architecture Decision Records） |
+| **架构决策** | `decisions/` | `ADR-001~004` | 重大技术决策与需求变更记录 |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R10、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
 
 ---
