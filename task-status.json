@@ -19,7 +19,7 @@
           "last_updated": "2026-07-12T16:00:00Z",
           "documents_required": [
             "AGENTS.md",
-            "docs/开发计划安排文档.md"
+            "docs/05-planning/开发计划安排文档.md"
           ],
           "dependencies": [],
           "test_file": null,
@@ -31,9 +31,9 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/技术选型文档.md",
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["0.1"],
           "test_file": null,
@@ -45,7 +45,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["0.2"],
           "test_file": null,
@@ -57,7 +57,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["0.2", "0.3"],
           "test_file": null,
@@ -77,8 +77,8 @@
           "story": "US-1.1, US-18.1, US-18.2",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md",
-            "docs/技术选型文档.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null
@@ -89,8 +89,8 @@
           "story": "US-4.1",
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/技术选型文档.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null
@@ -101,8 +101,8 @@
           "story": "US-4.3",
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/技术选型文档.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null
@@ -113,8 +113,8 @@
           "story": "US-1.2, US-1.3",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md",
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null,
@@ -126,7 +126,7 @@
           "story": "US-2.1, US-2.2",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null
@@ -137,8 +137,8 @@
           "story": "US-19.1",
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null
@@ -149,8 +149,8 @@
           "story": "US-18.2, US-18.3",
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/技术选型文档.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["0.4"],
           "test_file": null
@@ -169,8 +169,8 @@
           "story": "US-3.1",
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/技术选型文档.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["1.6"],
           "test_file": null
@@ -181,7 +181,7 @@
           "story": "US-3.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md"
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["2.1"],
           "test_file": null
@@ -192,8 +192,8 @@
           "story": "US-3.2",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md",
-            "docs/架构设计文档.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/02-architecture/架构设计文档.md"
           ],
           "dependencies": ["2.1", "2.2"],
           "test_file": null
@@ -204,8 +204,8 @@
           "story": "US-3.3",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md",
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["2.3"],
           "test_file": null,
@@ -217,8 +217,8 @@
           "story": "US-4.2",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md",
-            "docs/架构设计文档.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/02-architecture/架构设计文档.md"
           ],
           "dependencies": ["1.2", "2.3"],
           "test_file": null
@@ -229,8 +229,8 @@
           "story": "US-5.1",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md",
-            "docs/架构设计文档.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/02-architecture/架构设计文档.md"
           ],
           "dependencies": ["2.5", "2.3"],
           "test_file": null,
@@ -242,7 +242,7 @@
           "story": "US-5.2",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["2.6", "1.2"],
           "test_file": null
@@ -261,8 +261,8 @@
           "story": "US-6.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["2.7"],
           "test_file": null,
@@ -274,7 +274,7 @@
           "story": "US-6.2",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md"
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["3.1", "1.4"],
           "test_file": null,
@@ -286,8 +286,8 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/技术选型文档.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["1.3"],
           "test_file": null,
@@ -299,8 +299,8 @@
           "story": "US-17.1, US-17.2",
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md",
-            "docs/AI Native 开发理念与实战技巧手册.md"
+            "docs/02-architecture/架构设计文档.md",
+            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
           "dependencies": ["3.3"],
           "test_file": null,
@@ -312,8 +312,8 @@
           "story": "US-7.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.3", "3.4"],
           "test_file": null,
@@ -325,8 +325,8 @@
           "story": "US-8.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.3", "3.4", "3.2"],
           "test_file": null,
@@ -338,8 +338,8 @@
           "story": "US-8.2, US-9.1, US-9.2",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.6"],
           "test_file": null,
@@ -351,7 +351,7 @@
           "story": "US-10.1, US-10.2",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["3.7"],
           "test_file": null,
@@ -363,8 +363,8 @@
           "story": "US-11.1",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.6"],
           "test_file": null,
@@ -384,7 +384,7 @@
           "story": "US-13.1",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.5", "3.6"],
           "test_file": null,
@@ -396,8 +396,8 @@
           "story": "US-7.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.5"],
           "test_file": null
@@ -408,8 +408,8 @@
           "story": "US-12.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["3.5", "3.6"],
           "test_file": null,
@@ -421,8 +421,8 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md",
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["4.3"],
           "test_file": null,
@@ -434,7 +434,7 @@
           "story": "US-12.1",
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md"
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["4.3"],
           "test_file": null,
@@ -446,8 +446,8 @@
           "story": "US-12.2",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md",
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["4.3"],
           "test_file": null,
@@ -459,8 +459,8 @@
           "story": "US-14.1",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md",
-            "docs/架构设计文档.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/02-architecture/架构设计文档.md"
           ],
           "dependencies": ["4.1", "4.2", "4.6"],
           "test_file": null,
@@ -472,7 +472,7 @@
           "story": "US-15.1",
           "status": "pending",
           "documents_required": [
-            "docs/数据流全链路技术说明文档.md"
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["4.1", "4.3", "4.7"],
           "test_file": null,
@@ -492,7 +492,7 @@
           "story": "US-14.1, US-16.1",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["4.7", "4.8"],
           "test_file": null
@@ -503,7 +503,7 @@
           "story": "US-9.2",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["3.7"],
           "test_file": null
@@ -514,8 +514,8 @@
           "story": "US-18.3",
           "status": "pending",
           "documents_required": [
-            "docs/开发避坑与关键注意点手册.md",
-            "docs/数据流全链路技术说明文档.md"
+            "docs/03-implementation/开发避坑与关键注意点手册.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": ["4.8", "3.8"],
           "test_file": null,
@@ -527,7 +527,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/AI Native 开发理念与实战技巧手册.md"
+            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
           "dependencies": ["0.1"],
           "test_file": null
@@ -538,7 +538,7 @@
           "story": "US-20.1",
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["3.7"],
           "test_file": null,
@@ -550,7 +550,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["5.1", "5.2", "5.3", "5.4", "5.5"],
           "test_file": null,
@@ -570,7 +570,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/技术选型文档.md"
+            "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": ["4.4"],
           "test_file": null,
@@ -582,7 +582,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["3.9"],
           "test_file": null,
@@ -594,7 +594,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/开发避坑与关键注意点手册.md"
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": ["2.4"],
           "test_file": null,
@@ -606,7 +606,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/全量用户故事与验收标准规格书.md"
+            "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": ["3.7", "5.5"],
           "test_file": null,
@@ -618,7 +618,7 @@
           "story": null,
           "status": "pending",
           "documents_required": [
-            "docs/架构设计文档.md"
+            "docs/02-architecture/架构设计文档.md"
           ],
           "dependencies": [],
           "test_file": null,

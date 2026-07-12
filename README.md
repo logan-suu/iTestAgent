@@ -150,14 +150,19 @@ iTestAgent/
 ├── task-status.json       # 任务追踪
 ├── .opencode/commands/    # OpenCode 自定义命令（14 条）
 └── docs/                  # 规格文档
-    ├── INDEX.md                                # 文档索引（Agent 首读）
-    ├── 全量用户故事与验收标准规格书.md
-    ├── 架构设计文档.md
-    ├── 技术选型文档.md
-    ├── 数据流全链路技术说明文档.md
-    ├── AI Native 开发理念与实战技巧手册.md
-    ├── 开发避坑与关键注意点手册.md
-    └── 开发计划安排文档.md
+    ├── INDEX.md
+    ├── 01-spec/            # 规格与需求
+    │   └── 全量用户故事与验收标准规格书.md
+    ├── 02-architecture/    # 架构设计
+    │   ├── 架构设计文档.md
+    │   ├── 技术选型文档.md
+    │   └── 数据流全链路技术说明文档.md
+    ├── 03-implementation/  # 开发避坑
+    │   └── 开发避坑与关键注意点手册.md
+    ├── 04-ai-native/       # AI Native 开发
+    │   └── AI Native 开发理念与实战技巧手册.md
+    └── 05-planning/        # 开发计划
+        └── 开发计划安排文档.md
 ```
 
 ## 开发约定

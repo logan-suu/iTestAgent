@@ -190,7 +190,11 @@ packages/
 schemas/ (plan, result, artifact-index, project-profile)
 fixtures/ (xcresult/.trace 导出样本, UItree 样本)
 mocks/ (mock adapters)
-docs/specs/ (8 份规格文档镜像或链接)
+docs/01-spec/                  (规格与需求)
+docs/02-architecture/          (架构设计与技术选型)
+docs/03-implementation/        (避坑手册)
+docs/04-ai-native/             (AI Native 开发手册)
+docs/05-planning/              (开发计划与任务追踪)
 AGENTS.md
 ```
 

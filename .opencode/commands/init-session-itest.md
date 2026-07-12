@@ -13,13 +13,13 @@ agent: build
 1. 读取项目根目录下的 `AGENTS.md`（项目宪法，定义所有红线 R1-R10 与架构）。
 2. 读取 `docs/INDEX.md`（文档地图，了解所有文档位置和模块分布）。
 3. 如果 `docs/INDEX.md` 不存在，读取 `docs/` 目录自行建立文档地图。规格文档列表：
-   - `docs/全量用户故事与验收标准规格书.md`：US-x.y + AC
-   - `docs/架构设计文档.md`：分层/组件/编排内核/数据模型/流程
-   - `docs/技术选型文档.md`：各层选型与采用/借鉴/自研/不用
-   - `docs/数据流全链路技术说明文档.md`：S1-S9 数据契约与落盘
-   - `docs/AI Native 开发理念与实战技巧手册.md`：EPCC-V 工作流、质量门禁 G1-G7
-   - `docs/开发避坑与关键注意点手册.md`：红线、高风险坑、提交前自检
-   - `docs/开发计划安排文档.md`：阶段/里程碑/单人排期
+   - `docs/01-spec/全量用户故事与验收标准规格书.md`：US-x.y + AC
+   - `docs/02-architecture/架构设计文档.md`：分层/组件/编排内核/数据模型/流程
+   - `docs/02-architecture/技术选型文档.md`：各层选型与采用/借鉴/自研/不用
+   - `docs/02-architecture/数据流全链路技术说明文档.md`：S1-S9 数据契约与落盘
+   - `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md`：EPCC-V 工作流、质量门禁 G1-G7
+   - `docs/03-implementation/开发避坑与关键注意点手册.md`：红线、高风险坑、提交前自检
+   - `docs/05-planning/开发计划安排文档.md`：阶段/里程碑/单人排期
 
 ### 第二步：定位当前进度（任务溯源）
 4. 读取 `task-status.json`。
