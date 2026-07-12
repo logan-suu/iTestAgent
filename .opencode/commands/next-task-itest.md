@@ -12,7 +12,7 @@ agent: build
    - 如果有未提交的变更，输出："检测到未提交的变更，请先处理（提交或暂存）。"
 
 ### 第一步：定位任务
-1. 读取 `task-status.json`
+1. 读取 `docs/05-planning/task-status.json`
 2. **级联更新 pending → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
 3. 找到当前阶段中第一个 `status: ready` 的任务
 4. 如果找不到 ready 任务：
@@ -51,5 +51,5 @@ agent: build
 ### 第五步：验证与交付（EPCC-V: Verify）
 9. 对齐 AC 逐条自检。
 10. 真机相关能力必须真机 spike 实测（R3、G5）。
-11. 更新 `task-status.json`：将任务 `status` 改为 `done`，更新 `last_updated`。
+11. 更新 `docs/05-planning/task-status.json`：将任务 `status` 改为 `done`，更新 `last_updated`。
 12. 提示用户执行 `commit-pr-itest` 提交代码。

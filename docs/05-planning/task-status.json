@@ -640,35 +640,32 @@
   "documentation_conflicts": [],
   "decisions": [
     {
-      "id": "DOC-20260712-001",
+      "id": "ADR-001",
       "date": "2026-07-12T16:00:00Z",
-      "title": "文档重组：消除项目概述.md，内容分发至其他文档",
-      "description": "项目概述.md 与其余 6 份规格文档存在大量重复内容。将独有内容（OpenCode 类比表、GitHub Repo 详细推荐、可行性分析、第一版明确不做清单等）分发至 AGENTS.md、架构设计文档、技术选型文档、全量规格书、开发避坑手册，并删除源文件。",
+      "title": "消除项目概述.md，内容分发至其他规格文档",
       "status": "resolved",
-      "decision_maker": "AI 架构师 (Agent)",
-      "resolution": "分发完毕。规格文档从 8 份（含项目概述）精简为 7 份。",
-      "changes": [
-        "AGENTS.md: 新增 OpenCode 类比表、第一目标用户说明",
-        "架构设计文档: 新增 Agent Session 模型、必须支持的本地能力清单",
-        "技术选型文档: 增强复用矩阵（最推荐/借鉴/不用三级详细清单）",
-        "全量规格书: 新增「第一版明确不做」清单",
-        "开发避坑手册: 新增可行性分析、MVP 分档、去风险 MVP",
-        "项目概述.md: 已删除"
-      ]
+      "adr_file": "docs/decisions/ADR-001-eliminate-project-overview.md"
     },
     {
-      "id": "DOC-20260712-002",
+      "id": "ADR-002",
       "date": "2026-07-12T15:30:00Z",
-      "title": "文档净化：移除所有文档中的具体项目名引用",
-      "description": "原文档多处将 QwenCloud.xcworkspace 表述为「目标项目」，与 iTestAgent 通用工具的定位冲突。同时 .DS_Store 文件被误提交。",
+      "title": "移除所有文档中的具体项目名引用",
       "status": "resolved",
-      "decision_maker": "AI 架构师 (Agent)",
-      "resolution": "通过 git filter-branch 从全部历史中移除 QwenCloud 和 .DS_Store 引用，文档改为通用表述。",
-      "changes": [
-        "docs/*.md: 移除所有 QwenCloud 引用，改为通用描述或示例项目",
-        "AGENTS.md: 当前上下文改为通用描述",
-        ".gitignore: 新增，排除 .DS_Store/node_modules/.env/.omo/ 等"
-      ]
+      "adr_file": "docs/decisions/ADR-002-remove-project-names.md"
+    },
+    {
+      "id": "ADR-003",
+      "date": "2026-07-12T18:00:00Z",
+      "title": "docs/ 目录按分层结构重组",
+      "status": "resolved",
+      "adr_file": "docs/decisions/ADR-003-restructure-docs-directory.md"
+    },
+    {
+      "id": "ADR-004",
+      "date": "2026-07-12T18:30:00Z",
+      "title": "新增 task-status.json、14 条自定义命令、INDEX.md",
+      "status": "resolved",
+      "adr_file": "docs/decisions/ADR-004-task-status-commands-index.md"
     }
   ]
 }

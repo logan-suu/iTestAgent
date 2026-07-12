@@ -22,7 +22,7 @@ agent: build
    - `docs/05-planning/开发计划安排文档.md`：阶段/里程碑/单人排期
 
 ### 第二步：定位当前进度（任务溯源）
-4. 读取 `task-status.json`。
+4. 读取 `docs/05-planning/task-status.json`。
    - **级联更新 pending → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
    - **如果用户指定了任务 ID**（在会话中说了"我想做 0.2"），优先使用该任务。
    - **如果用户未指定**：
@@ -67,7 +67,7 @@ agent: build
 ### 第四步：状态确认与开工
 8. 总结你当前的认知。
 9. 等待我确认"开始执行"后：
-   - 将 `task-status.json` 中该任务的 `status` 更新为 `in_progress`。
+   - 将 `docs/05-planning/task-status.json` 中该任务的 `status` 更新为 `in_progress`。
    - 再遵循 EPCC-V 流程：Explore → Plan → Code → Check → Verify。
 
 请开始执行初始化。

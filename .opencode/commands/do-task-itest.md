@@ -8,7 +8,7 @@ agent: build
 请按 iTestAgent 项目 AGENTS.md 的 EPCC-V 流程执行。
 
 ### 第一步：定位目标任务
-1. 读取 `task-status.json`。
+1. 读取 `docs/05-planning/task-status.json`。
 2. **如果用户指定了任务 ID**（如 `do-task-itest 3.4`），锁定该任务。
 3. **如果用户未指定**：
    - 输出："请指定要执行的任务 ID，如 `do-task-itest 2.3`。"
@@ -44,5 +44,5 @@ agent: build
 ### 第五步：Verify — 验证与交付
 9. 逐条对齐 AC 自检。
 10. 真机能力真机 spike 实测（R3、G5），不确定项显式标注。
-11. 更新 `task-status.json`：`status` → `done`，更新 `last_updated`。
+11. 更新 `docs/05-planning/task-status.json`：`status` → `done`，更新 `last_updated`。
 12. 提示用户执行 `commit-pr-itest` 提交代码。

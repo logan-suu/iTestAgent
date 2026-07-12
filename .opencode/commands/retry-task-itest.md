@@ -6,7 +6,7 @@ agent: build
 ## 🔄 重试任务
 
 ### 第一步：定位目标任务
-1. 读取 `task-status.json`。
+1. 读取 `docs/05-planning/task-status.json`。
 2. 如果用户指定了任务 ID，则锁定该任务。
 3. 如果未指定，则查找第一个 `status: "in_progress"` 的任务（可能是中断的）。
 4. 如果找不到进行中的任务：
@@ -25,7 +25,7 @@ agent: build
 3. 继续执行 EPCC-V 流程：
    - 从上次中断点恢复
    - 写测试 → `bun test` → 写实现 → `bun test`
-4. 如果执行成功，更新 `task-status.json` 为 `done`。
+4. 如果执行成功，更新 `docs/05-planning/task-status.json` 为 `done`。
 5. 如果仍然失败：
    - 分析错误日志
    - 输出诊断建议

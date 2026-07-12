@@ -20,7 +20,7 @@ agent: build
 5. **安全合规**（G7）：无敏感数据落盘明文
 
 ### 第二步：更新任务状态
-1. 将 `task-status.json` 中当前任务的 `status` 更新为 `done`。
+1. 将 `docs/05-planning/task-status.json` 中当前任务的 `status` 更新为 `done`。
 2. 记录 `last_updated` 时间戳。
 
 ### 第三步：Git 提交

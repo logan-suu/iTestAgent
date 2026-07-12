@@ -17,8 +17,9 @@
 | **开发避坑** | `03-implementation/` | `开发避坑与关键注意点手册.md` | 红线详解、高风险坑 Top7、真机/签名/WDA 陷阱、提交前自检清单 |
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7、反模式 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~26-32 周） |
+| **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 48 个任务、依赖关系、当前进度 |
+| **架构决策** | `decisions/` | `ADR-001~004` | 关键架构决策记录（Architecture Decision Records） |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R10、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
-| **任务状态** | 仓库根目录 | `../task-status.json` | 7 个 Phase 48 个任务、依赖关系、当前进度 |
 
 ---
 
@@ -53,7 +54,7 @@
 | 提交前自检清单 | `03-implementation/开发避坑与关键注意点手册.md` §16 |
 | 可行性分析 + MVP 分档 | `03-implementation/开发避坑与关键注意点手册.md` §15 |
 | Phase 0-6+ 里程碑与时间线 | `05-planning/开发计划安排文档.md` §2~8 |
-| 当前开发任务与进度 | `../task-status.json` |
+| 当前开发任务与进度 | `05-planning/task-status.json` |
 
 ---
 
@@ -119,12 +120,12 @@
 
 1. **启动时**：读取本文件 + `../AGENTS.md`，了解文档全貌和红线约束
 2. **执行任务前**：
-   - 读取 `../task-status.json` 定位当前任务
+   - 读取 `05-planning/task-status.json` 定位当前任务
    - 根据任务 `documents_required` 字段读取对应文档章节
    - 参考本索引"按模块快速定位"表补充上下文
 3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R10
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
-5. **完成后**：执行 G1-G7 质量门禁，更新 `../task-status.json`
+5. **完成后**：执行 G1-G7 质量门禁，更新 `05-planning/task-status.json`
 
 ---
 

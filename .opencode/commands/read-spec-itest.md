@@ -8,7 +8,7 @@ agent: build
 请按 iTestAgent 项目 AGENTS.md 的规格来源（§1）执行：
 
 ### 第一步：定位当前任务
-1. 读取 `task-status.json`。
+1. 读取 `docs/05-planning/task-status.json`。
 2. 找到当前阶段中第一个 `status: "in_progress"` 或 `status: "ready"` 的任务。
 3. 如果用户指定了任务 ID，优先使用用户指定的。
 4. 如果没有找到任何任务：

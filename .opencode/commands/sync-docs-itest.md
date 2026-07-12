@@ -9,7 +9,7 @@ agent: build
 
 ### 第一步：确定同步范围
 1. 如果用户提供了决策内容，记录决策摘要，定位涉及的文档。
-2. 如果用户未提供，读取 `task-status.json` 中的 `decisions` 记录。
+2. 如果用户未提供，读取 `docs/05-planning/task-status.json` 中的 `decisions` 记录。
 3. 自动扫描关联文档。
 
 ### 第二步：执行同步
@@ -21,9 +21,10 @@ agent: build
 6. **开发计划安排文档**（涉及排期）：更新里程碑或任务。
 7. **AGENTS.md**（涉及红线/约束）：更新对应章节。
 8. **INDEX.md**（涉及文档结构）：同步更新文档路径和模块分布。
+9. **decisions/**（涉及架构决策）：新增 ADR 文件记录决策。
 
 ### 第三步：记录决策
-1. 更新 `task-status.json` 的 `decisions` 数组。
+1. 更新 `docs/05-planning/task-status.json` 的 `decisions` 数组。
 2. 记录决策时间、决策人和内容。
 
 ### 第四步：输出变更摘要

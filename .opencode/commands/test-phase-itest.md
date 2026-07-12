@@ -8,7 +8,7 @@ agent: build
 阶段验收测试是每个 Phase 的最后一个正式任务（如 0.4、Phase 1 的集成测试等），遵循与其他任务完全相同的 EPCC-V 开发流程。
 
 ### 第一步：定位阶段验收任务
-1. 读取 `task-status.json`。
+1. 读取 `docs/05-planning/task-status.json`。
 2. 确定目标阶段：
    - 如果用户指定了阶段 ID（如 `test-phase-itest 2`），以用户指定的为准。
    - 如果未指定，使用 `current_phase`。
@@ -41,5 +41,5 @@ agent: build
 - G6 证据留档、G7 安全合规
 
 ### 第四步：完成后
-- 更新 `task-status.json`：阶段 `status` → `done`，`current_phase` 推进到下一阶段
+- 更新 `docs/05-planning/task-status.json`：阶段 `status` → `done`，`current_phase` 推进到下一阶段
 - 询问用户是否执行 `next-task-itest` 开始下一阶段

@@ -33,6 +33,6 @@ agent: build
 1. 输出："✅ 合并前检查全部通过。请在 GitHub 上手动合并该 PR。"
 2. **仅当用户明确告知"已合并"后**：
    - `git checkout main && git pull origin main`
-   - 在 main 上更新 `task-status.json`：记录 `merged_at` 时间戳
+   - 在 main 上更新 `docs/05-planning/task-status.json`：记录 `merged_at` 时间戳
    - `git add` → `git commit` → `git push origin main`
 3. 输出："🎉 任务已完成！"

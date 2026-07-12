@@ -147,9 +147,8 @@ itestagent
 ```
 iTestAgent/
 ├── AGENTS.md              # 项目宪法（AI Agent 首先阅读）
-├── task-status.json       # 任务追踪
 ├── .opencode/commands/    # OpenCode 自定义命令（14 条）
-└── docs/                  # 规格文档
+└── docs/
     ├── INDEX.md
     ├── 01-spec/            # 规格与需求
     │   └── 全量用户故事与验收标准规格书.md
@@ -162,7 +161,9 @@ iTestAgent/
     ├── 04-ai-native/       # AI Native 开发
     │   └── AI Native 开发理念与实战技巧手册.md
     └── 05-planning/        # 开发计划
-        └── 开发计划安排文档.md
+        ├── 开发计划安排文档.md
+        └── task-status.json
+    └── decisions/          # 架构决策记录（ADR）
 ```
 
 ## 开发约定

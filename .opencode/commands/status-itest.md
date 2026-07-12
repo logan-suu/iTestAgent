@@ -5,7 +5,7 @@ agent: build
 
 ## 📊 项目状态速览
 
-请读取根目录下的 `task-status.json`，输出以下信息：
+请读取根目录下的 `docs/05-planning/task-status.json`，输出以下信息：
 
 ### 全局概览
 - 当前阶段：Phase X - [阶段名称]
