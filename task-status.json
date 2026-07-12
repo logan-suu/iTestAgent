@@ -1,0 +1,674 @@
+{
+  "version": "1.0",
+  "project": "iTestAgent MVP",
+  "last_updated": "2026-07-12T16:00:00Z",
+  "current_phase": 0,
+  "phases": [
+    {
+      "id": 0,
+      "name": "立项与双 Spike",
+      "status": "in_progress",
+      "last_updated": "2026-07-12T16:00:00Z",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "0.1",
+          "title": "建仓与工程规范：monorepo(Bun)、AGENTS.md、schemas/、fixtures/、mock adapters 脚手架",
+          "story": null,
+          "status": "in_progress",
+          "last_updated": "2026-07-12T16:00:00Z",
+          "documents_required": [
+            "AGENTS.md",
+            "docs/开发计划安排文档.md"
+          ],
+          "dependencies": [],
+          "test_file": null,
+          "notes": "规格文档已完成（7 份），AGENTS.md 就位，.gitignore 就位。待完成：monorepo 脚手架、schemas/ 目录、fixtures/ 目录、mock adapters 骨架。"
+        },
+        {
+          "id": "0.2",
+          "title": "端到端真机 Spike：选取示例 iOS 项目，构建+签名+装 WDA+Appium 起 session+抓 UI tree+截图+launch time",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/技术选型文档.md",
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["0.1"],
+          "test_file": null,
+          "notes": "最高优先。验证签名→装 WDA→session→UItree→launch time 全链路。"
+        },
+        {
+          "id": "0.3",
+          "title": "元素定位 Spike：实测主界面 accessibility 树质量，评估探索/断言可行性",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["0.2"],
+          "test_file": null,
+          "notes": "若树残缺则路径 B 退回纯录制模式。"
+        },
+        {
+          "id": "0.4",
+          "title": "技术验证结论：输出 spike 报告",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["0.2", "0.3"],
+          "test_file": null,
+          "notes": "结论：可行 / 需退纯录制 / 关键限制。M0 未过则暂停功能开发。"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "骨架与环境",
+      "status": "not_started",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "CLI 入口 + 版本/配置",
+          "story": "US-1.1, US-18.1, US-18.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md",
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null
+        },
+        {
+          "id": "1.2",
+          "title": "OpenTUI 交互式 Shell 骨架",
+          "story": "US-4.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null
+        },
+        {
+          "id": "1.3",
+          "title": "本地 Server + 事件流（SSE）",
+          "story": "US-4.3",
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null
+        },
+        {
+          "id": "1.4",
+          "title": "doctor 环境诊断 + 引导",
+          "story": "US-1.2, US-1.3",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md",
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null,
+          "notes": "签名/DeveloperMode/信任/WDA 首次安装引导。首次跑通引导 15-30min。"
+        },
+        {
+          "id": "1.5",
+          "title": "devices 设备发现 + 健康检查",
+          "story": "US-2.1, US-2.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null
+        },
+        {
+          "id": "1.6",
+          "title": "存储骨架：SQLite/Drizzle + 目录结构",
+          "story": "US-19.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null
+        },
+        {
+          "id": "1.7",
+          "title": "配置分层（JSONC）+ Keychain 接入",
+          "story": "US-18.2, US-18.3",
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["0.4"],
+          "test_file": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "项目分析与 TestPlan",
+      "status": "not_started",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "工程结构解析：XcodeProj + xcodebuild -list/-showBuildSettings",
+          "story": "US-3.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["1.6"],
+          "test_file": null
+        },
+        {
+          "id": "2.2",
+          "title": "Swift 结构/符号：swift-syntax + sourcekit-lsp/SourceKitten",
+          "story": "US-3.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["2.1"],
+          "test_file": null
+        },
+        {
+          "id": "2.3",
+          "title": "生成 Project Profile（schema 化）",
+          "story": "US-3.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md",
+            "docs/架构设计文档.md"
+          ],
+          "dependencies": ["2.1", "2.2"],
+          "test_file": null
+        },
+        {
+          "id": "2.4",
+          "title": "候选核心链路：证据+置信度 + TUI 勾选确认",
+          "story": "US-3.3",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md",
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["2.3"],
+          "test_file": null,
+          "notes": "只给候选+证据，不自动断定核心链路。用户 TUI 确认。"
+        },
+        {
+          "id": "2.5",
+          "title": "Intent 解析（自然语言）",
+          "story": "US-4.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md",
+            "docs/架构设计文档.md"
+          ],
+          "dependencies": ["1.2", "2.3"],
+          "test_file": null
+        },
+        {
+          "id": "2.6",
+          "title": "TestPlan 编译器（过 plan.yaml schema）",
+          "story": "US-5.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md",
+            "docs/架构设计文档.md"
+          ],
+          "dependencies": ["2.5", "2.3"],
+          "test_file": null,
+          "notes": "自然语言、TUI 操作编译为统一 TestPlan。可审计、可复现、可重跑。"
+        },
+        {
+          "id": "2.7",
+          "title": "计划展示与确认（TUI）+ 自然语言修改",
+          "story": "US-5.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["2.6", "1.2"],
+          "test_file": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "真机执行核心",
+      "status": "not_started",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "App 来源决策 + xcodebuild 构建 + xcbeautify",
+          "story": "US-6.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["2.7"],
+          "test_file": null,
+          "notes": "来源优先级：用户指定 > 已有产物 > 自动 xcodebuild。日志经 xcbeautify。"
+        },
+        {
+          "id": "3.2",
+          "title": "devicectl 安装/启动 + 签名（fastlane）链路",
+          "story": "US-6.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["3.1", "1.4"],
+          "test_file": null,
+          "notes": "签名失败给出修复建议，不静默失败。"
+        },
+        {
+          "id": "3.3",
+          "title": "adapters（MCP tools）：xcode/device/appium 封装",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["1.3"],
+          "test_file": null,
+          "notes": "iPhone 真机操作以 MCP tools 暴露给引擎。engine 不直接拼命令。"
+        },
+        {
+          "id": "3.4",
+          "title": "Agent 编排循环（AI SDK 多步 tool-calling）+ 权限引擎",
+          "story": "US-17.1, US-17.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md",
+            "docs/AI Native 开发理念与实战技巧手册.md"
+          ],
+          "dependencies": ["3.3"],
+          "test_file": null,
+          "notes": "照搬 OpenCode 模式用 AI SDK 自建。权限 allow/deny/ask + 记忆规则。高风险默认 ask。"
+        },
+        {
+          "id": "3.5",
+          "title": "XCUITest 路径：xcodebuild test → xcresult",
+          "story": "US-7.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.3", "3.4"],
+          "test_file": null,
+          "notes": "有 XCUITest 项目优先此路径。无既有测试项目此路径自动跳过。"
+        },
+        {
+          "id": "3.6",
+          "title": "Appium/WDA 探索路径 + run steps",
+          "story": "US-8.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.3", "3.4", "3.2"],
+          "test_file": null,
+          "notes": "无测试项目默认路径。点击/输入/滑动/截图/UI tree。探索过程记录为 run steps。"
+        },
+        {
+          "id": "3.7",
+          "title": "交互式录制（人在环路）+ 固化 iTestAgent Flow",
+          "story": "US-8.2, US-9.1, US-9.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.6"],
+          "test_file": null,
+          "notes": "Agent 建议下一步，用户确认/纠偏。固化为可重放 Flow YAML。"
+        },
+        {
+          "id": "3.8",
+          "title": "测试数据：Agent 生成 + TUI 询问 + Keychain",
+          "story": "US-10.1, US-10.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["3.7"],
+          "test_file": null,
+          "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。"
+        },
+        {
+          "id": "3.9",
+          "title": "断言策略：分层，无断言不判 passed",
+          "story": "US-11.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.6"],
+          "test_file": null,
+          "notes": "优先级：用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索。无断言只能 explored/inconclusive/needs_assertion。"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "证据 / 性能 / 报告",
+      "status": "not_started",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "4.1",
+          "title": "证据采集：截图/视频/syslog/crashlog/xcresult/trace",
+          "story": "US-13.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.5", "3.6"],
+          "test_file": null,
+          "notes": "失败时自动采集。证据关联到具体 run step。crashlog 支持符号化。"
+        },
+        {
+          "id": "4.2",
+          "title": "xcresult 解析：xcresultparser/xcparse",
+          "story": "US-7.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.5"],
+          "test_file": null
+        },
+        {
+          "id": "4.3",
+          "title": "性能采集：launch/memory(近似)/crash/duration/hitches",
+          "story": "US-12.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["3.5", "3.6"],
+          "test_file": null,
+          "notes": "主推 hitches/hangs。memory 标注近似值。"
+        },
+        {
+          "id": "4.4",
+          "title": "xctrace export 薄封装（--toc/--xpath）+ 版本容错",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md",
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["4.3"],
+          "test_file": null,
+          "notes": "跨 Xcode 版本容错。不可导出标 not_exportable。"
+        },
+        {
+          "id": "4.5",
+          "title": "FPS 近似（标 approximate）",
+          "story": "US-12.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["4.3"],
+          "test_file": null,
+          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。"
+        },
+        {
+          "id": "4.6",
+          "title": "本地 baseline 建立与趋势对比",
+          "story": "US-12.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md",
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["4.3"],
+          "test_file": null,
+          "notes": "首次成功 run 建 baseline；crash/失败不建。用户可显式接受新 baseline（需确认）。"
+        },
+        {
+          "id": "4.7",
+          "title": "失败归因：证据驱动，不足则 inconclusive",
+          "story": "US-14.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md",
+            "docs/架构设计文档.md"
+          ],
+          "dependencies": ["4.1", "4.2", "4.6"],
+          "test_file": null,
+          "notes": "归因类型：product_regression/script_issue/device_issue/env_issue/flaky/perf_regression/inconclusive。不臆造。"
+        },
+        {
+          "id": "4.8",
+          "title": "报告三件套：summary.md + result.json + artifact-index.json",
+          "story": "US-15.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["4.1", "4.3", "4.7"],
+          "test_file": null,
+          "notes": "每次 run 固定输出。不输出 report.html。"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "打磨与 MVP 验收",
+      "status": "not_started",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "5.1",
+          "title": "explain + rerun --failed-only",
+          "story": "US-14.1, US-16.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["4.7", "4.8"],
+          "test_file": null
+        },
+        {
+          "id": "5.2",
+          "title": "Flow 重放：itestagent run flow <flowId>",
+          "story": "US-9.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["3.7"],
+          "test_file": null
+        },
+        {
+          "id": "5.3",
+          "title": "安全与脱敏收尾：日志/报告/Keychain/写项目确认",
+          "story": "US-18.3",
+          "status": "pending",
+          "documents_required": [
+            "docs/开发避坑与关键注意点手册.md",
+            "docs/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": ["4.8", "3.8"],
+          "test_file": null,
+          "notes": "敏感数据不落盘明文。默认不写项目目录。"
+        },
+        {
+          "id": "5.4",
+          "title": "质量门禁 G1-G7 落地到 CI",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/AI Native 开发理念与实战技巧手册.md"
+          ],
+          "dependencies": ["0.1"],
+          "test_file": null
+        },
+        {
+          "id": "5.5",
+          "title": "测试代码 draft（实验性，生成到 drafts/，不自动入库）",
+          "story": "US-20.1",
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["3.7"],
+          "test_file": null,
+          "notes": "P2 实验性。标记 draft，用户确认后才复制到项目。"
+        },
+        {
+          "id": "5.6",
+          "title": "MVP 验收对照（18 条完成标准）",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["5.1", "5.2", "5.3", "5.4", "5.5"],
+          "test_file": null,
+          "notes": "P0 全绿、P1 声明限制、实验性标注。"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "增强路线（MVP 后）",
+      "status": "not_started",
+      "integration_test": "pending",
+      "tasks": [
+        {
+          "id": "6.1",
+          "title": "xctrace summary 深解析（schema → 归一化，跨版本维护）",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/技术选型文档.md"
+          ],
+          "dependencies": ["4.4"],
+          "test_file": null,
+          "notes": "Deferred → 正式。"
+        },
+        {
+          "id": "6.2",
+          "title": "断言增强（对话类流式完成断言原语等）",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["3.9"],
+          "test_file": null,
+          "notes": "提升探索可靠性。"
+        },
+        {
+          "id": "6.3",
+          "title": "核心链路推断增强（历史 Flow + 证据学习）",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": ["2.4"],
+          "test_file": null,
+          "notes": "仍需人确认。"
+        },
+        {
+          "id": "6.4",
+          "title": "Flow 管理 / 导出 XCUITest/Appium 正式测试",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/全量用户故事与验收标准规格书.md"
+          ],
+          "dependencies": ["3.7", "5.5"],
+          "test_file": null,
+          "notes": "从 draft 到可维护。"
+        },
+        {
+          "id": "6.5",
+          "title": "团队扩展：remote backend / Mac worker pool / 共享设备池 / PR Bot",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/架构设计文档.md"
+          ],
+          "dependencies": [],
+          "test_file": null,
+          "notes": "Optional。不破坏 Local-first、无登录、真机核心。"
+        },
+        {
+          "id": "6.6",
+          "title": "云扩展：BrowserStack/Sauce/AWS/Firebase 云真机矩阵",
+          "story": null,
+          "status": "pending",
+          "documents_required": [],
+          "dependencies": ["6.5"],
+          "test_file": null,
+          "notes": "Optional。"
+        }
+      ]
+    }
+  ],
+  "documentation_conflicts": [],
+  "decisions": [
+    {
+      "id": "DOC-20260712-001",
+      "date": "2026-07-12T16:00:00Z",
+      "title": "文档重组：消除项目概述.md，内容分发至其他文档",
+      "description": "项目概述.md 与其余 6 份规格文档存在大量重复内容。将独有内容（OpenCode 类比表、GitHub Repo 详细推荐、可行性分析、第一版明确不做清单等）分发至 AGENTS.md、架构设计文档、技术选型文档、全量规格书、开发避坑手册，并删除源文件。",
+      "status": "resolved",
+      "decision_maker": "AI 架构师 (Agent)",
+      "resolution": "分发完毕。规格文档从 8 份（含项目概述）精简为 7 份。",
+      "changes": [
+        "AGENTS.md: 新增 OpenCode 类比表、第一目标用户说明",
+        "架构设计文档: 新增 Agent Session 模型、必须支持的本地能力清单",
+        "技术选型文档: 增强复用矩阵（最推荐/借鉴/不用三级详细清单）",
+        "全量规格书: 新增「第一版明确不做」清单",
+        "开发避坑手册: 新增可行性分析、MVP 分档、去风险 MVP",
+        "项目概述.md: 已删除"
+      ]
+    },
+    {
+      "id": "DOC-20260712-002",
+      "date": "2026-07-12T15:30:00Z",
+      "title": "文档净化：移除所有文档中的具体项目名引用",
+      "description": "原文档多处将 QwenCloud.xcworkspace 表述为「目标项目」，与 iTestAgent 通用工具的定位冲突。同时 .DS_Store 文件被误提交。",
+      "status": "resolved",
+      "decision_maker": "AI 架构师 (Agent)",
+      "resolution": "通过 git filter-branch 从全部历史中移除 QwenCloud 和 .DS_Store 引用，文档改为通用表述。",
+      "changes": [
+        "docs/*.md: 移除所有 QwenCloud 引用，改为通用描述或示例项目",
+        "AGENTS.md: 当前上下文改为通用描述",
+        ".gitignore: 新增，排除 .DS_Store/node_modules/.env/.omo/ 等"
+      ]
+    }
+  ]
+}
