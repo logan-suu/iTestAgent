@@ -15,8 +15,9 @@ agent: build
    - G2 契约校验：产物过 schema（plan/result/artifact-index/project-profile）
    - G3 静态检查：`bun run typecheck` + `bun run lint` 通过
    - G4 测试通过：`bun test` 全绿
-3. **真机能力**（G5）：涉及真机能力必须已真机 spike 实测
-4. **安全合规**（G7）：无敏感数据落盘明文
+3. **证据留档**（G6）：自检报告逐条对 AC，不确定项显式标注
+4. **真机能力**（G5）：涉及真机能力必须已真机 spike 实测
+5. **安全合规**（G7）：无敏感数据落盘明文
 
 ### 第二步：更新任务状态
 1. 将 `task-status.json` 中当前任务的 `status` 更新为 `done`。

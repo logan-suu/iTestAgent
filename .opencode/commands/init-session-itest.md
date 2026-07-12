@@ -22,7 +22,7 @@ agent: build
 
 ### 第二步：定位当前进度（任务溯源）
 3. 读取 `task-status.json`。
-   - **级联更新 backlog → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
+   - **级联更新 pending → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
    - **如果用户指定了任务 ID**（在会话中说了"我想做 0.2"），优先使用该任务。
    - **如果用户未指定**：
      - 找出 `current_phase`。

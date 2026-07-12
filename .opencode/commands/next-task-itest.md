@@ -13,7 +13,7 @@ agent: build
 
 ### 第一步：定位任务
 1. 读取 `task-status.json`
-2. **级联更新 backlog → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
+2. **级联更新 pending → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
 3. 找到当前阶段中第一个 `status: ready` 的任务
 4. 如果找不到 ready 任务：
    - 输出："✅ 当前没有待执行的任务。"

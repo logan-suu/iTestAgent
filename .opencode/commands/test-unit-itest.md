@@ -19,9 +19,9 @@ agent: build
    ```bash
    bun test
    ```
-4. 如果用户指定了测试文件，添加 `--test-path` 参数：
+4. 如果用户指定了测试文件，传入文件路径参数：
    ```bash
-   bun test --test-path [测试文件路径]
+   bun test [测试文件路径]
    ```
 
 ### 第三步：结果分析
