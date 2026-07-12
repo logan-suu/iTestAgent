@@ -44,6 +44,7 @@ AI Native 不是“用 AI 补全几行代码”，而是**把 AI Agent 当作团
 
 理念4 人在环路（Human-in-the-loop）
   与产品探索式测试一致：AI 负责推断和执行，关键决策（架构、危险操作、入库）由人确认。
+重大技术决策与需求变更必须记录到 `docs/decisions/` 中（见 R11）。
 
 理念5 诚实降级（Honest Degradation）
   与产品 explored/inconclusive/not_exportable 一致：AI 不确定就说不确定，不硬凑“看起来对”的答案。

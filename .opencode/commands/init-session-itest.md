@@ -20,6 +20,8 @@ agent: build
    - `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md`：EPCC-V 工作流、质量门禁 G1-G7
    - `docs/03-implementation/开发避坑与关键注意点手册.md`：红线、高风险坑、提交前自检
    - `docs/05-planning/开发计划安排文档.md`：阶段/里程碑/单人排期
+    - `docs/decisions/`：重大技术决策与需求变更记录（ADR）
+    - `docs/05-planning/task-status.json`：7 个 Phase 48 个任务、依赖关系、当前进度
 
 ### 第二步：定位当前进度（任务溯源）
 4. 读取 `docs/05-planning/task-status.json`。
