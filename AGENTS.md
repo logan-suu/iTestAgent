@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件是 iTestAgent 项目的“Agent 宪法”，供 OpenCode 等 AI 编码 Agent 在本仓库工作时**首先阅读并严格遵守**。冲突时以本文件与《iTestAgent项目概述》为最高优先级。落地到代码仓库时，建议将本文件命名为 `AGENTS.md` 放在仓库根目录。
+本文件是 iTestAgent 项目的"Agent 宪法"，供 OpenCode 等 AI 编码 Agent 在本仓库工作时**首先阅读并严格遵守**。冲突时以本文件为最高优先级。
 
 ## 0. 一句话项目定位
 
@@ -11,12 +11,26 @@ Local-first, TUI-first, Agent-native, Project-aware, Real-device only.
 本地优先、TUI 优先、Agent 原生、先理解项目、只面向 iPhone 真机。
 ```
 
+### 与 OpenCode 的类比
+
+| OpenCode                 | iTestAgent                                              |
+| ------------------------ | ------------------------------------------------------- |
+| 面向代码开发             | 面向 iPhone 真机测试                                    |
+| 先读项目代码再决定怎么改 | 先分析 iOS 项目再决定怎么测                             |
+| Tool calls               | Xcode / Appium / WDA / xctrace / parser adapters        |
+| Plan / Todo              | Project Profile / TestPlan / RunPlan / iTestAgent Flow  |
+| Diagnostics              | `itestagent doctor` / `itestagent devices` / env checks |
+| Session                  | Project-aware Test Run Session                          |
+| Workspace                | iOS project + connected iPhone + `~/.itestagent`        |
+| Final answer             | summary.md / result.json / explain                      |
+
+第一目标用户是 **iOS 客户端开发者本地自测与失败复现**。第二用户包括 QA 和测试平台同学，但第一版产品主线围绕单个开发者在本机连接 iPhone 真机完成自测、复现、性能采集和失败解释。
+
 ## 1. 规格来源（Single Source of Truth）
 
-本仓库的“真理”来自 iOS自动化测试 文件夹下 8 份文档；实现与文档冲突时，先改文档或纠正实现，禁止放任漂移。
+本仓库的"真理"来自 docs/ 文件夹下 7 份文档；实现与文档冲突时，先改文档或纠正实现，禁止放任漂移。
 
 ```
-项目概述           产品定位、原则、已确认实现决策
 用户故事与验收标准 US-x.y + AC（AI 任务与验收单元）
 架构设计文档       分层/组件/编排内核/数据模型/流程
 技术选型文档       各层选型与采用/借鉴/自研/不用
