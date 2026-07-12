@@ -150,6 +150,7 @@ iTestAgent/
 ├── task-status.json       # 任务追踪
 ├── .opencode/commands/    # OpenCode 自定义命令（14 条）
 └── docs/                  # 规格文档
+    ├── INDEX.md                                # 文档索引（Agent 首读）
     ├── 全量用户故事与验收标准规格书.md
     ├── 架构设计文档.md
     ├── 技术选型文档.md
