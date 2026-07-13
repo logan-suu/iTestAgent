@@ -21,7 +21,7 @@ agent: build
    - R6：是否有敏感数据落盘明文？
    - R9：命名是否统一 `itestagent-*`？
    - R10：是否引入了 Effect-TS / SQLite 事件溯源？
-2. **架构分层**：上层是否反向依赖了下层？engine 是否直接拼了命令（应经 adapters）？
+2. **架构分层**：上层是否反向依赖了下层？engine 是否直接拼了命令（应经 backend 接口）？
 3. **复用策略**：是否复用了既定库（AI SDK/MCP/Appium/Drizzle 等）？
 4. **EPCC-V**：是否遵循了 Plan→Code→Check→Verify？
 

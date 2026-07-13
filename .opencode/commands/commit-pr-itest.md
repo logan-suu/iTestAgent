@@ -34,7 +34,7 @@ agent: build
    Related: US-X.Y
    ```
 2. 常用 type：`feat`、`fix`、`docs`、`test`、`refactor`、`chore`
-3. scope 使用组件名（如 `cli`、`tui`、`engine`、`adapters`、`store`）
+3. scope 使用组件名（如 `cli`、`tui`、`engine`、`backends`、`store`）
 4. 确保不提交 secrets、.env、token 等敏感文件（R6）
 
 ### 第四步：创建 PR

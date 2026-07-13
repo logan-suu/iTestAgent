@@ -69,7 +69,7 @@
 | E5 | TestPlan 生成与确认 | US-5.1~5.2 | P0 |
 | E6 | App 构建/安装/启动 | US-6.1~6.2 | P0 |
 | E7 | 测试执行：XCUITest 路径 | US-7.1 | P0 |
-| E8 | 测试执行：Appium/WDA 探索路径 | US-8.1~8.2 | P1 |
+| E8 | 测试执行：DeviceBackend 探索路径 | US-8.1~8.2 | P1 |
 | E9 | iTestAgent Flow（录制与重放） | US-9.1~9.2 | P0 |
 | E10 | 测试数据与账号 | US-10.1~10.2 | P0/P1 |
 | E11 | 断言策略 | US-11.1 | P1 |
@@ -94,7 +94,7 @@
 | **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §4~5 |
 | **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §6 |
 | **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §5 |
-| **itestagent-runner** | 本机执行器 / 工具调用 / 产物采集 | `02-architecture/架构设计文档.md` §5 |
+| **itestagent-runner** | 本机执行器 / backend 调度 / 产物采集 | `02-architecture/架构设计文档.md` §3 |
 | **DeviceBackend** | 真机操作统一接口（listDevices/launchApp/tap/截图/UI tree） | `02-architecture/架构设计文档.md` §5.1 |
 | **itestagent-store** | SQLite+Drizzle + 文件系统 + 报告 | `02-architecture/架构设计文档.md` §7 |
 

@@ -47,7 +47,7 @@
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §5 AI 过度自信 |
 | **实现 doctor / devices** | `docs/01-spec/全量用户故事与验收标准规格书.md` | E1/E2 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §3 真机/签名/WDA |
-| **实现 Appium/WDA 探索执行** | `docs/02-architecture/技术选型文档.md` | §9 真机执行 |
+| **实现 DeviceBackend 探索执行** | `docs/02-architecture/技术选型文档.md` | §9 真机执行 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §4 探索式测试 |
 | **实现性能采集** | `docs/02-architecture/技术选型文档.md` | §11 性能采集 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §6 FPS/xctrace |
@@ -85,7 +85,7 @@ Local-first, TUI-first, Agent-native, Project-aware, Real-device only.
 | ------------------------ | ------------------------------------------------------- |
 | 面向代码开发             | 面向 iPhone 真机测试                                    |
 | 先读项目代码再决定怎么改 | 先分析 iOS 项目再决定怎么测                             |
-| Tool calls               | Xcode / Appium / WDA / xctrace / parser adapters        |
+| Tool calls               | Xcode / DeviceBackend / xctrace / parser backends       |
 | Plan / Todo              | Project Profile / TestPlan / RunPlan / iTestAgent Flow  |
 | Diagnostics              | `itestagent doctor` / `itestagent devices` / env checks |
 | Session                  | Project-aware Test Run Session                          |
@@ -173,7 +173,7 @@ LLM          OpenAI-compatible provider（可扩展）
 Related: US-X.Y
 ```
 
-Scope 使用组件名：`cli`、`tui`、`engine`、`server`、`adapters`、`store`、`analyzer`、`docs`。
+Scope 使用组件名：`cli`、`tui`、`engine`、`server`、`backends`、`store`、`analyzer`、`docs`。
 
 ### 3.1.3 提交前强制自检
 
@@ -193,7 +193,7 @@ Agent 执行 `git commit` 前必须完成：
 ```
 交互层  itestagent-cli / itestagent-tui
 编排层  itestagent-server / itestagent-engine / itestagent-project-analyzer
-适配层  itestagent-adapters（MCP tools：xcode/device/appium/performance/parser/report/flow）
+Backend实现层  DeviceBackend / PerformanceBackend / BuildDriver（mobile-mcp / Appium / xcodebuild）
 工具层  Xcode / Appium / WDA / xctrace / devicectl / iPhone 真机
 存储层  itestagent-store（SQLite + 文件系统 + 报告）
 ```
@@ -203,8 +203,8 @@ Agent 执行 `git commit` 前必须完成：
 ```
 - 组件一律 itestagent-*，禁止 qa-*
 - core 不作为组件名；核心引擎叫 itestagent-engine
-- engine 不直接拼底层命令，一律经 adapters(MCP tools)
-- adapters 之间不互调，由 engine/runner 编排
+- engine 不直接拼底层命令，一律经 backend 接口
+- backend 之间不互调，由 engine 编排
 ```
 
 ## 5. 目录、配置与数据契约
@@ -236,7 +236,7 @@ artifact-index.json   artifacts[{id,type,path,relatedStep}]
 ## 6. 领域关键规则（务必内化）
 
 ```
-执行路径   有 XCUITest -> xcodebuild test；无测试 -> Appium/WDA Agent Flow
+执行路径   有 XCUITest -> xcodebuild test；无测试 -> DeviceBackend 探索
 断言       用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索；无断言不判 passed(explored/inconclusive/needs_assertion)
 性能       主推 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate；xctrace summary 实验性(保留原始 .trace)
 baseline   首次成功 run 建立；失败/crash 不建；后续对比趋势；接受新 baseline 需确认
@@ -355,10 +355,10 @@ pending -> ready -> in_progress -> done
 ```
 packages/
   itestagent/ (cli, tui, server, engine, project-analyzer, store)
-  adapters/ (xcode, device, appium, performance, parser, report, flow)
+  backends/ (mobile-mcp, appium, xcode, performance, parser, report, flow)
 schemas/ (plan, result, artifact-index, project-profile)
 fixtures/ (xcresult/.trace 导出样本, UItree 样本)
-mocks/ (mock adapters)
+mocks/ (mock backends)
 docs/01-spec/                  (规格与需求)
 docs/02-architecture/          (架构设计与技术选型)
 docs/03-implementation/        (避坑手册)
@@ -458,7 +458,7 @@ bun run build
 
 ```
 iTestAgent 是一个通用工具，不绑定任何特定项目。用户在任何 iOS 项目目录中启动 itestagent 即可针对该项目工作。
-当前开发阶段以无既有测试的 iOS 项目作为验证案例，确保 Appium/WDA 探索路径可行。
+当前开发阶段以无既有测试的 iOS 项目作为验证案例，确保 DeviceBackend 探索路径可行。
 人力       1 名独立开发者(全栈, AI Native 全程)
 阶段策略   先做双 Spike(端到端真机 + 元素定位)定路线，再按 Phase 1-5 推进到 MVP
 MVP 边界   去风险 MVP：人在环路记录器 + 稳健性能趋势工具；研究级能力后置

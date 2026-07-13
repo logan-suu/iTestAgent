@@ -21,7 +21,7 @@ iTestAgent 的核心不是"收到测试目标后直接乱点 UI"，而是：
 
 1. **先理解项目** — 从代码、工程结构、业务模块、已有测试资产中充分理解 iOS 项目
 2. **再生成策略** — 输出 Project Profile + 候选核心链路 + TestPlan
-3. **驱动真机执行** — 在本机连接 iPhone 真机执行 XCUITest 或 Appium/WDA 探索
+3. **驱动真机执行** — 在本机连接 iPhone 真机执行 XCUITest 或 DeviceBackend 探索
 4. **采集证据分析失败** — 自动收集截图、视频、日志、crashlog、xcresult、trace
 5. **输出本地报告** — summary.md + result.json + artifact-index.json
 
@@ -95,7 +95,7 @@ itestagent
 6. 本地 server 管理长任务、事件流、session 状态
 7. TUI 展示 TestPlan 并让用户确认
 8. 有 XCUITest 时优先执行已有测试
-9. 无测试代码时通过 Appium/WDA Agent Flow 探索执行
+9. 无测试代码时通过 DeviceBackend 探索执行
 10. 根据项目生成安全测试数据或在 TUI 询问
 11. 按断言策略判断 passed / explored / inconclusive / needs_assertion
 12. 探索过程记录为 run steps 并保存为可重放 iTestAgent Flow
