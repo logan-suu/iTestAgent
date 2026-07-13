@@ -8,7 +8,7 @@
       "id": 0,
       "name": "立项与多 Backend 横评",
       "status": "in_progress",
-  "last_updated": "2026-07-13T18:00:00Z",
+      "last_updated": "2026-07-13T18:00:00Z",
       "integration_test": "pending",
       "tasks": [
         {
@@ -16,7 +16,7 @@
           "title": "建仓与工程规范：monorepo(Bun)、AGENTS.md、schemas/、fixtures/、mock backends 脚手架",
           "story": null,
           "status": "in_progress",
-  "last_updated": "2026-07-13T16:00:00Z",
+          "last_updated": "2026-07-13T16:00:00Z",
           "documents_required": [
             "AGENTS.md",
             "docs/05-planning/开发计划安排文档.md"
@@ -35,7 +35,9 @@
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["0.1"],
+          "dependencies": [
+            "0.1"
+          ],
           "test_file": null,
           "notes": "最高优先。Spike A: mobile-mcp(设备发现/UI tree/截图/tap)。Spike B: Appium/WDA(session/page source/gesture)。Spike C: iphone-use(视觉 fallback)。Spike D: mock backend(fixtures)。至少一路在真机上跑通截图+UI tree+launch time。"
         },
@@ -48,7 +50,9 @@
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["0.1"],
+          "dependencies": [
+            "0.1"
+          ],
           "test_file": null,
           "notes": "Spike P1: XcodeTraceMCP(export TOC/hitches/hangs/not_exportable)。Spike P2: instrumentsmcp(录制+分析+report一体化)。Spike P3: raw xcrun xctrace export(fallback)。"
         },
@@ -60,7 +64,9 @@
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["0.1"],
+          "dependencies": [
+            "0.1"
+          ],
           "test_file": null,
           "notes": "OpenTUI(长日志/Markdown/工具卡片/Bun打包)。Rezi(同屏布局/日志流稳定性)。Ink(最小交互版)。至少一路能跑通交互式 Shell。"
         },
@@ -72,7 +78,9 @@
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["0.1"],
+          "dependencies": [
+            "0.1"
+          ],
           "test_file": null,
           "notes": "XcodeQuery CLI(JSON输出稳定性)。XcodeProj + xcodebuild(传统方案对照)。"
         },
@@ -85,7 +93,12 @@
             "docs/02-architecture/架构设计文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["0.2", "0.3", "0.4", "0.5"],
+          "dependencies": [
+            "0.2",
+            "0.3",
+            "0.4",
+            "0.5"
+          ],
           "test_file": null,
           "notes": "确定 MVP 各层 backend 选择（主力 + fallback）。M0 未过则暂停功能开发。"
         }
@@ -106,55 +119,65 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null
         },
         {
           "id": "1.2",
-          "title": "OpenTUI 交互式 Shell 骨架",
+          "title": "TuiShell 交互式 Shell 骨架（OpenTUI/Rezi/Ink 横评后选定）",
           "story": "US-4.1",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null
         },
         {
           "id": "1.3",
-          "title": "本地 Server + 事件流（SSE）",
+          "title": "本地 Server + 事件流（SSE）+ AgentRuntime 基础",
           "story": "US-4.3",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null
         },
         {
           "id": "1.4",
-          "title": "doctor 环境诊断 + 引导",
+          "title": "doctor 环境诊断 + backend 前置条件引导",
           "story": "US-1.2, US-1.3",
           "status": "pending",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null,
           "notes": "签名/DeveloperMode/信任/backend 前置条件引导。首次跑通引导 15-30min。"
         },
         {
           "id": "1.5",
-          "title": "devices 设备发现 + 健康检查",
+          "title": "devices 设备发现 + backend healthcheck",
           "story": "US-2.1, US-2.2",
           "status": "pending",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null
         },
         {
@@ -166,7 +189,9 @@
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null
         },
         {
@@ -178,7 +203,9 @@
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["0.4"],
+          "dependencies": [
+            "0.6"
+          ],
           "test_file": null
         }
       ]
@@ -198,7 +225,9 @@
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["1.6"],
+          "dependencies": [
+            "1.6"
+          ],
           "test_file": null
         },
         {
@@ -209,7 +238,9 @@
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["2.1"],
+          "dependencies": [
+            "2.1"
+          ],
           "test_file": null
         },
         {
@@ -221,7 +252,10 @@
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
           ],
-          "dependencies": ["2.1", "2.2"],
+          "dependencies": [
+            "2.1",
+            "2.2"
+          ],
           "test_file": null
         },
         {
@@ -233,7 +267,9 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["2.3"],
+          "dependencies": [
+            "2.3"
+          ],
           "test_file": null,
           "notes": "只给候选+证据，不自动断定核心链路。用户 TUI 确认。"
         },
@@ -246,7 +282,10 @@
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
           ],
-          "dependencies": ["1.2", "2.3"],
+          "dependencies": [
+            "1.2",
+            "2.3"
+          ],
           "test_file": null
         },
         {
@@ -258,7 +297,10 @@
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
           ],
-          "dependencies": ["2.5", "2.3"],
+          "dependencies": [
+            "2.5",
+            "2.3"
+          ],
           "test_file": null,
           "notes": "自然语言、TUI 操作编译为统一 TestPlan。可审计、可复现、可重跑。"
         },
@@ -270,7 +312,10 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["2.6", "1.2"],
+          "dependencies": [
+            "2.6",
+            "1.2"
+          ],
           "test_file": null
         }
       ]
@@ -290,71 +335,87 @@
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["2.7"],
+          "dependencies": [
+            "2.7"
+          ],
           "test_file": null,
           "notes": "来源优先级：用户指定 > 已有产物 > 自动 xcodebuild。日志经 xcbeautify。"
         },
         {
           "id": "3.2",
-          "title": "devicectl 安装/启动 + 签名（fastlane）链路",
+          "title": "BuildDriver: devicectl 安装/启动 + 签名（fastlane）链路",
           "story": "US-6.2",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["3.1", "1.4"],
+          "dependencies": [
+            "3.1",
+            "1.4"
+          ],
           "test_file": null,
           "notes": "签名失败给出修复建议，不静默失败。"
         },
         {
           "id": "3.3",
-          "title": "DeviceBackend 实现 + mock backend：xcode/device/appium",
+          "title": "DeviceBackend 接口实现：mobile-mcp + Appium + mock 三路",
           "story": null,
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["1.3"],
+          "dependencies": [
+            "1.3"
+          ],
           "test_file": null,
           "notes": "iPhone 真机操作以 MCP tools 暴露给引擎。engine 不直接拼命令。"
         },
         {
           "id": "3.4",
-          "title": "Agent 编排循环（AI SDK 多步 tool-calling）+ 权限引擎",
+          "title": "AgentRuntime 编排循环（AI SDK）+ PermissionEngine 权限引擎",
           "story": "US-17.1, US-17.2",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
-          "dependencies": ["3.3"],
+          "dependencies": [
+            "3.3"
+          ],
           "test_file": null,
           "notes": "照搬 OpenCode 模式用 AI SDK 自建。权限 allow/deny/ask + 记忆规则。高风险默认 ask。"
         },
         {
           "id": "3.5",
-          "title": "XCUITest 路径：xcodebuild test → xcresult",
+          "title": "BuildDriver XCUITest 路径：xcodebuild test → xcresult",
           "story": "US-7.1",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.3", "3.4"],
+          "dependencies": [
+            "3.3",
+            "3.4"
+          ],
           "test_file": null,
           "notes": "有 XCUITest 项目优先此路径。无既有测试项目此路径自动跳过。"
         },
         {
           "id": "3.6",
-          "title": "DeviceBackend 探索路径 + run steps",
+          "title": "DeviceBackend 探索执行：run steps 记录 + UI 动作",
           "story": "US-8.1",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.3", "3.4", "3.2"],
+          "dependencies": [
+            "3.3",
+            "3.4",
+            "3.2"
+          ],
           "test_file": null,
           "notes": "无测试项目默认路径。点击/输入/滑动/截图/UI tree。探索过程记录为 run steps。"
         },
@@ -367,7 +428,9 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.6"],
+          "dependencies": [
+            "3.6"
+          ],
           "test_file": null,
           "notes": "Agent 建议下一步，用户确认/纠偏。固化为可重放 Flow YAML。"
         },
@@ -379,7 +442,9 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["3.7"],
+          "dependencies": [
+            "3.7"
+          ],
           "test_file": null,
           "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。"
         },
@@ -392,7 +457,9 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.6"],
+          "dependencies": [
+            "3.6"
+          ],
           "test_file": null,
           "notes": "优先级：用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索。无断言只能 explored/inconclusive/needs_assertion。"
         }
@@ -412,7 +479,10 @@
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.5", "3.6"],
+          "dependencies": [
+            "3.5",
+            "3.6"
+          ],
           "test_file": null,
           "notes": "失败时自动采集。证据关联到具体 run step。crashlog 支持符号化。"
         },
@@ -425,44 +495,53 @@
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.5"],
+          "dependencies": [
+            "3.5"
+          ],
           "test_file": null
         },
         {
           "id": "4.3",
-          "title": "性能采集：launch/memory(近似)/crash/duration/hitches",
+          "title": "PerformanceBackend: launch/memory/crash/duration/hitches 采集",
           "story": "US-12.1",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["3.5", "3.6"],
+          "dependencies": [
+            "3.5",
+            "3.6"
+          ],
           "test_file": null,
           "notes": "主推 hitches/hangs。memory 标注近似值。"
         },
         {
           "id": "4.4",
-          "title": "xctrace export 薄封装（--toc/--xpath）+ 版本容错",
+          "title": "PerformanceBackend: xctrace export 封装（TOC/XPath）+ 版本容错",
           "story": null,
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["4.3"],
+          "dependencies": [
+            "4.3"
+          ],
           "test_file": null,
           "notes": "跨 Xcode 版本容错。不可导出标 not_exportable。"
         },
         {
           "id": "4.5",
-          "title": "FPS 近似（标 approximate）",
+          "title": "PerformanceBackend: FPS 近似（标 approximate）",
           "story": "US-12.1",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["4.3"],
+          "dependencies": [
+            "4.3"
+          ],
           "test_file": null,
           "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。"
         },
@@ -475,7 +554,9 @@
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["4.3"],
+          "dependencies": [
+            "4.3"
+          ],
           "test_file": null,
           "notes": "首次成功 run 建 baseline；crash/失败不建。用户可显式接受新 baseline（需确认）。"
         },
@@ -488,7 +569,11 @@
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
           ],
-          "dependencies": ["4.1", "4.2", "4.6"],
+          "dependencies": [
+            "4.1",
+            "4.2",
+            "4.6"
+          ],
           "test_file": null,
           "notes": "归因类型：product_regression/script_issue/device_issue/env_issue/flaky/perf_regression/inconclusive。不臆造。"
         },
@@ -500,7 +585,11 @@
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["4.1", "4.3", "4.7"],
+          "dependencies": [
+            "4.1",
+            "4.3",
+            "4.7"
+          ],
           "test_file": null,
           "notes": "每次 run 固定输出。不输出 report.html。"
         }
@@ -520,7 +609,10 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["4.7", "4.8"],
+          "dependencies": [
+            "4.7",
+            "4.8"
+          ],
           "test_file": null
         },
         {
@@ -531,7 +623,9 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["3.7"],
+          "dependencies": [
+            "3.7"
+          ],
           "test_file": null
         },
         {
@@ -543,7 +637,10 @@
             "docs/03-implementation/开发避坑与关键注意点手册.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "dependencies": ["4.8", "3.8"],
+          "dependencies": [
+            "4.8",
+            "3.8"
+          ],
           "test_file": null,
           "notes": "敏感数据不落盘明文。默认不写项目目录。"
         },
@@ -555,7 +652,9 @@
           "documents_required": [
             "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
-          "dependencies": ["0.1"],
+          "dependencies": [
+            "0.1"
+          ],
           "test_file": null
         },
         {
@@ -566,7 +665,9 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["3.7"],
+          "dependencies": [
+            "3.7"
+          ],
           "test_file": null,
           "notes": "P2 实验性。标记 draft，用户确认后才复制到项目。"
         },
@@ -578,7 +679,13 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["5.1", "5.2", "5.3", "5.4", "5.5"],
+          "dependencies": [
+            "5.1",
+            "5.2",
+            "5.3",
+            "5.4",
+            "5.5"
+          ],
           "test_file": null,
           "notes": "P0 全绿、P1 声明限制、实验性标注。"
         }
@@ -598,7 +705,9 @@
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
-          "dependencies": ["4.4"],
+          "dependencies": [
+            "4.4"
+          ],
           "test_file": null,
           "notes": "Deferred → 正式。"
         },
@@ -610,7 +719,9 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["3.9"],
+          "dependencies": [
+            "3.9"
+          ],
           "test_file": null,
           "notes": "提升探索可靠性。"
         },
@@ -622,7 +733,9 @@
           "documents_required": [
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["2.4"],
+          "dependencies": [
+            "2.4"
+          ],
           "test_file": null,
           "notes": "仍需人确认。"
         },
@@ -634,7 +747,10 @@
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
-          "dependencies": ["3.7", "5.5"],
+          "dependencies": [
+            "3.7",
+            "5.5"
+          ],
           "test_file": null,
           "notes": "从 draft 到可维护。"
         },
@@ -656,7 +772,9 @@
           "story": null,
           "status": "pending",
           "documents_required": [],
-          "dependencies": ["6.5"],
+          "dependencies": [
+            "6.5"
+          ],
           "test_file": null,
           "notes": "Optional。"
         }
