@@ -17,9 +17,9 @@
 | **开发避坑** | `03-implementation/` | `开发避坑与关键注意点手册.md` | 红线详解、高风险坑 Top7、真机/签名/backend 陷阱、提交前自检清单 |
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7、反模式 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~26-32 周） |
-| **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 48 个任务、依赖关系、当前进度 |
+| **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 49 个任务、依赖关系、当前进度 |
 | **架构决策** | `decisions/` | `ADR-001~004` | 重大技术决策与需求变更记录 |
-| **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R10、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
+| **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R11、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
 
 ---
 
@@ -30,11 +30,11 @@
 | 用户故事与 AC（哪个 US 在做什么） | `01-spec/全量用户故事与验收标准规格书.md` E1~E20 |
 | MVP 18 条完成标准 | `01-spec/全量用户故事与验收标准规格书.md` MVP 验收总表 |
 | 第一版明确不做的事 | `01-spec/全量用户故事与验收标准规格书.md` 第一版明确不做 |
-| 架构分层（CLI/TUI/Server/Engine/Adapter/Store） | `02-architecture/架构设计文档.md` §3~5 |
+| 架构分层（CLI/TUI/Server/Engine/DeviceBackend/Store） | `02-architecture/架构设计文档.md` §2~3 |
 | Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §6 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §8.0 |
 | Run 状态机（created → done） | `02-architecture/架构设计文档.md` §7 |
-| 必须支持的本地能力清单 | `02-architecture/架构设计文档.md` §17 |
+| 必须支持的本地能力清单 | `02-architecture/架构设计文档.md` §7 |
 | 技术栈总览（TS/Bun/OpenTUI/AI SDK/MCP/Drizzle） | `02-architecture/技术选型文档.md` §3 |
 | GitHub Repo 复用推荐（最推荐/借鉴/不用） | `02-architecture/技术选型文档.md` §12 |
 | xctrace/.trace 解析策略 | `02-architecture/技术选型文档.md` §11 |
@@ -45,7 +45,7 @@
 | 敏感数据流与脱敏规则 | `02-architecture/数据流全链路技术说明文档.md` §15 |
 | EPCC-V 工作流详解 | `04-ai-native/AI Native 开发理念与实战技巧手册.md` §5 |
 | AI 反馈模板（实现/评审/调试） | `04-ai-native/AI Native 开发理念与实战技巧手册.md` §7 |
-| 红线 R1-R10 详解 | `03-implementation/开发避坑与关键注意点手册.md` §1 |
+| 红线 R1-R11 详解 | `03-implementation/开发避坑与关键注意点手册.md` §1 |
 | 真机/签名/backend 首次跑通地狱 | `03-implementation/开发避坑与关键注意点手册.md` §3 |
 | 探索式测试 + 断言不可靠陷阱 | `03-implementation/开发避坑与关键注意点手册.md` §4 |
 | 项目分析 / AI 过度自信陷阱 | `03-implementation/开发避坑与关键注意点手册.md` §5 |
@@ -90,7 +90,7 @@
 | 组件 | 定位 | 文档参考 |
 |---|---|---|
 | **itestagent-cli** | 轻量命令入口（doctor/devices/config/version） | `02-architecture/架构设计文档.md` §5 |
-| **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI+Solid） | `02-architecture/架构设计文档.md` §4~5 |
+| **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI/Rezi/Ink） | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §4~5 |
 | **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §6 |
 | **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §5 |
@@ -105,7 +105,7 @@
 | 层级 | 选型 | 文档参考 |
 |---|---|---|
 | 语言/运行时 | TypeScript + Bun | `02-architecture/技术选型文档.md` §4 |
-| 交互 | CLI（yargs）+ TUI（OpenTUI+Solid） | `02-architecture/技术选型文档.md` §5 |
+| 交互 | CLI（Commander）+ TUI（OpenTUI/Rezi/Ink 候选） | `02-architecture/技术选型文档.md` §5 |
 | 编排/LLM | 自建循环 + Vercel AI SDK + OpenAI-compatible | `02-architecture/技术选型文档.md` §6 |
 | 工具协议 | MCP TypeScript SDK | `02-architecture/技术选型文档.md` §7 |
 | 存储 | SQLite + Drizzle + 文件系统 + JSONC 配置 | `02-architecture/技术选型文档.md` §8 |
