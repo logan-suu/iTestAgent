@@ -39,16 +39,18 @@ Local-first, TUI-first, Agent-native, Project-aware, Real-device only.
 ## 架构概览
 
 ```
-交互层        itestagent-cli / itestagent-tui（OpenTUI+Solid）
-编排层        itestagent-server / itestagent-engine / project-analyzer
-能力适配层    itestagent-adapters（MCP tools）
-工具与真机层  Xcode / Appium / WDA / xctrace / devicectl / iPhone 真机
-存储与报告层  itestagent-store（SQLite + 文件系统 + 报告）
+交互层        itestagent-cli / itestagent-tui
+编排层        itestagent-server / itestagent-engine / AgentRuntime
+语义层        ProjectProfile / TestPlan / RunStep / Flow / ArtifactRef
+Backend接口层  DeviceBackend / PerformanceBackend / BuildDriver / ProjectAnalyzerBackend
+Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQuery / Drizzle
+存储与报告层  SQLite metadata / filesystem artifacts / summary.md / result.json
 ```
 
-**两条执行路径**：
-- **有 XCUITest** → `xcodebuild test` 标准路径
-- **无测试代码** → Appium/WDA Agent Flow 探索路径（Agent 建议、用户确认、固化为可重放 Flow）
+**可插拔 Backend 架构**：iTestAgent 定义稳定上层接口和产物模型，底层工具可替换。
+- Device: `mobile-mcp`（MVP 第一候选）、`Appium/WDA`（长期标准）、`iphone-use`（视觉 fallback）
+- Performance: `XcodeTraceMCP core`（MVP 第一候选）、`instrumentsmcp`、`raw xcrun`（fallback）
+- TUI: `OpenTUI`（第一候选）、`Rezi`、`Ink`（fallback）
 
 ## 快速开始
 

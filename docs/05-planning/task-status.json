@@ -16,7 +16,7 @@
           "title": "建仓与工程规范：monorepo(Bun)、AGENTS.md、schemas/、fixtures/、mock adapters 脚手架",
           "story": null,
           "status": "in_progress",
-          "last_updated": "2026-07-12T16:00:00Z",
+  "last_updated": "2026-07-13T16:00:00Z",
           "documents_required": [
             "AGENTS.md",
             "docs/05-planning/开发计划安排文档.md"
@@ -27,7 +27,7 @@
         },
         {
           "id": "0.2",
-          "title": "端到端真机 Spike：选取示例 iOS 项目，构建+签名+装 WDA+Appium 起 session+抓 UI tree+截图+launch time",
+          "title": "Device backend 横评：mobile-mcp + Appium/WDA + iphone-use + mock 四路 Spike",
           "story": null,
           "status": "pending",
           "documents_required": [
@@ -37,31 +37,57 @@
           ],
           "dependencies": ["0.1"],
           "test_file": null,
-          "notes": "最高优先。验证签名→装 WDA→session→UItree→launch time 全链路。"
+          "notes": "最高优先。Spike A: mobile-mcp(设备发现/UI tree/截图/tap)。Spike B: Appium/WDA(session/page source/gesture)。Spike C: iphone-use(视觉 fallback)。Spike D: mock backend(fixtures)。至少一路在真机上跑通截图+UI tree+launch time。"
         },
         {
           "id": "0.3",
-          "title": "元素定位 Spike：实测主界面 accessibility 树质量，评估探索/断言可行性",
+          "title": "Performance backend 横评：XcodeTraceMCP core / instrumentsmcp / raw xcrun 三路 Spike",
           "story": null,
           "status": "pending",
           "documents_required": [
+            "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["0.2"],
+          "dependencies": ["0.1"],
           "test_file": null,
-          "notes": "若树残缺则路径 B 退回纯录制模式。"
+          "notes": "Spike P1: XcodeTraceMCP(export TOC/hitches/hangs/not_exportable)。Spike P2: instrumentsmcp(录制+分析+report一体化)。Spike P3: raw xcrun xctrace export(fallback)。"
         },
         {
           "id": "0.4",
-          "title": "技术验证结论：输出 spike 报告",
+          "title": "TUI backend 横评：OpenTUI / Rezi / Ink 三路 Spike",
           "story": null,
           "status": "pending",
           "documents_required": [
+            "docs/02-architecture/技术选型文档.md"
+          ],
+          "dependencies": ["0.1"],
+          "test_file": null,
+          "notes": "OpenTUI(长日志/Markdown/工具卡片/Bun打包)。Rezi(同屏布局/日志流稳定性)。Ink(最小交互版)。至少一路能跑通交互式 Shell。"
+        },
+        {
+          "id": "0.5",
+          "title": "Project analyzer 横评：XcodeQuery CLI / XcodeProj + xcodebuild 两路 Spike",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/技术选型文档.md"
+          ],
+          "dependencies": ["0.1"],
+          "test_file": null,
+          "notes": "XcodeQuery CLI(JSON输出稳定性)。XcodeProj + xcodebuild(传统方案对照)。"
+        },
+        {
+          "id": "0.6",
+          "title": "技术验证结论：输出决策矩阵 + Phase 0 横评报告",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
-          "dependencies": ["0.2", "0.3"],
+          "dependencies": ["0.2", "0.3", "0.4", "0.5"],
           "test_file": null,
-          "notes": "结论：可行 / 需退纯录制 / 关键限制。M0 未过则暂停功能开发。"
+          "notes": "确定 MVP 各层 backend 选择（主力 + fallback）。M0 未过则暂停功能开发。"
         }
       ]
     },

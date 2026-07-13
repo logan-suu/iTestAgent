@@ -41,13 +41,13 @@
 | | `docs/02-architecture/技术选型文档.md` | §5 OpenTUI+Solid |
 | **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §6 Agent 编排内核 |
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
-| **实现 Adapter（MCP tools）** | `docs/02-architecture/架构设计文档.md` | §5 适配层、模块边界 |
+| **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5.1 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
 | **实现 Project Analyzer** | `docs/02-architecture/架构设计文档.md` | §5 project-analyzer |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §5 AI 过度自信 |
 | **实现 doctor / devices** | `docs/01-spec/全量用户故事与验收标准规格书.md` | E1/E2 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §3 真机/签名/WDA |
-| **实现 Appium/WDA 探索** | `docs/02-architecture/技术选型文档.md` | §9 真机执行 |
+| **实现 Appium/WDA 探索执行** | `docs/02-architecture/技术选型文档.md` | §9 真机执行 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §4 探索式测试 |
 | **实现性能采集** | `docs/02-architecture/技术选型文档.md` | §11 性能采集 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §6 FPS/xctrace |
