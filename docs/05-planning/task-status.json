@@ -692,6 +692,13 @@
       "title": "报告形态——三件套（summary.md + result.json + artifact-index.json），不输出 HTML",
       "status": "resolved",
       "adr_file": "docs/decisions/ADR-004-report-three-piece.md"
+    },
+    {
+      "id": "ADR-005",
+      "date": "2026-07-13",
+      "title": "全栈可插拔 Backend 架构——各层多候选横评，稳定上层接口+可替换底层实现",
+      "status": "resolved",
+      "adr_file": "docs/decisions/ADR-005-pluggable-backend-architecture.md"
     }
   ]
 }
