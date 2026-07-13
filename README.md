@@ -111,7 +111,7 @@ itestagent
 | 层级 | 选型 |
 |---|---|
 | 语言/运行时 | TypeScript + Bun |
-| TUI | OpenTUI + Solid |
+| TUI | OpenTUI / Rezi / Ink（候选横评） |
 | LLM | Vercel AI SDK + OpenAI-compatible provider |
 | 工具协议 | MCP TypeScript SDK |
 | 存储 | SQLite + Drizzle + 文件系统 |
