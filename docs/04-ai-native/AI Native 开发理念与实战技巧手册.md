@@ -136,16 +136,17 @@ Verify   对齐 AC；涉及真机能力走真机 spike 实测；证据留档
 - 工具统一 { description, inputSchema(zod), outputSchema, execute }
 - 权限引擎 allow/deny/ask + 记忆规则：高风险操作强制 ask
 - 用“工具调用可重放的最小 harness”让 AI 自测循环，不必真连设备也能验证 idle/续跑逻辑
-技巧：先写 tool 契约与假实现（mock adapter），跑通循环，再接真机
+技巧：先写 tool 契约与假实现（mock backend），跑通循环，再接真机
 ```
 
-### 6.2 iPhone 真机适配层（复用为主）
+### 6.2 Device Backend 适配层（复用为主）
 
 ```
-- 明确告诉 AI：底层工具（WDA/Appium/xcodebuild/devicectl）经 backend 接口复用，不自研
-- 让 AI 把每个真机能力封装成 MCP tool，屏蔽命令细节
-- 版本差异（Xcode 26 Deferred、xctrace schema）在 adapter 内吸收
-技巧：真机能力先做 mock adapter + 录制的真实输出样本（fixtures），让 AI 针对 fixtures 写解析，最后真机验证
+- 明确告诉 AI：底层工具经 DeviceBackend 接口复用，不自研。backend 实现通过 MCP 暴露能力
+- 让 AI 把每个真机能力封装成统一 backend 接口，屏蔽底层命令差异
+- 版本差异（Xcode 26 Deferred、xctrace schema）在 backend 内吸收
+- backend 输出全部归一化为 iTestAgent 自有数据契约（RunStep/ArtifactRef/PerformanceMetrics）
+技巧：真机能力先做 mock backend + 录制的真实输出样本（fixtures），让 AI 针对 fixtures 写解析，最后真机验证
 ```
 
 ### 6.3 Project Analyzer（AI 最容易过度自信处）
