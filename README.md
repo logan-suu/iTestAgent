@@ -54,7 +54,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 
 ## 快速开始
 
-> ⚠️ iTestAgent 当前处于 **Phase 0：立项与双 Spike** 阶段，尚未发布可安装版本。
+> ⚠️ iTestAgent 当前处于 **Phase 0：立项与多 Backend 横评** 阶段，尚未发布可安装版本。
 
 ### 前置依赖
 
@@ -134,7 +134,7 @@ itestagent
 
 | 阶段 | 状态 | 说明 |
 |---|---|---|
-| Phase 0 | 🔄 进行中 | 立项与双 Spike（端到端真机 + 元素定位） |
+| Phase 0 | 🔄 进行中 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
 | Phase 1 | ⬜ 待开始 | 骨架与环境（TUI/Server/doctor/devices） |
 | Phase 2 | ⬜ 待开始 | 项目分析与 TestPlan |
 | Phase 3 | ⬜ 待开始 | 真机执行核心（双路径 + Flow） |

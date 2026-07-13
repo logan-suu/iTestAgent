@@ -31,8 +31,8 @@
 | MVP 18 条完成标准 | `01-spec/全量用户故事与验收标准规格书.md` MVP 验收总表 |
 | 第一版明确不做的事 | `01-spec/全量用户故事与验收标准规格书.md` 第一版明确不做 |
 | 架构分层（CLI/TUI/Server/Engine/DeviceBackend/Store） | `02-architecture/架构设计文档.md` §2~3 |
-| Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §6 |
-| Agent Session 模型 | `02-architecture/架构设计文档.md` §8.0 |
+| Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §4 |
+| Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
 | Run 状态机（created → done） | `02-architecture/架构设计文档.md` §7 |
 | 必须支持的本地能力清单 | `02-architecture/架构设计文档.md` §7 |
 | 技术栈总览（TS/Bun/OpenTUI/AI SDK/MCP/Drizzle） | `02-architecture/技术选型文档.md` §3 |
@@ -89,14 +89,14 @@
 
 | 组件 | 定位 | 文档参考 |
 |---|---|---|
-| **itestagent-cli** | 轻量命令入口（doctor/devices/config/version） | `02-architecture/架构设计文档.md` §5 |
+| **itestagent-cli** | 轻量命令入口（doctor/devices/config/version） | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI/Rezi/Ink） | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §4~5 |
-| **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §6 |
-| **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §5 |
+| **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-runner** | 本机执行器 / backend 调度 / 产物采集 | `02-architecture/架构设计文档.md` §3 |
 | **DeviceBackend** | 真机操作统一接口（listDevices/launchApp/tap/截图/UI tree） | `02-architecture/架构设计文档.md` §5.1 |
-| **itestagent-store** | SQLite+Drizzle + 文件系统 + 报告 | `02-architecture/架构设计文档.md` §7 |
+| **itestagent-store** | SQLite+Drizzle + 文件系统 + 报告 | `02-architecture/架构设计文档.md` §3 |
 
 ---
 

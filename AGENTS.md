@@ -35,15 +35,15 @@
 | 任务类型 | 应读取的文档 | 重点章节/关键词 |
 |---|---|---|
 | **初次启动/建立全局认知** | `docs/INDEX.md` | 全文阅读，建立文档地图 |
-| **实现 CLI 入口** | `docs/02-architecture/架构设计文档.md` | §4~5 分层架构、CLI 组件 |
+| **实现 CLI 入口** | `docs/02-architecture/架构设计文档.md` | §2~3 分层架构、CLI 组件 |
 | | `docs/02-architecture/技术选型文档.md` | §5 CLI 与 TUI 选型 |
-| **实现 TUI 交互** | `docs/02-architecture/架构设计文档.md` | §4~5 交互层 |
-| | `docs/02-architecture/技术选型文档.md` | §5 OpenTUI+Solid |
-| **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §6 Agent 编排内核 |
+| **实现 TUI 交互** | `docs/02-architecture/架构设计文档.md` | §2~3 交互层 |
+| | `docs/02-architecture/技术选型文档.md` | §5 OpenTUI/Rezi/Ink |
+| **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §4 核心流程 |
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
-| **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5.1 Backend 接口设计 |
+| **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
-| **实现 Project Analyzer** | `docs/02-architecture/架构设计文档.md` | §5 project-analyzer |
+| **实现 Project Analyzer** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §5 AI 过度自信 |
 | **实现 doctor / devices** | `docs/01-spec/全量用户故事与验收标准规格书.md` | E1/E2 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §3 真机/签名/WDA |
@@ -344,7 +344,7 @@ pending -> ready -> in_progress -> done
 - 优先读本文件与相关规格章节，再动手；不要凭想象实现
 - 一个 User Story = 一个任务：输入 US 描述 + AC + 相关文档章节 + 相关代码/schema
 - 大改动先出计划让人确认；小步提交，便于验证
-- 真机能力开发用 mock adapter + fixtures 先跑通逻辑，再真机 spike 验证
+- 真机能力开发用 mock backend + fixtures 先跑通逻辑，再真机 spike 验证
 - 需要外部库/新依赖前，先核对技术选型文档，未列入的先讨论
 - 涉及危险操作(删除/卸载/写项目/凭证)必须显式征得确认，不擅自执行
 - 提交信息遵循仓库风格；无用户明确要求不擅自 commit/push
@@ -460,7 +460,7 @@ bun run build
 iTestAgent 是一个通用工具，不绑定任何特定项目。用户在任何 iOS 项目目录中启动 itestagent 即可针对该项目工作。
 当前开发阶段以无既有测试的 iOS 项目作为验证案例，确保 DeviceBackend 探索路径可行。
 人力       1 名独立开发者(全栈, AI Native 全程)
-阶段策略   先做双 Spike(端到端真机 + 元素定位)定路线，再按 Phase 1-5 推进到 MVP
+阶段策略   先做多 Backend 横评(端到端真机 + 元素定位)定路线，再按 Phase 1-5 推进到 MVP
 MVP 边界   去风险 MVP：人在环路记录器 + 稳健性能趋势工具；研究级能力后置
 ```
 

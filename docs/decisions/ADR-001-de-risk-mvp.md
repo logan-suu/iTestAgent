@@ -17,7 +17,7 @@
 
 ```
 TUI + 本地 server + Vercel AI SDK + MCP + Drizzle 骨架
-强 doctor：签名 / Developer Mode / 设备信任 / WDA 首次安装 引导
+强 doctor：签名 / Developer Mode / 设备信任 / backend 前置条件 引导
 Project Analyzer 只做确定性层 + 带证据候选功能 + 用户勾选
 Agent 辅助交互式录制：Agent 建议下一步，用户确认/纠偏，固化为可重放 Flow
 稳健性能子集：launch + memory(近似) + crash + hitches/hangs
