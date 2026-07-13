@@ -153,6 +153,21 @@
           "test_file": null
         },
         {
+          "id": "1.3b",
+          "title": "定义核心 Backend 接口与统一数据契约",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": [
+            "0.6"
+          ],
+          "test_file": null,
+          "notes": "定义 DeviceBackend/PerformanceBackend/BuildDriver/StoreDriver/AgentRuntime 接口 + DeviceSnapshot/UiTreeSnapshot/RunStep/ArtifactRef/PerformanceMetrics 等统一数据契约。使用 Zod schema。Phase 3-4 所有 backend 实现的前置条件。"
+        },
+        {
           "id": "1.4",
           "title": "doctor 环境诊断 + backend 前置条件引导",
           "story": "US-1.2, US-1.3",
@@ -357,8 +372,8 @@
           "notes": "签名失败给出修复建议，不静默失败。"
         },
         {
-          "id": "3.3",
-          "title": "DeviceBackend 接口实现：mobile-mcp + Appium + mock 三路",
+          "id": "3.3a",
+          "title": "DeviceBackend mock 实现 + backend 选择框架",
           "story": null,
           "status": "pending",
           "documents_required": [
@@ -366,14 +381,45 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
+            "1.3b",
             "1.3"
           ],
           "test_file": null,
-          "notes": "iPhone 真机操作以 MCP tools 暴露给引擎。engine 不直接拼命令。"
+          "notes": "实现 DeviceBackend 接口的 mock 实现（fixtures 模拟所有 backend 输出）。backend 选择策略（preference/healthcheck/fallback）。保障 Phase 3.4 及后续无需真机即可开发与 CI。"
+        },
+        {
+          "id": "3.3b",
+          "title": "MobileMcpBackend 实现",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/技术选型文档.md"
+          ],
+          "dependencies": [
+            "3.3a",
+            "1.4"
+          ],
+          "test_file": null,
+          "notes": "基于 mobile-mcp 的 DeviceBackend 实现。设备发现/launch/UI tree/截图/tap/swipe/type。Phase 0 横评后若 mobile-mcp 通过则作为 MVP 主 backend。"
+        },
+        {
+          "id": "3.3c",
+          "title": "AppiumBackend 实现",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/技术选型文档.md"
+          ],
+          "dependencies": [
+            "3.3a",
+            "1.4"
+          ],
+          "test_file": null,
+          "notes": "基于 Appium/WDA 的 DeviceBackend 实现。长期标准 fallback。若 mobile-mcp 被阻断则作为 MVP 主线。"
         },
         {
           "id": "3.4",
-          "title": "AgentRuntime 编排循环（AI SDK）+ PermissionEngine 权限引擎",
+          "title": "AgentRuntime + PermissionEngine 实现",
           "story": "US-17.1, US-17.2",
           "status": "pending",
           "documents_required": [
@@ -381,7 +427,7 @@
             "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
           "dependencies": [
-            "3.3"
+            "3.3a"
           ],
           "test_file": null,
           "notes": "照搬 OpenCode 模式用 AI SDK 自建。权限 allow/deny/ask + 记忆规则。高风险默认 ask。"
@@ -396,7 +442,7 @@
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": [
-            "3.3",
+            "3.3a",
             "3.4"
           ],
           "test_file": null,
@@ -412,7 +458,7 @@
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": [
-            "3.3",
+            "3.3a",
             "3.4",
             "3.2"
           ],
