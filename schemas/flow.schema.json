@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itestagent.dev/schemas/flow.schema.json",
+  "title": "Flow",
+  "description": "iTestAgent Flow — replayable test flow YAML. Source: 架构设计文档 §6.7. Inspired by Maestro DSL, but iTestAgent-owned schema. Stored at ~/.itestagent/flows/<flowId>.yaml (YAML-encoded; schema validates the parsed JSON).",
+  "type": "object",
+  "required": ["schemaVersion", "flowId", "source", "status", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "itestagent.flow.v1"
+    },
+    "flowId": {
+      "type": "string",
+      "description": "Human-readable flow identifier, e.g. login-smoke."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["agent-recorded", "user-authored", "imported-draft"],
+      "description": "agent-recorded: captured via human-in-the-loop recording (US-8.2/9.1)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "confirmed", "deprecated"],
+      "description": "draft: needs user confirmation before replay. R7: 覆盖 Flow needs confirmation."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/FlowStep" }
+    },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "FlowStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "launchApp",
+            "terminateApp",
+            "tap",
+            "longPress",
+            "swipe",
+            "typeText",
+            "pressButton",
+            "openUrl",
+            "screenshot",
+            "getUiTree",
+            "startRecording",
+            "stopRecording",
+            "collectLogs",
+            "assertVisible",
+            "assertNotVisible",
+            "assertText",
+            "wait",
+            "comment"
+          ],
+          "description": "Action set mirrors DeviceBackend interface (架构 §5.1) plus assertions."
+        },
+        "target": {
+          "type": "string",
+          "description": "Locator target: label text, accessibility id, or coordinate."
+        },
+        "locator": {
+          "$ref": "#/$defs/Locator"
+        },
+        "valueRef": {
+          "type": "string",
+          "description": "Reference to test data. session.secret.* for sensitive data (R6: only in-memory, never persisted)."
+        },
+        "value": {
+          "description": "Inline literal value (for non-sensitive data only)."
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "For wait/longPress/swipe."
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["up", "down", "left", "right"]
+        },
+        "expectedText": {
+          "type": "string",
+          "description": "For assertText."
+        },
+        "comment": {
+          "type": "string",
+          "description": "For comment action."
+        }
+      },
+      "required": ["action"]
+    },
+    "Locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["label", "identifier", "xpath", "coordinate", "image"]
+        },
+        "value": { "type": "string" }
+      },
+      "required": ["strategy", "value"]
+    }
+  }
+}

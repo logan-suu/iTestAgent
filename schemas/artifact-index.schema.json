@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itestagent.dev/schemas/artifact-index.schema.json",
+  "title": "ArtifactIndex",
+  "description": "iTestAgent artifact index — manifest of all artifacts produced by a run. Source: 架构设计文档 §6.6 + 数据流全链路 §12. Stored at ~/.itestagent/runs/<run_id>/artifact-index.json.",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "itestagent.artifact-index.v1"
+    },
+    "runId": { "type": "string" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ArtifactRef" }
+    }
+  },
+  "$defs": {
+    "ArtifactRef": {
+      "type": "object",
+      "description": "Reference to a single artifact file. Inherits from 架构 §6.4 ArtifactRef.",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier referenced by result.json artifactRefs[]."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["screenshot", "video", "uitree", "log", "crashlog", "trace", "xcresult", "json", "text"]
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative path under runs/<run_id>/artifacts/."
+        },
+        "mimeType": { "type": "string" },
+        "sizeBytes": { "type": "number", "minimum": 0 },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "relatedStep": {
+          "type": "string",
+          "description": "Run step ID this artifact belongs to."
+        },
+        "backend": {
+          "type": "string",
+          "description": "Which backend produced this artifact."
+        },
+        "template": {
+          "type": "string",
+          "description": "For .trace artifacts: the Instruments template name, e.g. 'Time Profiler'."
+        },
+        "redactionStatus": {
+          "type": "string",
+          "enum": ["raw-local-only", "redacted", "safe"],
+          "description": "R6: 敏感数据不落盘明文. raw-local-only = stays on local machine only; redacted = scrubbed; safe = no sensitive content."
+        }
+      },
+      "required": ["id", "type", "path", "redactionStatus"]
+    }
+  }
+}

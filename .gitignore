@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# npm lockfile (project uses Bun → bun.lockb, not package-lock.json)
+package-lock.json
 
 # Build output
 dist/

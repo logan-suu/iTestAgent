@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itestagent.dev/schemas/result.schema.json",
+  "title": "RunResult",
+  "description": "iTestAgent run result — final state of a test run. Source: 架构设计文档 §6.5 + 数据流全链路 §12. Stored at ~/.itestagent/runs/<run_id>/result.json.",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "status", "projectProfileRef", "device", "execution", "cases", "metrics", "artifactRefs"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "itestagent.result.v1"
+    },
+    "runId": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed", "explored", "inconclusive", "needs_assertion", "flaky", "blocked", "infra_failed"],
+      "description": "Run status. No assertion → cannot be passed (R5)."
+    },
+    "projectProfileRef": {
+      "type": "string",
+      "description": "Relative path to project-profile.json."
+    },
+    "device": { "$ref": "#/$defs/DeviceSnapshot" },
+    "execution": { "$ref": "#/$defs/ExecutionSummary" },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/TestCaseResult" }
+    },
+    "metrics": { "$ref": "#/$defs/PerformanceMetrics" },
+    "baselineDelta": { "$ref": "#/$defs/BaselineDelta" },
+    "artifactRefs": {
+      "type": "array",
+      "description": "IDs into artifact-index.json.",
+      "items": { "type": "string" }
+    },
+    "explanation": { "$ref": "#/$defs/FailureExplanation" }
+  },
+  "$defs": {
+    "DeviceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "os": { "type": "string" },
+        "udid": { "type": "string" }
+      },
+      "required": ["name", "os", "udid"]
+    },
+    "ExecutionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["xcuitest", "device_backend"]
+        },
+        "flowId": {
+          "type": "string",
+          "description": "If recorded/saved as Flow, the Flow ID for replay."
+        },
+        "backend": {
+          "type": "string",
+          "description": "Which DeviceBackend implementation was used."
+        }
+      },
+      "required": ["mode"]
+    },
+    "TestCaseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped", "explored", "inconclusive", "needs_assertion"]
+        },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "failureMessage": { "type": "string" }
+      },
+      "required": ["id", "status", "durationMs"]
+    },
+    "PerformanceMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "launchTimeMs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "App cold-launch duration."
+        },
+        "memoryPeakMb": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peak memory in MB. Approximate (ADR-003)."
+        },
+        "testDurationMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "crashCount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "hitches": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": { "type": "number", "minimum": 0 },
+            "maxMs": { "type": "number", "minimum": 0 }
+          },
+          "description": "Primary recommended metric (ADR-003)."
+        },
+        "fps": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "avg": { "type": "number" },
+            "min": { "type": "number" },
+            "approximate": {
+              "type": "boolean",
+              "description": "MUST be true (R5: FPS 标 approximate)."
+            }
+          },
+          "required": ["approximate"]
+        },
+        "xctrace": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "summaryAvailable": {
+              "type": "boolean",
+              "description": "Experimental (ADR-003)."
+            },
+            "traceArtifactId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "BaselineDelta": {
+      "type": "object",
+      "description": "Percentage delta vs. local baseline. Omitted on first run (no baseline yet).",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Metric name → signed percent, e.g. '+6.2%'."
+      }
+    },
+    "FailureExplanation": {
+      "type": "object",
+      "description": "Evidence-driven attribution. No fabrication (R5).",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["product_regression", "script_issue", "device_issue", "env_issue", "flaky", "perf_regression", "inconclusive"],
+          "description": "inconclusive when evidence is insufficient."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "summary": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "References to artifactRefs."
+        },
+        "suggestedActions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["type", "confidence", "summary"]
+    }
+  }
+}

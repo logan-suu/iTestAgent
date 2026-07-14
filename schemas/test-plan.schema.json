@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itestagent.dev/schemas/test-plan.schema.json",
+  "title": "TestPlan",
+  "description": "iTestAgent TestPlan — single source of truth for a test run. Source: 架构设计文档 §6.2 + 数据流全链路 §6. Stored at ~/.itestagent/runs/<run_id>/plan.yaml (YAML-encoded, schema validates the parsed JSON).",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "projectProfileRef", "deviceSelector", "backendPreference", "execution", "artifacts", "performance", "safety"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "itestagent.test-plan.v1"
+    },
+    "runId": {
+      "type": "string",
+      "description": "Unique run identifier, e.g. run_20260710_001."
+    },
+    "projectProfileRef": {
+      "type": "string",
+      "description": "Reference path to the source Project Profile JSON."
+    },
+    "deviceSelector": {
+      "$ref": "#/$defs/DeviceSelector"
+    },
+    "backendPreference": {
+      "$ref": "#/$defs/BackendPreference"
+    },
+    "execution": {
+      "$ref": "#/$defs/ExecutionPlan"
+    },
+    "artifacts": {
+      "$ref": "#/$defs/ArtifactPolicy"
+    },
+    "performance": {
+      "$ref": "#/$defs/PerformancePlan"
+    },
+    "safety": {
+      "$ref": "#/$defs/PermissionPolicyRef"
+    }
+  },
+  "$defs": {
+    "DeviceSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "type": "string",
+          "enum": ["local_connected", "by_udid", "by_name"],
+          "description": "Device selection strategy. MVP: local_connected."
+        },
+        "udid": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["selector"]
+    },
+    "BackendPreference": {
+      "type": "object",
+      "description": "Pluggable backend preference (ADR-005).",
+      "additionalProperties": false,
+      "properties": {
+        "device": {
+          "type": "array",
+          "description": "Ordered preference list. Fallback chain.",
+          "items": {
+            "type": "string",
+            "enum": ["mobile-mcp", "appium", "iphone-use", "mock"]
+          }
+        },
+        "performance": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["xctrace-analyzer-core", "instrumentsmcp", "raw-xcrun"]
+          }
+        },
+        "build": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["xcodebuild", "fastlane"]
+          }
+        },
+        "analyzer": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["xcodequery", "xcodeproj"]
+          }
+        }
+      }
+    },
+    "ExecutionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prefer": {
+          "type": "string",
+          "enum": ["auto", "xcuitest", "device_backend"],
+          "description": "auto: prefer XCUITest if exists, else device_backend."
+        },
+        "fallback": {
+          "type": "string",
+          "enum": ["device_backend", "abort"]
+        },
+        "features": {
+          "type": "array",
+          "description": "Feature names from ProjectProfile to cover.",
+          "items": { "type": "string" }
+        },
+        "flows": {
+          "type": "array",
+          "description": "Flow YAML IDs to replay (if any).",
+          "items": { "type": "string" }
+        },
+        "testData": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowAgentGeneratedData": { "type": "boolean" },
+            "askUserInTuiWhenRequired": { "type": "boolean" }
+          },
+          "required": ["allowAgentGeneratedData", "askUserInTuiWhenRequired"]
+        },
+        "assertion": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policy": {
+              "type": "string",
+              "enum": ["user_goal_then_profile_then_agent_confirmed", "explore_only"],
+              "description": "No assertion → status can only be explored/inconclusive/needs_assertion (R5)."
+            }
+          },
+          "required": ["policy"]
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["launch_time", "memory_peak", "crash", "test_duration", "hitches", "fps", "xctrace_summary"]
+          }
+        }
+      },
+      "required": ["prefer", "fallback", "features", "testData", "assertion", "metrics"]
+    },
+    "ArtifactPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collect": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["screenshot", "video", "syslog", "crashlog", "xcresult", "trace", "uitree"]
+          }
+        },
+        "report": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["summary_md", "result_json", "artifact_index_json"],
+                "description": "Fixed three-piece report (ADR-004). No HTML."
+              }
+            }
+          },
+          "required": ["outputs"]
+        }
+      },
+      "required": ["collect", "report"]
+    },
+    "PerformancePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "type": "string",
+          "enum": ["local_auto", "skip"],
+          "description": "local_auto: first successful run establishes baseline (ADR)."
+        },
+        "thresholdRequired": { "type": "boolean" }
+      },
+      "required": ["baseline", "thresholdRequired"]
+    },
+    "PermissionPolicyRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultMode": {
+          "type": "string",
+          "enum": ["allow", "ask", "deny"],
+          "description": "High-risk actions default to ask (R7)."
+        },
+        "highRiskActions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["clear_data", "reinstall", "write_project", "store_credential", "update_baseline", "overwrite_flow", "generate_draft"]
+          }
+        }
+      },
+      "required": ["defaultMode", "highRiskActions"]
+    }
+  }
+}

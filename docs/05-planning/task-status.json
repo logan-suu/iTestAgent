@@ -1,35 +1,35 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-12T16:00:00Z",
+  "last_updated": "2026-07-14T22:40:00Z",
   "current_phase": 0,
   "phases": [
     {
       "id": 0,
       "name": "立项与多 Backend 横评",
       "status": "in_progress",
-      "last_updated": "2026-07-13T18:00:00Z",
+      "last_updated": "2026-07-14T22:45:00Z",
       "integration_test": "pending",
       "tasks": [
         {
           "id": "0.1",
           "title": "建仓与工程规范：monorepo(Bun)、AGENTS.md、schemas/、fixtures/、mock backends 脚手架",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-13T16:00:00Z",
+          "status": "done",
+          "last_updated": "2026-07-14T22:40:00Z",
           "documents_required": [
             "AGENTS.md",
             "docs/05-planning/开发计划安排文档.md"
           ],
           "dependencies": [],
           "test_file": null,
-          "notes": "规格文档已完成（7 份），AGENTS.md 就位，.gitignore 就位。待完成：monorepo 脚手架、schemas/ 目录、fixtures/ 目录、mock backends 骨架。"
+          "notes": "已完成：monorepo 脚手架（Bun workspace + 9 核心包 + 9 backend 包 + 5 份 JSON Schema + fixtures/ 5 子目录 + mocks/ 骨架）。AGENTS.md §4 已与架构 §10 对齐。tsc --noEmit + biome check 全部通过（npm/npx fallback，Bun 未装但非脚手架必需）。Bun 安装待用户手动完成（brew install bun 或 curl -fsSL https://bun.sh/install | bash）。"
         },
         {
           "id": "0.2",
           "title": "Device backend 横评：mobile-mcp + Appium/WDA + iphone-use + mock 四路 Spike",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
@@ -45,7 +45,7 @@
           "id": "0.3",
           "title": "Performance backend 横评：XcodeTraceMCP core / instrumentsmcp / raw xcrun 三路 Spike",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -60,7 +60,7 @@
           "id": "0.4",
           "title": "TUI backend 横评：OpenTUI / Rezi / Ink 三路 Spike",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -74,7 +74,7 @@
           "id": "0.5",
           "title": "Project analyzer 横评：XcodeQuery CLI / XcodeProj + xcodebuild 两路 Spike",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],

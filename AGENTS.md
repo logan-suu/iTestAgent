@@ -353,20 +353,38 @@ pending -> ready -> in_progress -> done
 - 提交信息遵循仓库风格；无用户明确要求不擅自 commit/push
 ```
 
-建议的仓库结构（供脚手架参考）：
+建议的仓库结构（与架构设计文档 §10 对齐，独立 workspace 包）：
 
 ```
 packages/
-  itestagent/ (cli, tui, server, engine, project-analyzer, store)
-  backends/ (mobile-mcp, appium, xcode, performance, parser, report, flow)
-schemas/ (plan, result, artifact-index, project-profile)
-fixtures/ (xcresult/.trace 导出样本, UItree 样本)
-mocks/ (mock backends)
+  itestagent-cli/                 (CLI 入口, Commander)
+  itestagent-tui/                 (TUI Shell, OpenTUI/Rezi/Ink 横评)
+  itestagent-engine/              (Agent 编排循环 + 权限引擎)
+  itestagent-server/              (本地 Bun server + SSE + session 状态)
+  itestagent-store/               (SQLite + Drizzle + 文件系统 artifacts)
+  itestagent-project-analyzer/    (XcodeProj + swift-syntax + sourcekit)
+  itestagent-contracts/           (Zod schemas + Backend 接口契约)
+  itestagent-report/              (报告三件套合成)
+  itestagent-flow/                (iTestAgent Flow YAML)
+  itestagent-backends/
+    device-mobile-mcp/            (DeviceBackend MVP 第一候选)
+    device-appium/                (DeviceBackend 长期标准 fallback)
+    device-iphone-use/            (DeviceBackend 视觉 fallback)
+    performance-xctrace-analyzer/ (PerformanceBackend MVP 第一候选)
+    performance-instrumentsmcp/    (PerformanceBackend 一体化候选)
+    build-xcodebuild/             (BuildDriver MVP 默认)
+    build-fastlane/               (BuildDriver 签名复杂时启用)
+    analyzer-xcodequery/          (ProjectAnalyzerBackend MVP 候选)
+    analyzer-xcodeproj/           (ProjectAnalyzerBackend 成熟方案)
+schemas/ (project-profile, test-plan, result, artifact-index, flow)
+fixtures/ (device-responses, mobile-mcp, appium, xctrace, xcresult)
+mocks/ (mock backends — 约定：mock 实现放在 packages/itestagent-backends/)
 docs/01-spec/                  (规格与需求)
 docs/02-architecture/          (架构设计与技术选型)
 docs/03-implementation/        (避坑手册)
 docs/04-ai-native/             (AI Native 开发手册)
 docs/05-planning/              (开发计划与任务追踪)
+docs/decisions/                (ADR 架构决策记录)
 AGENTS.md
 ```
 

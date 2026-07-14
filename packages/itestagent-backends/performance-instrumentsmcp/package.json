@@ -1,0 +1,13 @@
+{
+  "name": "itestagent-backends-performance-instrumentsmcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "PerformanceBackend implementation — instrumentsmcp (integrated record+analyze+report)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/"
+  }
+}
