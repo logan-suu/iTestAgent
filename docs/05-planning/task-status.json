@@ -1,14 +1,14 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-14T22:40:00Z",
+  "last_updated": "2026-07-15T01:10:00Z",
   "current_phase": 0,
   "phases": [
     {
       "id": 0,
       "name": "立项与多 Backend 横评",
       "status": "in_progress",
-      "last_updated": "2026-07-14T23:10:00Z",
+      "last_updated": "2026-07-15T01:10:00Z",
       "integration_test": "pending",
       "tasks": [
         {
@@ -29,8 +29,8 @@
           "id": "0.2",
           "title": "Device backend 横评：mobile-mcp + Appium/WDA + iphone-use + mock 四路 Spike",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-14T23:10:00Z",
+          "status": "done",
+          "last_updated": "2026-07-15T01:10:00Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
@@ -40,7 +40,7 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "部分完成。Appium/WDA: iPhone 12 真机 session+page source+screenshot 验证通过。MockBackend: fixture 验证通过。iphone-use: 调研级，Phase 6+。mobile-mcp: 设备发现+app列表(568个)已验证（无agent）；agent安装被免费开发者账号限制阻塞（无通配符profile、3-app上限、bundle ID不匹配）。mobile-mcp独特能力：WebView/FS/Crash/Remote/MCP-native。最终DeviceBackend推荐：Appium/WDA为主+MockBackend为CI baseline；mobile-mcp保留为强候选（待付费开发者账号后补测）。"
+          "notes": "已完成。Appium/WDA: 免费账号可用（workaround: 改WDA bundle ID com.facebook.*→UJ876FXT32.* + -allowProvisioningUpdates + usePrebuiltWDA）。真机 session+page source(49596 chars)+screenshot(305KB) on iPhone 14 Plus/iOS 18.2.1 验证通过。MockBackend: fixture+TDD验证通过。mobile-mcp: 设备发现+app列表(568个)可用，screenshot/UI tree/tap被免费账号限制阻塞（mobilecli硬编码bundle ID，需付费账号补测）。iphone-use: 调研级Phase 6+。最终推荐: Appium/WDA为主+MockBackend为CI baseline；mobile-mcp保留为强候选（MCP-native+独特能力，待付费账号）。"
         },
         {
           "id": "0.3",
@@ -92,7 +92,7 @@
           "id": "0.6",
           "title": "技术验证结论：输出决策矩阵 + Phase 0 横评报告",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
