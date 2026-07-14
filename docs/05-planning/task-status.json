@@ -1,22 +1,22 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-15T01:10:00Z",
-  "current_phase": 0,
+  "last_updated": "2026-07-15T01:30:00Z",
+  "current_phase": 1,
   "phases": [
     {
       "id": 0,
       "name": "立项与多 Backend 横评",
-      "status": "in_progress",
-      "last_updated": "2026-07-15T01:10:00Z",
-      "integration_test": "pending",
+      "status": "done",
+      "last_updated": "2026-07-15T01:30:00Z",
+      "integration_test": "done",
       "tasks": [
         {
           "id": "0.1",
           "title": "建仓与工程规范：monorepo(Bun)、AGENTS.md、schemas/、fixtures/、mock backends 脚手架",
           "story": null,
           "status": "done",
-  "last_updated": "2026-07-14T23:10:00Z",
+          "last_updated": "2026-07-14T23:10:00Z",
           "documents_required": [
             "AGENTS.md",
             "docs/05-planning/开发计划安排文档.md"
@@ -92,7 +92,8 @@
           "id": "0.6",
           "title": "技术验证结论：输出决策矩阵 + Phase 0 横评报告",
           "story": null,
-          "status": "ready",
+          "status": "done",
+          "last_updated": "2026-07-15T01:30:00Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -104,7 +105,7 @@
             "0.5"
           ],
           "test_file": null,
-          "notes": "确定 MVP 各层 backend 选择（主力 + fallback）。M0 未过则暂停功能开发。"
+          "notes": "已完成。Phase 0 横评报告输出到 docs/05-planning/phase-0-cross-evaluation-report.md。决策矩阵确定：Appium/WDA（免费账号可用）+ MockBackend CI + xctrace-analyzer-core + OpenTUI/Ink + raw xcodebuild+XcodeProj。ADR-006~009 记录。Phase 0 出口通过，进入 Phase 1。"
         }
       ]
     },
@@ -118,7 +119,7 @@
           "id": "1.1",
           "title": "CLI 入口 + 版本/配置",
           "story": "US-1.1, US-18.1, US-18.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/技术选型文档.md"
@@ -132,7 +133,7 @@
           "id": "1.2",
           "title": "TuiShell 交互式 Shell 骨架（OpenTUI 目标主线 / Ink 已验证 fallback）",
           "story": "US-4.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -146,7 +147,7 @@
           "id": "1.3",
           "title": "本地 Server + 事件流（SSE）+ AgentRuntime 基础",
           "story": "US-4.3",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -160,7 +161,7 @@
           "id": "1.3b",
           "title": "定义核心 Backend 接口与统一数据契约",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -175,7 +176,7 @@
           "id": "1.4",
           "title": "doctor 环境诊断 + backend 前置条件引导",
           "story": "US-1.2, US-1.3",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -190,7 +191,7 @@
           "id": "1.5",
           "title": "devices 设备发现 + backend healthcheck",
           "story": "US-2.1, US-2.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -203,7 +204,7 @@
           "id": "1.6",
           "title": "存储骨架：SQLite/Drizzle + 目录结构",
           "story": "US-19.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -217,7 +218,7 @@
           "id": "1.7",
           "title": "配置分层（JSONC）+ Keychain 接入",
           "story": "US-18.2, US-18.3",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
