@@ -90,7 +90,7 @@
 | 组件 | 定位 | 文档参考 |
 |---|---|---|
 | **itestagent-cli** | 轻量命令入口（doctor/devices/config/version） | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI/Rezi/Ink） | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI/Ink） | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §3 |
@@ -105,7 +105,7 @@
 | 层级 | 选型 | 文档参考 |
 |---|---|---|
 | 语言/运行时 | TypeScript + Bun | `02-architecture/技术选型文档.md` §4 |
-| 交互 | CLI（Commander）+ TUI（OpenTUI/Rezi/Ink 候选） | `02-architecture/技术选型文档.md` §5 |
+| 交互 | CLI（Commander）+ TUI（OpenTUI/Ink 候选） | `02-architecture/技术选型文档.md` §5 |
 | 编排/LLM | 自建循环 + Vercel AI SDK + OpenAI-compatible | `02-architecture/技术选型文档.md` §6 |
 | 工具协议 | MCP TypeScript SDK | `02-architecture/技术选型文档.md` §7 |
 | 存储 | SQLite + Drizzle + 文件系统 + JSONC 配置 | `02-architecture/技术选型文档.md` §8 |

@@ -8,7 +8,7 @@
       "id": 0,
       "name": "立项与多 Backend 横评",
       "status": "in_progress",
-      "last_updated": "2026-07-14T22:45:00Z",
+      "last_updated": "2026-07-14T23:10:00Z",
       "integration_test": "pending",
       "tasks": [
         {
@@ -16,7 +16,7 @@
           "title": "建仓与工程规范：monorepo(Bun)、AGENTS.md、schemas/、fixtures/、mock backends 脚手架",
           "story": null,
           "status": "done",
-          "last_updated": "2026-07-14T22:40:00Z",
+  "last_updated": "2026-07-14T23:10:00Z",
           "documents_required": [
             "AGENTS.md",
             "docs/05-planning/开发计划安排文档.md"
@@ -29,7 +29,8 @@
           "id": "0.2",
           "title": "Device backend 横评：mobile-mcp + Appium/WDA + iphone-use + mock 四路 Spike",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-14T23:10:00Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
@@ -39,13 +40,14 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "最高优先。Spike A: mobile-mcp(设备发现/UI tree/截图/tap)。Spike B: Appium/WDA(session/page source/gesture)。Spike C: iphone-use(视觉 fallback)。Spike D: mock backend(fixtures)。至少一路在真机上跑通截图+UI tree+launch time。"
+          "notes": "部分完成。Appium/WDA: iPhone 12 真机 session+page source+screenshot 验证通过。MockBackend: fixture 验证通过。iphone-use: 调研级，Phase 6+。mobile-mcp: 云壳拦截未执行，需换电脑补测。tap/swipe/type+launch time 未补测。"
         },
         {
           "id": "0.3",
           "title": "Performance backend 横评：XcodeTraceMCP core / instrumentsmcp / raw xcrun 三路 Spike",
           "story": null,
-          "status": "ready",
+          "status": "done",
+          "last_updated": "2026-07-14T23:10:00Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -54,13 +56,14 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "Spike P1: XcodeTraceMCP(export TOC/hitches/hangs/not_exportable)。Spike P2: instrumentsmcp(录制+分析+report一体化)。Spike P3: raw xcrun xctrace export(fallback)。"
+          "notes": "已完成。推荐：xctrace-analyzer-core（默认）+ 自研 hitches-* parser（待实现）+ raw xcrun（fallback）。instrumentsmcp 有数据诚信问题（Network/Hitches 漏报、Allocations 误导），不作为默认可信 backend。自研 hitches parser 无公开直接替代，第一版只解析 hitches-summary。"
         },
         {
           "id": "0.4",
-          "title": "TUI backend 横评：OpenTUI / Rezi / Ink 三路 Spike",
+          "title": "TUI backend 横评：OpenTUI / Ink 两路 Spike（Rezi 已排除）",
           "story": null,
-          "status": "ready",
+          "status": "done",
+          "last_updated": "2026-07-14T23:10:00Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -68,13 +71,14 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "OpenTUI(长日志/Markdown/工具卡片/Bun打包)。Rezi(同屏布局/日志流稳定性)。Ink(最小交互版)。至少一路能跑通交互式 Shell。"
+          "notes": "已完成。推荐：OpenTUI+SolidJS（目标主线，OpenCode-style build pattern）+ Ink（已验证 fallback）。Rezi 已排除（npm rezi 是 2015 CSS 工具，非 TUI 框架）。Ink 16/16 通过，pseudo-TTY 交互式 shell 证明通过。OpenTUI 9/16 partial，T0.4b 补充验证解决 native build 问题。"
         },
         {
           "id": "0.5",
           "title": "Project analyzer 横评：XcodeQuery CLI / XcodeProj + xcodebuild 两路 Spike",
           "story": null,
-          "status": "ready",
+          "status": "done",
+          "last_updated": "2026-07-14T23:10:00Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -82,7 +86,7 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "XcodeQuery CLI(JSON输出稳定性)。XcodeProj + xcodebuild(传统方案对照)。"
+          "notes": "已完成。推荐：raw xcodebuild（discover+buildSettings）+ Tuist/XcodeProj（graph+phase facts）。XcodeQuery 本机不可用，降级为 optional future spike。candidate links 全部带 evidence+confidence+requiresUserConfirmation。"
         },
         {
           "id": "0.6",
@@ -126,7 +130,7 @@
         },
         {
           "id": "1.2",
-          "title": "TuiShell 交互式 Shell 骨架（OpenTUI/Rezi/Ink 横评后选定）",
+          "title": "TuiShell 交互式 Shell 骨架（OpenTUI 目标主线 / Ink 已验证 fallback）",
           "story": "US-4.1",
           "status": "pending",
           "documents_required": [

@@ -50,7 +50,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 **可插拔 Backend 架构**：iTestAgent 定义稳定上层接口和产物模型，底层工具可替换。
 - Device: `mobile-mcp`（MVP 第一候选）、`Appium/WDA`（长期标准）、`iphone-use`（视觉 fallback）
 - Performance: `XcodeTraceMCP core`（MVP 第一候选）、`instrumentsmcp`、`raw xcrun`（fallback）
-- TUI: `OpenTUI`（第一候选）、`Rezi`、`Ink`（fallback）
+- TUI: `OpenTUI`（目标主线）、`Ink`（已验证 fallback）
 
 ## 快速开始
 
@@ -111,7 +111,7 @@ itestagent
 | 层级 | 选型 |
 |---|---|
 | 语言/运行时 | TypeScript + Bun |
-| TUI | OpenTUI / Rezi / Ink（候选横评） |
+| TUI | OpenTUI / Ink（横评完成） |
 | LLM | Vercel AI SDK + OpenAI-compatible provider |
 | 工具协议 | MCP TypeScript SDK |
 | 存储 | SQLite + Drizzle + 文件系统 |
