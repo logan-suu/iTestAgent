@@ -1,6 +1,6 @@
 # itestagent-backends-device-appium
 
-> DeviceBackend implementation — Appium/WDA (long-term standard fallback)
+> DeviceBackend implementation — Appium/WDA (MVP main backend, works with free account)
 
 Part of iTestAgent monorepo backends. See [../../../README.md](../../../README.md) for project overview and [../../../AGENTS.md](../../../AGENTS.md) for conventions.
 

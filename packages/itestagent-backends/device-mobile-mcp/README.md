@@ -1,6 +1,6 @@
 # itestagent-backends-device-mobile-mcp
 
-> DeviceBackend implementation — mobile-mcp (MVP first candidate)
+> DeviceBackend implementation — mobile-mcp (strong candidate, requires paid developer account)
 
 Part of iTestAgent monorepo backends. See [../../../README.md](../../../README.md) for project overview and [../../../AGENTS.md](../../../AGENTS.md) for conventions.
 
