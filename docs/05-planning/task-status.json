@@ -40,7 +40,7 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "部分完成。Appium/WDA: iPhone 12 真机 session+page source+screenshot 验证通过。MockBackend: fixture 验证通过。iphone-use: 调研级，Phase 6+。mobile-mcp: 云壳拦截未执行，需换电脑补测。tap/swipe/type+launch time 未补测。"
+          "notes": "部分完成。Appium/WDA: iPhone 12 真机 session+page source+screenshot 验证通过。MockBackend: fixture 验证通过。iphone-use: 调研级，Phase 6+。mobile-mcp: 设备发现+app列表(568个)已验证（无agent）；agent安装被免费开发者账号限制阻塞（无通配符profile、3-app上限、bundle ID不匹配）。mobile-mcp独特能力：WebView/FS/Crash/Remote/MCP-native。最终DeviceBackend推荐：Appium/WDA为主+MockBackend为CI baseline；mobile-mcp保留为强候选（待付费开发者账号后补测）。"
         },
         {
           "id": "0.3",
