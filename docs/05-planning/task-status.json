@@ -105,7 +105,7 @@
             "0.5"
           ],
           "test_file": null,
-          "notes": "已完成。Phase 0 横评报告输出到 docs/05-planning/phase-0-cross-evaluation-report.md。决策矩阵确定：Appium/WDA（免费账号可用）+ MockBackend CI + xctrace-analyzer-core + OpenTUI/Ink + raw xcodebuild+XcodeProj。ADR-006~009 记录。Phase 0 出口通过，进入 Phase 1。"
+          "notes": "已完成。Phase 0 横评报告输出到 docs/03-implementation/phase-0-cross-evaluation-report.md。决策矩阵确定：Appium/WDA（免费账号可用）+ MockBackend CI + xctrace-analyzer-core + OpenTUI/Ink + raw xcodebuild+XcodeProj。ADR-006~009 记录。Phase 0 出口通过，进入 Phase 1。"
         }
       ]
     },
