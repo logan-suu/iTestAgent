@@ -293,8 +293,12 @@ pending -> ready -> in_progress -> done
 |---|---|---|
 | `pending` | 任务已定义，依赖未满足 | 人类 |
 | `ready` | 依赖已满足，等待执行 | Agent 自动（级联） |
-| `in_progress` | Agent 正在执行 | Agent 自动 |
-| `done` | 任务完成 | Agent 自动 |
+| `in_progress` | 代码开发中，或已提交 PR 等待人类合并 | Agent 自动 |
+| `done` | PR 已合并到 main | Agent 自动（PR 合并后，经 `pr-merge-itest`） |
+
+**状态转换规则**：
+- `in_progress` → `done`：仅当 PR 已被人类手动合并到 main 后，Agent 通过 `pr-merge-itest` 命令设为 `done`（§9.3：Agent 不得自动合并 PR）。
+- `commit-pr-itest` 命令提交代码时**保持 `in_progress`**，仅记录 PR 链接到 `notes`，不得设为 `done`。
 
 **级联更新**：Agent 启动或任务完成时，遍历所有 `pending` 任务，若 `dependencies` 全部为 `done`，则翻转为 `ready`。此操作为幂等操作。
 

@@ -20,7 +20,7 @@ agent: build
    - G1 规格一致、G2 契约校验、G3 静态检查、G4 测试通过
    - G5 真机验证（涉及真机能力）
    - G7 安全合规
-3. **任务状态**：对应任务 `status` 为 `done`。
+3. **任务状态**：对应任务 `status` 为 `in_progress`（代码已提交、PR 已创建）。如果 `status` 仍为 `ready` 或 `pending`，说明代码尚未提交，阻断合并。
 
 ### 第三步：生成合并建议
 1. 所有检查通过后，输出合并前检查报告。
@@ -33,6 +33,10 @@ agent: build
 1. 输出："✅ 合并前检查全部通过。请在 GitHub 上手动合并该 PR。"
 2. **仅当用户明确告知"已合并"后**：
    - `git checkout main && git pull origin main`
-   - 在 main 上更新 `docs/05-planning/task-status.json`：记录 `merged_at` 时间戳
+   - 在 main 上更新 `docs/05-planning/task-status.json`：
+     - 将任务 `status` 从 `in_progress` 更新为 `done`
+     - 记录 `last_updated` 时间戳
+     - 在 `notes` 中追加 PR 合并确认信息
    - `git add` → `git commit` → `git push origin main`
 3. 输出："🎉 任务已完成！"
+4. 提示用户执行 `/next-task-itest` 开始下一个任务。

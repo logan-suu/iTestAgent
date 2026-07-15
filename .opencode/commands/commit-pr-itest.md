@@ -19,9 +19,13 @@ agent: build
 4. **真机能力**（G5）：涉及真机能力必须已真机 spike 实测
 5. **安全合规**（G7）：无敏感数据落盘明文
 
-### 第二步：更新任务状态
-1. 将 `docs/05-planning/task-status.json` 中当前任务的 `status` 更新为 `done`。
-2. 记录 `last_updated` 时间戳。
+### 第二步：记录 PR 信息到任务状态
+1. **保持当前任务的 `status` 为 `in_progress`** — 任务在 PR 合并后才设为 `done`（由 `pr-merge-itest` 命令处理）。
+2. 在 `docs/05-planning/task-status.json` 中当前任务的 `notes` 字段记录：
+   - PR 编号和链接
+   - 简要实现摘要
+3. 记录 `last_updated` 时间戳。
+4. ⚠️ **不得在此步骤将 `status` 设为 `done`**。PR 合并由人类手动执行（AGENTS.md §9.3），合并后通过 `pr-merge-itest` 命令设为 `done`。
 
 ### 第三步：Git 提交
 1. 提交信息格式遵循仓库风格：

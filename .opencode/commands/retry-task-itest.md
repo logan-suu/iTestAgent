@@ -25,7 +25,7 @@ agent: build
 3. 继续执行 EPCC-V 流程：
    - 从上次中断点恢复
    - 写测试 → `bun test` → 写实现 → `bun test`
-4. 如果执行成功，更新 `docs/05-planning/task-status.json` 为 `done`。
+4. 如果执行成功，**保持任务 `status` 为 `in_progress`**（PR 合并后才设为 `done`，由 `pr-merge-itest` 命令处理）。提示用户执行 `commit-pr-itest` 提交代码。
 5. 如果仍然失败：
    - 分析错误日志
    - 输出诊断建议
