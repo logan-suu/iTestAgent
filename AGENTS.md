@@ -164,6 +164,11 @@ LLM          OpenAI-compatible provider（可扩展）
 | `test` | 测试 | `test/phase1-unit-tests` |
 | `chore` | 构建/工具/依赖 | `chore/add-ci` |
 
+分支策略：
+- `main`：稳定发布分支，仅从 `dev-*` 合并而来，不直接接收功能 PR
+- `dev-1.0`：开发集成分支，所有功能/修复 PR 的合并目标
+- `{type}/{description}`：功能分支，PR base 为 `dev-1.0`（非 `main`）
+
 ### 3.1.2 Commit Message 格式
 
 ```
@@ -343,7 +348,7 @@ pending -> ready -> in_progress -> done
 | 使用 qa-* 命名 | 规范违反（R9） | 统一 itestagent-* |
 | 引入 Effect-TS/事件溯源 | 过度设计（R10） | AI SDK + MCP 即可 |
 | 跳过任务状态更新 | 进度丢失 | task-status.json 必须同步 |
-| **Agent 自动合并 PR** | 禁止 | 合并必须由人类手动执行 |
+| **Agent 自动合并 PR** | 禁止 | 合并必须由人类手动执行，PR 目标分支为 `dev-1.0`（非 `main`） |
 
 ## 10. 在 OpenCode 中的工作约定
 

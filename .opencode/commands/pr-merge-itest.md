@@ -32,11 +32,11 @@ agent: build
 ### 第四步：人类确认后更新状态
 1. 输出："✅ 合并前检查全部通过。请在 GitHub 上手动合并该 PR。"
 2. **仅当用户明确告知"已合并"后**：
-   - `git checkout main && git pull origin main`
-   - 在 main 上更新 `docs/05-planning/task-status.json`：
+   - `git checkout dev-1.0 && git pull origin dev-1.0`
+   - 在 dev-1.0 上更新 `docs/05-planning/task-status.json`：
      - 将任务 `status` 从 `in_progress` 更新为 `done`
      - 记录 `last_updated` 时间戳
      - 在 `notes` 中追加 PR 合并确认信息
-   - `git add` → `git commit` → `git push origin main`
+   - `git add` → `git commit` → `git push origin dev-1.0`
 3. 输出："🎉 任务已完成！"
 4. 提示用户执行 `/next-task-itest` 开始下一个任务。

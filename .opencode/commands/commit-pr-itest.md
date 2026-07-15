@@ -43,6 +43,9 @@ agent: build
 
 ### 第四步：创建 PR
 1. 推送代码：`git push -u origin [分支名]`
-2. PR 标题：`{type}({scope}): {description} [US-X.Y]`
+2. 创建 PR，**base 分支为 `dev-1.0`**（非 `main`，AGENTS.md §3.1.1）：
+   ```bash
+   gh pr create --base dev-1.0 --title "{type}({scope}): {description} [US-X.Y]" --body "..."
+   ```
 3. PR 描述包含 AC 覆盖对照表。
 4. 输出 PR 链接。
