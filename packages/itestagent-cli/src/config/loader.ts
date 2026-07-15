@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { type ItestAgentConfig, ItestAgentConfigSchema } from 'itestagent-contracts';
-import { parse as parseJsonc } from 'jsonc-parser';
+import { type ParseError, parse as parseJsonc } from 'jsonc-parser';
 
 /**
  * 配置加载器（三层 JSONC 合并）
@@ -117,7 +117,11 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
     try {
       const fileContent = await readFile(configPath, 'utf-8');
       source.exists = true;
-      source.content = parseJsonc(fileContent);
+      const parseErrors: ParseError[] = [];
+      source.content = parseJsonc(fileContent, parseErrors);
+      if (parseErrors.length > 0) {
+        throw new Error(`Invalid JSONC syntax at offset ${parseErrors[0]?.offset}`);
+      }
       if (isPlainObject(source.content)) {
         contents.push(source.content);
       }

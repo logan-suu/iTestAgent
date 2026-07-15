@@ -170,7 +170,7 @@ iTestAgent/
     └── 05-planning/        # 开发计划
         ├── 开发计划安排文档.md
         └── task-status.json
-└── decisions/             # 架构决策记录（ADR）
+    └── decisions/          # 架构决策记录（ADR）
 ```
 
 ## 开发约定

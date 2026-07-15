@@ -56,18 +56,19 @@ test('no subcommand action outputs TUI placeholder (US-18.1 AC1: no login requir
 
 // ─── parseAsync 执行级断言（W5 补强：验证 action 输出接线）───
 
-test('--version outputs 0.0.1 via spawnSync (US-1.1 AC2)', () => {
+test('--version outputs correct version via spawnSync (US-1.1 AC2)', () => {
   const result = Bun.spawnSync({
     cmd: ['bun', cliPath, '--version'],
   });
   expect(result.exitCode).toBe(0);
-  expect(result.stdout.toString().trim()).toBe('0.0.1');
+  expect(result.stdout.toString().trim()).toBe(VERSION);
 });
 
 test('no subcommand outputs TUI placeholder via spawnSync (US-18.1 AC1)', () => {
   const result = Bun.spawnSync({
     cmd: ['bun', cliPath],
   });
+  expect(result.exitCode).toBe(0);
   const stdout = result.stdout.toString();
   expect(stdout).toContain('TUI coming in task 1.2');
 });
@@ -76,6 +77,7 @@ test('doctor subcommand outputs stub via spawnSync', () => {
   const result = Bun.spawnSync({
     cmd: ['bun', cliPath, 'doctor'],
   });
+  expect(result.exitCode).toBe(0);
   const stdout = result.stdout.toString();
   expect(stdout).toContain('Coming in task 1.4');
 });
@@ -84,6 +86,7 @@ test('config subcommand outputs merged config via spawnSync (US-18.2)', () => {
   const result = Bun.spawnSync({
     cmd: ['bun', cliPath, 'config'],
   });
+  expect(result.exitCode).toBe(0);
   const stdout = result.stdout.toString();
   expect(stdout).toContain('schemaVersion');
   expect(stdout).toContain('provider');

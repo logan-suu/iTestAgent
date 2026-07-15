@@ -32,6 +32,7 @@ agent: build
 ### 第四步：人类确认后更新状态
 1. 输出："✅ 合并前检查全部通过。请在 GitHub 上手动合并该 PR。"
 2. **仅当用户明确告知"已合并"后**：
+   - 执行 `git status --porcelain` 确保工作区无未提交变更（若有则提示暂存/提交后再继续）
    - `git checkout dev-1.0 && git pull origin dev-1.0`
    - 在 dev-1.0 上更新 `docs/05-planning/task-status.json`：
      - 将任务 `status` 从 `in_progress` 更新为 `done`
