@@ -24,9 +24,9 @@ agent: build
 
 ### 第三步：生成合并建议
 1. 所有检查通过后，输出合并前检查报告。
-2. 建议用户手动合并：
-   - **GitHub Web**：点击 "Squash and merge" 按钮
-   - **GitHub CLI**（供参考）：`gh pr merge [PR编号] --squash`
+2. 建议用户手动合并（选择任意一种合并方式）：
+   - **GitHub Web**：点击 "Merge" 按钮（Merge commit / Squash / Rebase 均可）
+   - **GitHub CLI**（供参考）：`gh pr merge [PR编号]`（默认 merge commit，可选 `--squash` / `--rebase`）
    - ⚠️ Agent 不会自动执行合并。
 
 ### 第四步：人类确认后更新状态
