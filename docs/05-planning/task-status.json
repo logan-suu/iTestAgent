@@ -93,7 +93,7 @@
           "title": "技术验证结论：输出决策矩阵 + Phase 0 横评报告",
           "story": null,
           "status": "done",
-  "last_updated": "2026-07-15T10:30:00Z",
+          "last_updated": "2026-07-15T10:30:00Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"

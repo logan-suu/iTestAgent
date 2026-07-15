@@ -23,20 +23,22 @@ import { z } from 'zod';
  * apiKeyRef 存储 Keychain 引用名或环境变量名，不存储明文 API Key（R6）。
  * 凭证存取（Keychain）归 task 1.7。
  */
-export const ModelConfigSchema = z.object({
-  /** OpenAI-compatible provider 名称（如 "openai"、"anthropic"） */
-  provider: z.string().optional().default('openai'),
-  /** 自定义 API base URL（OpenAI-compatible 端点） */
-  baseURL: z.string().optional(),
-  /**
-   * API Key 的引用名（Keychain key 或环境变量名）。
-   * 不存储明文 API Key（R6 / US-18.2 AC3）。
-   * 凭证存取归 task 1.7。
-   */
-  apiKeyRef: z.string().optional(),
-  /** 模型名称（如 "gpt-4o"、"claude-3-5-sonnet"） */
-  model: z.string().optional(),
-});
+export const ModelConfigSchema = z
+  .object({
+    /** OpenAI-compatible provider 名称（如 "openai"、"anthropic"） */
+    provider: z.string().optional().default('openai'),
+    /** 自定义 API base URL（OpenAI-compatible 端点） */
+    baseURL: z.string().optional(),
+    /**
+     * API Key 的引用名（Keychain key 或环境变量名）。
+     * 不存储明文 API Key（R6 / US-18.2 AC3）。
+     * 凭证存取归 task 1.7。
+     */
+    apiKeyRef: z.string().optional(),
+    /** 模型名称（如 "gpt-4o"、"claude-3-5-sonnet"） */
+    model: z.string().optional(),
+  })
+  .strict();
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 
@@ -46,10 +48,12 @@ export type ModelConfig = z.infer<typeof ModelConfigSchema>;
  * 技术选型 §9：可插拔 DeviceBackend 架构。
  * Phase 0 横评结论：Appium/WDA MVP 主 backend + MockBackend CI baseline。
  */
-export const DeviceConfigSchema = z.object({
-  /** 首选 DeviceBackend */
-  preferredBackend: z.enum(['appium', 'mobile-mcp', 'mock']).optional().default('appium'),
-});
+export const DeviceConfigSchema = z
+  .object({
+    /** 首选 DeviceBackend */
+    preferredBackend: z.enum(['appium', 'mobile-mcp', 'mock']).optional().default('appium'),
+  })
+  .strict();
 
 export type DeviceConfig = z.infer<typeof DeviceConfigSchema>;
 
@@ -58,10 +62,12 @@ export type DeviceConfig = z.infer<typeof DeviceConfigSchema>;
 /**
  * 技术选型 §5：OpenTUI+SolidJS 为目标主线，Ink 为已验证 fallback。
  */
-export const TuiConfigSchema = z.object({
-  /** TUI 框架 */
-  framework: z.enum(['opentui', 'ink']).optional().default('opentui'),
-});
+export const TuiConfigSchema = z
+  .object({
+    /** TUI 框架 */
+    framework: z.enum(['opentui', 'ink']).optional().default('opentui'),
+  })
+  .strict();
 
 export type TuiConfig = z.infer<typeof TuiConfigSchema>;
 
@@ -91,6 +97,7 @@ export const ItestAgentConfigSchema = z
     /** TUI 配置 */
     tui: TuiConfigSchema.optional(),
   })
+  .strict()
   .transform((data) => ({
     ...data,
     model: data.model ?? ModelConfigSchema.parse({}),
