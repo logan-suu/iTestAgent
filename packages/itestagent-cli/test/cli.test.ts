@@ -1,7 +1,10 @@
 import { expect, test } from 'bun:test';
+import { join } from 'node:path';
 import type { Command } from 'commander';
 import { createProgram } from '../src/cli.js';
 import { VERSION } from '../src/version.js';
+
+const cliPath = join(import.meta.dir, '..', 'src', 'cli.ts');
 
 test('createProgram returns a Command instance with correct name', () => {
   const program = createProgram();
@@ -49,4 +52,39 @@ test('no subcommand action outputs TUI placeholder (US-18.1 AC1: no login requir
   expect(program.action).toBeDefined();
   // The action should not require any login or authentication
   // (just outputs "TUI coming in task 1.2")
+});
+
+// ─── parseAsync 执行级断言（W5 补强：验证 action 输出接线）───
+
+test('--version outputs 0.0.1 via spawnSync (US-1.1 AC2)', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath, '--version'],
+  });
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString().trim()).toBe('0.0.1');
+});
+
+test('no subcommand outputs TUI placeholder via spawnSync (US-18.1 AC1)', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath],
+  });
+  const stdout = result.stdout.toString();
+  expect(stdout).toContain('TUI coming in task 1.2');
+});
+
+test('doctor subcommand outputs stub via spawnSync', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath, 'doctor'],
+  });
+  const stdout = result.stdout.toString();
+  expect(stdout).toContain('Coming in task 1.4');
+});
+
+test('config subcommand outputs merged config via spawnSync (US-18.2)', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath, 'config'],
+  });
+  const stdout = result.stdout.toString();
+  expect(stdout).toContain('schemaVersion');
+  expect(stdout).toContain('provider');
 });
