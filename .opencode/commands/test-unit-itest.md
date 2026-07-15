@@ -11,6 +11,7 @@ agent: build
 3. 如果未指定，找到当前 `in_progress` 或 `done` 的任务。
 4. 如果没有找到任务，列出所有 `ready` 状态的任务及其 test_file。
 5. 如果任务的 `test_file` 为 `null`，输出："该任务尚未配置测试文件。"
+6. 单元测试文件位于各包内 `packages/<pkg>/test/*.test.ts`（AGENTS.md §10 测试文件存放约定）。
 
 ### 第二步：运行测试
 1. 执行类型检查：`bun run typecheck`

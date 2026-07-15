@@ -19,11 +19,7 @@ agent: build
 4. **真机能力**（G5）：涉及真机能力必须已真机 spike 实测
 5. **安全合规**（G7）：无敏感数据落盘明文
 
-### 第二步：更新任务状态
-1. 将 `docs/05-planning/task-status.json` 中当前任务的 `status` 更新为 `done`。
-2. 记录 `last_updated` 时间戳。
-
-### 第三步：Git 提交
+### 第二步：Git 提交
 1. 提交信息格式遵循仓库风格：
    ```
    {type}({scope}): {description}
@@ -37,8 +33,19 @@ agent: build
 3. scope 使用组件名（如 `cli`、`tui`、`engine`、`backends`、`store`）
 4. 确保不提交 secrets、.env、token 等敏感文件（R6）
 
-### 第四步：创建 PR
+### 第三步：创建 PR
 1. 推送代码：`git push -u origin [分支名]`
-2. PR 标题：`{type}({scope}): {description} [US-X.Y]`
+2. 创建 PR，**base 分支为 `dev-1.0`**（非 `main`，AGENTS.md §3.1.1）：
+   ```bash
+   gh pr create --base dev-1.0 --title "{type}({scope}): {description} [US-X.Y]" --body "..."
+   ```
 3. PR 描述包含 AC 覆盖对照表。
-4. 输出 PR 链接。
+4. 记录 PR 编号和链接。
+
+### 第四步：更新任务状态
+1. **保持当前任务的 `status` 为 `in_progress`** — 任务在 PR 合并后才设为 `done`（由 `pr-merge-itest` 命令处理）。
+2. 在 `docs/05-planning/task-status.json` 中当前任务的 `notes` 字段记录：
+   - PR 编号和链接（从第三步获取）
+   - 简要实现摘要
+3. 记录 `last_updated` 时间戳。
+4. ⚠️ **不得在此步骤将 `status` 设为 `done`**。PR 合并由人类手动执行（AGENTS.md §9.3），合并后通过 `pr-merge-itest` 命令设为 `done`。

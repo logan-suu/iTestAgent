@@ -45,5 +45,5 @@ agent: build
 9. 逐条对齐 AC 自检。
 10. 真机能力真机 spike 实测（R3、G5），不确定项显式标注。
 11. 如涉及重大技术决策或需求变更，新增 ADR 记录到 `docs/decisions/`（R11）。
-12. 更新 `docs/05-planning/task-status.json`：`status` → `done`，更新 `last_updated`。
-13. 提示用户执行 `commit-pr-itest` 提交代码。
+12. **保持任务 `status` 为 `in_progress`**（PR 合并后才设为 `done`，由 `pr-merge-itest` 命令处理）。
+13. 提示用户执行 `commit-pr-itest` 提交代码（提交代码时保持 `in_progress`，创建 PR 等待人类合并）。

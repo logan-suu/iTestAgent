@@ -53,6 +53,7 @@
 | 安全与隐私合规红线 | `03-implementation/开发避坑与关键注意点手册.md` §10 |
 | 提交前自检清单 | `03-implementation/开发避坑与关键注意点手册.md` §16 |
 | 可行性分析 + MVP 分档 | `03-implementation/开发避坑与关键注意点手册.md` §15 |
+| 测试文件存放约定（单元/集成/数据） | `../AGENTS.md` §10 |
 | Phase 0-6+ 里程碑与时间线 | `05-planning/开发计划安排文档.md` §2~8 |
 | 当前开发任务与进度 | `05-planning/task-status.json` |
 
@@ -126,6 +127,7 @@
 3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R11
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
 5. **完成后**：执行 G1-G7 质量门禁，更新 `05-planning/task-status.json`
+6. **写测试时**：单元测试放 `packages/<pkg>/test/`，集成测试放 `tests/integration/`（`../AGENTS.md` §10）
 
 ---
 

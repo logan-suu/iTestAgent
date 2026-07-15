@@ -164,6 +164,11 @@ LLM          OpenAI-compatible provider（可扩展）
 | `test` | 测试 | `test/phase1-unit-tests` |
 | `chore` | 构建/工具/依赖 | `chore/add-ci` |
 
+分支策略：
+- `main`：稳定发布分支，仅从 `dev-*` 合并而来，不直接接收功能 PR
+- `dev-1.0`：开发集成分支，所有功能/修复 PR 的合并目标
+- `{type}/{description}`：功能分支，PR base 为 `dev-1.0`（非 `main`）
+
 ### 3.1.2 Commit Message 格式
 
 ```
@@ -293,8 +298,12 @@ pending -> ready -> in_progress -> done
 |---|---|---|
 | `pending` | 任务已定义，依赖未满足 | 人类 |
 | `ready` | 依赖已满足，等待执行 | Agent 自动（级联） |
-| `in_progress` | Agent 正在执行 | Agent 自动 |
-| `done` | 任务完成 | Agent 自动 |
+| `in_progress` | 代码开发中，或已提交 PR 等待人类合并 | Agent 自动 |
+| `done` | PR 已合并到 dev-1.0 | Agent 自动（PR 合并后，经 `pr-merge-itest`） |
+
+**状态转换规则**：
+- `in_progress` → `done`：仅当 PR 已被人类手动合并到 dev-1.0 后，Agent 通过 `pr-merge-itest` 命令设为 `done`（§9.3：Agent 不得自动合并 PR）。
+- `commit-pr-itest` 命令提交代码时**保持 `in_progress`**，仅记录 PR 链接到 `notes`，不得设为 `done`。
 
 **级联更新**：Agent 启动或任务完成时，遍历所有 `pending` 任务，若 `dependencies` 全部为 `done`，则翻转为 `ready`。此操作为幂等操作。
 
@@ -339,7 +348,7 @@ pending -> ready -> in_progress -> done
 | 使用 qa-* 命名 | 规范违反（R9） | 统一 itestagent-* |
 | 引入 Effect-TS/事件溯源 | 过度设计（R10） | AI SDK + MCP 即可 |
 | 跳过任务状态更新 | 进度丢失 | task-status.json 必须同步 |
-| **Agent 自动合并 PR** | 禁止 | 合并必须由人类手动执行 |
+| **Agent 自动合并 PR** | 禁止 | 合并必须由人类手动执行，PR 目标分支为 `dev-1.0`（非 `main`） |
 
 ## 10. 在 OpenCode 中的工作约定
 
@@ -376,9 +385,11 @@ packages/
     build-fastlane/               (BuildDriver 签名复杂时启用)
     analyzer-xcodequery/          (ProjectAnalyzerBackend optional future，本机不可用)
     analyzer-xcodeproj/           (ProjectAnalyzerBackend 成熟方案)
-schemas/ (project-profile, test-plan, result, artifact-index, flow)
+schemas/ (project-profile, test-plan, result, artifact-index, flow, config)
 fixtures/ (device-responses, mobile-mcp, appium, xctrace, xcresult)
 mocks/ (mock backends — 约定：mock 实现放在 packages/itestagent-backends/)
+tests/
+  integration/                    (跨包集成测试 phase{N}-*.test.ts，Phase 验收级)
 docs/01-spec/                  (规格与需求)
 docs/02-architecture/          (架构设计与技术选型)
 docs/03-implementation/        (避坑手册)
@@ -387,6 +398,14 @@ docs/05-planning/              (开发计划与任务追踪)
 docs/decisions/                (ADR 架构决策记录)
 AGENTS.md
 ```
+
+测试文件存放约定：
+- 单元测试：各包内 `packages/<pkg>/test/*.test.ts`（测试本包内部逻辑，Bun 自动发现）
+- 集成测试：`tests/integration/phase{N}-*.test.ts`（跨包联调，Phase 验收级）
+- 测试数据：`fixtures/`（跨包共享）
+- Mock backends：`packages/itestagent-backends/`（mock 实现）
+- 各包 `src/` 目录只放生产代码，`test/` 目录只放测试代码
+- task-status.json 中 `test_file` 字段指向具体测试文件路径
 
 ## 11. 常用命令（用户侧行为，实现须对齐）
 

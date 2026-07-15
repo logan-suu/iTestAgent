@@ -29,11 +29,13 @@ agent: build
 1. Explore：查阅文档并引用原文
 2. Plan：输出实现计划，等用户确认
 3. Code + Check：编写验收/集成测试用例，TDD 增量实现
+   - 集成测试文件放在 `tests/integration/phase{N}-*.test.ts`（AGENTS.md §10 测试文件存放约定）
+   - 在 task-status.json 的 `test_file` 字段记录测试文件路径
 4. **累积回归检查**：
    - 运行 `bun test` 验证该阶段所有单元测试 **全部通过**
    - 同时运行 `bun run typecheck && bun run lint`
    - 确保新阶段不会破坏已交付阶段
-5. 更新任务状态为 `done`，阶段 `status` → `done`
+5. **保持任务 `status` 为 `in_progress`**（PR 合并后才设为 `done`，由 `pr-merge-itest` 命令处理）
 
 ### ⚠️ 质量门禁（G1-G7，不可跳过）
 - G1 规格一致、G2 契约校验、G3 静态检查、G4 测试通过 **全部满足**
@@ -41,5 +43,5 @@ agent: build
 - G6 证据留档、G7 安全合规
 
 ### 第四步：完成后
-- 更新 `docs/05-planning/task-status.json`：阶段 `status` → `done`，`current_phase` 推进到下一阶段
+- PR 合并后（经 `pr-merge-itest`），更新 `docs/05-planning/task-status.json`：阶段 `status` → `done`，`current_phase` 推进到下一阶段
 - 询问用户是否执行 `next-task-itest` 开始下一阶段

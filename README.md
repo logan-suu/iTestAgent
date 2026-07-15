@@ -150,6 +150,11 @@ itestagent
 iTestAgent/
 ├── AGENTS.md              # 项目宪法（版本/红线/Git 规范/EPCC-V/Agent 自检清单）
 ├── .opencode/commands/    # OpenCode 自定义命令（14 条）
+├── packages/              # 工作区包（每个包含 src/ 生产代码 + test/ 单元测试）
+├── schemas/               # JSON Schema（config/project-profile/test-plan/result/artifact-index/flow）
+├── fixtures/              # 测试数据（device-responses/mobile-mcp/appium/xctrace/xcresult）
+├── tests/
+│   └── integration/       # 跨包集成测试（Phase 验收级）
 └── docs/
     ├── INDEX.md
     ├── 01-spec/            # 规格与需求
