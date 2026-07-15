@@ -29,6 +29,8 @@ agent: build
 1. Explore：查阅文档并引用原文
 2. Plan：输出实现计划，等用户确认
 3. Code + Check：编写验收/集成测试用例，TDD 增量实现
+   - 集成测试文件放在 `tests/integration/phase{N}-*.test.ts`（AGENTS.md §10 测试文件存放约定）
+   - 在 task-status.json 的 `test_file` 字段记录测试文件路径
 4. **累积回归检查**：
    - 运行 `bun test` 验证该阶段所有单元测试 **全部通过**
    - 同时运行 `bun run typecheck && bun run lint`

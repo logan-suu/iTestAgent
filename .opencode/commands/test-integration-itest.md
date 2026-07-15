@@ -11,9 +11,15 @@ agent: build
    bun run build
    ```
    如果编译失败，输出错误，建议先修复编译问题。
-2. 运行所有单元测试：
+2. 运行所有测试（单元 + 集成）：
    ```bash
    bun test
+   ```
+   - 单元测试位于各包 `packages/<pkg>/test/*.test.ts`
+   - 集成测试位于根 `tests/integration/*.test.ts`（AGENTS.md §10 测试文件存放约定）
+3. 如需仅运行集成测试：
+   ```bash
+   bun test tests/integration/
    ```
 
 ### 第二步：质量与门禁检查
