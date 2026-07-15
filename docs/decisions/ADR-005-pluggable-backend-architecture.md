@@ -1,13 +1,13 @@
 # ADR-005: 采用可插拔 Backend 架构，各层多候选横评而非绑定单一工具
 
-**状态**: 已接受
+**状态**: 已接受（Refined by: ADR-006, ADR-007, ADR-008, ADR-009）
 **日期**: 2026-07-13
 **决策人**: AI Agent（基于调研产出与架构分析）
-**关联**: ADR-001~004、调研文档 00-最终架构设计
+**关联**: ADR-001~004；横评结论见 ADR-006~009
 
 ## 背景
 
-iTestAgent 最初的技术选型在各层绑定了具体工具：真机执行绑定 Appium/WDA、TUI 绑定 OpenTUI+Solid、存储绑定 Drizzle、性能采集预设「自研 xctrace 薄封装」。2026-07-12 完成独立调研后（见 `/Users/logansu/Desktop/new docs/` 中 10 份分析文档），发现：
+iTestAgent 最初的技术选型在各层绑定了具体工具：真机执行绑定 Appium/WDA、TUI 绑定 OpenTUI+Solid、存储绑定 Drizzle、性能采集预设「自研 xctrace 薄封装」。2026-07-12 完成独立调研后，发现：
 
 1. **真机执行层**：`mobile-mcp`、`@blitzdev/iphone-mcp`、`appium-mcp`、`iphone-use` 等多个候选均可作为底层执行器，在 Phase 0 应做多路横评而非预设 Appium/WDA 为唯一路径。
 2. **其他各层同样存在多候选**：TUI（OpenTUI/Rezi/Ink）、Agent 编排（AI SDK/Mastra/LangGraph）、存储（Drizzle/Kysely）、项目分析（XcodeQuery/XcodeProj）、性能采集（XcodeTraceMCP core/instrumentsmcp/raw xcrun）。
@@ -89,5 +89,4 @@ engine 不直接拼底层命令，只调用内部 backend 接口
 - `docs/02-architecture/技术选型文档.md` — 各层候选排序
 - `docs/05-planning/开发计划安排文档.md` — Phase 0 横评计划
 - `docs/05-planning/task-status.json` — 任务状态
-- `/Users/logansu/Desktop/new docs/` — 10 份调研产出
-- `docs/decisions/ADR-001`~`004` — 前置决策
+- `docs/decisions/ADR-001`~`009` — 全部决策（ADR-006~009 为各层横评结论）

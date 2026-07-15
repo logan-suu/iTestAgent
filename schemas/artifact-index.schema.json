@@ -29,7 +29,7 @@
         },
         "type": {
           "type": "string",
-          "enum": ["screenshot", "video", "uitree", "log", "crashlog", "trace", "xcresult", "json", "text"]
+          "enum": ["screenshot", "video", "uitree", "log", "syslog", "crashlog", "trace", "xcresult", "json", "text"]
         },
         "path": {
           "type": "string",

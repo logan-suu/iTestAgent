@@ -59,7 +59,7 @@
 | **技术选型决策** | `docs/02-architecture/技术选型文档.md` | 对应章节 |
 | **查阅开发计划/任务** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线 |
 | | `docs/05-planning/task-status.json` | 当前任务状态、依赖关系 |
-| **查阅重大决策** | `docs/decisions/` | ADR-001~005 |
+| **查阅重大决策** | `docs/decisions/` | ADR-001~009 |
 
 ### 0.3 Agent 文档读取规范
 

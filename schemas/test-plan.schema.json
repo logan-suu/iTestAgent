@@ -4,7 +4,7 @@
   "title": "TestPlan",
   "description": "iTestAgent TestPlan — single source of truth for a test run. Source: 架构设计文档 §6.2 + 数据流全链路 §6. Stored at ~/.itestagent/runs/<run_id>/plan.yaml (YAML-encoded, schema validates the parsed JSON).",
   "type": "object",
-  "required": ["schemaVersion", "runId", "projectProfileRef", "deviceSelector", "backendPreference", "execution", "artifacts", "performance", "safety"],
+  "required": ["schemaVersion", "runId", "projectProfileRef", "target", "device", "appSource", "backendPreference", "execution", "artifacts", "performance", "safety"],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
@@ -19,8 +19,17 @@
       "type": "string",
       "description": "Reference path to the source Project Profile JSON."
     },
-    "deviceSelector": {
-      "$ref": "#/$defs/DeviceSelector"
+    "target": {
+      "$ref": "#/$defs/Target",
+      "description": "Test target (e.g. current_workspace)."
+    },
+    "device": {
+      "$ref": "#/$defs/DeviceSelector",
+      "description": "Device selector (renamed from deviceSelector to align with spec US-5.1 AC2)."
+    },
+    "appSource": {
+      "$ref": "#/$defs/AppSource",
+      "description": "App source strategy (auto_from_workspace / user_specified / existing_artifact)."
     },
     "backendPreference": {
       "$ref": "#/$defs/BackendPreference"
@@ -203,6 +212,30 @@
         }
       },
       "required": ["defaultMode", "highRiskActions"]
+    },
+    "Target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["current_workspace", "user_specified", "existing_artifact"],
+          "description": "Test target source."
+        }
+      },
+      "required": ["type"]
+    },
+    "AppSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["auto_from_workspace", "user_specified", "existing_artifact"],
+          "description": "App build source strategy."
+        }
+      },
+      "required": ["strategy"]
     }
   }
 }

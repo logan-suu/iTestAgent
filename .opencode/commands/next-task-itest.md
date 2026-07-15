@@ -32,7 +32,7 @@ agent: build
 
 ### 第二步：查阅文档（EPCC-V: Explore）
 1. 读取任务 `documents_required` 中的文档。
-2. 读取 AGENTS.md 中相关红线 R1-R10、命名约定（itestagent-*）、技术栈约束。
+2. 读取 AGENTS.md 中相关红线 R1-R11、命名约定（itestagent-*）、技术栈约束。
 3. 在回复中**逐字粘贴**相关 AC/规则原文。
 
 ### 第三步：出计划等确认（EPCC-V: Plan）

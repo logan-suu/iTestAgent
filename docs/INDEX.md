@@ -1,7 +1,7 @@
 # iTestAgent 项目文档索引
 
 > 本文档供 AI Agent（OpenCode 桌面版）及人类开发者快速定位项目文档。
-> 所有规格文档位于 `docs/` 目录下，按类别分 5 个子目录。冲突时以 `AGENTS.md` 为最高优先级。
+> 所有规格文档位于 `docs/` 目录下，按类别分 6 个子目录。冲突时以 `AGENTS.md` 为最高优先级。
 > **Agent 使用指引**：启动时读取本文件建立全局认知；执行任务前根据 `AGENTS.md` §1 按需读取具体文档章节。
 
 ---
@@ -18,7 +18,7 @@
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7、反模式 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~26-32 周） |
 | **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 57 个任务、依赖关系、当前进度 |
-| **架构决策** | `decisions/` | `ADR-001~004` | 重大技术决策与需求变更记录 |
+| **架构决策** | `decisions/` | `ADR-001~009` | 重大技术决策与需求变更记录 |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R11、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
 
 ---
@@ -94,7 +94,7 @@
 | **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-runner** | 本机执行器 / backend 调度 / 产物采集 | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-engine** | Agent 编排循环 + 权限引擎（runner 为 engine 内部运行角色，非独立包） | `02-architecture/架构设计文档.md` §3 |
 | **DeviceBackend** | 真机操作统一接口（listDevices/launchApp/tap/截图/UI tree） | `02-architecture/架构设计文档.md` §5.1 |
 | **itestagent-store** | SQLite+Drizzle + 文件系统 + 报告 | `02-architecture/架构设计文档.md` §3 |
 
@@ -123,7 +123,7 @@
    - 读取 `05-planning/task-status.json` 定位当前任务
    - 根据任务 `documents_required` 字段读取对应文档章节
    - 参考本索引"按模块快速定位"表补充上下文
-3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R10
+3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R11
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
 5. **完成后**：执行 G1-G7 质量门禁，更新 `05-planning/task-status.json`
 

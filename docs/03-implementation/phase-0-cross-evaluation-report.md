@@ -73,7 +73,7 @@ Phase 0 对 iTestAgent 各层 backend 进行了 5 轮横评（T0.1~T0.5），覆
 |---|---|---|
 | 用途 | T0.2 主横评（Appium/WDA） | T0.2b 补充（mobile-mcp + Appium/WDA 免费账号） |
 | 设备 | iPhone 12 / iOS 16.4 | iPhone 14 Plus / iOS 18.2.1 |
-| UDID | 00008101-... | 00008110-0012690901C1401E |
+| UDID | 00008101-... | 00008110-...（截断） |
 | Xcode | — | 26.5 (17F42) |
 | 开发者账号 | 企业（付费） | 个人（免费） |
 | Appium | 3.5.2 + xcuitest 11.17.3 | 3.5.2 + xcuitest 11.17.6 |

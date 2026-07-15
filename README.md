@@ -49,12 +49,12 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 
 **可插拔 Backend 架构**：iTestAgent 定义稳定上层接口和产物模型，底层工具可替换。
 - Device: `Appium/WDA`（MVP 主 backend）、`mobile-mcp`（强候选，需付费账号）、`iphone-use`（视觉 fallback）
-- Performance: `XcodeTraceMCP core`（MVP 第一候选）、`instrumentsmcp`、`raw xcrun`（fallback）
+- Performance: `@xctrace-analyzer/core`（MVP 默认）+ 自研 hitches parser + `raw xcrun`（fallback）
 - TUI: `OpenTUI`（目标主线）、`Ink`（已验证 fallback）
 
 ## 快速开始
 
-> ⚠️ iTestAgent 当前处于 **Phase 0：立项与多 Backend 横评** 阶段，尚未发布可安装版本。
+> iTestAgent 当前处于 **Phase 1：骨架与环境** 阶段，尚未发布可安装版本。
 
 ### 前置依赖
 
@@ -126,7 +126,7 @@ itestagent
 
 **直接采用**：OpenTUI / Vercel AI SDK / MCP TS SDK / Drizzle / Appium / XCUITest Driver / WebDriverAgent / XcodeProj / swift-syntax / sourcekit-lsp / xcresultparser / xcparse / xcbeautify / fastlane
 
-**借鉴不依赖**：XcodeBuildMCP / XcodeTraceMCP / instruments-mcp-server / instruments-analyzer / Periphery / Maestro flow 语义
+**借鉴不依赖**：XcodeBuildMCP（参考项目）/ XcodeTraceMCP（参考项目，npm 包为 `@xctrace-analyzer/core`）/ instruments-mcp-server（录制参考，非可信分析）/ instruments-analyzer / Periphery / Maestro flow 语义
 
 **必须自研**：Project Profile 语义模型、候选链路推断、TestPlan 编译、Agent 编排循环+权限引擎、iTestAgent Flow YAML、失败归因、本地 baseline 策略、TUI 交互体验
 
@@ -134,8 +134,8 @@ itestagent
 
 | 阶段 | 状态 | 说明 |
 |---|---|---|
-| Phase 0 | 🔄 进行中 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
-| Phase 1 | ⬜ 待开始 | 骨架与环境（TUI/Server/doctor/devices） |
+| Phase 0 | ✅ 完成 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
+| Phase 1 | 🔄 ready | 骨架与环境（TUI/Server/doctor/devices） |
 | Phase 2 | ⬜ 待开始 | 项目分析与 TestPlan |
 | Phase 3 | ⬜ 待开始 | 真机执行核心（双路径 + Flow） |
 | Phase 4 | ⬜ 待开始 | 证据 / 性能 / 报告 |

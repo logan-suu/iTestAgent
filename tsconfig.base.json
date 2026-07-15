@@ -18,5 +18,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "noEmit": true
-  }
+  },
+  "include": ["packages/**/*.ts"],
+  "exclude": ["node_modules", "dist", "build", "coverage", ".omo", ".codegraph", "docs", "fixtures", "mocks"]
 }
