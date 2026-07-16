@@ -123,6 +123,7 @@ R8 未经人确认的实现计划不得进入编码
 R9 组件命名统一 itestagent-*，禁止使用 qa-*
 R10 不引入 Effect-TS / SQLite 事件溯源等重型编排；不 fork/不 import OpenCode 私有核心
 R11 重大技术决策与需求变更必须记录到 docs/decisions/（ADR 格式：背景、方案对比、决策、后果），口头决策无效
+R12 所有对外可见的版本控制内容必须使用英文；项目文档（docs/ 目录）除外（§3.1.4 详述）
 ```
 
 ## 3. 技术栈（固定，不得随意替换）
@@ -190,6 +191,26 @@ Agent 执行 `git commit` 前必须完成：
 3. 运行 `bun test` — 全部通过
 4. 更新 `docs/05-planning/task-status.json` 中任务状态
 5. 确保无敏感数据提交（R6）
+
+### 3.1.4 外部可见内容的语言规范（R12）
+
+```
+R12 所有对外可见的版本控制内容必须使用英文。项目文档（docs/ 目录）除外。
+```
+
+适用范围（必须用英文）：
+
+| 内容类型 | 示例 | 说明 |
+|---|---|---|
+| **Git commit message** | title + body + footer | 含 `Related: US-X.Y` 可保留 US 编号 |
+| **Git 分支名** | `feat/cli-entry-point` | 沿用 `{type}/{description}` 英文格式 |
+| **PR 标题** | `feat(contracts): add harness core contracts [US-1.3]` | 英文描述 + US 编号 |
+| **PR 描述/body** | AC coverage table, implementation summary | 完整英文 |
+| **PR/Issue 评论** | review comments, replies, resolve notes | 完整英文 |
+| **代码注释** | JSDoc, inline comments, TODO/FIXME | 完整英文 |
+| **项目文档** | `docs/` 目录下所有 `.md` 文件 | **豁免：沿用中文** |
+
+违反此规则的 commit/PR/评论必须修正后才能合并。
 
 ---
 
@@ -359,6 +380,7 @@ pending -> ready -> in_progress -> done
 | 引入 Effect-TS/事件溯源 | 过度设计（R10） | AI SDK + MCP 即可 |
 | 跳过任务状态更新 | 进度丢失 | task-status.json 必须同步 |
 | **Agent 自动合并 PR** | 禁止 | 合并必须由人类手动执行，PR 目标分支为 `dev-1.0`（非 `main`） |
+| **GitHub 可见内容使用中文** | 禁止（R12） | commit/PR/评论/代码注释必须英文，docs/ 豁免 |
 
 ## 10. 在 OpenCode 中的工作约定
 

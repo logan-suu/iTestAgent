@@ -20,12 +20,12 @@ agent: build
 5. **安全合规**（G7）：无敏感数据落盘明文
 
 ### 第二步：Git 提交
-1. 提交信息格式遵循仓库风格：
+1. 提交信息格式遵循仓库风格（**R12：全部用英文，AGENTS.md §3.1.4**）：
    ```
    {type}({scope}): {description}
 
-   - 具体变更1
-   - 具体变更2
+   - change 1 (in English)
+   - change 2 (in English)
 
    Related: US-X.Y
    ```
@@ -39,7 +39,8 @@ agent: build
    ```bash
    gh pr create --base dev-1.0 --title "{type}({scope}): {description} [US-X.Y]" --body "..."
    ```
-3. PR 描述包含 AC 覆盖对照表。
+   **R12 约束**：PR 标题和 body 必须全部用英文（`[US-X.Y]` 编号可保留）。
+3. PR 描述（英文）包含 AC 覆盖对照表。
 4. 记录 PR 编号和链接。
 
 ### 第四步：更新任务状态

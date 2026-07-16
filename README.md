@@ -195,6 +195,7 @@ R8 未经人确认的实现计划不得进入编码
 R9 组件命名统一 itestagent-*，禁止使用 qa-*
 R10 不引入 Effect-TS / SQLite 事件溯源等重型编排；不 fork/import OpenCode 私有核心
 R11 重大技术决策与需求变更必须记录到 docs/decisions/（ADR 格式），口头决策无效
+R12 所有对外可见的版本控制内容必须使用英文；项目文档（docs/ 目录）除外
 ```
 
 ## License

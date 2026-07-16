@@ -20,7 +20,8 @@ agent: build
    - R5：是否静默降级/臆造指标？
    - R6：是否有敏感数据落盘明文？
    - R9：命名是否统一 `itestagent-*`？
-   - R10：是否引入了 Effect-TS / SQLite 事件溯源？
+    - R10：是否引入了 Effect-TS / SQLite 事件溯源？
+    - R12：commit/PR/评论/代码注释是否全部使用英文（AGENTS.md §3.1.4）？
 2. **架构分层**：上层是否反向依赖了下层？engine 是否直接拼了命令（应经 backend 接口）？
 3. **复用策略**：是否复用了既定库（AI SDK/MCP/Appium/Drizzle 等）？
 4. **EPCC-V**：是否遵循了 Plan→Code→Check→Verify？
@@ -62,14 +63,14 @@ agent: build
    - 技术选型文档
 
 3. **处理合理的评论**：
-   - 按评论建议修复代码
-   - 运行 `bun run typecheck && bun run lint && bun test` 验证
-   - 提交修复并推送
-   - **Resolve conversation**（标记为已解决）：
-     ```bash
-     gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
-     ```
-   - 回复评论说明修复内容
+    - 按评论建议修复代码
+    - 运行 `bun run typecheck && bun run lint && bun test` 验证
+    - 提交修复并推送
+    - **Resolve conversation**（标记为已解决）：
+      ```bash
+      gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
+      ```
+    - 回复评论说明修复内容（**R12：回复必须用英文**）
 
 4. **处理不合理的评论**：
    - 选择合适的 reason hide comment：
