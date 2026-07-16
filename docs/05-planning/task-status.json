@@ -264,9 +264,9 @@
           "dependencies": [
             "1.1",
             "1.2",
-            "1.5",
             "1.3",
             "1.4",
+            "1.5",
             "1.6",
             "1.7",
             "1.8",
@@ -364,8 +364,8 @@
             "docs/02-architecture/架构设计文档.md"
           ],
           "dependencies": [
-            "2.5",
-            "2.3"
+            "2.3",
+            "2.5"
           ],
           "test_file": null,
           "notes": "自然语言、TUI 操作编译为统一 TestPlan。可审计、可复现、可重跑。"
@@ -379,9 +379,9 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
-            "2.6",
             "1.2",
-            "1.4"
+            "1.4",
+            "2.6"
           ],
           "test_file": null,
           "notes": "TUI 展示 TestPlan 并让用户确认/修改。awaiting_confirm 状态接入 RunStateMachine（ADR-010）。"
@@ -438,8 +438,8 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "3.1",
-            "1.6"
+            "1.6",
+            "3.1"
           ],
           "test_file": null,
           "notes": "签名失败给出修复建议，不静默失败。"
@@ -470,8 +470,8 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "3.3a",
-            "1.6"
+            "1.6",
+            "3.3a"
           ],
           "test_file": null,
           "notes": "基于 mobile-mcp 的 DeviceBackend 实现。设备发现/launch/UI tree/截图/tap/swipe/type。Phase 0 横评后若 mobile-mcp 通过则作为 MVP 主 backend。"
@@ -485,8 +485,8 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "3.3a",
-            "1.6"
+            "1.6",
+            "3.3a"
           ],
           "test_file": null,
           "notes": "基于 Appium/WDA 的 DeviceBackend 实现。长期标准 fallback。若 mobile-mcp 被阻断则作为 MVP 主线。"
@@ -501,9 +501,9 @@
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "3.3a",
             "1.3",
-            "1.4"
+            "1.4",
+            "3.3a"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/generateText/tool.execute/stopWhen/prepareStep/abortSignal）。默认实现：streamTurn/executeToolCall/abort。不直接执行设备命令。测试：无 tool call 后 idle、有 tool call 执行续跑、provider error→typed error event、abort 停止 stream/tool（ADR-010 §11）。"
@@ -533,10 +533,10 @@
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "3.4a",
-            "3.4b",
+            "1.3",
             "3.3a",
-            "1.3"
+            "3.4a",
+            "3.4b"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。ToolDispatcher 职责：ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→RunStep/Artifact→AgentEvent。测试：healthcheck/fallback 顺序正确、语义变化产生 permission request、output 通过 Zod、oversized/unknown output 显式失败或截断（ADR-010 §11）。"
@@ -583,9 +583,9 @@
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": [
+            "3.2",
             "3.3a",
-            "3.4c",
-            "3.2"
+            "3.4c"
           ],
           "test_file": null,
           "notes": "无测试项目默认路径。点击/输入/滑动/截图/UI tree。探索过程记录为 run steps。"
@@ -614,8 +614,8 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
-            "3.7",
-            "1.9"
+            "1.9",
+            "3.7"
           ],
           "test_file": null,
           "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。Keychain 接入依赖 task 1.9。"
@@ -858,8 +858,8 @@
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
           "dependencies": [
-            "4.8",
-            "3.8"
+            "3.8",
+            "4.8"
           ],
           "test_file": null,
           "notes": "敏感数据不落盘明文。默认不写项目目录。"
