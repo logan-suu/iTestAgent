@@ -1,9 +1,9 @@
 # ADR-008: TuiShell 选型——OpenTUI+SolidJS 目标主线 + Ink 已验证 fallback
 
-**状态**: 已接受
-**日期**: 2026-07-15
+**状态**: 已接受，已实施
+**日期**: 2026-07-15（决策）/ 2026-07-16（实施）
 **决策人**: AI Agent（基于 T0.4 横评实测）
-**关联**: ADR-005、T0.4 横评文档
+**关联**: ADR-005、T0.4 横评文档、Phase 1 T1.2
 
 ## 背景
 
@@ -62,33 +62,46 @@ Rejected = Rezi（当前 npm registry 下不存在为 TUI 框架）
 
 ## 实施
 
-### Phase 1 T1.2 TuiShell 实现
+### Phase 1 T1.2 TuiShell 实现（✅ 已完成，2026-07-16）
 
 ```
-TuiShellViewModel / TuiShellEvent / reducer: framework-independent
-OpenTUIRenderer: 目标 default renderer（需 OpenCode-style build）
-InkRenderer: fallback / CI-friendly minimum shell
+TuiShellViewModel / TuiShellEvent / reducer: framework-independent ✅
+OpenTUIRenderer: 默认 renderer ✅（OpenTUI 0.4.3 + SolidJS 1.9，位于 src/renderers/opentui-renderer.tsx）
+InkRenderer: CI-friendly fallback（未实现，保留为后续应急方案）
 ```
 
-### OpenTUI 进入 Phase 1 前仍需补齐
+实施细节：
+- `tui-shell.ts`：纯 TypeScript State/Event/reducer，无框架依赖
+- `renderer.ts`：`TuiRenderer` 抽象接口（`start(state, dispatch) => Promise<void>`）
+- `opentui-renderer.tsx`：SolidJS App 组件，集成 `tuiShellReducer` 驱动状态
+- `entry.ts`：`startTui()` 入口，非 TTY 环境优雅降级
+- `tsconfig.base.json`：`jsxImportSource: "@opentui/solid"`
 
-1. 真实交互式 shell（T0.4 只到了 import/build/compile，未到真实 TTY 交互）
-2. 长日志和 scrollback
-3. Markdown 渲染
-4. 工具调用卡片
-5. 输入行 / keymap / command palette
+### OpenTUI 交互式 shell 验证状态
+
+- ✅ 真实交互式 shell（OpenTUI 0.4.3 在真实终端中已验证可交互）
+- ⏳ 长日志和 scrollback（Phase 3-4 随 agent 交互逐步实现）
+- ⏳ Markdown 渲染（Phase 3 随工具调用卡片实现）
+- ⏳ 工具调用卡片（Phase 3 T3.4c ToolDispatcher 实现）
+- ✅ 输入行（Input 组件已验证）
+
+### Ink fallback 状态
+
+Ink 16/16 通过 T0.4 横评，但 Phase 1 T1.2 未实现 InkRenderer。
+当前 `TuiRenderer` 接口设计确保后续无需改动 `tui-shell.ts` 即可添加 Ink 实现。
+添加路径：创建 `src/renderers/ink-renderer.tsx` 实现 `TuiRenderer`，`entry.ts` 替换一行即可。
 
 ## 后果
 
 ### 正面
-- M0 出口标准已由 Ink 满足，不阻塞 Phase 1
+- ✅ OpenTUI+SolidJS 已在 Phase 1 实现为默认 TUI renderer（PR #2）
 - OpenTUI + SolidJS 对齐 OpenCode，长期可复用 TUI 经验
-- framework-independent reducer 设计使 renderer 可无痛切换
+- framework-independent reducer 设计已在实际实现中验证（TuiShellState/TuiShellEvent/tuiShellReducer 纯函数不依赖任何渲染器）
+- `TuiRenderer` 接口使 renderer 可无痛切换（后续 Ink/其他 renderer 只需实现接口）
 
 ### 负面
-- 需维护两套 renderer（OpenTUI + Ink）
-- OpenTUI 交互式 shell 仍未验证（Phase 1 需补齐）
-- Rezi 排除后候选减少，但 Ink fallback 降低了风险
+- OpenTUI 0.4.3 的 `onSubmit` 类型定义存在交并兼容问题，当前通过 `onInput` 绕过
+- 长会话 scrollback、Markdown 渲染、工具调用卡片等高级 TUI 能力待 Phase 3-4 逐步实现
 
 ## 参考
 

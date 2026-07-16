@@ -17,9 +17,11 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/solid",
     "noEmit": true
   },
-  "include": ["packages/**/*.ts"],
+  "include": ["packages/**/*.ts", "packages/**/*.tsx"],
   "exclude": [
     "node_modules",
     "dist",
