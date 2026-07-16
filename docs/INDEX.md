@@ -18,7 +18,7 @@
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7、反模式 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~26-32 周） |
 | **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 57 个任务、依赖关系、当前进度 |
-| **架构决策** | `decisions/` | `ADR-001~009` | 重大技术决策与需求变更记录 |
+| **架构决策** | `decisions/` | `ADR-001~010` | 重大技术决策与需求变更记录 |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R11、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
 
 ---
@@ -32,6 +32,9 @@
 | 第一版明确不做的事 | `01-spec/全量用户故事与验收标准规格书.md` 第一版明确不做 |
 | 架构分层（CLI/TUI/Server/Engine/DeviceBackend/Store） | `02-architecture/架构设计文档.md` §2~3 |
 | Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §4 |
+| Harness Runtime 边界（自研/复用/禁止） | `decisions/ADR-010-agent-harness-runtime-boundary.md` |
+| Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
+| 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
 | Run 状态机（created → done） | `02-architecture/架构设计文档.md` §7 |
 | 必须支持的本地能力清单 | `02-architecture/架构设计文档.md` §7 |
@@ -92,10 +95,9 @@
 |---|---|---|
 | **itestagent-cli** | 轻量命令入口（doctor/devices/config/version） | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI/Ink） | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-server** | 本地运行时服务 / 事件流（SSE）/ session 管理 | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / TestPlan 编译 / 失败归因 | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / RunStateMachine / ToolDispatcher / ContextBuilder / TestPlan 编译 / 失败归因（ADR-010；runner 为内部运行角色，非独立包） | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-server** | 本地运行时服务 / SessionManager / SSE / subprocess controller | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-engine** | Agent 编排循环 + 权限引擎（runner 为 engine 内部运行角色，非独立包） | `02-architecture/架构设计文档.md` §3 |
 | **DeviceBackend** | 真机操作统一接口（listDevices/launchApp/tap/截图/UI tree） | `02-architecture/架构设计文档.md` §5.1 |
 | **itestagent-store** | SQLite+Drizzle + 文件系统 + 报告 | `02-architecture/架构设计文档.md` §3 |
 

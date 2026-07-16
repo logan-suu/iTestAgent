@@ -39,8 +39,9 @@
 | | `docs/02-architecture/技术选型文档.md` | §5 CLI 与 TUI 选型 |
 | **实现 TUI 交互** | `docs/02-architecture/架构设计文档.md` | §2~3 交互层 |
 | | `docs/02-architecture/技术选型文档.md` | §5 OpenTUI/Ink |
-| **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §4 核心流程 |
+| **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §4 核心流程、§3 组件职责 |
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
+| | `docs/decisions/ADR-010-agent-harness-runtime-boundary.md` | Harness 边界：自研/复用/禁止 |
 | **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
 | **实现 Project Analyzer** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer |
@@ -198,12 +199,21 @@ Agent 执行 `git commit` 前必须完成：
 
 ```
 交互层  itestagent-cli / itestagent-tui
-编排层  itestagent-server / itestagent-engine / itestagent-project-analyzer
+编排层  itestagent-server(SessionManager/SSE Hub/subprocess controller) / itestagent-engine(AgentRuntime/PermissionEngine/RunStateMachine/ToolDispatcher/BackendSelector/ContextBuilder) / itestagent-project-analyzer
 语义层  ProjectProfile / TestPlan / RunStep / Flow / ArtifactRef
 Backend接口层  DeviceBackend / PerformanceBackend / BuildDriver / ProjectAnalyzerBackend / StoreDriver
 Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQuery / Drizzle / Kysely
 工具层  Xcode / Appium / WDA / xctrace / devicectl / iPhone 真机
 存储层  itestagent-store（SQLite + 文件系统 + 报告）
+
+Harness 边界（ADR-010）：
+- AgentRuntime 包装 AI SDK，负责 stream/event/abort，不直接执行设备命令
+- PermissionEngine 是高风险操作唯一入口
+- RunStateMachine 与 AgentRuntime 分离，不执行工具
+- 同设备串行，不同设备并行
+- abort 贯穿 runtime/tool/backend/child process，复用 AbortSignal/Bun.spawn
+- 复用 AI SDK streamText/generateText/stopWhen/prepareStep、MCP TS SDK、UIMessage parts
+- 禁止 fork OpenCode core、Effect-TS 全局编排、SQLite 事件溯源
 ```
 
 命名约定：
