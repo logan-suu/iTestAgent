@@ -143,8 +143,8 @@
           "dependencies": [
             "0.6"
           ],
-          "test_file": "packages/itestagent-tui/test/tui-shell.test.ts, packages/itestagent-tui/test/ink-renderer.test.ts",
-          "notes": "代码已提交，PR #2 已创建（https://github.com/logan-suu/iTestAgent/pull/2），等待人类合并后设为 done。TuiShell 骨架：tuiShellReducer 状态机(5 event types) + Ink 5.x renderer(StatefulApp/InputBar/MessageList/StatusBar/QuitHint) + startTui() 入口(TTY check)。CLI 默认 action 接入 startTui()(US-4.1 AC1)。非 TTY 环境输出 terminal notice。新增 29 tests(23 reducer + 6 renderer)。typecheck + lint 0 error，49 tests 全过。"
+          "test_file": "packages/itestagent-tui/test/tui-shell.test.ts, packages/itestagent-tui/test/opentui-renderer.test.ts",
+          "notes": "代码已提交，PR #2 已创建（https://github.com/logan-suu/iTestAgent/pull/2），等待人类合并后设为 done。TuiShell 骨架：tuiShellReducer 状态机(5 event types) + OpenTUI 0.4.3+SolidJS 1.9 renderer（默认，ADR-008）+ startTui() 入口(TTY check)。CLI 默认 action 接入 startTui()(US-4.1 AC1)。非 TTY 环境输出 terminal notice。Framework-independent 设计已验证：tui-shell.ts 不含任何框架依赖，renderer 实现 TuiRenderer 接口。新增 29 tests(23 reducer + 6 renderer)。typecheck + lint 0 error，bun test 49/49 pass。"
         },
         {
           "id": "1.3",
