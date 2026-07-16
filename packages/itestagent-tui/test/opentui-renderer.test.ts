@@ -1,55 +1,47 @@
 /**
- * Ink renderer 集成测试。
+ * OpenTUI renderer 集成测试。
  *
- * 测试 createInkRenderer 返回的对象满足 TuiRenderer 接口。
- * 注：全交互式 Ink 渲染需要真实终端环境（PTY），此处验证接口契约。
- * 通过 mock ink 的 render 函数避免非 TTY 环境下的异常。
+ * 测试 createOpenTuiRenderer 返回的对象满足 TuiRenderer 接口。
+ * Mock @opentui/solid 避免原生 Zig core 依赖。
  *
  * AC 对齐：
- *   AC1 — itestagent 无参数时进入 TUI（renderer.start() 可被调用）
+ *   AC1 — itestagent 无参数时进入 OpenTUI 交互式界面
  *   AC2 — TUI 显示 workspace/设备状态/可输入自然语言
  */
 
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { type DeviceStatus, createInitialState, tuiShellReducer } from '../src/tui-shell.js';
 
-// Mock ink's render to avoid "Raw mode is not supported" error in non-TTY test env.
-// We verify the interface contract without actually launching Ink.
-mock.module('ink', () => {
-  return {
-    render: () => ({ waitUntilExit: () => Promise.resolve() }),
-    Box: 'Box',
-    Text: 'Text',
-    useInput: () => {},
-  };
-});
+// Mock @opentui/solid render to avoid native Zig core dependency in test env.
+mock.module('@opentui/solid', () => ({
+  render: () => Promise.resolve(),
+}));
 
-// Dynamic import after mock is set up
-let createInkRenderer: typeof import('../src/renderers/ink-renderer.js').createInkRenderer;
+// biome-ignore format: typeof import() doesn't support multi-line format
+let createOpenTuiRenderer: typeof import('../src/renderers/opentui-renderer.js').createOpenTuiRenderer;
 
 beforeEach(async () => {
-  const mod = await import('../src/renderers/ink-renderer.js');
-  createInkRenderer = mod.createInkRenderer;
+  const mod = await import('../src/renderers/opentui-renderer.js');
+  createOpenTuiRenderer = mod.createOpenTuiRenderer;
 });
 
-describe('createInkRenderer', () => {
+describe('createOpenTuiRenderer', () => {
   it('returns an object implementing TuiRenderer interface', () => {
-    const renderer = createInkRenderer();
+    const renderer = createOpenTuiRenderer();
     expect(renderer).toBeDefined();
     expect(typeof renderer.start).toBe('function');
   });
 
-  it('start returns a Promise and resolves cleanly (mocked Ink)', async () => {
-    const renderer = createInkRenderer();
+  it('start returns a Promise and resolves cleanly (mocked)', async () => {
+    const renderer = createOpenTuiRenderer();
     const result = renderer.start(createInitialState('/test'), () => {});
     expect(result).toBeInstanceOf(Promise);
-    // With mocked render, this resolves without error
     await result;
   });
 
   it('creates distinct renderer instances', () => {
-    const r1 = createInkRenderer();
-    const r2 = createInkRenderer();
+    const r1 = createOpenTuiRenderer();
+    const r2 = createOpenTuiRenderer();
     expect(r1).not.toBe(r2);
   });
 });
