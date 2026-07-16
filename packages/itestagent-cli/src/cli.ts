@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { startTui } from 'itestagent-tui';
 import { loadConfig } from './config/loader.js';
 import { VERSION } from './version.js';
 
@@ -31,10 +32,9 @@ export function createProgram(): Command {
     .description('iPhone 真机全自动化测试 TUI Agent — Local-first, TUI-first, Agent-native.')
     .version(VERSION, '-v, --version', '输出版本号');
 
-  // US-1.1 AC3 / US-18.1 AC1：无子命令时提示 TUI（不要求登录）
-  program.action(() => {
-    console.log('TUI coming in task 1.2');
-    console.log("Run 'itestagent --help' for available commands.");
+  // US-4.1 AC1 / US-18.1 AC1：无子命令时进入 TUI（不要求登录）
+  program.action(async () => {
+    await startTui();
   });
 
   // ─── doctor（stub → task 1.4）───

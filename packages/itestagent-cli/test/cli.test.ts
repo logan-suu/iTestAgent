@@ -50,8 +50,7 @@ test('no subcommand action outputs TUI placeholder (US-18.1 AC1: no login requir
   const program = createProgram();
   // program.action is set for the default (no-subcommand) case
   expect(program.action).toBeDefined();
-  // The action should not require any login or authentication
-  // (just outputs "TUI coming in task 1.2")
+  // US-4.1 AC1: itestagent 无参数时进入 TUI（US-18.1 AC1: no login required）
 });
 
 // ─── parseAsync 执行级断言（W5 补强：验证 action 输出接线）───
@@ -64,13 +63,14 @@ test('--version outputs correct version via spawnSync (US-1.1 AC2)', () => {
   expect(result.stdout.toString().trim()).toBe(VERSION);
 });
 
-test('no subcommand outputs TUI placeholder via spawnSync (US-18.1 AC1)', () => {
+test('no subcommand outputs TUI terminal notice via spawnSync (US-4.1 AC1)', () => {
   const result = Bun.spawnSync({
     cmd: ['bun', cliPath],
   });
   expect(result.exitCode).toBe(0);
   const stdout = result.stdout.toString();
-  expect(stdout).toContain('TUI coming in task 1.2');
+  // Non-TTY environments get a notice that TUI requires a terminal
+  expect(stdout).toContain('TUI requires a terminal');
 });
 
 test('doctor subcommand outputs stub via spawnSync', () => {

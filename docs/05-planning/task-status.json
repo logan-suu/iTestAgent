@@ -135,7 +135,7 @@
           "id": "1.2",
           "title": "TuiShell 交互式 Shell 骨架（OpenTUI 目标主线 / Ink 已验证 fallback）",
           "story": "US-4.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
