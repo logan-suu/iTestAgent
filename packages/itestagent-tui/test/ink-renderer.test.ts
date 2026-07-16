@@ -3,15 +3,34 @@
  *
  * 测试 createInkRenderer 返回的对象满足 TuiRenderer 接口。
  * 注：全交互式 Ink 渲染需要真实终端环境（PTY），此处验证接口契约。
+ * 通过 mock ink 的 render 函数避免非 TTY 环境下的异常。
  *
  * AC 对齐：
  *   AC1 — itestagent 无参数时进入 TUI（renderer.start() 可被调用）
  *   AC2 — TUI 显示 workspace/设备状态/可输入自然语言
  */
 
-import { describe, expect, it } from 'bun:test';
-import { createInkRenderer } from '../src/renderers/ink-renderer.js';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { type DeviceStatus, createInitialState, tuiShellReducer } from '../src/tui-shell.js';
+
+// Mock ink's render to avoid "Raw mode is not supported" error in non-TTY test env.
+// We verify the interface contract without actually launching Ink.
+mock.module('ink', () => {
+  return {
+    render: () => ({ waitUntilExit: () => Promise.resolve() }),
+    Box: 'Box',
+    Text: 'Text',
+    useInput: () => {},
+  };
+});
+
+// Dynamic import after mock is set up
+let createInkRenderer: typeof import('../src/renderers/ink-renderer.js').createInkRenderer;
+
+beforeEach(async () => {
+  const mod = await import('../src/renderers/ink-renderer.js');
+  createInkRenderer = mod.createInkRenderer;
+});
 
 describe('createInkRenderer', () => {
   it('returns an object implementing TuiRenderer interface', () => {
@@ -20,17 +39,12 @@ describe('createInkRenderer', () => {
     expect(typeof renderer.start).toBe('function');
   });
 
-  it('start returns a Promise (Ink requires TTY, errors expected in test env)', async () => {
+  it('start returns a Promise and resolves cleanly (mocked Ink)', async () => {
     const renderer = createInkRenderer();
-    // Ink requires a real TTY stdin; in Bun test runner it will throw.
-    // We verify the interface contract: start() returns a Promise.
-    try {
-      const result = renderer.start(createInitialState('/test'), () => {});
-      expect(result).toBeInstanceOf(Promise);
-      // The promise will reject in non-TTY; that's expected behavior.
-    } catch {
-      // Expected: Ink cannot render without a TTY
-    }
+    const result = renderer.start(createInitialState('/test'), () => {});
+    expect(result).toBeInstanceOf(Promise);
+    // With mocked render, this resolves without error
+    await result;
   });
 
   it('creates distinct renderer instances', () => {
