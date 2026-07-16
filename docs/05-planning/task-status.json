@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-16T16:15:00Z",
+  "last_updated": "2026-07-16T16:30:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -113,7 +113,7 @@
       "id": 1,
       "name": "骨架与环境",
       "status": "in_progress",
-      "integration_test": "1.8",
+      "integration_test": "1.10",
       "tasks": [
         {
           "id": "1.1",
@@ -129,7 +129,7 @@
             "0.6"
           ],
           "test_file": null,
-          "notes": "代码已提交，PR #1 已创建（https://github.com/logan-suu/iTestAgent/pull/1），等待人类合并后设为 done。CLI 入口(Commander) + --version + config 命令 + 三层 JSONC 配置加载器。itestagent --version 输出 0.0.1。config 命令展示三层合并配置 + 来源诊断。子命令 stub(doctor/devices/explain/rerun/run flow)。新增 schemas/config.schema.json + itestagent-contracts Zod config schema。US-18.2 AC3(凭证脱敏)归 task 1.7。US-1.1 AC1 Homebrew 留 Phase 5。16 tests 全过。typecheck + lint 0 错误。PR #1 已于 2026-07-16 合并到 dev-1.0（Merge commit）。20 tests 全过（含 spawnSync 执行级断言）。Zod schema 加 .strict() 对齐 JSON Schema。"
+          "notes": "代码已提交，PR #1 已创建（https://github.com/logan-suu/iTestAgent/pull/1），等待人类合并后设为 done。CLI 入口(Commander) + --version + config 命令 + 三层 JSONC 配置加载器。itestagent --version 输出 0.0.1。config 命令展示三层合并配置 + 来源诊断。子命令 stub(doctor/devices/explain/rerun/run flow)。新增 schemas/config.schema.json + itestagent-contracts Zod config schema。US-18.2 AC3(凭证脱敏)归 task 1.9。US-1.1 AC1 Homebrew 留 Phase 5。16 tests 全过。typecheck + lint 0 错误。PR #1 已于 2026-07-16 合并到 dev-1.0（Merge commit）。20 tests 全过（含 spawnSync 执行级断言）。Zod schema 加 .strict() 对齐 JSON Schema。"
         },
         {
           "id": "1.2",
@@ -149,23 +149,6 @@
         },
         {
           "id": "1.3",
-          "title": "本地 Server + SessionManager + SSE Hub + subprocess controller + mock AgentRuntime",
-          "story": "US-4.3",
-          "status": "ready",
-          "documents_required": [
-            "docs/02-architecture/架构设计文档.md",
-            "docs/02-architecture/技术选型文档.md",
-            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
-          ],
-          "dependencies": [
-            "0.6",
-            "1.3b"
-          ],
-          "test_file": null,
-          "notes": "ADR-010 Harness Runtime 边界。Bun server + SessionManager（session 创建/关闭/隔离）+ SSE Hub + mock AgentRuntime + subprocess controller（Appium/xcodebuild/xctrace 启动/signal forwarding/timeout/回收）+ abort/reaping tests。Server 管生命周期，不决定测试策略。依赖 1.3b（接口契约先行）。**T1.3 必须先 pin AI SDK major version，再采用对应 API 名称（ADR-010）**。"
-        },
-        {
-          "id": "1.3b",
           "title": "Harness 核心接口契约：AgentRuntime/AgentEvent/ToolCall/ToolResult + Backend interfaces + RunStep/Artifact 数据契约",
           "story": null,
           "status": "ready",
@@ -181,7 +164,7 @@
           "notes": "ADR-010 Harness 边界。定义 AgentRuntime(streamTurn/executeToolCall/abort) + AgentEvent(16 种事件) + ToolCall/ToolResult + DeviceBackend/PerformanceBackend/BuildDriver/StoreDriver 接口 + DeviceSnapshot/UiTreeSnapshot/RunStep/ArtifactRef/PerformanceMetrics 统一数据契约。使用 Zod schema。Phase 3-4 所有 backend 实现的前置条件。"
         },
         {
-          "id": "1.3c",
+          "id": "1.4",
           "title": "RunStateMachine：生命周期/错误状态/暂停/恢复/取消",
           "story": null,
           "status": "ready",
@@ -191,13 +174,30 @@
           ],
           "dependencies": [
             "0.6",
-            "1.3b"
+            "1.3"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。RunStateMachine 状态迁移：created→planning→awaiting_confirm→preparing_device→building_installing→executing→collecting→parsing→explaining→reported→done。异常分支：cancelled/blocked/infra_failed/failed。与 AgentRuntime 分离，不执行工具。"
         },
         {
-          "id": "1.4",
+          "id": "1.5",
+          "title": "本地 Server + SessionManager + SSE Hub + subprocess controller + mock AgentRuntime",
+          "story": "US-4.3",
+          "status": "ready",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+          ],
+          "dependencies": [
+            "0.6",
+            "1.3"
+          ],
+          "test_file": null,
+          "notes": "ADR-010 Harness Runtime 边界。Bun server + SessionManager（session 创建/关闭/隔离）+ SSE Hub + mock AgentRuntime + subprocess controller（Appium/xcodebuild/xctrace 启动/signal forwarding/timeout/回收）+ abort/reaping tests。Server 管生命周期，不决定测试策略。依赖 1.9（接口契约先行）。**T1.9 必须先 pin AI SDK major version，再采用对应 API 名称（ADR-010）**。"
+        },
+        {
+          "id": "1.6",
           "title": "doctor 环境诊断 + backend 前置条件引导",
           "story": "US-1.2, US-1.3",
           "status": "ready",
@@ -212,7 +212,7 @@
           "notes": "签名/DeveloperMode/信任/backend 前置条件引导。首次跑通引导 15-30min。"
         },
         {
-          "id": "1.5",
+          "id": "1.7",
           "title": "devices 设备发现 + backend healthcheck",
           "story": "US-2.1, US-2.2",
           "status": "ready",
@@ -225,7 +225,7 @@
           "test_file": null
         },
         {
-          "id": "1.6",
+          "id": "1.8",
           "title": "存储骨架：SQLite/Drizzle + 目录结构",
           "story": "US-19.1",
           "status": "ready",
@@ -239,7 +239,7 @@
           "test_file": null
         },
         {
-          "id": "1.7",
+          "id": "1.9",
           "title": "配置分层（JSONC）+ Keychain 接入",
           "story": "US-18.2, US-18.3",
           "status": "ready",
@@ -253,7 +253,7 @@
           "test_file": null
         },
         {
-          "id": "1.8",
+          "id": "1.10",
           "title": "Phase 1 集成测试：骨架与环境联调验证",
           "story": null,
           "status": "pending",
@@ -264,13 +264,13 @@
           "dependencies": [
             "1.1",
             "1.2",
-            "1.3",
-            "1.3b",
-            "1.3c",
-            "1.4",
             "1.5",
+            "1.3",
+            "1.4",
             "1.6",
-            "1.7"
+            "1.7",
+            "1.8",
+            "1.9"
           ],
           "test_file": null
         }
@@ -292,7 +292,7 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "1.6"
+            "1.8"
           ],
           "test_file": null
         },
@@ -381,7 +381,7 @@
           "dependencies": [
             "2.6",
             "1.2",
-            "1.3c"
+            "1.4"
           ],
           "test_file": null,
           "notes": "TUI 展示 TestPlan 并让用户确认/修改。awaiting_confirm 状态接入 RunStateMachine（ADR-010）。"
@@ -439,7 +439,7 @@
           ],
           "dependencies": [
             "3.1",
-            "1.4"
+            "1.6"
           ],
           "test_file": null,
           "notes": "签名失败给出修复建议，不静默失败。"
@@ -455,8 +455,8 @@
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "1.3b",
-            "1.3"
+            "1.3",
+            "1.5"
           ],
           "test_file": null,
           "notes": "实现 DeviceBackend 接口的 mock 实现（fixtures 模拟所有 backend 输出）。backend 选择策略（preference/healthcheck/fallback）。ADR-010 BackendSelector 职责。保障 Phase 3.4 及后续无需真机即可开发与 CI。"
@@ -471,7 +471,7 @@
           ],
           "dependencies": [
             "3.3a",
-            "1.4"
+            "1.6"
           ],
           "test_file": null,
           "notes": "基于 mobile-mcp 的 DeviceBackend 实现。设备发现/launch/UI tree/截图/tap/swipe/type。Phase 0 横评后若 mobile-mcp 通过则作为 MVP 主 backend。"
@@ -486,7 +486,7 @@
           ],
           "dependencies": [
             "3.3a",
-            "1.4"
+            "1.6"
           ],
           "test_file": null,
           "notes": "基于 Appium/WDA 的 DeviceBackend 实现。长期标准 fallback。若 mobile-mcp 被阻断则作为 MVP 主线。"
@@ -502,8 +502,8 @@
           ],
           "dependencies": [
             "3.3a",
-            "1.3b",
-            "1.3c"
+            "1.3",
+            "1.4"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/generateText/tool.execute/stopWhen/prepareStep/abortSignal）。默认实现：streamTurn/executeToolCall/abort。不直接执行设备命令。测试：无 tool call 后 idle、有 tool call 执行续跑、provider error→typed error event、abort 停止 stream/tool（ADR-010 §11）。"
@@ -518,7 +518,7 @@
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "1.3b"
+            "1.3"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。规则：{action, resource, effect: allow|deny|ask}。所有 tool call 经过权限层；高风险默认 ask；支持一次允许/始终允许/拒绝/timeout/cancel。测试：高风险默认 ask、deny 不执行、always 规则生效、wildcard 正确、ask timeout/cancel 不死锁（ADR-010 §11）。"
@@ -536,7 +536,7 @@
             "3.4a",
             "3.4b",
             "3.3a",
-            "1.3b"
+            "1.3"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。ToolDispatcher 职责：ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→RunStep/Artifact→AgentEvent。测试：healthcheck/fallback 顺序正确、语义变化产生 permission request、output 通过 Zod、oversized/unknown output 显式失败或截断（ADR-010 §11）。"
@@ -551,8 +551,8 @@
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "1.3b",
-            "1.3c"
+            "1.3",
+            "1.4"
           ],
           "test_file": null,
           "notes": "ADR-010 Harness 边界。ContextBuilder 输入 ProjectProfile/Intent/TestPlan/Run state/确认过的链路/RunStep/Artifact 摘要。禁止 secret 明文和大体积原始证据进入模型上下文。测试：secret 不进入 prompt/history、大体积证据截断（ADR-010 §11）。"
@@ -615,10 +615,10 @@
           ],
           "dependencies": [
             "3.7",
-            "1.7"
+            "1.9"
           ],
           "test_file": null,
-          "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。Keychain 接入依赖 task 1.7。"
+          "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。Keychain 接入依赖 task 1.9。"
         },
         {
           "id": "3.9",
