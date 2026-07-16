@@ -378,9 +378,11 @@
           ],
           "dependencies": [
             "2.6",
-            "1.2"
+            "1.2",
+            "1.3c"
           ],
-          "test_file": null
+          "test_file": null,
+          "notes": "TUI 展示 TestPlan 并让用户确认/修改。awaiting_confirm 状态接入 RunStateMachine（ADR-010）。"
         },
         {
           "id": "2.8",
@@ -502,7 +504,7 @@
             "1.3c"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/tool.execute/stopWhen/prepareStep）；PermissionEngine allow/deny/ask + 记忆规则 + 高风险默认 ask；ToolDispatcher: ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→AgentEvent；ContextBuilder: 输入 ProjectProfile/Intent/TestPlan/Run state，禁止 secret 明文进入模型上下文。per-device serialization、人机恢复、abort 贯穿。"
+          "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/tool.execute/stopWhen/prepareStep）；PermissionEngine allow/deny/ask + 记忆规则 + 高风险默认 ask；ToolDispatcher: ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→AgentEvent；ContextBuilder: 输入 ProjectProfile/Intent/TestPlan/Run state，禁止 secret 明文进入模型上下文。per-device serialization、人机恢复、abort 贯穿。测试要求见 ADR-010 §11（AgentRuntime idle/execute/abort、PermissionEngine ask/deny/always/timeout、Server/SSE 有序/可重连/无 zombie、Backend dispatch healthcheck/fallback/Zod 校验、Security secret 不落盘/ask 可取消）。"
         },
         {
           "id": "3.5",
@@ -561,10 +563,11 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
-            "3.7"
+            "3.7",
+            "1.7"
           ],
           "test_file": null,
-          "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。"
+          "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。Keychain 接入依赖 task 1.7。"
         },
         {
           "id": "3.9",
@@ -762,7 +765,7 @@
       "id": 5,
       "name": "打磨与 MVP 验收",
       "status": "not_started",
-      "integration_test": "pending",
+      "integration_test": "5.6",
       "tasks": [
         {
           "id": "5.1",
