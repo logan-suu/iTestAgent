@@ -160,7 +160,7 @@
             "1.3b"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness Runtime 边界。Bun server + SessionManager（session 创建/关闭/隔离）+ SSE Hub + mock AgentRuntime + subprocess controller（Appium/xcodebuild/xctrace 启动/signal forwarding/timeout/回收）+ abort/reaping tests。Server 管生命周期，不决定测试策略。依赖 1.3b（接口契约先行）。"
+          "notes": "ADR-010 Harness Runtime 边界。Bun server + SessionManager（session 创建/关闭/隔离）+ SSE Hub + mock AgentRuntime + subprocess controller（Appium/xcodebuild/xctrace 启动/signal forwarding/timeout/回收）+ abort/reaping tests。Server 管生命周期，不决定测试策略。依赖 1.3b（接口契约先行）。**T1.3 必须先 pin AI SDK major version，再采用对应 API 名称（ADR-010）**。"
         },
         {
           "id": "1.3b",
@@ -447,14 +447,15 @@
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
-            "docs/02-architecture/技术选型文档.md"
+            "docs/02-architecture/技术选型文档.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
             "1.3b",
             "1.3"
           ],
           "test_file": null,
-          "notes": "实现 DeviceBackend 接口的 mock 实现（fixtures 模拟所有 backend 输出）。backend 选择策略（preference/healthcheck/fallback）。保障 Phase 3.4 及后续无需真机即可开发与 CI。"
+          "notes": "实现 DeviceBackend 接口的 mock 实现（fixtures 模拟所有 backend 输出）。backend 选择策略（preference/healthcheck/fallback）。ADR-010 BackendSelector 职责。保障 Phase 3.4 及后续无需真机即可开发与 CI。"
         },
         {
           "id": "3.3b",
@@ -488,18 +489,20 @@
         },
         {
           "id": "3.4",
-          "title": "AgentRuntime + PermissionEngine 实现",
+          "title": "AgentRuntime + PermissionEngine + ToolDispatcher + ContextBuilder 实现",
           "story": "US-17.1, US-17.2",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
-            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
+            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "3.3a"
+            "3.3a",
+            "1.3c"
           ],
           "test_file": null,
-          "notes": "照搬 OpenCode 模式用 AI SDK 自建。权限 allow/deny/ask + 记忆规则。高风险默认 ask。"
+          "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/tool.execute/stopWhen/prepareStep）；PermissionEngine allow/deny/ask + 记忆规则 + 高风险默认 ask；ToolDispatcher: ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→AgentEvent；ContextBuilder: 输入 ProjectProfile/Intent/TestPlan/Run state，禁止 secret 明文进入模型上下文。per-device serialization、人机恢复、abort 贯穿。"
         },
         {
           "id": "3.5",
