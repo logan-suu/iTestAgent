@@ -490,21 +490,70 @@
           "notes": "基于 Appium/WDA 的 DeviceBackend 实现。长期标准 fallback。若 mobile-mcp 被阻断则作为 MVP 主线。"
         },
         {
-          "id": "3.4",
-          "title": "AgentRuntime + PermissionEngine + ToolDispatcher + ContextBuilder 实现",
-          "story": "US-17.1, US-17.2",
+          "id": "3.4a",
+          "title": "AgentRuntime：AI SDK 多步 tool-calling 包装",
+          "story": "US-17.1",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
-            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
             "3.3a",
+            "1.3b",
             "1.3c"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/tool.execute/stopWhen/prepareStep）；PermissionEngine allow/deny/ask + 记忆规则 + 高风险默认 ask；ToolDispatcher: ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→AgentEvent；ContextBuilder: 输入 ProjectProfile/Intent/TestPlan/Run state，禁止 secret 明文进入模型上下文。per-device serialization、人机恢复、abort 贯穿。测试要求见 ADR-010 §11（AgentRuntime idle/execute/abort、PermissionEngine ask/deny/always/timeout、Server/SSE 有序/可重连/无 zombie、Backend dispatch healthcheck/fallback/Zod 校验、Security secret 不落盘/ask 可取消）。"
+          "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/generateText/tool.execute/stopWhen/prepareStep/abortSignal）。默认实现：streamTurn/executeToolCall/abort。不直接执行设备命令。测试：无 tool call 后 idle、有 tool call 执行续跑、provider error→typed error event、abort 停止 stream/tool（ADR-010 §11）。"
+        },
+        {
+          "id": "3.4b",
+          "title": "PermissionEngine：allow/ask/deny + 记忆规则 + 高风险拦截",
+          "story": "US-17.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+          ],
+          "dependencies": [
+            "1.3b"
+          ],
+          "test_file": null,
+          "notes": "ADR-010 Harness 边界。规则：{action, resource, effect: allow|deny|ask}。所有 tool call 经过权限层；高风险默认 ask；支持一次允许/始终允许/拒绝/timeout/cancel。测试：高风险默认 ask、deny 不执行、always 规则生效、wildcard 正确、ask timeout/cancel 不死锁（ADR-010 §11）。"
+        },
+        {
+          "id": "3.4c",
+          "title": "ToolDispatcher：ToolCall→Zod→Permission→BackendSelector→AgentEvent",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+          ],
+          "dependencies": [
+            "3.4a",
+            "3.4b",
+            "3.3a",
+            "1.3b"
+          ],
+          "test_file": null,
+          "notes": "ADR-010 Harness 边界。ToolDispatcher 职责：ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→RunStep/Artifact→AgentEvent。测试：healthcheck/fallback 顺序正确、语义变化产生 permission request、output 通过 Zod、oversized/unknown output 显式失败或截断（ADR-010 §11）。"
+        },
+        {
+          "id": "3.4d",
+          "title": "ContextBuilder：ProjectProfile/Intent/TestPlan/Run state 上下文组装",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+          ],
+          "dependencies": [
+            "1.3b",
+            "1.3c"
+          ],
+          "test_file": null,
+          "notes": "ADR-010 Harness 边界。ContextBuilder 输入 ProjectProfile/Intent/TestPlan/Run state/确认过的链路/RunStep/Artifact 摘要。禁止 secret 明文和大体积原始证据进入模型上下文。测试：secret 不进入 prompt/history、大体积证据截断（ADR-010 §11）。"
         },
         {
           "id": "3.5",
@@ -517,7 +566,7 @@
           ],
           "dependencies": [
             "3.3a",
-            "3.4"
+            "3.4c"
           ],
           "test_file": null,
           "notes": "有 XCUITest 项目优先此路径。无既有测试项目此路径自动跳过。"
@@ -533,7 +582,7 @@
           ],
           "dependencies": [
             "3.3a",
-            "3.4",
+            "3.4c",
             "3.2"
           ],
           "test_file": null,
@@ -592,14 +641,17 @@
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "验证 BuildDriver→DeviceBackend→AgentRuntime→PermissionEngine→XCUITest→探索→Flow 跨模块联调。Mock backend 保障 CI。出口：全部通过后 Phase 3 done。",
+          "notes": "验证 BuildDriver→DeviceBackend→AgentRuntime(3.4a)→PermissionEngine(3.4b)→ToolDispatcher(3.4c)→ContextBuilder(3.4d)→XCUITest→探索→Flow 全 Harness 联调。Mock backend 保障 CI。出口：全部通过后 Phase 3 done。",
           "dependencies": [
             "3.1",
             "3.2",
             "3.3a",
             "3.3b",
             "3.3c",
-            "3.4",
+            "3.4a",
+            "3.4b",
+            "3.4c",
+            "3.4d",
             "3.5",
             "3.6",
             "3.7",
