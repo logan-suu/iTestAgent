@@ -129,7 +129,7 @@ Verify   对齐 AC；涉及真机能力走真机 spike 实测；证据留档
 
 ## 6. 分模块实战技巧
 
-### 6.1 编排循环与权限引擎（自研核心）
+### 6.1 Agent Harness Runtime 编排循环与权限引擎（ADR-010）
 
 ```
 - 让 AI 照搬架构文档第 6 节循环骨架，用 Vercel AI SDK 多步 tool-calling 实现

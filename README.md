@@ -128,7 +128,7 @@ itestagent
 
 **借鉴不依赖**：XcodeBuildMCP（参考项目）/ XcodeTraceMCP（参考项目，npm 包为 `@xctrace-analyzer/core`）/ instruments-mcp-server（录制参考，非可信分析）/ instruments-analyzer / Periphery / Maestro flow 语义
 
-**必须自研**：Project Profile 语义模型、候选链路推断、TestPlan 编译、Agent 编排循环+权限引擎、iTestAgent Flow YAML、失败归因、本地 baseline 策略、TUI 交互体验
+**必须自研**：Project Profile 语义模型、候选链路推断、TestPlan 编译、Agent Harness Runtime（AgentRuntime/PermissionEngine/RunStateMachine/ToolDispatcher/ContextBuilder，ADR-010）、iTestAgent Flow YAML、失败归因、本地 baseline 策略、TUI 交互体验
 
 ## 开发状态
 
