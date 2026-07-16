@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-16T17:00:00Z",
+  "last_updated": "2026-07-17T00:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -161,7 +161,7 @@
             "0.6"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness 边界。定义 AgentRuntime(streamTurn/executeToolCall/abort) + AgentEvent(16 种事件) + ToolCall/ToolResult + DeviceBackend/PerformanceBackend/BuildDriver/StoreDriver 接口 + DeviceSnapshot/UiTreeSnapshot/RunStep/ArtifactRef/PerformanceMetrics 统一数据契约。使用 Zod schema。Phase 3-4 所有 backend 实现的前置条件。"
+          "notes": "ADR-010 Harness 边界。定义 AgentRuntime(streamTurn/executeToolCall/abort) + AgentEvent(16 种事件) + ToolCall/ToolResult + DeviceBackend/PerformanceBackend/BuildDriver/StoreDriver 接口 + DeviceSnapshot/UiTreeSnapshot/RunStep/ArtifactRef/PerformanceMetrics 统一数据契约。使用 Zod schema。Phase 3-4 所有 backend 实现的前置条件。PR #3: https://github.com/logan-suu/iTestAgent/pull/3。20 files (+3821/-0), 74 new tests, typecheck + lint 0 error, bun test 120/120 pass。"
         },
         {
           "id": "1.4",
