@@ -174,6 +174,12 @@ LLM          OpenAI-compatible provider（可扩展）
 - `dev-1.0`：开发集成分支，所有功能/修复 PR 的合并目标
 - `{type}/{description}`：功能分支，PR base 为 `dev-1.0`（非 `main`）
 
+**分支创建规则**：Agent 只在以下两种情况下创建新分支：
+1. 执行 `/commit-pr-itest` 命令时（该命令包含分支检查与创建步骤）
+2. 用户明确要求开分支（如"开个分支"、"新建分支做 X"）
+
+除此之外，Agent 直接在当前分支上工作，**不主动切分支**。
+
 ### 3.1.2 Commit Message 格式
 
 ```
