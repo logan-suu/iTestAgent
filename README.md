@@ -132,6 +132,30 @@ itestagent
 
 ## 开发状态
 
+### 能力成熟度（Designed → Contracted → Implemented → Verified）
+
+| 能力 | 成熟度 | 说明 |
+|---|---|---|
+| CLI 入口 + 配置 | ✅ Verified | `itestagent --version`/`config` 可用 |
+| TUI Shell 骨架 | ✅ Verified | OpenTUI+SolidJS，TTY 检测正常 |
+| Harness 核心接口契约 | ✅ Contracted | 14 Zod schemas + 5 Backend interfaces |
+| RunStateMachine / PermissionEngine | 📋 Designed | 接口已定义，实现待 Phase 1.4+ |
+| Server / SessionManager / SSE | 📋 Designed | 接口已定义，实现待 Phase 1.5a-c |
+| doctor 环境诊断 | 📋 Contracted | Schema 已定义，实现待 Phase 1.6a-b |
+| devices 设备发现 | 📋 Contracted | Schema 含 targetKind，实现待 Phase 1.7 |
+| Project Profile / TestPlan | 📋 Designed | 架构已定，实现待 Phase 2 |
+| AgentRuntime / Backend 执行 | 📋 Designed | 接口已定义，实现待 Phase 3 |
+| 证据采集 / 性能 / 报告 | 📋 Designed | 接口已定义，实现待 Phase 4 |
+
+**成熟度定义**（ADR-011 审计建议）：
+- 📋 **Designed** — 规格/ADR 已确定，接口已定义，但无实现
+- 📜 **Contracted** — Zod schema + 测试已通过，实现按接口接入
+- 🔧 **Implemented** — 实现代码完成，单元测试通过
+- 🔗 **Integrated** — 跨模块联调通过，集成测试通过
+- ✅ **Verified** — 真机 G5 或 Simulator G5-SIM spike 验证通过
+
+### 阶段状态
+
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | Phase 0 | ✅ 完成 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
@@ -142,7 +166,7 @@ itestagent
 | Phase 5 | ⬜ 待开始 | 打磨与 MVP 验收 |
 | Phase 6+ | ⬜ 待开始 | 增强路线 |
 
-预计单人全职约 **26-32 周**到 MVP。
+预计单人全职约 **28-36 周**到 MVP（含 Simulator 同级支持 7-10 人周增量）。
 
 ## 项目结构
 

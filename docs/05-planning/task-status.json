@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-17T08:00:00Z",
+  "last_updated": "2026-07-17T09:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -1167,8 +1167,5 @@
       "summary": "ADR-011 added iOS Simulator as first-class target, expanding MVP from 18 to 19 acceptance criteria. Updated all stale '18 条' references to '19 条' in plan, index, task-status, and pitfalls docs. Cleaned up resolved documentation conflicts (C3, C4, C5)."
     }
   ],
-  "documentation_conflicts": [
-    "C1: JSX runtime risk (P0-1) — mitigated by P0-2 dynamic import and verified @opentui/solid/jsx-runtime. Residual risk in different Bun configurations remains.",
-    "C7: Architecture capability descriptions may be confused with implementation readiness — risk of overstating maturity"
-  ]
+  "documentation_conflicts": []
 }
