@@ -320,7 +320,18 @@ G7 安全合规  无敏感数据落盘明文；高风险操作有确认
 
 ## 8.1 任务状态机
 
-所有任务状态记录在 `docs/05-planning/task-status.json` 中：
+所有任务状态记录在 `docs/05-planning/task-status.json` 中。
+
+### 8.1.0 任务类型
+
+```
+代码类任务   产出代码、测试、schema，经 commit-pr-itest 创建 PR → 人类合并 → pr-merge-itest 标 done
+非代码类任务 产出报告/验证/研究结论（spike/research/report），经人类确认后标 done（无 PR 流程）
+```
+
+**两类任务共用同一状态机、同一终态，唯一区别是 `in_progress → done` 的确认方式不同。**
+
+### 8.1.1 状态定义
 
 ```
 pending -> ready -> in_progress -> done
@@ -330,12 +341,19 @@ pending -> ready -> in_progress -> done
 |---|---|---|
 | `pending` | 任务已定义，依赖未满足 | 人类 |
 | `ready` | 依赖已满足，等待执行 | Agent 自动（级联） |
-| `in_progress` | 代码开发中，或已提交 PR 等待人类合并 | Agent 自动 |
-| `done` | PR 已合并到 dev-1.0 | Agent 自动（PR 合并后，经 `pr-merge-itest`） |
+| `in_progress` | 执行中；代码类任务已提交 PR 等待合并，非代码类任务已完成等待确认 | Agent 自动 |
+| `done` | 代码类：PR 已合并到 dev-1.0；非代码类：人类已确认完成 | Agent 自动（经 `pr-merge-itest`） |
 
-**状态转换规则**：
-- `in_progress` → `done`：仅当 PR 已被人类手动合并到 dev-1.0 后，Agent 通过 `pr-merge-itest` 命令设为 `done`（§9.3：Agent 不得自动合并 PR）。
+### 8.1.2 代码类任务 `in_progress → done` 转换规则
+
+- 仅当 PR 已被人类手动合并到 dev-1.0 后，Agent 通过 `pr-merge-itest` 命令设为 `done`（§9.3：Agent 不得自动合并 PR）。
 - `commit-pr-itest` 命令提交代码时**保持 `in_progress`**，仅记录 PR 链接到 `notes`，不得设为 `done`。
+
+### 8.1.3 非代码类任务 `in_progress → done` 转换规则
+
+- Agent 完成任务产出（报告/验证/研究）后，**保持 `in_progress`**，在 `notes` 中记录产出路径与结论摘要。
+- 人类审阅确认后，Agent 通过 `pr-merge-itest` 命令设为 `done`（与代码类任务同一入口）。
+- Agent **不得**在未经人类确认的情况下将非代码类任务标 `done`。
 
 ### 8.1.1 task-status.json 字段约束（R13）
 
