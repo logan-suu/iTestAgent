@@ -6,10 +6,16 @@ agent: build
 ## 🚀 提交代码与创建 PR
 
 ### 第一步：前置检查（强制门禁）
+0. **分支检查**：必须在新功能分支上操作，禁止直接在 `main` 或 `dev-1.0` 提交。
+   - 执行 `git branch --show-current`，获取当前分支名。
+   - 如果当前分支是 `main` 或 `dev-1.0`：
+     - 根据变更内容自动推断 `{type}`（feat/fix/docs/refactor/chore）和 `{description}`（简短英文描述，kebab-case）。
+     - 执行 `git checkout -b {type}/{description}` 创建新分支。
+     - 输出："已创建分支 `{type}/{description}`，继续提交。"
+   - 如果当前分支是其他名称，跳过此步骤。
 1. **Git 状态检查**：
    - 执行 `git status`，确认有变更可提交。
    - 如果没有变更，输出："当前没有可提交的变更。"并退出。
-   - 执行 `git branch --show-current`，获取当前分支名。
 2. **运行质量门禁 G1-G4**：
    - G1 规格一致：确认实现与文档不冲突
    - G2 契约校验：产物过 schema（plan/result/artifact-index/project-profile）
