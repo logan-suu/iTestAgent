@@ -234,7 +234,7 @@
           "id": "1.5a",
           "title": "本地 Bun server + SSE Hub + 基础路由",
           "story": "US-4.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
