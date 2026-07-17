@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-17T05:00:00Z",
+  "last_updated": "2026-07-17T07:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -814,7 +814,7 @@
             "3.6"
           ],
           "test_file": null,
-          "notes": "失败时自动采集。证据关联到具体 run step。crashlog 支持符号化。"
+          "notes": "失败时自动采集。证据关联到具体 run step（含 targetKind）。crashlog 支持符号化。Simulator 证据（simctl screenshot/recordVideo + Appium 截图/录屏）与真机证据统一经 ArtifactStore 管理（ADR-011）。"
         },
         {
           "id": "4.2",
@@ -828,7 +828,8 @@
           "dependencies": [
             "3.5"
           ],
-          "test_file": null
+          "test_file": null,
+          "notes": "xcresultparser/xcparse 解析 xcresult → cases/duration/attachments。physical 和 simulator 的 xcresult 格式一致，解析层无差异。"
         },
         {
           "id": "4.3",
@@ -844,7 +845,7 @@
             "3.6"
           ],
           "test_file": null,
-          "notes": "主推 hitches/hangs。memory 标注近似值。"
+          "notes": "主推 hitches/hangs/launch/memory/crash/duration。memory 标注近似值。Simulator 性能数据必须标注 representativeOfPhysicalDevice=false（ADR-011）。physical 和 simulator 性能数据分域采集。"
         },
         {
           "id": "4.4",
@@ -859,7 +860,7 @@
             "4.3"
           ],
           "test_file": null,
-          "notes": "跨 Xcode 版本容错。不可导出标 not_exportable。"
+          "notes": "跨 Xcode 版本容错。simulator xctrace 行为与 physical 可能不同（部分 schema 不可用）。不可导出标 not_exportable。physical + simulator 双份 trace fixture。"
         },
         {
           "id": "4.5",
@@ -873,7 +874,7 @@
             "4.3"
           ],
           "test_file": null,
-          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。"
+          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。Simulator FPS 额外标注\"来自 Mac 宿主，不代表真机\"。"
         },
         {
           "id": "4.6",
@@ -888,7 +889,7 @@
             "4.3"
           ],
           "test_file": null,
-          "notes": "首次成功 run 建 baseline；crash/失败不建。用户可显式接受新 baseline（需确认）。"
+          "notes": "首次成功 run 建 baseline；crash/失败不建。用户可显式接受新 baseline（需确认）。physical 和 simulator baseline 严格分域隔离（ADR-011），Store/Schema 层拒绝跨域比较。Simulator baseline 包含 hostFingerprint/XcodeVersion/runtimeIdentifier。"
         },
         {
           "id": "4.7",
@@ -905,7 +906,7 @@
             "4.6"
           ],
           "test_file": null,
-          "notes": "归因类型：product_regression/script_issue/device_issue/env_issue/flaky/perf_regression/inconclusive。不臆造。"
+          "notes": "归因类型：product_regression/script_issue/device_issue/env_issue/flaky/perf_regression/inconclusive。不臆造。targetKind 信息纳入归因上下文（device_issue 区分 physical vs simulator 原因）。"
         },
         {
           "id": "4.8",
@@ -921,7 +922,7 @@
             "4.7"
           ],
           "test_file": null,
-          "notes": "每次 run 固定输出。不输出 report.html。"
+          "notes": "每次 run 固定输出三件套。不输出 report.html。Simulator 报告携带 environment=simulator、representativeOfPhysicalDevice=false、comparisonScope=simulator_only。"
         },
         {
           "id": "4.9",
@@ -931,7 +932,7 @@
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "验证证据采集→xcresult解析→PerformanceBackend→baseline→归因→报告三件套 全链路。运行 bun test。出口：全部通过后 Phase 4 done。",
+          "notes": "验证证据采集→xcresult解析→PerformanceBackend(physical+simulator)→baseline(分域)→归因→报告三件套全链路。physical 和 simulator 双目标证据验证。",
           "dependencies": [
             "4.1",
             "4.2",
@@ -964,7 +965,8 @@
             "4.7",
             "4.8"
           ],
-          "test_file": null
+          "test_file": null,
+          "notes": "explain 基于 evidence + baseline 归因。rerun --failed-only 复用原 TestPlan（含 targetKind），仅重放失败用例。"
         },
         {
           "id": "5.2",
@@ -977,7 +979,8 @@
           "dependencies": [
             "3.7b"
           ],
-          "test_file": null
+          "test_file": null,
+          "notes": "重放 iTestAgent Flow YAML。Flow 必须在同 targetKind 下重放（ADR-011）。不支持的目标类型 blocked 并给出原因。"
         },
         {
           "id": "5.3",
@@ -993,7 +996,7 @@
             "4.8"
           ],
           "test_file": null,
-          "notes": "敏感数据不落盘明文。默认不写项目目录。"
+          "notes": "敏感数据不落盘明文。默认不写项目目录。Simulator erase/delete 列为高风险操作（ADR-011）。"
         },
         {
           "id": "5.4",
@@ -1006,7 +1009,8 @@
           "dependencies": [
             "0.1"
           ],
-          "test_file": null
+          "test_file": null,
+          "notes": "CI 建立：typecheck + lint + test + mock backend。新增 macOS Simulator lane（boot→build→Appium/WDA→UI action→evidence→Flow→report/baseline，G5-SIM）。physical G5 独立（manual/self-hosted lane）。"
         },
         {
           "id": "5.5",
@@ -1020,7 +1024,7 @@
             "3.7b"
           ],
           "test_file": null,
-          "notes": "P2 实验性。标记 draft，用户确认后才复制到项目。"
+          "notes": "P2 实验性。标记 draft，用户确认后才复制到项目。可从 Flow（含 targetKind）生成 XCUITest/Appium 测试代码草稿。"
         },
         {
           "id": "5.6",
@@ -1038,7 +1042,7 @@
             "5.5"
           ],
           "test_file": null,
-          "notes": "P0 全绿、P1 声明限制、实验性标注。"
+          "notes": "P0 全绿、P1 声明限制、实验性标注。双目标 MVP 验收矩阵（physical + simulator 各 19 条验收对照）。G5 + G5-SIM 均通过。"
         }
       ]
     },
