@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Agent 错误码 Schema（Zod）
  *
  * AC 原文（ADR-010 + 架构设计文档 §7.2）：
- *   12 种 AgentErrorCode 覆盖 Agent 执行过程中的所有可恢复/不可恢复错误场景。
+ *   14 种 AgentErrorCode 覆盖 Agent 执行过程中的所有可恢复/不可恢复错误场景。
  *
  * AGENTS.md §6 领域关键规则：
  *   不确定必标注；敏感数据不落盘明文（R6）。
@@ -22,13 +22,15 @@ import { z } from 'zod';
 // ─── AgentErrorCode ──────────────────────────────────────────
 
 /**
- * 12 种 Agent 错误码。
+ * 14 种 Agent 错误码。
  * 注意：error code 严格保持 kebab-case 点分格式（task 2.3 产出物一致性要求）。
  */
 export const AgentErrorCodeSchema = z.enum([
   'blocked.security',
   'blocked.setup',
-  'blocked.no_real_device',
+  'blocked.no_device_available',
+  'blocked.cross_target_fallback',
+  'blocked.target_unsupported',
   'blocked.privacy',
   'blocked.safety',
   'capability.missing',
@@ -48,7 +50,7 @@ export type AgentErrorCode = z.infer<typeof AgentErrorCodeSchema>;
  * Agent 错误对象 Schema。
  * 对应 AgentRuntime 执行过程中产生的结构化错误（区别于原生 Error）。
  *
- * - code   : 12 种结构化错误码之一
+ * - code   : 14 种结构化错误码之一
  * - message: 人类可读错误描述（禁止包含敏感数据，R6）
  * - details: 可选的补充诊断信息（如 Backend 堆栈摘要）
  * - cause  : 可选的原始错误对象（仅内存传递，不序列化到日志/报告）

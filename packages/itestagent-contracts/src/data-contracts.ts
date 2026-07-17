@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TargetKindSchema } from './device-types.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
 
 /**
@@ -15,7 +16,7 @@ import { BaselineDeltaSchema } from './performance-backend.js';
 // ─── Constants ───────────────────────────────────────────────
 
 /** Default schema version for all output artifacts */
-export const DEFAULT_SCHEMA_VERSION = '1.0';
+export const DEFAULT_SCHEMA_VERSION = '2.0';
 
 // ─── RunStatus ───────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export const ExecutionSummarySchema = z.object({
   /** 执行模式（ADR-011） */
   mode: z.enum(['xcuitest', 'device_backend']).optional(),
   /** 目标类型（ADR-011） */
-  targetKind: z.enum(['physical', 'simulator']),
+  targetKind: TargetKindSchema,
   /** 使用的 backend 名称 */
   backendUsed: z.string(),
   /** backend 版本（审计用途） */
@@ -216,7 +217,7 @@ export const RunResultSchema = z.object({
     model: z.string(),
     osVersion: z.string(),
     /** 执行目标类型（ADR-011） */
-    targetKind: z.enum(['physical', 'simulator']),
+    targetKind: TargetKindSchema,
     /** Simulator runtime identifier（physical 为 undefined） */
     runtimeIdentifier: z.string().optional(),
   }),
@@ -229,7 +230,7 @@ export const RunResultSchema = z.object({
   /** 执行环境元数据（ADR-011：Simulator 报告强制携带） */
   environment: z.object({
     /** physical 或 simulator */
-    targetKind: z.enum(['physical', 'simulator']),
+    targetKind: TargetKindSchema,
     /** 能否代表真机表现（Simulator 固定 false） */
     representativeOfPhysicalDevice: z.boolean(),
     /** baseline 比较域（simulator_only 或 physical_only） */
@@ -296,6 +297,79 @@ export const ArtifactIndexSchema = z.object({
 });
 
 export type ArtifactIndex = z.infer<typeof ArtifactIndexSchema>;
+
+// ─── Migration ───────────────────────────────────────────────
+
+/**
+ * Migrate a v1 RunResult to v2.
+ *
+ * ADR-011 §8 Schema Version:
+ *   Historical v1 data is migrated as targetKind=physical.
+ *   New writers MUST NOT produce documents without targetKind.
+ *
+ * If the input is already v2+ (schemaVersion !== '1.0' and targetKind present),
+ * it is returned as-is after parsing.
+ *
+ * For v1 data:
+ *   - device.targetKind → 'physical' (if absent)
+ *   - execution.targetKind → 'physical' (if absent)
+ *   - environment.targetKind → 'physical' (if absent)
+ *   - environment.representativeOfPhysicalDevice → true (if absent)
+ *   - environment.comparisonScope → 'physical_only' (if absent)
+ *   - schemaVersion → '2.0'
+ */
+export function migrateV1ToV2(raw: unknown): RunResult {
+  const data = raw as Record<string, unknown>;
+
+  // If v3+ or unknown future version, parse and pass-through unchanged
+  // (migration only applies to 1.0 → 2.0)
+  const version = data.schemaVersion as string | undefined;
+  if (version && version >= '3.0') {
+    return RunResultSchema.parse(raw);
+  }
+
+  // If already v2+, parse and return
+  if (version === '2.0' || version?.startsWith('2.')) {
+    return RunResultSchema.parse(raw);
+  }
+
+  // Deep clone to avoid mutating input
+  const migrated = JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
+
+  migrated.schemaVersion = '2.0';
+
+  // Inject targetKind into device block
+  if (migrated.device && typeof migrated.device === 'object') {
+    const device = migrated.device as Record<string, unknown>;
+    if (!device.targetKind) {
+      device.targetKind = 'physical';
+    }
+  }
+
+  // Inject targetKind into execution block
+  if (migrated.execution && typeof migrated.execution === 'object') {
+    const exec = migrated.execution as Record<string, unknown>;
+    if (!exec.targetKind) {
+      exec.targetKind = 'physical';
+    }
+  }
+
+  // Inject environment block if absent, or fill missing fields
+  if (!migrated.environment || typeof migrated.environment !== 'object') {
+    migrated.environment = {
+      targetKind: 'physical',
+      representativeOfPhysicalDevice: true,
+      comparisonScope: 'physical_only',
+    };
+  } else {
+    const env = migrated.environment as Record<string, unknown>;
+    if (!env.targetKind) env.targetKind = 'physical';
+    if (env.representativeOfPhysicalDevice === undefined) env.representativeOfPhysicalDevice = true;
+    if (!env.comparisonScope) env.comparisonScope = 'physical_only';
+  }
+
+  return RunResultSchema.parse(migrated);
+}
 
 // ─── Parse Helpers ───────────────────────────────────────────
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TargetKindSchema } from './device-types.js';
 import type { ArtifactRef } from './device-types.js';
 
 /**
@@ -143,6 +144,8 @@ export const BaselineCompareInputSchema = z.object({
   current: TraceSummarySchema,
   /** 基线唯一标识 */
   baselineId: z.string(),
+  /** 执行目标类型（ADR-011 §6：baseline 分域隔离） */
+  targetKind: TargetKindSchema,
 });
 
 export type BaselineCompareInput = z.infer<typeof BaselineCompareInputSchema>;
@@ -163,6 +166,8 @@ export const BaselineDeltaSchema = z.object({
   runId: z.string(),
   /** 对比时间（ISO 8601） */
   comparedAt: z.string(),
+  /** 执行目标类型（ADR-011 §6：baseline 分域隔离） */
+  targetKind: TargetKindSchema,
   /** 各指标增量 */
   deltas: z.object({
     /** 启动耗时增量（毫秒），正值为回归 */

@@ -1,11 +1,13 @@
 import { expect, test } from 'bun:test';
 import { AgentErrorCodeSchema, AgentErrorSchema, parseAgentError } from '../src/agent-error.js';
 
-test('AgentErrorCodeSchema parses all 12 valid codes', () => {
+test('AgentErrorCodeSchema parses all 14 valid codes', () => {
   const validCodes = [
     'blocked.security',
     'blocked.setup',
-    'blocked.no_real_device',
+    'blocked.no_device_available',
+    'blocked.cross_target_fallback',
+    'blocked.target_unsupported',
     'blocked.privacy',
     'blocked.safety',
     'capability.missing',
@@ -70,4 +72,34 @@ test('Round-trip: parse → JSON.stringify → parse', () => {
   expect(reparsed.code).toBe(original.code);
   expect(reparsed.message).toBe(original.message);
   expect(reparsed.details).toBe(original.details);
+});
+
+// ─── ADR-011: new error codes ─────────────────────────────────
+
+test('AgentErrorCodeSchema accepts blocked.cross_target_fallback', () => {
+  const result = AgentErrorSchema.parse({
+    code: 'blocked.cross_target_fallback',
+    message: 'Cross target kind fallback requires user confirmation',
+  });
+  expect(result.code).toBe('blocked.cross_target_fallback');
+});
+
+test('AgentErrorCodeSchema accepts blocked.target_unsupported', () => {
+  const result = AgentErrorSchema.parse({
+    code: 'blocked.target_unsupported',
+    message: 'Backend appium does not support target kind simulator',
+  });
+  expect(result.code).toBe('blocked.target_unsupported');
+});
+
+test('AgentErrorCodeSchema accepts blocked.no_device_available (renamed from no_real_device)', () => {
+  const result = AgentErrorSchema.parse({
+    code: 'blocked.no_device_available',
+    message: 'No device available for target kind physical',
+  });
+  expect(result.code).toBe('blocked.no_device_available');
+});
+
+test('AgentErrorCodeSchema rejects old blocked.no_real_device code', () => {
+  expect(() => AgentErrorCodeSchema.parse('blocked.no_real_device')).toThrow();
 });
