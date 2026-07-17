@@ -89,6 +89,9 @@
     "packages/itestagent-server": {
       "name": "itestagent-server",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+      },
     },
     "packages/itestagent-store": {
       "name": "itestagent-store",
