@@ -9,6 +9,7 @@ import {
   RunStatusSchema,
   RunStepSchema,
   TestCaseResultSchema,
+  migrateV1ToV2,
   parseArtifactIndex,
   parseRunResult,
 } from '../src/data-contracts.js';
@@ -215,7 +216,7 @@ test('RunStepSchema parses step with safetyGate', () => {
 
 test('RunResultSchema parses COMPLETE run result with all fields', () => {
   const result = RunResultSchema.parse({
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId: 'run-20260717-001',
     status: 'failed',
     projectProfileRef: '~/.itestagent/projects/abc123/project-profile.json',
@@ -274,6 +275,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       baselineId: 'baseline-v1',
       runId: 'run-20260717-001',
       comparedAt: '2026-07-17T10:00:30.000Z',
+      targetKind: 'physical',
       deltas: {
         launchDurationMs: 150,
         memoryPeakMB: 5.2,
@@ -291,7 +293,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       confidence: 'high',
     },
   });
-  expect(result.schemaVersion).toBe('1.0');
+  expect(result.schemaVersion).toBe('2.0');
   expect(result.runId).toBe('run-20260717-001');
   expect(result.status).toBe('failed');
   expect(result.device.udid).toBe('00008110-ABCDEF1234567890');
@@ -305,7 +307,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
 
 test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
   const original = {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId: 'run-rt-001',
     status: 'explored' as const,
     projectProfileRef: '~/.itestagent/projects/abc/profile.json',
@@ -440,8 +442,194 @@ test('ArtifactIndexSchema round-trip: parse → JSON.stringify → parse', () =>
   }
 });
 
-// ─── Test 16: DEFAULT_SCHEMA_VERSION equals '1.0' ────────────
+// ─── Test 16: DEFAULT_SCHEMA_VERSION equals '2.0' ────────────
 
-test('DEFAULT_SCHEMA_VERSION equals 1.0', () => {
-  expect(DEFAULT_SCHEMA_VERSION).toBe('1.0');
+test('DEFAULT_SCHEMA_VERSION equals 2.0 (ADR-011 schema v2 upgrade)', () => {
+  expect(DEFAULT_SCHEMA_VERSION).toBe('2.0');
+});
+
+// ─── Test 17: migrateV1ToV2 — bumps schemaVersion ─────────────
+
+test('migrateV1ToV2 bumps schemaVersion from 1.0 to 2.0', () => {
+  const v1data = {
+    schemaVersion: '1.0',
+    runId: 'run-v1-001',
+    status: 'passed',
+    projectProfileRef: '~/.itestagent/projects/abc/profile.json',
+    device: {
+      udid: 'DEVICE-UDID-001',
+      name: 'Test iPhone',
+      model: 'iPhone15,2',
+      osVersion: '18.2',
+    },
+    execution: {
+      totalSteps: 3,
+      completedSteps: 3,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 5000,
+      startTime: '2026-07-17T12:00:00.000Z',
+      endTime: '2026-07-17T12:00:05.000Z',
+      backendUsed: 'appium',
+      deviceId: 'DEVICE-UDID-001',
+    },
+    cases: [],
+    metrics: {},
+    artifactRefs: [],
+  };
+
+  const result = migrateV1ToV2(v1data);
+  expect(result.schemaVersion).toBe('2.0');
+});
+
+// ─── Test 18: migrateV1ToV2 — injects targetKind=physical ────
+
+test('migrateV1ToV2 injects targetKind=physical into device, execution, and environment', () => {
+  const v1data = {
+    schemaVersion: '1.0',
+    runId: 'run-v1-002',
+    status: 'passed',
+    projectProfileRef: '~/.itestagent/projects/abc/profile.json',
+    device: {
+      udid: 'DEVICE-UDID-002',
+      name: 'iPhone 14',
+      model: 'iPhone14,7',
+      osVersion: '17.5',
+    },
+    execution: {
+      totalSteps: 5,
+      completedSteps: 5,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 10000,
+      startTime: '2026-07-17T13:00:00.000Z',
+      endTime: '2026-07-17T13:00:10.000Z',
+      backendUsed: 'appium',
+      deviceId: 'DEVICE-UDID-002',
+    },
+    cases: [],
+    metrics: {},
+    artifactRefs: [],
+  };
+
+  const result = migrateV1ToV2(v1data);
+  expect(result.device.targetKind).toBe('physical');
+  expect(result.execution.targetKind).toBe('physical');
+  expect(result.environment.targetKind).toBe('physical');
+  expect(result.environment.representativeOfPhysicalDevice).toBe(true);
+  expect(result.environment.comparisonScope).toBe('physical_only');
+});
+
+// ─── Test 19: migrateV1ToV2 — pass-through v2 data ────────────
+
+test('migrateV1ToV2 passes through v2 data unchanged', () => {
+  const v2data = {
+    schemaVersion: '2.0',
+    runId: 'run-v2-001',
+    status: 'explored',
+    projectProfileRef: '~/.itestagent/projects/xyz/profile.json',
+    device: {
+      udid: 'SIM-UDID-001',
+      name: 'iPhone 15 Pro Simulator',
+      model: 'iPhone15,2',
+      osVersion: '18.2',
+      targetKind: 'simulator',
+      runtimeIdentifier: 'com.apple.CoreSimulator.SimRuntime.iOS-18-2',
+    },
+    execution: {
+      totalSteps: 4,
+      completedSteps: 4,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 8000,
+      startTime: '2026-07-17T14:00:00.000Z',
+      endTime: '2026-07-17T14:00:08.000Z',
+      targetKind: 'simulator',
+      backendUsed: 'appium',
+      deviceId: 'SIM-UDID-001',
+    },
+    cases: [],
+    metrics: {},
+    environment: {
+      targetKind: 'simulator',
+      representativeOfPhysicalDevice: false,
+      comparisonScope: 'simulator_only',
+    },
+    artifactRefs: [],
+  };
+
+  const result = migrateV1ToV2(v2data);
+  expect(result.schemaVersion).toBe('2.0');
+  expect(result.device.targetKind).toBe('simulator');
+  expect(result.execution.targetKind).toBe('simulator');
+  expect(result.environment.targetKind).toBe('simulator');
+  expect(result.environment.representativeOfPhysicalDevice).toBe(false);
+  expect(result.environment.comparisonScope).toBe('simulator_only');
+});
+
+// ─── Test 20: RunResultSchema parses simulator run result ─────
+
+test('RunResultSchema parses simulator run result with environment annotations', () => {
+  const result = RunResultSchema.parse({
+    schemaVersion: '2.0',
+    runId: 'run-sim-001',
+    status: 'passed',
+    projectProfileRef: '~/.itestagent/projects/abc/profile.json',
+    device: {
+      udid: 'ABCD-1234-EFGH-5678',
+      name: 'iPhone 15 Pro Simulator',
+      model: 'iPhone15,2',
+      osVersion: '18.2',
+      targetKind: 'simulator',
+      runtimeIdentifier: 'com.apple.CoreSimulator.SimRuntime.iOS-18-2',
+    },
+    execution: {
+      totalSteps: 6,
+      completedSteps: 6,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 15000,
+      startTime: '2026-07-17T15:00:00.000Z',
+      endTime: '2026-07-17T15:00:15.000Z',
+      targetKind: 'simulator',
+      backendUsed: 'appium',
+      deviceId: 'ABCD-1234-EFGH-5678',
+    },
+    cases: [],
+    metrics: {
+      launchDurationMs: 1800,
+      approximate: true,
+    },
+    environment: {
+      targetKind: 'simulator',
+      representativeOfPhysicalDevice: false,
+      comparisonScope: 'simulator_only',
+    },
+    artifactRefs: [],
+  });
+  expect(result.device.targetKind).toBe('simulator');
+  expect(result.environment.representativeOfPhysicalDevice).toBe(false);
+  expect(result.environment.comparisonScope).toBe('simulator_only');
+});
+
+// ─── Test 21: BaselineCompareInputSchema requires targetKind ───
+
+test('BaselineCompareInputSchema requires targetKind for domain isolation', () => {
+  const { BaselineCompareInputSchema } = require('../src/performance-backend.js');
+  const valid = BaselineCompareInputSchema.parse({
+    deviceId: 'DEV-001',
+    current: { approximate: true },
+    baselineId: 'baseline-v1',
+    targetKind: 'physical',
+  });
+  expect(valid.targetKind).toBe('physical');
+
+  // Missing targetKind should throw
+  expect(() =>
+    BaselineCompareInputSchema.parse({
+      deviceId: 'DEV-001',
+      current: {},
+      baselineId: 'baseline-v1',
+    }),
+  ).toThrow();
 });

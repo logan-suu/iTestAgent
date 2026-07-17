@@ -168,7 +168,8 @@
           "id": "1.3a",
           "title": "ADR-011 + Simulator 契约扩展：TargetKind、BackendCapabilities、Schema v2",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-17T12:30:00Z",
           "documents_required": [
             "docs/decisions/ADR-011-ios-simulator-first-class-support.md",
             "docs/02-architecture/架构设计文档.md",

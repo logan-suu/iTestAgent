@@ -327,12 +327,12 @@ test('SessionIdle/Aborted/Error event schemas parse correctly', () => {
     type: 'session.error',
     sessionId: 'ses_001',
     error: {
-      code: 'blocked.no_real_device',
+      code: 'blocked.no_device_available',
       message: 'No iPhone connected',
     },
   });
   expect(errorResult.sessionId).toBe('ses_001');
-  expect(errorResult.error.code).toBe('blocked.no_real_device');
+  expect(errorResult.error.code).toBe('blocked.no_device_available');
 });
 
 // ─── Test 17: AgentEventSchema routes different event types ────────
