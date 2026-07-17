@@ -217,8 +217,8 @@
           "id": "1.4",
           "title": "RunStateMachine：生命周期/错误状态/暂停/恢复/取消",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-18T12:00:00Z",
+          "status": "done",
+          "last_updated": "2026-07-18T17:07:55Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -228,7 +228,7 @@
             "1.3"
           ],
           "test_file": "packages/itestagent-engine/test/run-state-machine.test.ts",
-          "notes": "PR #8: https://github.com/logan-suu/iTestAgent/pull/8 (feat/run-state-machine → dev-1.0). RunStateMachine 实现：15-state forward chain + 4 exception branches + pause/resume/block with context tracking. classifyError (L1-L4) for agent-triggered block decisions. 45 unit tests. No AgentRuntime dependency (ADR-010). Typecheck + lint + 175 tests (45 new) all pass."
+          "notes": "✅ PR #8 merged to dev-1.0 (2026-07-18T17:07:55Z). RunStateMachine implementation: 15-state forward chain + 4 exception branches + pause/resume with context tracking + L1-L4 error classification + event emission. 47 unit tests. No AgentRuntime dependency (ADR-010). Typecheck + lint + 176 tests (47 new) all pass."
         },
         {
           "id": "1.5a",
