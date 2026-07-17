@@ -4,10 +4,6 @@
   "workspaces": {
     "": {
       "name": "itestagent",
-      "dependencies": {
-        "@opentui/core": "^0.4.3",
-        "@opentui/solid": "^0.4.3",
-      },
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@types/bun": "^1.1.14",
@@ -74,6 +70,9 @@
     "packages/itestagent-engine": {
       "name": "itestagent-engine",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+      },
     },
     "packages/itestagent-flow": {
       "name": "itestagent-flow",
