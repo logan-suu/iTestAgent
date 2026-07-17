@@ -330,6 +330,11 @@ G7 安全合规  无敏感数据落盘明文；高风险操作有确认
 ```
 代码类任务   产出代码、测试、schema，经 commit-pr-itest 创建 PR → 人类合并 → pr-merge-itest 标 done
 非代码类任务 产出报告/验证/研究结论（spike/research/report），经人类确认后标 done（无 PR 流程）
+
+非代码类产出文件存放约定：
+- Phase 0 横评报告 → `docs/06-verification/phase-0-cross-evaluation-report.md`
+- G5/G5-SIM Spike 验证报告 → `docs/06-verification/g5-sim-spike-report-{taskId}.md`
+- 研究/调研笔记 → `docs/06-verification/` 中的对应文件
 ```
 
 **两类任务共用同一状态机、同一终态，唯一区别是 `in_progress → done` 的确认方式不同。**
@@ -464,6 +469,7 @@ tests/
 docs/01-spec/                  (规格与需求)
 docs/02-architecture/          (架构设计与技术选型)
 docs/03-implementation/        (避坑手册)
+docs/06-verification/          (Spike 验证与 G5/G5-SIM 报告)
 docs/04-ai-native/             (AI Native 开发手册)
 docs/05-planning/              (开发计划与任务追踪)
 docs/decisions/                (ADR 架构决策记录)

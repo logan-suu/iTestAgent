@@ -43,7 +43,7 @@ agent: build
 
 ### 第五步：Verify — 验证与交付
 9. 逐条对齐 AC 自检。
-10. 真机能力真机 spike 实测（R3、G5），不确定项显式标注。
+10. 真机能力真机 spike 实测（R3、G5）；Simulator 能力 Simulator spike 实测（G5-SIM）；不确定项显式标注。
 11. 如涉及重大技术决策或需求变更，新增 ADR 记录到 `docs/decisions/`（R11）。
 12. **保持任务 `status` 为 `in_progress`**（代码类任务 PR 合并后 / 非代码类任务人类确认后，均由 `pr-merge-itest` 命令标 `done`；参见 AGENTS.md §8.1.2/§8.1.3）。
 13. 提示用户：

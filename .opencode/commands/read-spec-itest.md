@@ -25,6 +25,7 @@ agent: build
    - **任务包含性能/基线** → `技术选型文档.md` §11 + `开发避坑手册.md` §6
    - **任务包含 US-XXX** → `全量用户故事与验收标准规格书.md`
    - **任务包含 安全/脱敏** → `开发避坑手册.md` §10
+   - **任务类型 Spike/验证** → `06-verification/g5-sim-spike-report-*.md`（已有 Spike 报告模板参考）+ `documents_required` 中列出的关联文档
 2. 读取任务的 `documents_required` 字段中列出的文档。
 
 ### 第三步：读取并摘要

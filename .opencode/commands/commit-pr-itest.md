@@ -16,7 +16,7 @@ agent: build
    - G3 静态检查：`bun run typecheck` + `bun run lint` 通过
    - G4 测试通过：`bun test` 全绿
 3. **证据留档**（G6）：自检报告逐条对 AC，不确定项显式标注
-4. **真机能力**（G5）：涉及真机能力必须已真机 spike 实测
+4. **真机能力**（G5）：涉及真机能力必须已真机 spike 实测；Simulator 能力必须 G5-SIM。非代码 Spike 报告产出至 `docs/06-verification/`。
 5. **安全合规**（G7）：无敏感数据落盘明文
 
 ### 第二步：Git 提交

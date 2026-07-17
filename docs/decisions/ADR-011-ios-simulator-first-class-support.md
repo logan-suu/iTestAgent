@@ -134,4 +134,4 @@ Contracts (test-plan, result, flow) upgrade to v2. Historical v1 data is migrate
 - ADR-010: Agent Harness Runtime Boundary
 - Architecture Design Document §5 (Backend Interfaces)
 - Implementation Guide §3 (Real Device / Signing / Backend)
-- [iOS Simulator Support Technical Report](../03-implementation/ios-simulator-support-report.md)
+- [iOS Simulator Support Technical Report](../06-verification/ios-simulator-support-report.md)（如已产出）
