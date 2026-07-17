@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-17T09:30:00Z",
+  "last_updated": "2026-07-18T00:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -201,7 +201,7 @@
           "id": "1.3c",
           "title": "Simulator Spike: Appium/WDA Simulator session + UI tree/actions + abort",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -210,7 +210,7 @@
             "1.3b"
           ],
           "test_file": null,
-          "notes": "Spike 验证 Appium XCUITest/WDA Simulator：(1) Appium Simulator session (platformName=iOS, automationName=XCUITest, Simulator UDID)；(2) UI tree (page source XML → UiTreeSnapshot)；(3) tap/swipe/type/pressButton (W3C Actions)；(4) headless session；(5) 双 session 并行 (独立 wdaLocalPort, mjpegServerPort, derivedDataPath)；(6) abort cleanup (Appium session 删除 → 子进程 SIGTERM → 停止录屏 → 保存部分证据)；(7) 输出 G5-SIM 完整验证报告。预计 2-3 天。"
+          "notes": "✅ G5-SIM PASS。7/7 验证目标全部通过（2026-07-17）。详细报告：docs/03-implementation/g5-sim-spike-report-1.3c.md。PR #7: https://github.com/logan-suu/iTestAgent/pull/7。环境：Xcode 26.5 / CoreSimulator-1051.54 / Appium 3.5.2 + XCUITest 11.17.7 / iPhone 16 Pro (iOS 18.2)。关键发现：(1) Simulator WDA 无需签名自动构建（~45s first run）；(2) 页面源码 26K chars/110 elements；(3) W3C Actions tap/swipe/type 全部可用，pressButton 需用 mobile: pressButton；(4) Headless boot 可用（Argent MCP headless=true）；(5) 并行双 session 需独立 wdaLocalPort/mjpegServerPort/derivedDataPath；(6) session delete 后 WDA 进程不会自动终止，SessionManager 需显式 SIGTERM。7 条实现警告（W1-W7）见报告 §9。等待人类确认。"
         },
         {
           "id": "1.4",
