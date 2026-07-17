@@ -50,7 +50,7 @@ AI Native 不是“用 AI 补全几行代码”，而是**把 AI Agent 当作团
   与产品 explored/inconclusive/not_exportable 一致：AI 不确定就说不确定，不硬凑“看起来对”的答案。
 
 理念6 小步可验证（Small Verifiable Steps）
-  每次 AI 改动都对应可运行验证（类型检查/测试/真机 spike），拒绝一次性大爆炸式生成。
+  每次 AI 改动都对应可运行验证（类型检查/测试/真机或 Simulator spike），拒绝一次性大爆炸式生成。
 ```
 
 ## 3. 上下文工程（Context Engineering）
@@ -241,7 +241,7 @@ G7 安全合规  无敏感数据落盘明文；高风险操作有确认
 
 ```
 G1-G4/G6/G7 未过 -> 不合并
-G5 对真机相关能力是硬门槛；纯逻辑单元可用 mock+fixtures 验证但需说明
+G5 对真机相关能力是硬门槛；G5-SIM 对 Simulator 相关能力是硬门槛（ADR-011）；纯逻辑单元可用 mock+fixtures 验证但需说明
 ```
 
 ## 9. 反模式（禁止）
