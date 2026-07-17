@@ -167,8 +167,10 @@ export class RunStateMachine {
       });
     }
 
-    // Clear pause context on recovery
-    if (isRecovery) {
+    // Clear pause context on recovery or when reaching terminal state.
+    // Without this, blocked → done leaves stale context and isPaused() returns
+    // true incorrectly even though the run is terminal.
+    if (isRecovery || to === 'done') {
       this.pauseContexts.delete(runId);
     }
 

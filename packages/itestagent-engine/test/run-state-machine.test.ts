@@ -402,6 +402,18 @@ describe('RunStateMachine pause and resume', () => {
     expect(machine.isPaused('r1')).toBe(true);
     expect(machine.getPauseContext('r1')?.reason).toBe('blocked by security policy');
   });
+
+  test('blocked → done clears pause context', () => {
+    const { machine } = createMachine();
+
+    machine.pause('r1', 'executing', 'paused');
+    expect(machine.isPaused('r1')).toBe(true);
+
+    // blocked → done is valid (contract), should clear context
+    machine.transition('r1', 'blocked', 'done');
+    expect(machine.isPaused('r1')).toBe(false);
+    expect(machine.getPauseContext('r1')).toBeUndefined();
+  });
 });
 
 // ────────────────────────────────────────────────────────────
