@@ -185,8 +185,8 @@
           "id": "1.3b",
           "title": "Simulator Spike: simctl lifecycle + Simulator SDK build",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-17T15:45:00Z",
+          "status": "done",
+          "last_updated": "2026-07-17T15:50:00Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -195,13 +195,13 @@
             "1.3a"
           ],
           "test_file": null,
-          "notes": "✅ G5-SIM PASS。在 iPhone 16 Pro (iOS 18.2 / CoreSimulator runtime) 上端到端验证了所有 6 类 simctl 能力：(1) list/create/boot/shutdown/erase/delete — ✅；(2) install(help verified)/launch/terminate — ✅；(3) screenshot/recordVideo — ✅；(4) location/privacy/push/status bar — ✅；(5) xcodebuild Simulator SDK — ✅ (Xcode 26.5, iphonesimulator26.5 SDK)。G5-SIM 报告输出到 docs/03-implementation/g5-sim-spike-report-1.3b.md。关键发现：listapps 使用 legacy plist 格式需 plutil 转换；push 需 Simulator Target Bundle key；recordVideo 需 SIGINT 停止。解锁 1.3c (Appium/WDA Simulator session spike)。PR #5 (https://github.com/logan-suu/iTestAgent/pull/5): commit spike report + task lifecycle docs (code vs non-code task type distinction, AGENTS.md §8.1.0-8.1.3)。"
+          "notes": "✅ G5-SIM PASS。在 iPhone 16 Pro (iOS 18.2 / CoreSimulator runtime) 上端到端验证了所有 6 类 simctl 能力。G5-SIM 报告：docs/03-implementation/g5-sim-spike-report-1.3b.md。关键发现：listapps 使用 legacy plist 格式需 plutil 转换；push 需 Simulator Target Bundle key；recordVideo 需 SIGINT 停止。PR #6 merged to dev-1.0. Human confirmed 2026-07-17."
         },
         {
           "id": "1.3c",
           "title": "Simulator Spike: Appium/WDA Simulator session + UI tree/actions + abort",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
