@@ -135,7 +135,7 @@ itestagent
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | Phase 0 | ✅ 完成 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
-| Phase 1 | 🔄 ready | 骨架与环境（TUI/Server/doctor/devices） |
+| Phase 1 | 🔄 in_progress | 骨架与环境（CLI/TUI/contracts done, RunStateMachine/Server/doctor/devices/store/config pending） |
 | Phase 2 | ⬜ 待开始 | 项目分析与 TestPlan |
 | Phase 3 | ⬜ 待开始 | 真机执行核心（双路径 + Flow） |
 | Phase 4 | ⬜ 待开始 | 证据 / 性能 / 报告 |

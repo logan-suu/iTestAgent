@@ -79,7 +79,7 @@ test('doctor subcommand outputs stub via spawnSync', () => {
   });
   expect(result.exitCode).toBe(0);
   const stdout = result.stdout.toString();
-  expect(stdout).toContain('Coming in task 1.4');
+  expect(stdout).toContain('Coming in task 1.6');
 });
 
 test('config subcommand outputs merged config via spawnSync (US-18.2)', () => {

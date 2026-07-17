@@ -11,7 +11,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "bun test",
-    "build": "echo \"TODO: per-package build scripts\" && exit 0"
+    "build": "echo \"ERROR: per-package build scripts not yet implemented (Phase 1). See task 1.10 for Phase 1 integration gate.\" && exit 1"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

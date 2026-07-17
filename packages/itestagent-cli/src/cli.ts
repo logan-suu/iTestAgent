@@ -1,63 +1,66 @@
 import { Command } from 'commander';
-import { startTui } from 'itestagent-tui';
 import { loadConfig } from './config/loader.js';
 import { VERSION } from './version.js';
 
 /**
- * iTestAgent CLI 入口（Commander）
+ * iTestAgent CLI entry point (Commander).
  *
- * AGENTS.md §11 常用命令：
- *   itestagent                 # 进入 TUI(核心入口)
- *   itestagent doctor          # 环境诊断与引导
- *   itestagent devices         # 查看本机 iPhone
- *   itestagent config          # 配置管理
+ * AGENTS.md §11 commands:
+ *   itestagent                 # enter TUI (default action)
+ *   itestagent doctor          # environment diagnostics (task 1.6)
+ *   itestagent devices         # list connected iPhones (task 1.7)
+ *   itestagent config          # config management
  *   itestagent --version
- *   itestagent explain <run>   # 失败解释
- *   itestagent rerun <run> --failed-only
- *   itestagent run flow <id>   # 重放 Flow(调试/自动化辅助)
+ *   itestagent explain <run>   # failure explanation (task 5.1)
+ *   itestagent rerun <run> --failed-only  (task 5.1)
+ *   itestagent run flow <id>   # replay Flow (task 5.2)
  *
- * 技术选型 §5：CLI 用 Commander（轻量入口）。
- * 本任务 1.1 只实现 --version + config + 子命令 stub。
+ * Tech choice §5: Commander as lightweight CLI entry.
+ * Task 1.1 implements --version + config + subcommand stubs.
  */
 
 /**
- * 创建 Commander program 实例。
- * 导出函数便于测试（不直接执行 parseAsync）。
+ * Create Commander program instance.
+ * Exported as a factory function for testability (avoids calling parseAsync directly).
  */
 export function createProgram(): Command {
   const program = new Command();
 
   program
     .name('itestagent')
-    .description('iPhone 真机全自动化测试 TUI Agent — Local-first, TUI-first, Agent-native.')
-    .version(VERSION, '-v, --version', '输出版本号');
+    .description(
+      'iPhone real-device automated testing TUI Agent — Local-first, TUI-first, Agent-native.',
+    )
+    .version(VERSION, '-v, --version', 'output version number');
 
-  // US-4.1 AC1 / US-18.1 AC1：无子命令时进入 TUI（不要求登录）
+  // US-4.1 AC1 / US-18.1 AC1: default action enters TUI (dynamic import —
+  // prevents TUI renderer from blocking non-TUI commands like --version)
   program.action(async () => {
+    const { startTui } = await import('itestagent-tui');
     await startTui();
   });
 
-  // ─── doctor（stub → task 1.4）───
+  // ─── doctor (stub → task 1.6) ───
   program
     .command('doctor')
-    .description('环境诊断与引导')
+    .description('environment diagnostics and setup guidance')
     .action(() => {
-      console.log('Coming in task 1.4 — doctor 环境诊断与引导');
+      console.log('Coming in task 1.6 — doctor environment diagnostics');
     });
 
-  // ─── devices（stub → task 1.5）───
+  // ─── devices (stub → task 1.7) ───
   program
     .command('devices')
-    .description('查看本机 iPhone')
+    .description('list connected iPhones')
     .action(() => {
-      console.log('Coming in task 1.5 — devices 设备发现与 healthcheck');
+      console.log('Coming in task 1.7 — devices discovery and healthcheck');
     });
 
-  // ─── config（实际实现：展示三层合并后的配置）───
-  // US-18.2 AC1/AC2：三层 JSONC 合并 + $schema 支持
+  // ─── config (implemented: shows three-layer merged config) ───
+  // US-18.2 AC1/AC2: three-layer JSONC merge + $schema support
   program
     .command('config')
-    .description('展示当前生效配置（三层 JSONC 合并）')
+    .description('show effective config (three-layer JSONC merge)')
     .action(async () => {
       const { config, sources } = await loadConfig();
       console.log(JSON.stringify(config, null, 2));
@@ -68,30 +71,30 @@ export function createProgram(): Command {
       }
     });
 
-  // ─── explain（stub → task 5.1）───
+  // ─── explain (stub → task 5.1) ───
   program
     .command('explain <run>')
-    .description('失败解释')
+    .description('explain test failure')
     .action((runId: string) => {
       console.log(`Coming in task 5.1 — explain run: ${runId}`);
     });
 
-  // ─── rerun（stub → task 5.1）───
+  // ─── rerun (stub → task 5.1) ───
   program
     .command('rerun <run>')
-    .description('重跑失败用例')
-    .option('--failed-only', '只重跑失败的用例')
+    .description('rerun failed test cases')
+    .option('--failed-only', 'only rerun failed cases')
     .action((runId: string, options: { failedOnly?: boolean }) => {
       const flag = options.failedOnly ? ' --failed-only' : '';
       console.log(`Coming in task 5.1 — rerun: ${runId}${flag}`);
     });
 
-  // ─── run flow（嵌套子命令，stub → task 5.2）───
-  const runCmd = program.command('run').description('运行相关命令');
+  // ─── run flow (nested subcommand, stub → task 5.2) ───
+  const runCmd = program.command('run').description('run-related commands');
 
   runCmd
     .command('flow <id>')
-    .description('重放 Flow（调试/自动化辅助）')
+    .description('replay iTestAgent Flow (debug/automation helper)')
     .action((flowId: string) => {
       console.log(`Coming in task 5.2 — run flow: ${flowId}`);
     });
@@ -99,7 +102,7 @@ export function createProgram(): Command {
   return program;
 }
 
-// 入口点：当作为 bin 运行时（import.meta.main 是 Bun 特有）
+// Entry point: when run as bin (import.meta.main is Bun-specific)
 if (import.meta.main) {
   createProgram().parseAsync(process.argv);
 }
