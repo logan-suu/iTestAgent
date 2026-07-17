@@ -50,6 +50,7 @@ export type {
 } from './permission.js';
 
 export {
+  TargetKindSchema,
   ArtifactTypeSchema,
   RedactionStatusSchema,
   ArtifactRefSchema,
@@ -92,6 +93,7 @@ export type {
 } from './agent-runtime.js';
 
 export type {
+  TargetKind,
   ArtifactType,
   RedactionStatus,
   ArtifactRef,

@@ -3,13 +3,25 @@ import { z } from 'zod';
 /**
  * Device/Artifact/Action 类型 Schema（Zod）
  *
- * AC 原文（架构设计文档 §3 + 数据流全链路 S1-S9）：
- *   所有产物、设备信息、Backend 交互参数均需 schema 约束，面向 schema 编码。
+ * ADR-011: iOS Simulator 同级支持 — TargetKind, BackendCapabilities.supportedTargetKinds
+ * ADR-005: DeviceBackend 可插拔边界
+ * 架构设计文档 §3 + 数据流全链路 S1-S9
  *
- * AGENTS.md §5 数据契约：产物必须带 schemaVersion，面向 schema 编码。
+ * 所有产物、设备信息、Backend 交互参数均需 schema 约束，面向 schema 编码。
+ * AGENTS.md §5 数据契约：产物必须带 schemaVersion。
  *
  * 本文件定义 L1 层类型——依赖 L0（agent-error.ts），不引入 L2+ 依赖。
  */
+
+// ─── TargetKind ──────────────────────────────────────────────
+
+/**
+ * 执行目标类型（ADR-011）。
+ * physical: iPhone 真机    simulator: iOS Simulator
+ */
+export const TargetKindSchema = z.enum(['physical', 'simulator']);
+
+export type TargetKind = z.infer<typeof TargetKindSchema>;
 
 // ─── ArtifactType ───────────────────────────────────────────
 
@@ -89,6 +101,14 @@ export const DeviceInfoSchema = z.object({
   osVersion: z.string().optional(),
   /** 平台 */
   platform: z.enum(['ios', 'android']),
+  /** 执行目标类型（ADR-011） */
+  targetKind: TargetKindSchema,
+  /** Simulator runtime identifier (e.g. 'com.apple.CoreSimulator.SimRuntime.iOS-18-2') */
+  runtimeIdentifier: z.string().optional(),
+  /** Simulator device type identifier (e.g. 'com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro') */
+  deviceTypeIdentifier: z.string().optional(),
+  /** Simulator boot state */
+  state: z.enum(['booted', 'shutdown', 'creating', 'booting', 'shutting_down']).optional(),
 });
 
 export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;
@@ -108,12 +128,18 @@ export const DeviceSnapshotSchema = z.object({
   model: z.string(),
   /** 操作系统版本 */
   osVersion: z.string(),
-  /** 电量百分比 [0, 100] */
+  /** 执行目标类型（ADR-011） */
+  targetKind: TargetKindSchema,
+  /** 电量百分比 [0, 100]（Simulator 为 N/A） */
   battery: z.number().min(0).max(100).optional(),
-  /** 是否已信任此设备 */
+  /** 是否已信任此设备（Simulator 为 N/A） */
   trusted: z.boolean(),
-  /** 开发者模式是否开启（可选，Android 特有） */
+  /** 开发者模式是否开启（Simulator 为 N/A） */
   developerMode: z.boolean().optional(),
+  /** Simulator runtime identifier */
+  runtimeIdentifier: z.string().optional(),
+  /** Simulator device type identifier */
+  deviceTypeIdentifier: z.string().optional(),
 });
 
 export type DeviceSnapshot = z.infer<typeof DeviceSnapshotSchema>;
@@ -152,8 +178,22 @@ export type HealthCheckResult = z.infer<typeof HealthCheckResultSchema>;
  * 对应每个 DeviceBackend 实现的健康检查返回。
  */
 export const BackendCapabilitiesSchema = z.object({
+  /** Backend 支持的目标类型（ADR-011） */
+  supportedTargetKinds: z.array(TargetKindSchema),
   /** Backend 支持的能力列表 */
   features: z.array(z.string()),
+  /** 是否支持 UI 树（accessibility tree） */
+  supportsUiTree: z.boolean().default(true),
+  /** 是否支持截图 */
+  supportsScreenshot: z.boolean().default(true),
+  /** 是否支持录屏 */
+  supportsVideo: z.boolean().default(false),
+  /** 是否支持崩溃日志 */
+  supportsCrashLogs: z.boolean().default(false),
+  /** 是否支持位置模拟 */
+  supportsLocation: z.boolean().default(false),
+  /** 是否支持推送模拟 */
+  supportsPush: z.boolean().default(false),
 });
 
 export type BackendCapabilities = z.infer<typeof BackendCapabilitiesSchema>;

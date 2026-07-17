@@ -102,6 +102,7 @@ test('ExecutionSummarySchema parses valid execution summary', () => {
     durationMs: 45000,
     startTime: '2026-07-17T10:00:00.000Z',
     endTime: '2026-07-17T10:00:45.000Z',
+    targetKind: 'physical',
     backendUsed: 'mobile-mcp',
     deviceId: '00008110-ABCDEF1234567890',
   });
@@ -223,6 +224,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       name: 'iPhone 15 Pro',
       model: 'iPhone15,2',
       osVersion: '18.2',
+      targetKind: 'physical',
     },
     execution: {
       totalSteps: 8,
@@ -232,6 +234,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       durationMs: 28000,
       startTime: '2026-07-17T10:00:00.000Z',
       endTime: '2026-07-17T10:00:28.000Z',
+      targetKind: 'physical',
       backendUsed: 'appium',
       deviceId: '00008110-ABCDEF1234567890',
     },
@@ -261,6 +264,11 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       hangCount: 0,
       hitchesSummary: 'low',
       approximate: false,
+    },
+    environment: {
+      targetKind: 'physical',
+      representativeOfPhysicalDevice: true,
+      comparisonScope: 'physical_only',
     },
     baselineDelta: {
       baselineId: 'baseline-v1',
@@ -306,6 +314,7 @@ test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
       name: 'Test iPhone',
       model: 'iPhone15,2',
       osVersion: '18.2',
+      targetKind: 'physical',
     },
     execution: {
       totalSteps: 3,
@@ -315,11 +324,17 @@ test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
       durationMs: 5000,
       startTime: '2026-07-17T12:00:00.000Z',
       endTime: '2026-07-17T12:00:05.000Z',
+      targetKind: 'physical',
       backendUsed: 'mobile-mcp',
       deviceId: 'DEVICE-UDID-001',
     },
     cases: [],
     metrics: {},
+    environment: {
+      targetKind: 'physical',
+      representativeOfPhysicalDevice: true,
+      comparisonScope: 'physical_only',
+    },
     artifactRefs: [],
   };
   const parsed = parseRunResult(original);

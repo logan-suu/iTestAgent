@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-17T03:00:00Z",
+  "last_updated": "2026-07-17T04:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -165,6 +165,37 @@
           "notes": "✅ PR #3 已合并到 dev-1.0。定义 AgentRuntime(streamTurn/executeToolCall/abort) + AgentEvent(16 种事件) + ToolCall/ToolResult + DeviceBackend/PerformanceBackend/BuildDriver/StoreDriver/ProjectAnalyzerBackend/StoreDriver/SecretStore/ArtifactStore 接口 + DeviceSnapshot/UiTreeSnapshot/RunStep/ArtifactRef/PerformanceMetrics/RunResult/ArtifactIndex 统一数据契约。14 源文件 + 6 测试文件，71 tests，typecheck + lint 0 error。Phase 3-4 所有 backend 实现的前置条件。"
         },
         {
+          "id": "1.3a",
+          "title": "ADR-011 + Simulator 契约扩展：TargetKind、BackendCapabilities、Schema v2",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/decisions/ADR-011-ios-simulator-first-class-support.md",
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
+          ],
+          "dependencies": [
+            "1.3"
+          ],
+          "test_file": null,
+          "notes": "ADR-011 治理入口。扩展 device-types.ts（TargetKind、BackendCapabilities.supportedTargetKinds、DeviceInfo/DeviceSnapshot 增加 targetKind）、data-contracts.ts（ExecutionSummary/RunResult 增加 targetKind、environment 元数据、baseline 分域）、config.ts（per-target preferredBackends、allowCrossTargetFallback）、agent-error.ts（统一 BackendError 码）。Schema 升级 v2，v1→v2 reader。预计 1-2 天。"
+        },
+        {
+          "id": "1.3b",
+          "title": "Simulator Spike：simctl lifecycle + Appium Simulator session + UI tree/actions 端到端验证",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/技术选型文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": [
+            "1.3a"
+          ],
+          "test_file": null,
+          "notes": "Spike 验证：（1）simctl list/create/boot/shutdown/install/launch/terminate/screenshot/recordVideo；（2）Simulator SDK xcodebuild（platform=iOS Simulator,id=UDID）；（3）Appium XCUITest/WDA Simulator session（UI tree、tap/swipe/type、W3C Actions、headless）；（4）双 session 并行（独立 wdaLocalPort、mjpegServerPort、derivedDataPath）；（5）abort cleanup（Appium session 删除 → 子进程 SIGTERM → 停止录屏 → 保存部分证据）；（6）输出 G5-SIM 验证报告。预计 3-5 天。"
+        },
+        {
           "id": "1.4",
           "title": "RunStateMachine：生命周期/错误状态/暂停/恢复/取消",
           "story": null,
@@ -262,7 +293,7 @@
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
-          "notes": "验证 CLI/TUI/Server/doctor/devices/store/config 跨模块联调。运行 bun test + bun run typecheck + bun run lint。出口：全部通过后 Phase 1 done。",
+          "notes": "验证 CLI/TUI/Server/doctor/devices/store/config 跨模块联调。运行 bun test + bun run typecheck + bun run lint。出口：全部通过后 Phase 1 done。 新增 T1.3a/T1.3b Simulator 骨架集成。",
           "dependencies": [
             "1.1",
             "1.2",
@@ -272,7 +303,9 @@
             "1.6",
             "1.7",
             "1.8",
-            "1.9"
+            "1.9",
+            "1.3a",
+            "1.3b"
           ],
           "test_file": null
         }

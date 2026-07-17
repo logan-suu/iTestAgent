@@ -96,6 +96,7 @@ test('DeviceInfoSchema parses minimal iOS device info', () => {
   const result = DeviceInfoSchema.parse({
     udid: '00008110-001234567890001A',
     platform: 'ios',
+    targetKind: 'physical',
   });
   expect(result.udid).toBe('00008110-001234567890001A');
   expect(result.platform).toBe('ios');
@@ -112,6 +113,7 @@ test('DeviceSnapshotSchema parses complete device snapshot with all fields', () 
     name: 'iPhone 15 Pro',
     model: 'iPhone15,2',
     osVersion: '17.4',
+    targetKind: 'physical',
     battery: 85,
     trusted: true,
     developerMode: true,

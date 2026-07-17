@@ -93,8 +93,14 @@ export const ExecutionSummarySchema = z.object({
   startTime: z.string(),
   /** 结束时间（ISO 8601） */
   endTime: z.string(),
+  /** 执行模式（ADR-011） */
+  mode: z.enum(['xcuitest', 'device_backend']).optional(),
+  /** 目标类型（ADR-011） */
+  targetKind: z.enum(['physical', 'simulator']),
   /** 使用的 backend 名称 */
   backendUsed: z.string(),
+  /** backend 版本（审计用途） */
+  backendVersion: z.string().optional(),
   /** 目标设备 ID */
   deviceId: z.string(),
 });
@@ -209,6 +215,10 @@ export const RunResultSchema = z.object({
     name: z.string(),
     model: z.string(),
     osVersion: z.string(),
+    /** 执行目标类型（ADR-011） */
+    targetKind: z.enum(['physical', 'simulator']),
+    /** Simulator runtime identifier（physical 为 undefined） */
+    runtimeIdentifier: z.string().optional(),
   }),
   /** 执行摘要 */
   execution: ExecutionSummarySchema,
@@ -216,6 +226,19 @@ export const RunResultSchema = z.object({
   cases: z.array(TestCaseResultSchema),
   /** 性能指标 */
   metrics: PerformanceMetricsSchema,
+  /** 执行环境元数据（ADR-011：Simulator 报告强制携带） */
+  environment: z.object({
+    /** physical 或 simulator */
+    targetKind: z.enum(['physical', 'simulator']),
+    /** 能否代表真机表现（Simulator 固定 false） */
+    representativeOfPhysicalDevice: z.boolean(),
+    /** baseline 比较域（simulator_only 或 physical_only） */
+    comparisonScope: z.enum(['simulator_only', 'physical_only']),
+    /** 宿主机指纹（Simulator 必填） */
+    hostFingerprint: z.string().optional(),
+    /** Xcode 版本（Simulator 必填） */
+    xcodeVersion: z.string().optional(),
+  }),
   /** Baseline 对比增量（可选，首次 run 无 baseline 时不填充） */
   baselineDelta: BaselineDeltaSchema.optional(),
   /** 产物 ID 引用列表 */

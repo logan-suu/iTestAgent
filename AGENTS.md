@@ -73,11 +73,11 @@
 
 ### 0.4 一句话项目定位
 
-iTestAgent 是一个**类似 OpenCode 的本地 TUI Agent**，但领域是 **iPhone 真机全自动化测试**：先理解 iOS 项目，再生成测试计划，驱动本机真机执行、采集证据、分析失败并输出本地报告。
+iTestAgent 是一个**类似 OpenCode 的本地 TUI Agent**，但领域是 **iPhone 真机与 iOS Simulator 同级支持的全自动化测试**：先理解 iOS 项目，再生成测试计划，驱动本机真机或 Simulator 执行、采集证据、分析失败并输出本地报告。
 
 ```
-Local-first, TUI-first, Agent-native, Project-aware, Real-device only.
-本地优先、TUI 优先、Agent 原生、先理解项目、只面向 iPhone 真机。
+Local-first, TUI-first, Agent-native, Project-aware, Target-explicit.
+本地优先、TUI 优先、Agent 原生、先理解项目、真机与 iOS Simulator 同级支持、执行目标始终显式。
 ```
 
 ### 与 OpenCode 的类比
@@ -114,7 +114,7 @@ AI Native 开发手册 EPCC-V 工作流、质量门禁 G1-G7
 ```
 R1 不碰 Apple 私有框架(TraceUtility 等)与 .trace 二进制逆向
 R2 不自研已复用底座：WDA / Appium / xcodebuild / xctrace / xcresult 解析
-R3 真机能力不得“看代码就算过”，必须真机 spike 实测(G5)
+R3 真机能力不得“看代码就算过”，必须真机 spike 实测(G5)；Simulator 能力必须 CoreSimulator runtime 端到端验证(G5-SIM，ADR-011)
 R4 不把“从代码推断的核心链路”当既定事实，只能候选+证据+用户确认
 R5 不静默降级/臆造指标(尤其 FPS、xctrace summary)，不确定必须显式标注
 R6 敏感数据(账号/OTP/token)不落盘明文、不入日志/报告/提交
@@ -312,7 +312,8 @@ G1 规格一致  与 7 份文档不冲突
 G2 契约校验  产物过 schema(plan/result/artifact-index/project-profile)
 G3 静态检查  类型检查 + Lint 通过
 G4 测试通过  覆盖对应 AC；P0 全绿
-G5 真机验证  涉及真机能力必须真机 spike 实测
+G5 真机验证  （真机）必须 real iPhone spike 实测（ADR-011）
+G5-SIM Simulator 验证  涉及 Simulator 能力必须 CoreSimulator runtime 端到端验证（ADR-011）
 G6 证据留档  自检报告逐条对 AC；不确定项显式标注
 G7 安全合规  无敏感数据落盘明文；高风险操作有确认
 ```
@@ -511,7 +512,7 @@ bun run build
 [ ] 对齐对应 US 的全部 P0 AC(P1 允许限制但需声明)
 
 
-[ ] G1-G7 全过；真机能力已真机 spike 实测
+[ ] G1-G7 全过；真机能力已真机 spike 实测(G5)；Simulator 能力已 Simulator spike 验证(G5-SIM)
 
 
 [ ] 产物过 schema；命名 itestagent-*；未违红线
@@ -530,7 +531,7 @@ bun run build
 
 ```
 iTestAgent 是一个通用工具，不绑定任何特定项目。用户在任何 iOS 项目目录中启动 itestagent 即可针对该项目工作。
-当前开发阶段以无既有测试的 iOS 项目作为验证案例，确保 DeviceBackend 探索路径可行。
+当前开发阶段以无既有测试的 iOS 项目作为验证案例，确保 DeviceBackend 探索路径在真机(iPhone)和 Simulator 上双重可行(ADR-011)。
 人力       1 名独立开发者(全栈, AI Native 全程)
 阶段策略   先做多 Backend 横评(端到端真机 + 元素定位)定路线，再按 Phase 1-5 推进到 MVP
 MVP 边界   去风险 MVP：人在环路记录器 + 稳健性能趋势工具；研究级能力后置

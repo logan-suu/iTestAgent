@@ -23,7 +23,7 @@ test('getDefaultConfig returns schema defaults', () => {
   const config = getDefaultConfig();
   expect(config.schemaVersion).toBe('1.0');
   expect(config.model.provider).toBe('openai');
-  expect(config.device.preferredBackend).toBe('appium');
+  expect(config.device.allowCrossTargetFallback).toBe(false);
   expect(config.tui.framework).toBe('opentui');
 });
 
@@ -34,7 +34,7 @@ test('loadConfig returns defaults when no config files exist', async () => {
   });
   expect(config.schemaVersion).toBe('1.0');
   expect(config.model.provider).toBe('openai');
-  expect(config.device.preferredBackend).toBe('appium');
+  expect(config.device.allowCrossTargetFallback).toBe(false);
   expect(config.tui.framework).toBe('opentui');
   expect(sources).toHaveLength(3);
   expect(sources.every((s) => !s.exists)).toBe(true);
@@ -69,10 +69,12 @@ test('loadConfig merges three layers (project-root > project-local > global)', a
     JSON.stringify({ model: { provider: 'openai' } }),
   );
 
-  // Project-root: device.preferredBackend=mock
+  // Project-root: per-target preferredBackends and allowCrossTargetFallback
   await writeFile(
     join(tempProject, 'itestagent.jsonc'),
-    JSON.stringify({ device: { preferredBackend: 'mock' } }),
+    JSON.stringify({
+      device: { preferredBackends: { physical: ['mock'] }, allowCrossTargetFallback: true },
+    }),
   );
 
   const { config } = await loadConfig({
@@ -85,7 +87,8 @@ test('loadConfig merges three layers (project-root > project-local > global)', a
   // global value preserved for model (deep merge, not overridden by project-local)
   expect(config.model.model).toBe('claude-3');
   // project-root sets device
-  expect(config.device.preferredBackend).toBe('mock');
+  expect(config.device.allowCrossTargetFallback).toBe(true);
+  expect(config.device.preferredBackends?.physical).toEqual(['mock']);
   // tui uses default
   expect(config.tui.framework).toBe('opentui');
 });

@@ -45,13 +45,21 @@ export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 // ─── 设备配置段 ───────────────────────────────────────────
 
 /**
- * 技术选型 §9：可插拔 DeviceBackend 架构。
- * Phase 0 横评结论：Appium/WDA MVP 主 backend + MockBackend CI baseline。
+ * ADR-011：真机与 Simulator 同级支持。
+ * Backend 选择按 targetKind 独立配置，支持同类型 fallback；
+ * 跨类型 fallback 需用户确认。
  */
 export const DeviceConfigSchema = z
   .object({
-    /** 首选 DeviceBackend */
-    preferredBackend: z.enum(['appium', 'mobile-mcp', 'mock']).optional().default('appium'),
+    /** 按 targetKind 的首选 Backend 列表（优先级从高到低） */
+    preferredBackends: z
+      .object({
+        physical: z.array(z.enum(['appium', 'mobile-mcp', 'mock'])).optional(),
+        simulator: z.array(z.enum(['appium', 'mock'])).optional(),
+      })
+      .optional(),
+    /** 是否允许跨 targetKind fallback（默认 false，需 ask） */
+    allowCrossTargetFallback: z.boolean().optional().default(false),
   })
   .strict();
 

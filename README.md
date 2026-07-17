@@ -1,6 +1,6 @@
 # iTestAgent
 
-> **iPhone 真机全自动化测试 TUI Agent — Local-first, TUI-first, Agent-native.**
+> **iPhone 真机与 iOS Simulator 同级支持的全自动化测试 TUI Agent — Local-first, TUI-first, Agent-native.**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white)](https://bun.sh/)
@@ -26,15 +26,15 @@ iTestAgent 的核心不是"收到测试目标后直接乱点 UI"，而是：
 5. **输出本地报告** — summary.md + result.json + artifact-index.json
 
 ```
-Local-first, TUI-first, Agent-native, Project-aware, Real-device only.
-本地优先、TUI 优先、Agent 原生、先理解项目、只面向 iPhone 真机。
+Local-first, TUI-first, Agent-native, Project-aware, Target-explicit.
+本地优先、TUI 优先、Agent 原生、先理解项目、真机与 iOS Simulator 同级支持、执行目标始终显式。
 ```
 
 ## 目标用户
 
 **第一目标**：iOS 客户端开发者本地自测与失败复现。
 
-**第二用户**：QA 和测试平台同学。第一版产品主线围绕单个开发者在本机连接 iPhone 真机完成自测、复现、性能采集和失败解释。
+**第二用户**：QA 和测试平台同学。第一版产品主线围绕单个开发者在本机连接 iPhone 真机或 iOS Simulator 完成自测、复现、性能采集和失败解释。
 
 ## 架构概览
 
@@ -47,7 +47,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 存储与报告层  SQLite metadata / filesystem artifacts / summary.md / result.json
 ```
 
-**可插拔 Backend 架构**：iTestAgent 定义稳定上层接口和产物模型，底层工具可替换。
+**可插拔 Backend 架构（真机与 Simulator 同级，ADR-011）**：iTestAgent 定义稳定上层接口和产物模型，底层工具可替换。
 - Device: `Appium/WDA`（MVP 主 backend）、`mobile-mcp`（强候选，需付费账号）、`iphone-use`（视觉 fallback）
 - Performance: `@xctrace-analyzer/core`（MVP 默认）+ 自研 hitches parser + `raw xcrun`（fallback）
 - TUI: `OpenTUI`（目标主线）、`Ink`（已验证 fallback）
