@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-17T04:00:00Z",
+  "last_updated": "2026-07-17T05:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -168,7 +168,7 @@
           "id": "1.3a",
           "title": "ADR-011 + Simulator 契约扩展：TargetKind、BackendCapabilities、Schema v2",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/decisions/ADR-011-ios-simulator-first-class-support.md",
             "docs/02-architecture/架构设计文档.md",
@@ -182,7 +182,7 @@
         },
         {
           "id": "1.3b",
-          "title": "Simulator Spike：simctl lifecycle + Appium Simulator session + UI tree/actions 端到端验证",
+          "title": "Simulator Spike: simctl lifecycle + Simulator SDK build",
           "story": null,
           "status": "pending",
           "documents_required": [
@@ -193,7 +193,22 @@
             "1.3a"
           ],
           "test_file": null,
-          "notes": "Spike 验证：（1）simctl list/create/boot/shutdown/install/launch/terminate/screenshot/recordVideo；（2）Simulator SDK xcodebuild（platform=iOS Simulator,id=UDID）；（3）Appium XCUITest/WDA Simulator session（UI tree、tap/swipe/type、W3C Actions、headless）；（4）双 session 并行（独立 wdaLocalPort、mjpegServerPort、derivedDataPath）；（5）abort cleanup（Appium session 删除 → 子进程 SIGTERM → 停止录屏 → 保存部分证据）；（6）输出 G5-SIM 验证报告。预计 3-5 天。"
+          "notes": "Spike 验证 simctl 基础能力：(1) list/create/boot/shutdown/erase/delete；(2) install/launch/terminate；(3) screenshot/recordVideo；(4) location/privacy/push/status bar；(5) Simulator SDK xcodebuild (platform=iOS Simulator,id=UDID)；(6) 输出 G5-SIM 基础验证报告。预计 1-2 天。"
+        },
+        {
+          "id": "1.3c",
+          "title": "Simulator Spike: Appium/WDA Simulator session + UI tree/actions + abort",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/技术选型文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": [
+            "1.3b"
+          ],
+          "test_file": null,
+          "notes": "Spike 验证 Appium XCUITest/WDA Simulator：(1) Appium Simulator session (platformName=iOS, automationName=XCUITest, Simulator UDID)；(2) UI tree (page source XML → UiTreeSnapshot)；(3) tap/swipe/type/pressButton (W3C Actions)；(4) headless session；(5) 双 session 并行 (独立 wdaLocalPort, mjpegServerPort, derivedDataPath)；(6) abort cleanup (Appium session 删除 → 子进程 SIGTERM → 停止录屏 → 保存部分证据)；(7) 输出 G5-SIM 完整验证报告。预计 2-3 天。"
         },
         {
           "id": "1.4",
@@ -212,26 +227,56 @@
           "notes": "ADR-010 Harness 边界。RunStateMachine 状态迁移：created→planning→awaiting_confirm→preparing_device→building_installing→executing→collecting→parsing→explaining→reported→done。异常分支：cancelled/blocked/infra_failed/failed。与 AgentRuntime 分离，不执行工具。"
         },
         {
-          "id": "1.5",
-          "title": "本地 Server + SessionManager + SSE Hub + subprocess controller + mock AgentRuntime",
+          "id": "1.5a",
+          "title": "本地 Bun server + SSE Hub + 基础路由",
+          "story": "US-4.3",
+          "status": "ready",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/技术选型文档.md"
+          ],
+          "dependencies": [
+            "0.6",
+            "1.3"
+          ],
+          "test_file": null,
+          "notes": "Bun server (Bun.serve) 骨架 + SSE Hub (Server-Sent Events 通道，session 隔离) + 基础路由 (/health, /session, /events)。Server 管生命周期，不决定测试策略。"
+        },
+        {
+          "id": "1.5b",
+          "title": "SessionManager：session 创建/关闭/隔离/超时",
           "story": "US-4.3",
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
-            "docs/02-architecture/技术选型文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
           "dependencies": [
-            "0.6",
-            "1.3",
+            "1.5a",
+            "1.4",
+            "1.8"
+          ],
+          "test_file": null,
+          "notes": "SessionManager: session 创建 (workspace, targetKind, backend)、关闭 (cleanup + abort)、隔离 (不同 session 独立 SSE channel/state)、超时回收。依赖 T1.4 RunStateMachine (session 生命周期状态) + T1.8 Store (session 持久化)。"
+        },
+        {
+          "id": "1.5c",
+          "title": "Subprocess controller + mock AgentRuntime",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+          ],
+          "dependencies": [
+            "1.5b",
             "1.9"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness Runtime boundary. Bun server + SessionManager (create/close/isolate) + SSE Hub + mock AgentRuntime + subprocess controller (Appium/xcodebuild/xctrace spawn/signal forwarding/timeout/reap) + abort/reaping tests. Server manages lifecycle, not test strategy. mock AgentRuntime should not be implemented before AI SDK major version is pinned (T1.9). T1.5 must execute after T1.9 done."
+          "notes": "Subprocess controller: Appium server/xcodebuild/xctrace 子进程 spawn/signal forwarding/timeout/reap。Mock AgentRuntime: 实现 AgentRuntime 接口的 mock（无 AI SDK 依赖，返回固定事件序列，用于测试 Server/SessionManager/SSE 联调）。T1.9 依赖：mock AgentRuntime 在 AI SDK major 锁定后改用真实 AgentRuntime。"
         },
         {
-          "id": "1.6",
-          "title": "doctor 环境诊断 + backend 前置条件引导",
+          "id": "1.6a",
+          "title": "doctor Physical readiness: Xcode/签名/DeveloperMode/trust/Appium",
           "story": "US-1.2, US-1.3",
           "status": "ready",
           "documents_required": [
@@ -242,7 +287,22 @@
             "0.6"
           ],
           "test_file": null,
-          "notes": "签名/DeveloperMode/信任/backend 前置条件引导。首次跑通引导 15-30min。"
+          "notes": "Physical readiness lane: Xcode + CLI tools 版本检查、签名证书/Provisioning Profile、Developer Mode 状态、设备信任关系、Appium server 可用性。首次跑通引导 15-30min。"
+        },
+        {
+          "id": "1.6b",
+          "title": "doctor Simulator readiness: Xcode runtime/simctl/Simulator SDK/Appium",
+          "story": "US-1.2, US-1.3",
+          "status": "ready",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": [
+            "0.6"
+          ],
+          "test_file": null,
+          "notes": "Simulator readiness lane (ADR-011): Xcode Simulator runtime 安装状态、simctl 可用性、可启动 Simulator 设备、Simulator SDK build 能力、Appium/WDA Simulator session 连通性。签名/Developer Mode/trust 标记为 N/A。首次跑通引导 15-30min。"
         },
         {
           "id": "1.7",
@@ -293,19 +353,23 @@
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
-          "notes": "验证 CLI/TUI/Server/doctor/devices/store/config 跨模块联调。运行 bun test + bun run typecheck + bun run lint。出口：全部通过后 Phase 1 done。 新增 T1.3a/T1.3b Simulator 骨架集成。",
+          "notes": "验证 CLI/TUI/Server/SSE/SessionManager/subprocess/mock AgentRuntime/doctor(physical+simulator)/devices/store/config 跨模块联调。含 T1.3a/b/c Simulator 骨架验证。运行 bun test + bun run typecheck + bun run lint。出口：全部通过后 Phase 1 done。",
           "dependencies": [
             "1.1",
             "1.2",
             "1.3",
+            "1.3a",
+            "1.3b",
+            "1.3c",
             "1.4",
-            "1.5",
-            "1.6",
+            "1.5a",
+            "1.5b",
+            "1.5c",
+            "1.6a",
+            "1.6b",
             "1.7",
             "1.8",
-            "1.9",
-            "1.3a",
-            "1.3b"
+            "1.9"
           ],
           "test_file": null
         }
@@ -473,7 +537,7 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "1.6",
+            "1.6a",
             "3.1"
           ],
           "test_file": null,
@@ -491,7 +555,7 @@
           ],
           "dependencies": [
             "1.3",
-            "1.5"
+            "1.5c"
           ],
           "test_file": null,
           "notes": "实现 DeviceBackend 接口的 mock 实现（fixtures 模拟所有 backend 输出）。backend 选择策略（preference/healthcheck/fallback）。ADR-010 BackendSelector 职责。保障 Phase 3.4 及后续无需真机即可开发与 CI。"
@@ -505,7 +569,7 @@
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "1.6",
+            "1.6a",
             "3.3a"
           ],
           "test_file": null,
@@ -513,18 +577,33 @@
         },
         {
           "id": "3.3c",
-          "title": "AppiumBackend 实现",
+          "title": "AppiumDeviceBackend — physical adapter: devicectl/xcodebuild + Appium/WDA",
           "story": null,
           "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
-            "1.6",
+            "1.6a",
             "3.3a"
           ],
           "test_file": null,
-          "notes": "基于 Appium/WDA 的 DeviceBackend 实现。长期标准 fallback。若 mobile-mcp 被阻断则作为 MVP 主线。"
+          "notes": "基于 Appium/WDA 的 DeviceBackend 实现 (physical targetKind)。Physical adapter: devicectl 安装/启动、xcodebuild destination (platform=iOS,id=UDID)、签名 (fastlane fallback)、Appium/WDA 真机 session。TargetKind.physical。T1.6aa (Physical doctor) 依赖此实现。"
+        },
+        {
+          "id": "3.3d",
+          "title": "AppiumDeviceBackend — simulator adapter extension: simctl + Appium/WDA",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/技术选型文档.md",
+            "docs/decisions/ADR-011-ios-simulator-first-class-support.md"
+          ],
+          "dependencies": [
+            "3.3c"
+          ],
+          "test_file": null,
+          "notes": "扩展 AppiumDeviceBackend 支持 simulator targetKind。Simulator adapter: simctl install/launch/terminate、xcodebuild destination (platform=iOS Simulator,id=UDID)、Appium/WDA Simulator session。Appium capability/sessionId/WDA 封装在 device-appium 内，不泄漏到上层。T1.6b (Simulator doctor) + T1.3b/T1.3c (Simulator Spike) 依赖此实现。预计 3-5 天。"
         },
         {
           "id": "3.4a",
@@ -547,7 +626,7 @@
           "id": "3.4b",
           "title": "PermissionEngine：allow/ask/deny + 记忆规则 + 高风险拦截",
           "story": "US-17.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -626,9 +705,9 @@
           "notes": "无测试项目默认路径。点击/输入/滑动/截图/UI tree。探索过程记录为 run steps。"
         },
         {
-          "id": "3.7",
-          "title": "交互式录制（人在环路）+ 固化 iTestAgent Flow",
-          "story": "US-8.2, US-9.1, US-9.2",
+          "id": "3.7a",
+          "title": "交互式录制：Agent 建议下一步 + 用户确认/纠偏",
+          "story": "US-8.2",
           "status": "pending",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
@@ -638,7 +717,22 @@
             "3.6"
           ],
           "test_file": null,
-          "notes": "Agent 建议下一步，用户确认/纠偏。固化为可重放 Flow YAML。"
+          "notes": "人在环路录制：Agent 分析当前 UI tree → 建议下一步操作 → 用户在 TUI 确认/修改/跳过 → 执行 → 记录 RunStep。录制过程可暂停/继续/取消。输出 raw recording JSON（未固化为 Flow）。"
+        },
+        {
+          "id": "3.7b",
+          "title": "Flow 固化：录制→可重放 iTestAgent Flow YAML",
+          "story": "US-9.1, US-9.2",
+          "status": "pending",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": [
+            "3.7a"
+          ],
+          "test_file": null,
+          "notes": "将 T3.7a 录制的 raw recording 编译为可重放 Flow YAML：(1) 归一化元素定位（不保存 Appium-specific locator）；(2) capture requiredCapabilities 和 supportedTargetKinds；(3) record lastValidatedTargets；(4) Flow schema 校验；(5) 不可逆操作添加 safetyGate；(6) 不支持的目标标记为 blocked。"
         },
         {
           "id": "3.8",
@@ -650,7 +744,7 @@
           ],
           "dependencies": [
             "1.9",
-            "3.7"
+            "3.7b"
           ],
           "test_file": null,
           "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。Keychain 接入依赖 task 1.9。"
@@ -678,20 +772,22 @@
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "验证 BuildDriver→DeviceBackend→AgentRuntime(3.4a)→PermissionEngine(3.4b)→ToolDispatcher(3.4c)→ContextBuilder(3.4d)→XCUITest→探索→Flow 全 Harness 联调。Mock backend 保障 CI。出口：全部通过后 Phase 3 done。",
+          "notes": "验证 BuildDriver→DeviceBackend→AgentRuntime(3.4a)→PermissionEngine(3.4b)→ToolDispatcher(3.4c)→ContextBuilder(3.4d)→XCUITest→探索→Flow 全 Harness 联调。Mock backend 保障 CI。出口：全部通过后 Phase 3 done。 新增 T3.3d Simulator adapter + T3.7a/b 录制/Flow 拆分。",
           "dependencies": [
             "3.1",
             "3.2",
             "3.3a",
             "3.3b",
             "3.3c",
+            "3.3d",
             "3.4a",
             "3.4b",
             "3.4c",
             "3.4d",
             "3.5",
             "3.6",
-            "3.7",
+            "3.7a",
+            "3.7b",
             "3.8",
             "3.9"
           ],
@@ -879,7 +975,7 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
-            "3.7"
+            "3.7b"
           ],
           "test_file": null
         },
@@ -903,7 +999,7 @@
           "id": "5.4",
           "title": "质量门禁 G1-G7 落地到 CI",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
@@ -921,7 +1017,7 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
-            "3.7"
+            "3.7b"
           ],
           "test_file": null,
           "notes": "P2 实验性。标记 draft，用户确认后才复制到项目。"
@@ -1003,7 +1099,7 @@
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
-            "3.7",
+            "3.7b",
             "5.5"
           ],
           "test_file": null,
@@ -1013,7 +1109,7 @@
           "id": "6.5",
           "title": "团队扩展：remote backend / Mac worker pool / 共享设备池 / PR Bot",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
