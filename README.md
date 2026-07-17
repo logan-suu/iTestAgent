@@ -191,9 +191,13 @@ iTestAgent/
     │   └── 开发避坑与关键注意点手册.md
     ├── 04-ai-native/       # AI Native 开发
     │   └── AI Native 开发理念与实战技巧手册.md
-    └── 05-planning/        # 开发计划
-        ├── 开发计划安排文档.md
-        └── task-status.json
+    ├── 05-planning/        # 开发计划
+    │   ├── 开发计划安排文档.md
+    │   └── task-status.json
+    ├── 06-verification/    # Spike 验证与 G5/G5-SIM 报告
+    │   ├── phase-0-cross-evaluation-report.md
+    │   ├── g5-sim-spike-report-1.3b.md
+    │   └── g5-sim-spike-report-1.3c.md
     └── decisions/          # 架构决策记录（ADR）
 ```
 

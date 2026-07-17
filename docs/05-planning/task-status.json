@@ -105,7 +105,7 @@
             "0.5"
           ],
           "test_file": null,
-          "notes": "已完成。Phase 0 横评报告输出到 docs/03-implementation/phase-0-cross-evaluation-report.md。决策矩阵确定：Appium/WDA（免费账号可用）+ MockBackend CI + xctrace-analyzer-core + OpenTUI/Ink + raw xcodebuild+XcodeProj。ADR-006~009 记录。Phase 0 出口通过，进入 Phase 1。"
+          "notes": "已完成。Phase 0 横评报告输出到 docs/06-verification/phase-0-cross-evaluation-report.md。决策矩阵确定：Appium/WDA（免费账号可用）+ MockBackend CI + xctrace-analyzer-core + OpenTUI/Ink + raw xcodebuild+XcodeProj。ADR-006~009 记录。Phase 0 出口通过，进入 Phase 1。"
         }
       ]
     },
@@ -195,7 +195,7 @@
             "1.3a"
           ],
           "test_file": null,
-          "notes": "✅ G5-SIM PASS。在 iPhone 16 Pro (iOS 18.2 / CoreSimulator runtime) 上端到端验证了所有 6 类 simctl 能力。G5-SIM 报告：docs/03-implementation/g5-sim-spike-report-1.3b.md。关键发现：listapps 使用 legacy plist 格式需 plutil 转换；push 需 Simulator Target Bundle key；recordVideo 需 SIGINT 停止。PR #6 merged to dev-1.0. Human confirmed 2026-07-17."
+          "notes": "✅ G5-SIM PASS。在 iPhone 16 Pro (iOS 18.2 / CoreSimulator runtime) 上端到端验证了所有 6 类 simctl 能力。G5-SIM 报告：docs/06-verification/g5-sim-spike-report-1.3b.md。关键发现：listapps 使用 legacy plist 格式需 plutil 转换；push 需 Simulator Target Bundle key；recordVideo 需 SIGINT 停止。PR #6 merged to dev-1.0. Human confirmed 2026-07-17."
         },
         {
           "id": "1.3c",
@@ -211,7 +211,7 @@
             "1.3b"
           ],
           "test_file": null,
-          "notes": "✅ G5-SIM PASS。7/7 验证目标全部通过（2026-07-17）。详细报告：docs/03-implementation/g5-sim-spike-report-1.3c.md。PR #7: https://github.com/logan-suu/iTestAgent/pull/7 (merged to dev-1.0 2026-07-18)。环境：Xcode 26.5 / CoreSimulator-1051.54 / Appium 3.5.2 + XCUITest 11.17.7 / iPhone 16 Pro (iOS 18.2)。关键发现：(1) Simulator WDA 无需签名自动构建（~45s first run）；(2) 页面源码 26K chars/110 elements；(3) W3C Actions tap/swipe/type 全部可用，pressButton 需用 mobile: pressButton；(4) Headless boot 可用（Argent MCP headless=true）；(5) 并行双 session 需独立 wdaLocalPort/mjpegServerPort/derivedDataPath；(6) session delete 后 WDA 进程不会自动终止，SessionManager 需显式 SIGTERM。7 条实现警告（W1-W7）见报告 §9。"
+          "notes": "✅ G5-SIM PASS。7/7 验证目标全部通过（2026-07-17）。详细报告：docs/06-verification/g5-sim-spike-report-1.3c.md。PR #7: https://github.com/logan-suu/iTestAgent/pull/7 (merged to dev-1.0 2026-07-18)。环境：Xcode 26.5 / CoreSimulator-1051.54 / Appium 3.5.2 + XCUITest 11.17.7 / iPhone 16 Pro (iOS 18.2)。关键发现：(1) Simulator WDA 无需签名自动构建（~45s first run）；(2) 页面源码 26K chars/110 elements；(3) W3C Actions tap/swipe/type 全部可用，pressButton 需用 mobile: pressButton；(4) Headless boot 可用（Argent MCP headless=true）；(5) 并行双 session 需独立 wdaLocalPort/mjpegServerPort/derivedDataPath；(6) session delete 后 WDA 进程不会自动终止，SessionManager 需显式 SIGTERM。7 条实现警告（W1-W7）见报告 §9。"
         },
         {
           "id": "1.4",

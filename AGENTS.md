@@ -24,6 +24,7 @@
 | **数据流全链路** | `docs/02-architecture/数据流全链路技术说明文档.md` | S1-S9 数据契约与落盘 |
 | **开发避坑手册** | `docs/03-implementation/开发避坑与关键注意点手册.md` | 陷阱、防御性检查清单 |
 | **AI Native 开发** | `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、质量门禁 G1-G7+G5-SIM、反模式 |
+| **验证与 Spike** | `docs/06-verification/` | Phase 0 横评报告、G5/G5-SIM Spike 验证报告 |
 | **开发计划** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线及排期 |
 | **任务状态** | `docs/05-planning/task-status.json` | 每个任务的执行状态、依赖关系 |
 | **重大决策** | `docs/decisions/` | ADR 格式的架构决策与需求变更记录 |
@@ -60,7 +61,9 @@
 | **技术选型决策** | `docs/02-architecture/技术选型文档.md` | 对应章节 |
 | **查阅开发计划/任务** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线 |
 | | `docs/05-planning/task-status.json` | 当前任务状态、依赖关系 |
-| **查阅重大决策** | `docs/decisions/` | ADR-001~009 |
+| **查阅重大决策** | `docs/decisions/` | ADR-001~011 |
+| **执行 Spike/验证任务** | `docs/06-verification/phase-0-cross-evaluation-report.md` | Phase 0 横评结构与结论 |
+| | `docs/06-verification/g5-sim-spike-report-*.md` | G5-SIM 验证报告模板（环境、证据、风险、集成笔记） |
 
 ### 0.3 Agent 文档读取规范
 
