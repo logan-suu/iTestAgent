@@ -48,7 +48,7 @@ agent: build
    - 在 dev-1.0 上更新 `docs/05-planning/task-status.json`：
      - 将任务 `status` 从 `in_progress` 更新为 `done`
      - 记录 `last_updated` 时间戳
-     - 在 `notes` 中追加 PR 合并确认信息（英文，`notes` 字段内容属于对外可见，R12）
+     - 在 `notes` 中追加 PR 合并确认信息（英文；`notes` 作为 commit message 内容，R12 要求对外可见文本使用英文）
    - `git add` → `git commit`（commit message 必须英文，R12） → `git push origin dev-1.0`
 3. 输出："🎉 任务已完成！"
 4. 提示用户执行 `/next-task-itest` 开始下一个任务。
@@ -71,7 +71,7 @@ agent: build
    - 更新 `docs/05-planning/task-status.json`：
      - 将任务 `status` 从 `in_progress` 更新为 `done`
      - 记录 `last_updated` 时间戳
-     - 在 `notes` 中追加人类确认信息（英文，R12）
+     - 在 `notes` 中追加人类确认信息（英文；`notes` 作为 commit message 内容，R12 要求对外可见文本使用英文）
    - `git add` → `git commit`（commit message 必须英文，R12） → `git push origin dev-1.0`
 2. 输出："🎉 任务已完成！"
 3. 提示用户执行 `/next-task-itest` 开始下一个任务。

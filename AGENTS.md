@@ -355,7 +355,7 @@ pending -> ready -> in_progress -> done
 - 人类审阅确认后，Agent 通过 `pr-merge-itest` 命令设为 `done`（与代码类任务同一入口）。
 - Agent **不得**在未经人类确认的情况下将非代码类任务标 `done`。
 
-### 8.1.1 task-status.json 字段约束（R13）
+### 8.1.4 task-status.json 字段约束（R13）
 
 ```
 R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段。
