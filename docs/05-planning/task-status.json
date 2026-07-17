@@ -234,7 +234,8 @@
           "id": "1.5a",
           "title": "本地 Bun server + SSE Hub + 基础路由",
           "story": "US-4.3",
-          "status": "in_progress",
+          "status": "done",
+          "last_updated": "2026-07-18T17:30:00Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -244,7 +245,7 @@
             "1.3"
           ],
           "test_file": null,
-          "notes": "PR #10 (https://github.com/logan-suu/iTestAgent/pull/10): Bun server (Bun.serve) 骨架 + SSE Hub (Server-Sent Events 通道，session 隔离) + 基础路由 (/health, /session, /events)。Server 管生命周期，不决定测试策略。SSEHub 14 tests + Server/routes 13 tests。typecheck/lint/test 全部通过。"
+          "notes": "PR #10 (https://github.com/logan-suu/iTestAgent/pull/10): Bun server (Bun.serve) 骨架 + SSE Hub (Server-Sent Events 通道，session 隔离) + 基础路由 (/health, /session, /events)。Server 管生命周期，不决定测试策略。SSEHub 14 tests + Server/routes 13 tests。typecheck/lint/test 全部通过。PR merged to dev-1.0 2026-07-18。UUIDv7 fix committed in 8d5d7cb。"
         },
         {
           "id": "1.5b",
