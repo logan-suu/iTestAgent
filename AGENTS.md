@@ -471,7 +471,7 @@ bun run build
 角色：iTestAgent 研发 Agent
 目标：实现 <US-x.y / 模块>
 必读：AGENTS.md + <相关文档章节> + <相关代码/schema>
-硬约束：Local-first/TUI-first/只面向 iPhone 真机；红线 R1-R11；不确定必标注
+硬约束：Local-first/TUI-first/真机与 Simulator 同级支持(Target-explicit)；红线 R1-R12；不确定必标注
 交付：1) 复述约束与现状 2) 出计划等确认 3) 小步实现+测试 4) 逐条对 AC 自检并附证据
 ```
 

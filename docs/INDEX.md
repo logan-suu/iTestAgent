@@ -17,9 +17,9 @@
 | **开发避坑** | `03-implementation/` | `开发避坑与关键注意点手册.md` | 红线详解、高风险坑 Top7、真机/签名/backend 陷阱、提交前自检清单 |
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7、反模式 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~26-32 周） |
-| **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 57 个任务、依赖关系、当前进度 |
-| **架构决策** | `decisions/` | `ADR-001~010` | 重大技术决策与需求变更记录 |
-| **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R11、命名约定、EPCC-V 工作流、质量门禁 G1-G7 |
+| **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 69 个任务、依赖关系、当前进度 |
+| **架构决策** | `decisions/` | `ADR-001~011` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持） |
+| **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R12、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
 
 ---
 
@@ -48,13 +48,14 @@
 | 敏感数据流与脱敏规则 | `02-architecture/数据流全链路技术说明文档.md` §15 |
 | EPCC-V 工作流详解 | `04-ai-native/AI Native 开发理念与实战技巧手册.md` §5 |
 | AI 反馈模板（实现/评审/调试） | `04-ai-native/AI Native 开发理念与实战技巧手册.md` §7 |
-| 红线 R1-R11 详解 | `03-implementation/开发避坑与关键注意点手册.md` §1 |
+| 红线 R1-R12 详解 | `03-implementation/开发避坑与关键注意点手册.md` §1 |
 | 真机/签名/backend 首次跑通地狱 | `03-implementation/开发避坑与关键注意点手册.md` §3 |
 | 探索式测试 + 断言不可靠陷阱 | `03-implementation/开发避坑与关键注意点手册.md` §4 |
 | 项目分析 / AI 过度自信陷阱 | `03-implementation/开发避坑与关键注意点手册.md` §5 |
 | 性能采集 / FPS / xctrace 维护税 | `03-implementation/开发避坑与关键注意点手册.md` §6 |
 | 安全与隐私合规红线 | `03-implementation/开发避坑与关键注意点手册.md` §10 |
 | 提交前自检清单 | `03-implementation/开发避坑与关键注意点手册.md` §16 |
+| iOS Simulator 同级支持（ADR-011） | `decisions/ADR-011-ios-simulator-first-class-support.md` |
 | 可行性分析 + MVP 分档 | `03-implementation/开发避坑与关键注意点手册.md` §15 |
 | 测试文件存放约定（单元/集成/数据） | `../AGENTS.md` §10 |
 | Phase 0-6+ 里程碑与时间线 | `05-planning/开发计划安排文档.md` §2~8 |
@@ -128,7 +129,7 @@
    - 参考本索引"按模块快速定位"表补充上下文
 3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R11
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
-5. **完成后**：执行 G1-G7 质量门禁，更新 `05-planning/task-status.json`
+5. **完成后**：执行 G1-G7+G5-SIM 质量门禁，更新 `05-planning/task-status.json`
 6. **写测试时**：单元测试放 `packages/<pkg>/test/`，集成测试放 `tests/integration/`（`../AGENTS.md` §10）
 
 ---

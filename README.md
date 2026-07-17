@@ -6,11 +6,11 @@
 [![Bun](https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white)](https://bun.sh/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-iTestAgent 是一个类似 [OpenCode](https://github.com/anomalyco/opencode) 的本地 TUI Agent，但领域不是代码开发，而是 **iPhone 真机全自动化测试**。
+iTestAgent 是一个类似 [OpenCode](https://github.com/anomalyco/opencode) 的本地 TUI Agent，但领域不是代码开发，而是 **iPhone 真机与 iOS Simulator 同级支持的全自动化测试**。
 
 ```
 OpenCode：先理解代码项目，再决定如何开发、修改、验证
-iTestAgent：先理解 iOS 项目，再决定如何进行 iPhone 真机测试
+iTestAgent：先理解 iOS 项目，再决定如何进行真机或 Simulator 测试
 ```
 
 ---
@@ -21,7 +21,7 @@ iTestAgent 的核心不是"收到测试目标后直接乱点 UI"，而是：
 
 1. **先理解项目** — 从代码、工程结构、业务模块、已有测试资产中充分理解 iOS 项目
 2. **再生成策略** — 输出 Project Profile + 候选核心链路 + TestPlan
-3. **驱动真机执行** — 在本机连接 iPhone 真机执行 XCUITest 或 DeviceBackend 探索
+3. **驱动执行** — 在本机连接 iPhone 真机或 iOS Simulator 执行 XCUITest 或 DeviceBackend 探索
 4. **采集证据分析失败** — 自动收集截图、视频、日志、crashlog、xcresult、trace
 5. **输出本地报告** — summary.md + result.json + artifact-index.json
 
@@ -60,7 +60,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 
 - macOS + Xcode + Command Line Tools
 - 支持开发者签名的 Apple ID
-- iPhone 真机（iOS 16+）
+- iPhone 真机（iOS 16+）或 iOS Simulator（Xcode 16+）
 - Bun ≥ 1.x
 - OpenAI-compatible API Key
 
@@ -117,7 +117,7 @@ itestagent
 | 存储 | SQLite + Drizzle + 文件系统 |
 | 配置 | JSONC |
 | 真机执行 | Appium + XCUITest Driver + WebDriverAgent |
-| 构建/设备 | xcodebuild / xcrun devicectl |
+| 构建/设备 | xcodebuild / xcrun devicectl / simctl |
 | 性能采集 | xcrun xctrace / XCTest metrics |
 | 结果解析 | xcresultparser / xcparse |
 | 签名/构建 | fastlane / xcbeautify |
@@ -176,9 +176,9 @@ iTestAgent/
 ## 开发约定
 
 - **工作流**：EPCC-V（Explore → Plan → Code → Check → Verify）
-- **质量门禁**：G1-G7（规格一致 / 契约校验 / 静态检查 / 测试通过 / 真机验证 / 证据留档 / 安全合规）
+- **质量门禁**：G1-G7+G5-SIM（规格一致 / 契约校验 / 静态检查 / 测试通过 / 真机验证(G5) / Simulator验证(G5-SIM) / 证据留档 / 安全合规）
 - **命名约定**：组件统一 `itestagent-*`，禁止 `qa-*`
-- **红线**：不碰 Apple 私有框架、不自研已复用底座、真机必 spike 实测、不静默降级/臆造指标、敏感数据不落盘明文
+- **红线(R1-R12)**：不碰 Apple 私有框架、不自研已复用底座、真机+Simulator必spike实测、不静默降级/臆造指标、敏感数据不落盘明文、对外内容必英文
 - **决策**：重大技术决策与需求变更必须记录到 `docs/decisions/`（ADR 格式）
 
 ## 硬红线（违反必被拒绝）
@@ -186,7 +186,7 @@ iTestAgent/
 ```
 R1 不碰 Apple 私有框架（TraceUtility 等）与 .trace 二进制逆向
 R2 不自研已复用底座：WDA / Appium / xcodebuild / xctrace / xcresult 解析
-R3 真机能力不得"看代码就算过"，必须真机 spike 实测
+R3 真机能力不得"看代码就算过"，必须真机 spike 实测(G5)；Simulator 能力必须 Simulator spike 验证(G5-SIM，ADR-011)
 R4 不把"从代码推断的核心链路"当既定事实，只能候选+证据+用户确认
 R5 不静默降级/臆造指标（尤其 FPS、xctrace summary），不确定须显式标注
 R6 敏感数据（账号/OTP/token）不落盘明文、不入日志/报告/提交
