@@ -74,7 +74,7 @@ itestagent
 # 环境诊断
 itestagent doctor
 
-# 查看本机 iPhone
+# 查看本机设备（真机 + Simulator）
 itestagent devices
 ```
 
@@ -85,7 +85,7 @@ itestagent
 > 对比上次结果，这个包启动有没有变慢
 ```
 
-### MVP 完成标准（18 条）
+### MVP 完成标准（19 条，含 Simulator 同级支持）
 
 1. 运行 `itestagent` 进入 OpenTUI 交互式 TUI
 2. Agent 自动分析 iOS 项目并生成 Project Profile
@@ -116,7 +116,7 @@ itestagent
 | 工具协议 | MCP TypeScript SDK |
 | 存储 | SQLite + Drizzle + 文件系统 |
 | 配置 | JSONC |
-| 真机执行 | Appium + XCUITest Driver + WebDriverAgent |
+| 设备执行 | Appium + XCUITest Driver + WebDriverAgent（physical+simulator） |
 | 构建/设备 | xcodebuild / xcrun devicectl / simctl |
 | 性能采集 | xcrun xctrace / XCTest metrics |
 | 结果解析 | xcresultparser / xcparse |
@@ -124,7 +124,7 @@ itestagent
 
 ## 复用策略
 
-**直接采用**：OpenTUI / Vercel AI SDK / MCP TS SDK / Drizzle / Appium / XCUITest Driver / WebDriverAgent / XcodeProj / swift-syntax / sourcekit-lsp / xcresultparser / xcparse / xcbeautify / fastlane
+**直接采用**：OpenTUI / Vercel AI SDK / MCP TS SDK / Drizzle / Appium / XCUITest Driver / WebDriverAgent（physical+simulator）/ XcodeProj / swift-syntax / sourcekit-lsp / xcresultparser / xcparse / xcbeautify / fastlane / simctl
 
 **借鉴不依赖**：XcodeBuildMCP（参考项目）/ XcodeTraceMCP（参考项目，npm 包为 `@xctrace-analyzer/core`）/ instruments-mcp-server（录制参考，非可信分析）/ instruments-analyzer / Periphery / Maestro flow 语义
 
@@ -137,7 +137,7 @@ itestagent
 | Phase 0 | ✅ 完成 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
 | Phase 1 | 🔄 in_progress | 骨架与环境（CLI/TUI/contracts done, RunStateMachine/Server/doctor/devices/store/config pending） |
 | Phase 2 | ⬜ 待开始 | 项目分析与 TestPlan |
-| Phase 3 | ⬜ 待开始 | 真机执行核心（双路径 + Flow） |
+| Phase 3 | ⬜ 待开始 | 真机+Simulator 执行核心（双路径 + Flow） |
 | Phase 4 | ⬜ 待开始 | 证据 / 性能 / 报告 |
 | Phase 5 | ⬜ 待开始 | 打磨与 MVP 验收 |
 | Phase 6+ | ⬜ 待开始 | 增强路线 |
