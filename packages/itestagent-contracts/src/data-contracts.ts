@@ -321,8 +321,15 @@ export type ArtifactIndex = z.infer<typeof ArtifactIndexSchema>;
 export function migrateV1ToV2(raw: unknown): RunResult {
   const data = raw as Record<string, unknown>;
 
+  // If v3+ or unknown future version, parse and pass-through unchanged
+  // (migration only applies to 1.0 → 2.0)
+  const version = data.schemaVersion as string | undefined;
+  if (version && version >= '3.0') {
+    return RunResultSchema.parse(raw);
+  }
+
   // If already v2+, parse and return
-  if (data.schemaVersion === '2.0' || (data.schemaVersion as string)?.startsWith('2.')) {
+  if (version === '2.0' || version?.startsWith('2.')) {
     return RunResultSchema.parse(raw);
   }
 

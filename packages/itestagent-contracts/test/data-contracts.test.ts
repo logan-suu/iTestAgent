@@ -13,6 +13,7 @@ import {
   parseArtifactIndex,
   parseRunResult,
 } from '../src/data-contracts.js';
+import { BaselineCompareInputSchema, BaselineDeltaSchema } from '../src/performance-backend.js';
 
 // ─── Test 1: RunStatusSchema parses all 7 status values ──────
 
@@ -615,7 +616,6 @@ test('RunResultSchema parses simulator run result with environment annotations',
 // ─── Test 21: BaselineCompareInputSchema requires targetKind ───
 
 test('BaselineCompareInputSchema requires targetKind for domain isolation', () => {
-  const { BaselineCompareInputSchema } = require('../src/performance-backend.js');
   const valid = BaselineCompareInputSchema.parse({
     deviceId: 'DEV-001',
     current: { approximate: true },

@@ -50,7 +50,7 @@ export type AgentErrorCode = z.infer<typeof AgentErrorCodeSchema>;
  * Agent 错误对象 Schema。
  * 对应 AgentRuntime 执行过程中产生的结构化错误（区别于原生 Error）。
  *
- * - code   : 12 种结构化错误码之一
+ * - code   : 14 种结构化错误码之一
  * - message: 人类可读错误描述（禁止包含敏感数据，R6）
  * - details: 可选的补充诊断信息（如 Backend 堆栈摘要）
  * - cause  : 可选的原始错误对象（仅内存传递，不序列化到日志/报告）
