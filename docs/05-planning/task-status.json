@@ -217,7 +217,7 @@
           "id": "1.4",
           "title": "RunStateMachine：生命周期/错误状态/暂停/恢复/取消",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"

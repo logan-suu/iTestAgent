@@ -8,6 +8,10 @@
   "description": "Agent orchestration loop + permission engine (self-built on AI SDK)",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/"
+    "lint": "biome check src/",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "itestagent-contracts": "workspace:*"
   }
 }
