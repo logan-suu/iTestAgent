@@ -110,7 +110,5 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function generateSessionId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).slice(2, 10);
-  return `ses_${timestamp}_${random}`;
+  return `ses_${Bun.randomUUIDv7()}`;
 }
