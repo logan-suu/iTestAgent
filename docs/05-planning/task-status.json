@@ -168,8 +168,8 @@
           "id": "1.3a",
           "title": "ADR-011 + Simulator 契约扩展：TargetKind、BackendCapabilities、Schema v2",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-17T12:30:00Z",
+          "status": "done",
+          "last_updated": "2026-07-17T13:15:00Z",
           "documents_required": [
             "docs/decisions/ADR-011-ios-simulator-first-class-support.md",
             "docs/02-architecture/架构设计文档.md",
@@ -179,13 +179,14 @@
             "1.3"
           ],
           "test_file": null,
-          "notes": "PR #4 (https://github.com/logan-suu/iTestAgent/pull/4): ADR-011 contract-level changes. agent-error.ts 12→14 codes (no_device_available, cross_target_fallback, target_unsupported). data-contracts.ts Schema v2 (TargetKind, environment block, migrateV1ToV2). performance-backend.ts baseline domain isolation (targetKind in BaselineCompareInput/BaselineDelta). 10 new tests. 129/129 pass. PR 合并后 done."
+          "notes": "PR #4 (https://github.com/logan-suu/iTestAgent/pull/4): ADR-011 contract-level changes. agent-error.ts 12→14 codes (no_device_available, cross_target_fallback, target_unsupported). data-contracts.ts Schema v2 (TargetKind, environment block, migrateV1ToV2). performance-backend.ts baseline domain isolation (targetKind in BaselineCompareInput/BaselineDelta). 10 new tests. 129/129 pass. Merged to dev-1.0 2026-07-17."
         },
         {
           "id": "1.3b",
           "title": "Simulator Spike: simctl lifecycle + Simulator SDK build",
           "story": null,
-          "status": "pending",
+          "status": "ready",
+          "last_updated": "2026-07-17T13:15:00Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
