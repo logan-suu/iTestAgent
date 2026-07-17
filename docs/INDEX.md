@@ -28,7 +28,7 @@
 | 如果你需要... | 请查阅... |
 |---|---|
 | 用户故事与 AC（哪个 US 在做什么） | `01-spec/全量用户故事与验收标准规格书.md` E1~E20 |
-| MVP 18 条完成标准 | `01-spec/全量用户故事与验收标准规格书.md` MVP 验收总表 |
+| MVP 19 条完成标准 | `01-spec/全量用户故事与验收标准规格书.md` MVP 验收总表 |
 | 第一版明确不做的事 | `01-spec/全量用户故事与验收标准规格书.md` 第一版明确不做 |
 | 架构分层（CLI/TUI/Server/Engine/DeviceBackend/Store） | `02-architecture/架构设计文档.md` §2~3 |
 | Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §4 |

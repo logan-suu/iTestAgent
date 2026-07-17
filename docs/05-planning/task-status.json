@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-17T07:00:00Z",
+  "last_updated": "2026-07-17T08:00:00Z",
   "current_phase": 1,
   "phases": [
     {
@@ -1028,7 +1028,7 @@
         },
         {
           "id": "5.6",
-          "title": "MVP 验收对照（18 条完成标准）",
+          "title": "MVP 验收对照（19 条完成标准）",
           "story": null,
           "status": "pending",
           "documents_required": [
@@ -1153,12 +1153,22 @@
       ]
     }
   ],
+  "decisions": [
+    {
+      "id": "D-2026-07-17-001",
+      "date": "2026-07-17",
+      "title": "Documentation sync: 18→19 MVP acceptance criteria (post ADR-011 Simulator support)",
+      "files_modified": [
+        "docs/INDEX.md",
+        "docs/05-planning/开发计划安排文档.md",
+        "docs/05-planning/task-status.json",
+        "docs/03-implementation/开发避坑与关键注意点手册.md"
+      ],
+      "summary": "ADR-011 added iOS Simulator as first-class target, expanding MVP from 18 to 19 acceptance criteria. Updated all stale '18 条' references to '19 条' in plan, index, task-status, and pitfalls docs. Cleaned up resolved documentation conflicts (C3, C4, C5)."
+    }
+  ],
   "documentation_conflicts": [
-    "C1: task-status.json test pass counts may not reflect current mainline health (P0-1 JSX runtime regression risk)",
-    "C2: itestagent --version depends on TUI renderer successfully loading (P0-2)",
-    "C3: README Phase 1 status was stale (fixed)",
-    "C4: CLI comments had wrong task numbers for doctor(1.4→1.6)/devices(1.5→1.7) (fixed)",
-    "C5: T1.5 notes referenced T1.9 dependency but dependencies array was missing 1.9 (fixed)",
+    "C1: JSX runtime risk (P0-1) — mitigated by P0-2 dynamic import and verified @opentui/solid/jsx-runtime. Residual risk in different Bun configurations remains.",
     "C7: Architecture capability descriptions may be confused with implementation readiness — risk of overstating maturity"
   ]
 }
