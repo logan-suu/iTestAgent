@@ -179,7 +179,7 @@
             "1.3"
           ],
           "test_file": null,
-          "notes": "ADR-011 治理入口。扩展 device-types.ts（TargetKind、BackendCapabilities.supportedTargetKinds、DeviceInfo/DeviceSnapshot 增加 targetKind）、data-contracts.ts（ExecutionSummary/RunResult 增加 targetKind、environment 元数据、baseline 分域）、config.ts（per-target preferredBackends、allowCrossTargetFallback）、agent-error.ts（统一 BackendError 码）。Schema 升级 v2，v1→v2 reader。预计 1-2 天。"
+          "notes": "PR #4 (https://github.com/logan-suu/iTestAgent/pull/4): ADR-011 contract-level changes. agent-error.ts 12→14 codes (no_device_available, cross_target_fallback, target_unsupported). data-contracts.ts Schema v2 (TargetKind, environment block, migrateV1ToV2). performance-backend.ts baseline domain isolation (targetKind in BaselineCompareInput/BaselineDelta). 10 new tests. 129/129 pass. PR 合并后 done."
         },
         {
           "id": "1.3b",
