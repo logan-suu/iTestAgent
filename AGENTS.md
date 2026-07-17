@@ -23,7 +23,7 @@
 | **技术选型** | `docs/02-architecture/技术选型文档.md` | 各层选型决策、候选对比、复用矩阵 |
 | **数据流全链路** | `docs/02-architecture/数据流全链路技术说明文档.md` | S1-S9 数据契约与落盘 |
 | **开发避坑手册** | `docs/03-implementation/开发避坑与关键注意点手册.md` | 陷阱、防御性检查清单 |
-| **AI Native 开发** | `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、质量门禁 G1-G7、反模式 |
+| **AI Native 开发** | `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、质量门禁 G1-G7+G5-SIM、反模式 |
 | **开发计划** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线及排期 |
 | **任务状态** | `docs/05-planning/task-status.json` | 每个任务的执行状态、依赖关系 |
 | **重大决策** | `docs/decisions/` | ADR 格式的架构决策与需求变更记录 |
@@ -299,13 +299,13 @@ Verify   对齐 AC；真机能力走真机 spike 实测；证据留档
 ```
 - 未经人确认的计划不进入 Code(R8)
 - 每个 Code 单元必须能被 Check 验证
-- 真机相关必须 Verify 用真机 spike(R3)，纯逻辑可用 mock+fixtures 但需说明
+- 真机相关必须 Verify 用真机 spike(G5)；Simulator 相关必须 G5-SIM(R3/ADR-011)；纯逻辑可用 mock+fixtures 但需说明
 - 有代码变更必须同步更新相关文档，避免规格漂移
 - 出现重大技术决策或需求变更时必须新增 ADR 记录到 docs/decisions/（R11）
 - 若 Explore 阶段发现文档矛盾、模糊、不可测、依赖缺失或技术过时，Agent 必须暂停编码，报告问题并等待人类决策
 ```
 
-## 8. 质量门禁 G1-G7（并入主线前必过）
+## 8. 质量门禁 G1-G7+G5-SIM（并入主线前必过）
 
 ```
 G1 规格一致  与 7 份文档不冲突
@@ -373,7 +373,7 @@ pending -> ready -> in_progress -> done
 | 跳过 §0.2 文档映射直接编码 | 实现偏离规格 | 强制溯源，防幻觉 |
 | 接受 AI "看起来对"的核心链路为事实 | 结论错误（R4） | 必须候选+证据+用户确认 |
 | 静默降级或臆造指标 | 结果不可信（R5） | 不确定必须显式标注 |
-| 真机能力"看代码就算过" | 实际不可用（R3） | 必须真机 spike 实测 |
+| 真机能力"看代码就算过" | 实际不可用（R3） | 必须真机 spike 实测(G5)+Simulator G5-SIM |
 | 敏感数据落盘明文 | 安全风险（R6） | 只在内存注入，落盘必脱敏 |
 | 未确认就写项目目录 | 污染项目（R7） | 默认写 ~/.itestagent/ |
 | 未出计划就进编码 | 方向错误（R8） | 先出计划等人确认 |
@@ -512,7 +512,7 @@ bun run build
 [ ] 对齐对应 US 的全部 P0 AC(P1 允许限制但需声明)
 
 
-[ ] G1-G7 全过；真机能力已真机 spike 实测(G5)；Simulator 能力已 Simulator spike 验证(G5-SIM)
+[ ] G1-G7+G5-SIM 全过；真机能力已真机 spike 实测(G5)；Simulator 能力已 Simulator spike 验证(G5-SIM)
 
 
 [ ] 产物过 schema；命名 itestagent-*；未违红线
