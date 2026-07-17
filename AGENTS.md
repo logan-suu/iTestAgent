@@ -337,6 +337,23 @@ pending -> ready -> in_progress -> done
 - `in_progress` → `done`：仅当 PR 已被人类手动合并到 dev-1.0 后，Agent 通过 `pr-merge-itest` 命令设为 `done`（§9.3：Agent 不得自动合并 PR）。
 - `commit-pr-itest` 命令提交代码时**保持 `in_progress`**，仅记录 PR 链接到 `notes`，不得设为 `done`。
 
+### 8.1.1 task-status.json 字段约束（R13）
+
+```
+R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段。
+```
+
+**允许的顶层字段**：`version`、`project`、`last_updated`、`current_phase`、`phases`
+
+**允许的任务字段**：`id`、`title`、`story`、`status`、`last_updated`、`documents_required`、`dependencies`、`test_file`、`notes`
+
+**禁止的字段**（必须使用其他机制）：
+| 禁止字段 | 替代方案 |
+|---|---|
+| `documentation_conflicts` | GitHub Issue + `docs/decisions/` ADR |
+| `decisions` | `docs/decisions/` ADR（R11） |
+| 其他元数据/审计字段 | 各自归属的文档系统 |
+
 **级联更新**：Agent 启动或任务完成时，遍历所有 `pending` 任务，若 `dependencies` 全部为 `done`，则翻转为 `ready`。此操作为幂等操作。
 
 ### 8.2 跨阶段阻断规则

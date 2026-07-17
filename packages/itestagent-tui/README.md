@@ -31,3 +31,15 @@ await startTui();
 const state = createInitialState('/path/to/workspace');
 const next = tuiShellReducer(state, { type: 'submit' });
 ```
+
+## Troubleshooting
+
+**`Cannot find module 'react/jsx-dev-runtime'`**
+
+Bun uses `tsconfig.base.json`'s `jsxImportSource` setting (`@opentui/solid`) for JSX transforms. If this error appears:
+
+1. Ensure `@opentui/solid` is installed: `cd packages/itestagent-tui && bun install`
+2. Verify `@opentui/solid` provides `jsx-runtime` and `jsx-dev-runtime` exports in `node_modules/@opentui/solid/`
+3. Run `bun test` to confirm the TUI tests pass
+
+This error typically occurs when `node_modules` is incomplete or a Bun version mismatch causes the JSX import source to fall back to `react`.

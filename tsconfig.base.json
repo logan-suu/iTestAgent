@@ -17,11 +17,6 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    // JSX: Only itestagent-tui has .tsx files. Bun reads jsxImportSource for
-    // test/run transforms; tsc uses it for type-checking. Requires
-    // @opentui/solid in node_modules (provides jsx-runtime / jsx-dev-runtime).
-    // If you see "Cannot find module 'react/jsx-dev-runtime'", run:
-    //   cd packages/itestagent-tui && bun install
     "jsx": "react-jsx",
     "jsxImportSource": "@opentui/solid",
     "noEmit": true

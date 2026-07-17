@@ -9,7 +9,7 @@ agent: build
 
 ### 第一步：确定同步范围
 1. 如果用户提供了决策内容，记录决策摘要，定位涉及的文档。
-2. 如果用户未提供，读取 `docs/05-planning/task-status.json` 中的 `decisions` 记录。
+2. 如果用户未提供，读取 `docs/decisions/` 中最近的 ADR 或 `docs/05-planning/task-status.json` 中的 `last_updated` 判断最近变更。
 3. 自动扫描关联文档。
 
 ### 第二步：执行同步
@@ -24,8 +24,8 @@ agent: build
 9. **decisions/**（涉及重大决策）：新增 ADR 文件记录决策，遵循格式：背景→方案对比→决策→后果。
 
 ### 第三步：记录决策
-1. 更新 `docs/05-planning/task-status.json` 的 `decisions` 数组。
-2. 记录决策时间、决策人和内容。
+1. 重大技术决策或需求变更必须记录到 `docs/decisions/`（ADR 格式，R11）。
+2. 文档冲突或漂移发现后作为 GitHub Issue 记录，不得写入 `task-status.json`（R13，AGENTS.md §8.1.1）。
 
 ### 第四步：输出变更摘要
 1. 列出所有修改的文件和内容摘要。
