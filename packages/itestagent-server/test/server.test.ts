@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import type { RunState } from 'itestagent-contracts';
-import { RunStateMachine } from 'itestagent-engine';
+import type { RunStateMachine } from 'itestagent-engine';
 import * as storeSchema from 'itestagent-store';
 
 import { createFetchHandler } from '../src/routes.js';

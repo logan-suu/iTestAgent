@@ -52,7 +52,7 @@ function createMockRunStateMachine() {
  * Mock Drizzle DbClient backed by in-memory Maps keyed by table name.
  *
  * Supported operations:
- *   - insert(table).values(data) → stores record
+ *   - insert(table).values(data).onConflictDoNothing() → stores record
  *   - update(table).set(data).where(condition) → mutates all records in the table
  *   - select().from(table).where(condition) → returns Promise<record[]>
  *   - transaction(fn) → executes fn with `this` as tx
@@ -88,7 +88,11 @@ function createMockDb() {
         values(data: Record<string, unknown>) {
           const key = (data.id ?? data.runId ?? data.projectHash) as string;
           tbl.set(String(key), { ...data });
-          return data;
+          return {
+            onConflictDoNothing() {
+              return data;
+            },
+          };
         },
       };
     },
@@ -132,7 +136,7 @@ function createMockDb() {
   return db;
 }
 
-// ─── SessionManager import (does not exist yet — TDD red phase) ─
+// ─── SessionManager import ────────────────────────────────────
 
 import { SessionManager } from '../src/session-manager.js';
 

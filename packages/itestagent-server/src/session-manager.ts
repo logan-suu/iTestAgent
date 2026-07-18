@@ -77,12 +77,15 @@ export class SessionManager {
       status: 'active',
     };
 
-    // Persist project record (INSERT OR IGNORE semantics via simple insert;
-    // the test mock does not implement onConflictDoNothing, so we call .values() directly).
-    this.db.insert(projects).values({
-      projectHash,
-      workspacePath: params.workspace,
-    });
+    // Persist project record (INSERT OR IGNORE — idempotent across sessions
+    // sharing the same workspace).
+    this.db
+      .insert(projects)
+      .values({
+        projectHash,
+        workspacePath: params.workspace,
+      })
+      .onConflictDoNothing();
 
     // Persist run record.
     this.db.insert(runs).values({
@@ -159,7 +162,8 @@ export class SessionManager {
    * issues while closing.
    */
   closeAll(): void {
-    for (const sessionId of this.sessions.keys()) {
+    const ids = [...this.sessions.keys()];
+    for (const sessionId of ids) {
       this.closeSession(sessionId);
     }
   }
