@@ -51,31 +51,7 @@ agent: build
      - 在 `notes` 中追加 PR 合并确认信息（英文；`notes` 作为 commit message 内容，R12 要求对外可见文本使用英文）
    - `git add` → `git commit`（commit message 必须英文，R12） → `git push origin dev-1.0`
 3. 输出："🎉 任务已完成！"
-4. 提示用户执行 `/next-task-itest` 开始下一个任务。
-
-### 第八步（通用）：阶段出口延期待办检查
-
-> 当完成任务是**该阶段的集成测试任务**时（即任务 ID 等于 `task-status.json` 中对应 phase 的 `integration_test` 字段值），必须执行此检查。
-
-1. 读取 `docs/05-planning/task-status.json`
-2. 根据当前任务的 `id` 推断所属阶段（取 `id` 中 `.` 前的数字），或遍历 `phases` 找到包含该任务的 phase
-3. 判断当前任务 ID 是否等于该 phase 的 `integration_test` 字段：
-   - **不相等** → 跳过此检查
-   - **相等** → 执行以下步骤
-4. 读取 `docs/05-planning/deferred-items.json`
-5. 筛选 `target_phase` 等于当前阶段且 `status: "open"` 的条目
-6. 逐条检查是否已被该阶段的其他任务顺便修复：
-   - **已修复** → 更新 `status` 为 `done`，填写 `resolved_by`（commit hash 或任务 ID）
-   - **未修复** → 保持 `open`，评估是否提升 `target_phase` 到下一阶段
-7. 输出报告：
-   ```markdown
-   ## 📋 Phase N 延期待办复查
-   | DEF-ID | 内容 | 状态 | 处理 |
-   |---|---|---|---|
-   | DEF-001 | xxx | ✅ 已修复 | 3.5 顺便完成 (commit abc) |
-   | DEF-002 | yyy | ⏳ 延期 | target_phase: 3 → 4 |
-   ```
-8. 如有变更，提交 `deferred-items.json` 更新
+4. 跳到第八步执行阶段出口延期待办检查。
 
 ### 第六步（非代码类）：展示产出并请求确认
 1. 读取任务 `notes` 中的产出路径和结论摘要。
@@ -98,4 +74,29 @@ agent: build
      - 在 `notes` 中追加人类确认信息（英文；`notes` 作为 commit message 内容，R12 要求对外可见文本使用英文）
    - `git add` → `git commit`（commit message 必须英文，R12） → `git push origin dev-1.0`
 2. 输出："🎉 任务已完成！"
-3. 提示用户执行 `/next-task-itest` 开始下一个任务。
+3. 跳到第八步执行阶段出口延期待办检查。
+
+### 第八步（通用）：阶段出口延期待办检查
+
+> 当完成任务是**该阶段的集成测试任务**时（即任务 ID 等于 `task-status.json` 中对应 phase 的 `integration_test` 字段值），必须执行此检查。
+
+1. 读取 `docs/05-planning/task-status.json`
+2. 根据当前任务的 `id` 推断所属阶段（取 `id` 中 `.` 前的数字），或遍历 `phases` 找到包含该任务的 phase
+3. 判断当前任务 ID 是否等于该 phase 的 `integration_test` 字段：
+   - **不相等** → 跳过此检查
+   - **相等** → 执行以下步骤
+4. 读取 `docs/05-planning/deferred-items.json`
+5. 筛选 `target_phase` 等于当前阶段且 `status: "open"` 的条目
+6. 逐条检查是否已被该阶段的其他任务顺便修复：
+   - **已修复** → 更新 `status` 为 `resolved`，填写 `resolved_by`（commit hash 或任务 ID）。**不得删除条目**（R14 审计轨迹）。
+   - **未修复** → 保持 `open`，评估是否提升 `target_phase` 到下一阶段
+7. 输出报告：
+   ```markdown
+   ## 📋 Phase N 延期待办复查
+   | DEF-ID | 内容 | 状态 | 处理 |
+   |---|---|---|---|
+   | DEF-001 | xxx | ✅ 已修复 | 3.5 顺便完成 (commit abc) |
+   | DEF-002 | yyy | ⏳ 延期 | target_phase: 3 → 4 |
+   ```
+8. 如有变更，提交 `deferred-items.json` 更新并 `git push origin dev-1.0`
+9. 如果不是集成测试任务：提示用户执行 `/next-task-itest` 开始下一个任务。

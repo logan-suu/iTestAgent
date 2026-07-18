@@ -22,7 +22,7 @@
 | **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
 | **架构决策** | `decisions/` | `ADR-001~011` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持） |
-| **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R12、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
+| **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R14、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
 
 ---
 
@@ -51,7 +51,7 @@
 | 敏感数据流与脱敏规则 | `02-architecture/数据流全链路技术说明文档.md` §15 |
 | EPCC-V 工作流详解 | `04-ai-native/AI Native 开发理念与实战技巧手册.md` §5 |
 | AI 反馈模板（实现/评审/调试） | `04-ai-native/AI Native 开发理念与实战技巧手册.md` §7 |
-| 红线 R1-R12 详解 | `03-implementation/开发避坑与关键注意点手册.md` §1 |
+| 红线 R1-R14 详解 | `03-implementation/开发避坑与关键注意点手册.md` §1 |
 | 真机/Simulator/签名/backend 首次跑通地狱 | `03-implementation/开发避坑与关键注意点手册.md` §3 |
 | Simulator 性能误导与端口冲突 | `03-implementation/开发避坑与关键注意点手册.md` §2(P8) |
 | 探索式测试 + 断言不可靠陷阱 | `03-implementation/开发避坑与关键注意点手册.md` §4 |
@@ -133,7 +133,7 @@
    - 读取 `05-planning/deferred-items.json` 检查当前阶段延期待办
    - 根据任务 `documents_required` 字段读取对应文档章节
    - 参考本索引"按模块快速定位"表补充上下文
-3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R12
+3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R14
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
 5. **完成后**：执行 G1-G7+G5-SIM 质量门禁，更新 `05-planning/task-status.json`
 6. **阶段出口**：完成集成测试任务后，检查 `05-planning/deferred-items.json` 中该阶段的延期待办
