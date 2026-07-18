@@ -41,7 +41,7 @@ export interface RuntimeHistory {
  *   does not directly execute device commands.
  *
  * Phase 1 notes:
- *   Mock AgentRuntime 在 AI SDK major 锁定后改用真实 AgentRuntime。
+ *   Mock AgentRuntime to be replaced by real AgentRuntime after AI SDK major version is locked.
  */
 export class MockAgentRuntime implements AgentRuntime {
   private eventSequence: AgentEvent[] = [];

@@ -1,7 +1,7 @@
 /**
  * SubprocessController — spawn/kill/timeout/reap for external processes.
  *
- * ADR-010 § "Abort、超時与子进程":
+ * ADR-010 § "Abort, timeout and child processes":
  *   TUI cancel → server command → AgentRuntime.abort → ToolDispatcher cancel
  *   → backend AbortSignal → child SIGTERM → grace timeout → SIGKILL if needed
  *   → release WDA ports/tunnels/files → RunStateMachine cancelled/failed
@@ -10,8 +10,8 @@
  * Invariants:
  *   - abort is idempotent
  *   - no orphan child processes
- *   - session结束后无pending tool
- *   - 已生成evidence仍可索引
+ *   - no pending tools after session ends
+ *   - generated evidence remains indexable
  *
  * Backends managed via SubprocessController:
  *   - Appium server (appium)
