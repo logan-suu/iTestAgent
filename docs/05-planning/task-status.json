@@ -394,7 +394,7 @@
           "id": "2.1",
           "title": "工程结构解析：XcodeProj + xcodebuild -list/-showBuildSettings",
           "story": "US-3.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
