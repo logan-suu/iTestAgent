@@ -73,13 +73,14 @@ test('no subcommand outputs TUI terminal notice via spawnSync (US-4.1 AC1)', () 
   expect(stdout).toContain('TUI requires a terminal');
 });
 
-test('doctor subcommand outputs stub via spawnSync', () => {
+test('doctor subcommand runs physical readiness checks (task 1.11)', () => {
   const result = Bun.spawnSync({
     cmd: ['bun', cliPath, 'doctor'],
   });
   expect(result.exitCode).toBe(0);
   const stdout = result.stdout.toString();
-  expect(stdout).toContain('Coming in task 1.6');
+  expect(stdout).toContain('iTestAgent Doctor');
+  expect(stdout).toContain('Physical Readiness');
 });
 
 test('config subcommand outputs merged config via spawnSync (US-18.2)', () => {
