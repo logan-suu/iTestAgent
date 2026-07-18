@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-19T00:00:00.000Z",
+  "last_updated": "2026-07-19T12:00:00.000Z",
   "current_phase": 1,
   "phases": [
     {
@@ -347,6 +347,7 @@
           "title": "Subprocess controller + mock AgentRuntime",
           "story": null,
           "status": "in_progress",
+          "last_updated": "2026-07-19T12:00:00Z",
           "documents_required": [
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
@@ -355,7 +356,7 @@
             "1.10"
           ],
           "test_file": null,
-          "notes": "Subprocess controller: Appium server/xcodebuild/xctrace 子进程 spawn/signal forwarding/timeout/reap。Mock AgentRuntime: 实现 AgentRuntime 接口的 mock（无 AI SDK 依赖，返回固定事件序列，用于测试 Server/SessionManager/SSE 联调）。T1.10 依赖：mock AgentRuntime 在 AI SDK major 锁定后改用真实 AgentRuntime。"
+          "notes": "PR #17 (https://github.com/logan-suu/iTestAgent/pull/17). SubprocessController (spawn wrapper over Bun.spawn with AbortSignal, graceful shutdown, error handling, 304 lines of tests). MockAgentRuntime (configurable tool responses, step history tracking, abort support, 467 lines of tests). Both packages export types and implementations. Quality gates: typecheck 0 errors, lint 0 violations, 433 monorepo tests pass."
         },
         {
           "id": "1.16",
