@@ -72,13 +72,45 @@ export function createProgram(): Command {
       }
     });
 
-  // ─── devices (stub → task 1.7) ───
+  // ─── devices (US-2.1/2.2/2.3 — task 1.13) ───
   program
     .command('devices')
-    .description('list connected iPhones')
-    .action(() => {
-      console.log('Coming in task 1.7 — devices discovery and healthcheck');
-    });
+    .description('list connected iPhones and iOS Simulators (physical + simulator, ADR-011)')
+    .option('--healthcheck', 'also run device healthcheck')
+    .option('--physical-only', 'only list physical devices')
+    .option('--simulator-only', 'only list simulator devices')
+    .action(
+      async (options: {
+        healthcheck?: boolean;
+        physicalOnly?: boolean;
+        simulatorOnly?: boolean;
+      }) => {
+        const { discoverPhysicalDevices, discoverSimulatorDevices, discoverAllDevices } =
+          await import('./devices/discover.js');
+        const { healthcheckAllDevices } = await import('./devices/healthcheck.js');
+        const { formatDeviceList, formatHealthcheckResults } = await import('./devices/format.js');
+
+        // Discover devices based on flags
+        const devices = await (async () => {
+          if (options.simulatorOnly) {
+            return discoverSimulatorDevices();
+          }
+          if (options.physicalOnly) {
+            return discoverPhysicalDevices();
+          }
+          return discoverAllDevices();
+        })();
+
+        // Print device list
+        console.log(formatDeviceList(devices));
+
+        // Optional healthcheck
+        if (options.healthcheck && devices.length > 0) {
+          const results = await healthcheckAllDevices(devices);
+          console.log(`\n${formatHealthcheckResults(results, devices)}`);
+        }
+      },
+    );
 
   // ─── config (implemented: shows three-layer merged config) ───
   // US-18.2 AC1/AC2: three-layer JSONC merge + $schema support

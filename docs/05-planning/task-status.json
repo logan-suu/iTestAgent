@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-18T15:30:00.000Z",
+  "last_updated": "2026-07-19T00:00:00.000Z",
   "current_phase": 1,
   "phases": [
     {
@@ -314,14 +314,15 @@
           "id": "1.13",
           "title": "devices 设备发现 + backend healthcheck",
           "story": "US-2.1, US-2.2",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
             "0.6"
           ],
-          "test_file": null
+          "test_file": null,
+          "notes": "G5 + G5-SIM verified. Physical: iPhone 14 Plus (iOS 18.2.1) detected via devicectl list devices + devicectl device info details. Model=iPhone14,8, OS=18.2.1, Developer Mode=enabled, healthcheck PASS. Simulator: 35 devices across iOS 17.5/18.2/26.5 runtimes, all healthcheck PASS. Command: itestagent devices [--physical-only|--simulator-only|--healthcheck]. +1423 lines across 10 files (4 src + 4 test + cli.ts + task-status). 345 tests pass (0 fail). typecheck + lint clean. PR #15 (feat/cli-devices-command → dev-1.0): https://github.com/logan-suu/iTestAgent/pull/15"
         },
         {
           "id": "1.14",
