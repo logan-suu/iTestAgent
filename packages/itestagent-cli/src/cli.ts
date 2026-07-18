@@ -1,7 +1,8 @@
 import { join } from 'node:path';
-import { stdin, stdout } from 'node:process';
+import { stdout } from 'node:process';
 import { createInterface } from 'node:readline';
 import { Command } from 'commander';
+import { confirmAction } from './config/confirm.js';
 import { KeychainSecretStore } from './config/keychain-secret-store.js';
 import { createSecretStore, loadConfig, resolveCredentials } from './config/loader.js';
 import { saveProjectConfig } from './config/saver.js';
@@ -113,13 +114,47 @@ export function createProgram(): Command {
         process.exit(1);
       }
 
-      const rl = createInterface({ input: stdin, output: stdout });
+      // Confirm high-risk operation before storing (R7)
+      const confirmed = await confirmAction({
+        action: 'Store credential',
+        details: `Store a credential for "${key}" in macOS Keychain`,
+      });
+      if (confirmed !== 'yes') {
+        console.error('Aborted.');
+        process.exit(1);
+      }
+
+      // Read secret via stdout.write with a muted readline to prevent echo
+      const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
 
       const value = await new Promise<string>((resolve) => {
         stdout.write(`Enter value for "${key}" (input hidden): `);
-        rl.question('', (answer) => {
-          resolve(answer.trim());
-        });
+        // raw mode on the underlying stdin to suppress local echo
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode?.(true);
+        }
+        let raw = '';
+        const onData = (data: Buffer) => {
+          const str = data.toString('utf-8');
+          if (str === '\r' || str === '\n') {
+            process.stdin.removeListener('data', onData);
+            if (process.stdin.isTTY) {
+              process.stdin.setRawMode?.(false);
+            }
+            stdout.write('\n');
+            resolve(raw.trim());
+          } else if (str === '\u007f' || str === '\b') {
+            // Backspace
+            raw = raw.slice(0, -1);
+          } else if (str === '\u0003') {
+            // Ctrl+C
+            process.stdin.removeListener('data', onData);
+            resolve('');
+          } else {
+            raw += str;
+          }
+        };
+        process.stdin.on('data', onData);
       });
 
       rl.close();
@@ -152,6 +187,15 @@ export function createProgram(): Command {
     .command('delete-secret <key>')
     .description('remove a stored credential from macOS Keychain')
     .action(async (key: string) => {
+      const confirmed = await confirmAction({
+        action: 'Delete credential',
+        details: `Remove the credential for "${key}" from macOS Keychain`,
+      });
+      if (confirmed !== 'yes') {
+        console.error('Aborted.');
+        process.exit(1);
+      }
+
       const secretStore = createSecretStore();
       await secretStore.delete(key);
       console.log(`Credential "${key}" removed from Keychain.`);

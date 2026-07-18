@@ -154,14 +154,14 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
 }
 
 /**
- * 获取默认配置（不读取任何文件，仅返回 schema 默认值）。
+ * Get default config (does not read any files, returns schema defaults only).
  */
 export function getDefaultConfig(): ItestAgentConfig {
   return ItestAgentConfigSchema.parse({});
 }
 
 /**
- * 创建适用于当前平台的 SecretStore 实例。
+ * Create a SecretStore instance appropriate for the current platform.
  *
  * - macOS: KeychainSecretStore (US-18.2 AC3 — credentials stored in macOS Keychain)
  * - Other: MemorySecretStore (non-persistent fallback for testing/dev)
@@ -176,15 +176,15 @@ export function createSecretStore(): SecretStore {
 }
 
 /**
- * 从 SecretStore 解析配置中引用的凭证（US-18.2 AC3）。
+ * Resolve credentials referenced in config from SecretStore (US-18.2 AC3).
  *
- * 遍历 config.model.apiKeyRef，从 SecretStore 查询实际的 API Key。
- * 返回解析后的 config 副本（apiKeyRef 不变，但实际 key 被附加到返回对象的
- * `_resolvedApiKey` 字段中供下游消费；不写入原始 config 对象以保护内存）。
+ * Looks up config.model.apiKeyRef in the SecretStore and returns the resolved API key.
+ * The resolved key is returned as a separate field (`_resolvedApiKey`) for downstream
+ * consumption and is never written into the original config object (memory protection).
  *
- * @param config - 合并后的配置（含 apiKeyRef 引用名）
- * @param secretStore - SecretStore 实现（Keychain 或 Memory）
- * @returns `<config, resolvedApiKey>` pair，resolvedApiKey 为 null 表示未找到对应凭证
+ * @param config - Merged config containing an apiKeyRef reference name
+ * @param secretStore - SecretStore implementation (Keychain or Memory)
+ * @returns { config, resolvedApiKey } — resolvedApiKey is null if no matching credential found
  */
 export async function resolveCredentials(
   config: ItestAgentConfig,

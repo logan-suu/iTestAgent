@@ -29,11 +29,11 @@
         },
         "apiKeyRef": {
           "type": "string",
-          "description": "API Key 的引用名（Keychain key 或环境变量名）。不存储明文 API Key（R6 / US-18.2 AC3）。凭证存取归 task 1.7。"
+          "description": "API Key reference name (Keychain key or environment variable name). Plaintext API Key is never stored (R6 / US-18.2 AC3). Credential access is handled by task 1.10."
         },
         "model": {
           "type": "string",
-          "description": "模型名称（如 gpt-4o、claude-3-5-sonnet）"
+          "description": "Model name (e.g., gpt-4o, claude-3-5-sonnet)"
         }
       },
       "additionalProperties": false

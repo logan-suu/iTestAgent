@@ -31,8 +31,9 @@ export interface ConfirmOptions {
  * This is a lightweight confirmation framework. The full PermissionEngine
  * (allow/ask/deny + rule memory) is implemented in task 3.3.
  *
- * US-18.3 AC2: "固化 Profile / 保存 Flow / 生成测试草稿 / 写项目级配置 需用户确认"
- * US-18.3 AC3: "所有高风险操作二次确认"
+ * US-18.3 AC2: writing project-level config, storing credentials, saving flows,
+ *               generating test drafts all require user confirmation.
+ * US-18.3 AC3: all high-risk operations require secondary confirmation.
  */
 export async function confirmAction(options: ConfirmOptions): Promise<ConfirmResult> {
   const isTTY =
@@ -44,19 +45,8 @@ export async function confirmAction(options: ConfirmOptions): Promise<ConfirmRes
   }
 
   const prompt = options.prompt ?? 'Proceed? [y/N]';
+  const fullPrompt = `\n  !! HIGH-RISK ACTION: ${options.action}\n  -> ${options.details}\n\n  ${prompt} `;
 
-  // Display the confirmation prompt
-  process.stderr.write(`\n  ⚠  HIGH-RISK ACTION: ${options.action}\n`);
-  process.stderr.write(`  → ${options.details}\n\n`);
-  process.stderr.write(`  ${prompt} `);
-
-  // Write to stdout to match expectations (readline reads from stdin)
-  // Flush to ensure the prompt is visible before waiting for input
-  process.stdout.write(`\n  ⚠  HIGH-RISK ACTION: ${options.action}\n`);
-  process.stdout.write(`  → ${options.details}\n\n`);
-  process.stdout.write(`  ${prompt} `);
-
-  // Also write a clean prompt to stdout for the user to see
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -64,7 +54,7 @@ export async function confirmAction(options: ConfirmOptions): Promise<ConfirmRes
 
   try {
     const answer = await new Promise<string>((resolve) => {
-      rl.question('', (line: string) => {
+      rl.question(fullPrompt, (line: string) => {
         resolve(line.trim().toLowerCase());
       });
     });
@@ -75,7 +65,7 @@ export async function confirmAction(options: ConfirmOptions): Promise<ConfirmRes
     if (answer === 'n' || answer === 'no' || answer === '') {
       return 'no';
     }
-    // Unexpected input → treat as no (safety default)
+    // Unexpected input — treat as no (safety default)
     process.stderr.write(`  Unrecognized input "${answer}" — defaulting to no.\n`);
     return 'no';
   } catch {

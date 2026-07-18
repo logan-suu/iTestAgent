@@ -276,8 +276,8 @@
             "0.6"
           ],
           "test_file": "packages/itestagent-cli/test/memory-secret-store.test.ts, packages/itestagent-cli/test/keychain-secret-store.test.ts, packages/itestagent-cli/test/config-saver.test.ts, packages/itestagent-cli/test/config-confirm.test.ts",
-          "last_updated": "2026-07-18T15:30:00Z",
-          "notes": "✅ 实现完成。6 文件新增/修改，21 测试全部通过。MemorySecretStore (5 tests): Map-based SecretStore for testing/fallback。KeychainSecretStore (6 tests, macOS only G5-verified): macOS Keychain via security CLI, service prefix itestagent/。confirmAction(): TTY prompt [y/N], non-TTY default deny (US-18.3 AC2/AC3)。saveProjectConfig(): project-level JSONC write with confirmation, strips defaults for minimal output (US-18.3 AC2)。Config loader: createSecretStore() factory + resolveCredentials() for apiKeyRef→Keychain resolution (US-18.2 AC3)。CLI: config show/set-secret/get-secret/delete-secret/init subcommands。Typecheck + lint + 245 tests (21 new) all pass。Pending commit-pr-itest。"
+          "last_updated": "2026-07-18T16:30:00Z",
+          "notes": "PR #12 (https://github.com/logan-suu/iTestAgent/pull/12): feat(cli) config layering + Keychain integration + confirm/save flow. 12 files (+827/-14). MemorySecretStore (5 tests) + KeychainSecretStore (6 tests, G5-verified) + confirmAction() (TTY prompt, non-TTY default deny, US-18.3 AC2/AC3) + saveProjectConfig() (JSONC write with confirmation, US-18.3 AC2) + createSecretStore() factory + resolveCredentials() (apiKeyRef→Keychain, US-18.2 AC3) + 5 CLI subcommands. Typecheck + lint + 245 tests (21 new) all pass. Awaiting human merge to dev-1.0."
         },
         {
           "id": "1.11",

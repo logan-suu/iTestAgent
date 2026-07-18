@@ -1,110 +1,110 @@
 import { z } from 'zod';
 
 /**
- * iTestAgent 配置 Schema（Zod）
+ * iTestAgent Configuration Schema (Zod)
  *
- * AC 原文（US-18.2 分层配置 P1）：
- *   AC1 配置路径：~/.itestagent/config/itestagent.jsonc、<project>/.itestagent/itestagent.jsonc、<project>/itestagent.jsonc
- *   AC2 使用 JSONC，支持 $schema
- *   AC3 敏感凭证不写入 JSONC 明文
+ * US-18.2 AC1: Config paths: ~/.itestagent/config/itestagent.jsonc,
+ *   <project>/.itestagent/itestagent.jsonc, <project>/itestagent.jsonc
+ * US-18.2 AC2: Use JSONC, support $schema
+ * US-18.2 AC3: Sensitive credentials must not be written to JSONC in plaintext
  *
- * AGENTS.md §5 数据契约：产物必须带 schemaVersion，面向 schema 编码。
- * AGENTS.md §5 配置分层：~/.itestagent/config/itestagent.jsonc < .itestagent/itestagent.jsonc < itestagent.jsonc
- * 红线 R6：敏感数据（账号/OTP/token）不落盘明文、不入日志/报告/提交。
+ * AGENTS.md §5 data contracts: artifacts must carry schemaVersion, code against schema.
+ * AGENTS.md §5 config layering: ~/.itestagent/config/itestagent.jsonc < .itestagent/itestagent.jsonc < itestagent.jsonc
+ * Red line R6: Sensitive data (account/OTP/token) must not be persisted in plaintext, logs, reports, or commits.
  *
- * 注意：US-18.2 AC3（凭证脱敏 + Keychain 接入）由 task 1.10 实现。
- * apiKeyRef 字段始终存储引用名（非明文 Key），真实凭证仅通过 SecretStore
- * 在运行时注入内存，永不进入 config 对象。因此 maskSensitiveFields 无需
- * 额外遮蔽操作。
+ * Note: US-18.2 AC3 (credential masking + Keychain integration) is implemented by task 1.10.
+ * apiKeyRef stores only the reference name (never a plaintext key). Real credentials are
+ * injected at runtime via SecretStore and never enter the config object.
+ * maskSensitiveFields therefore requires no additional masking.
  */
 
-// ─── 模型配置段 ───────────────────────────────────────────
+// ─── Model Config Section ──────────────────────────────────
 
 /**
- * US-18.1 AC2：仅需本地依赖 + OpenAI-compatible 模型 API Key。
- * apiKeyRef 存储 Keychain 引用名或环境变量名，不存储明文 API Key（R6）。
- * 凭证存取（Keychain）归 task 1.7。
+ * US-18.1 AC2: Requires only local dependencies + OpenAI-compatible model API Key.
+ * apiKeyRef stores a Keychain reference name or environment variable name, not the plaintext key (R6).
+ * Credential access (Keychain) is handled by task 1.10.
  */
 export const ModelConfigSchema = z
   .object({
-    /** OpenAI-compatible provider 名称（如 "openai"、"anthropic"） */
+    /** OpenAI-compatible provider name (e.g., "openai", "anthropic") */
     provider: z.string().optional().default('openai'),
-    /** 自定义 API base URL（OpenAI-compatible 端点） */
+    /** Custom API base URL (OpenAI-compatible endpoint) */
     baseURL: z.string().optional(),
     /**
-     * API Key 的引用名（Keychain key 或环境变量名）。
-     * 不存储明文 API Key（R6 / US-18.2 AC3）。
-     * 凭证存取由 task 1.10 实现。
+     * API Key reference name (Keychain key or environment variable name).
+     * Plaintext API Key is never stored (R6 / US-18.2 AC3).
+     * Credential access is implemented by task 1.10.
      */
     apiKeyRef: z.string().optional(),
-    /** 模型名称（如 "gpt-4o"、"claude-3-5-sonnet"） */
+    /** Model name (e.g., "gpt-4o", "claude-3-5-sonnet") */
     model: z.string().optional(),
   })
   .strict();
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 
-// ─── 设备配置段 ───────────────────────────────────────────
+// ─── Device Config Section ─────────────────────────────────
 
 /**
- * ADR-011：真机与 Simulator 同级支持。
- * Backend 选择按 targetKind 独立配置，支持同类型 fallback；
- * 跨类型 fallback 需用户确认。
+ * ADR-011: First-class support for both physical devices and Simulator.
+ * Backend selection is configured independently per targetKind with same-type fallback;
+ * cross-type fallback requires user confirmation.
  */
 export const DeviceConfigSchema = z
   .object({
-    /** 按 targetKind 的首选 Backend 列表（优先级从高到低） */
+    /** Per-targetKind preferred backend list (highest priority first) */
     preferredBackends: z
       .object({
         physical: z.array(z.enum(['appium', 'mobile-mcp', 'mock'])).optional(),
         simulator: z.array(z.enum(['appium', 'mock'])).optional(),
       })
       .optional(),
-    /** 是否允许跨 targetKind fallback（默认 false，需 ask） */
+    /** Whether to allow cross-targetKind fallback (default false, requires ask) */
     allowCrossTargetFallback: z.boolean().optional().default(false),
   })
   .strict();
 
 export type DeviceConfig = z.infer<typeof DeviceConfigSchema>;
 
-// ─── TUI 配置段 ───────────────────────────────────────────
+// ─── TUI Config Section ────────────────────────────────────
 
 /**
- * 技术选型 §5：OpenTUI+SolidJS 为目标主线，Ink 为已验证 fallback。
+ * Tech selection §5: OpenTUI+SolidJS is the target mainline, Ink is the verified fallback.
  */
 export const TuiConfigSchema = z
   .object({
-    /** TUI 框架 */
+    /** TUI framework */
     framework: z.enum(['opentui', 'ink']).optional().default('opentui'),
   })
   .strict();
 
 export type TuiConfig = z.infer<typeof TuiConfigSchema>;
 
-// ─── 配置根 Schema ───────────────────────────────────────
+// ─── Root Config Schema ────────────────────────────────────
 
 /**
- * iTestAgent 配置根 Schema。
- * 对应配置文件：itestagent.jsonc
- * 三层合并优先级（后者覆盖前者）：
- *   1. ~/.itestagent/config/itestagent.jsonc（全局）
- *   2. <project>/.itestagent/itestagent.jsonc（项目本地）
- *   3. <project>/itestagent.jsonc（项目根）
+ * iTestAgent root config schema.
+ * Corresponds to config file: itestagent.jsonc
+ * Three-layer merge priority (later overrides earlier):
+ *   1. ~/.itestagent/config/itestagent.jsonc (global)
+ *   2. <project>/.itestagent/itestagent.jsonc (project-local)
+ *   3. <project>/itestagent.jsonc (project root)
  *
- * 注意：嵌套对象用 .optional() + transform 填充默认值，
- * 因为 Zod 4 的 .default({}) 要求完整输出类型。
+ * Note: nested objects use .optional() + transform to fill defaults,
+ * because Zod 4's .default({}) requires a complete output type.
  */
 export const ItestAgentConfigSchema = z
   .object({
-    /** 配置 schema 版本（AGENTS.md §5 数据契约） */
+    /** Config schema version (AGENTS.md §5 data contracts) */
     schemaVersion: z.string().default('1.0'),
-    /** JSONC $schema 引用（US-18.2 AC2） */
+    /** JSONC $schema reference (US-18.2 AC2) */
     $schema: z.string().optional(),
-    /** 模型配置（US-18.1 AC2） */
+    /** Model config (US-18.1 AC2) */
     model: ModelConfigSchema.optional(),
-    /** 设备配置 */
+    /** Device config */
     device: DeviceConfigSchema.optional(),
-    /** TUI 配置 */
+    /** TUI config */
     tui: TuiConfigSchema.optional(),
   })
   .strict()
@@ -117,23 +117,23 @@ export const ItestAgentConfigSchema = z
 
 export type ItestAgentConfig = z.infer<typeof ItestAgentConfigSchema>;
 
-// ─── 工具函数 ─────────────────────────────────────────────
+// ─── Utility Functions ─────────────────────────────────────
 
-/** 默认配置（所有字段取 schema 默认值） */
+/** Default config (all fields at schema defaults) */
 export const DEFAULT_CONFIG: ItestAgentConfig = ItestAgentConfigSchema.parse({});
 
 /**
- * 安全解析配置，返回带默认值的配置。
- * 非法字段会抛出 ZodError。
+ * Safely parse config, returning a config with defaults applied.
+ * Invalid fields will throw ZodError.
  */
 export function parseConfig(raw: unknown): ItestAgentConfig {
   return ItestAgentConfigSchema.parse(raw);
 }
 
 /**
- * 脱敏配置中的敏感字段（用于展示/日志，R6）。
- * apiKeyRef 不脱敏（它是引用名，不是明文 Key — US-18.2 AC3）。
- * 真实凭证仅通过 SecretStore 在运行时注入内存，永不进入 config 对象。
+ * Mask sensitive fields in config for display/logging (R6).
+ * apiKeyRef is not masked (it is a reference name, not a plaintext key — US-18.2 AC3).
+ * Real credentials are injected at runtime via SecretStore and never enter the config object.
  */
 export function maskSensitiveFields(config: ItestAgentConfig): ItestAgentConfig {
   return config;

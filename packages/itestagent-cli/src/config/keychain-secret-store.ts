@@ -105,6 +105,13 @@ export class KeychainSecretStore implements SecretStore {
    * The `-U` flag allows updating an existing entry without prompting
    * for the Keychain password (application-specific access is preserved).
    *
+   * Note: `security add-generic-password -w <value>` passes the secret in argv.
+   * The `security` CLI requires the value as a flag argument; it does NOT read
+   * from stdin for `add-generic-password` (it opens /dev/tty for interactive prompts).
+   * On macOS, other non-root users cannot see another process's argv, and `ps aux`
+   * truncates output to 256 chars by default. This is the standard approach used
+   * by most macOS automation tooling that wraps the `security` CLI.
+   *
    * @throws Error if Keychain write fails.
    */
   async set(key: string, value: string): Promise<void> {
