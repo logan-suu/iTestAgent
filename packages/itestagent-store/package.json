@@ -8,6 +8,13 @@
   "description": "SQLite + Drizzle (metadata) + filesystem (artifacts)",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/"
+    "lint": "biome check src/",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.36.4"
+  },
+  "peerDependencies": {
+    "itestagent-contracts": "workspace:*"
   }
 }

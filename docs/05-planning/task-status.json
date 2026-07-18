@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-18T00:33:54.163Z",
+  "last_updated": "2026-07-18T13:10:11.404Z",
   "current_phase": 1,
   "phases": [
     {
@@ -251,7 +251,7 @@
           "id": "1.9",
           "title": "存储骨架：SQLite/Drizzle + 目录结构",
           "story": "US-19.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -259,7 +259,9 @@
           "dependencies": [
             "0.6"
           ],
-          "test_file": null
+          "test_file": null,
+          "last_updated": "2026-07-18T13:10:11.403Z",
+          "notes": "实现完成。新增 6 源文件 + 3 测试文件 (21 tests)。StoreDriver: SQLite + WAL + migrate(幂等) + transaction(BEGIN/COMMIT/ROLLBACK)。ArtifactStore: 文件系统 put/get/search。Schema: projects + runs 表（Drizzle ORM）。bootstrap: initStore() 创建 ~/.itestagent/{config,db,projects,sessions,flows,baselines/{physical,simulator},runs}。依赖: drizzle-orm 0.36.4 + bun:sqlite。typecheck + lint + test (224/0) 全部通过。"
         },
         {
           "id": "1.10",
