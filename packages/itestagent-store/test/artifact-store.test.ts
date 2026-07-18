@@ -38,13 +38,14 @@ describe('ArtifactStore', () => {
       expect(ref.id).toBeDefined();
       expect(ref.type).toBe('screenshot');
       expect(ref.mimeType).toBe('image/png');
+      expect(ref.path).toStartWith(join(testRoot, 'artifacts'));
       expect(existsSync(ref.path)).toBe(true);
 
       const stored = readFileSync(ref.path);
       expect(stored.equals(data)).toBe(true);
     });
 
-    it('stores an artifact from a file path', async () => {
+    it('stores an artifact from a file path into artifacts root', async () => {
       const tmpFile = join(testRoot, 'source.txt');
       const content = Buffer.from('log-content');
       Bun.write(tmpFile, content);
@@ -57,6 +58,7 @@ describe('ArtifactStore', () => {
 
       expect(ref.id).toBeDefined();
       expect(ref.type).toBe('log');
+      expect(ref.path).toStartWith(join(testRoot, 'artifacts'));
       expect(existsSync(ref.path)).toBe(true);
       expect(readFileSync(ref.path).equals(content)).toBe(true);
     });
@@ -112,27 +114,17 @@ describe('ArtifactStore', () => {
   });
 
   describe('run directory structure', () => {
-    // AC3: 每个 run 目录含 plan.yaml/summary.md/result.json/artifact-index.json/artifacts
-    it('creates run directory with expected structure (AC3)', async () => {
-      const runDir = join(testRoot, 'run-fc7a');
-
-      await artifactStore.put({
-        type: 'json',
-        data: Buffer.from(JSON.stringify({ run_id: 'fc7a' })),
-        path: join(runDir, 'result.json'),
-      });
-
-      // The ArtifactStore itself focuses on artifact I/O;
-      // run directory creation is handled by the StoreDriver/engine.
-      // This test verifies that ArtifactStore can write into an arbitrary path.
+    it('stores artifacts inside the artifacts root (AC3)', async () => {
       const ref = await artifactStore.put({
         type: 'text',
         data: Buffer.from('hello'),
         path: join(testRoot, 'artifacts', 'step-1-output.txt'),
       });
 
-      expect(ref.path).toContain('step-1-output.txt');
+      // ref.path always inside artifactsRoot after put()
+      expect(ref.path).toStartWith(join(testRoot, 'artifacts'));
       expect(existsSync(ref.path)).toBe(true);
+      expect(readFileSync(ref.path).equals(Buffer.from('hello'))).toBe(true);
     });
   });
 });

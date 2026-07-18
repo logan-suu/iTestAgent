@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
@@ -9,7 +10,7 @@ export const projects = sqliteTable('projects', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   projectHash: text('project_hash').notNull().unique(),
   workspacePath: text('workspace_path').notNull(),
-  createdAt: text('created_at').notNull().default("(datetime('now'))"),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
 /**
@@ -27,7 +28,7 @@ export const runs = sqliteTable('runs', {
     .references(() => projects.projectHash),
   targetKind: text('target_kind').notNull(),
   status: text('status').notNull().default('created'),
-  createdAt: text('created_at').notNull().default("(datetime('now'))"),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
 export type Project = typeof projects.$inferSelect;

@@ -13,6 +13,7 @@ export function createDb(dbPath: string) {
   // Enable WAL mode for better concurrent read performance
   sqlite.run('PRAGMA journal_mode = WAL');
   sqlite.run('PRAGMA foreign_keys = ON');
+  sqlite.run('PRAGMA busy_timeout = 5000');
   return drizzle(sqlite, { schema });
 }
 

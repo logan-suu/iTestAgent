@@ -1,25 +1,17 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, extname, join } from 'node:path';
 import type { ArtifactInput, ArtifactRef, ArtifactStore } from 'itestagent-contracts';
 
 type InternalArtifactRef = ArtifactRef & { _id: string };
 
-/**
- * Generate a unique artifact file path.
- */
-function artifactPath(artifactsRoot: string, id: string, ext: string): string {
-  return join(artifactsRoot, `${id}${ext}`);
-}
-
-/**
- * Determine file extension from artifact type.
- */
 function extensionForType(type: ArtifactInput['type']): string {
   switch (type) {
     case 'screenshot':
+      return '.png';
     case 'video':
+      return '.mp4';
     case 'uitree':
-      return '.png'; // fallback, real ext from mimeType
+      return '.json';
     case 'log':
     case 'crashlog':
     case 'text':
@@ -35,15 +27,13 @@ function extensionForType(type: ArtifactInput['type']): string {
   }
 }
 
-/**
- * Infer mimeType from artifact type.
- */
 function mimeForType(type: ArtifactInput['type']): string {
   switch (type) {
     case 'screenshot':
-    case 'video':
-    case 'uitree':
       return 'image/png';
+    case 'video':
+      return 'video/mp4';
+    case 'uitree':
     case 'json':
       return 'application/json';
     default:
@@ -54,7 +44,9 @@ function mimeForType(type: ArtifactInput['type']): string {
 /**
  * Create an ArtifactStore backed by the filesystem.
  *
- * @param artifactsRoot - Path to the artifacts directory
+ * Phase 1: in-memory index only — not persisted across restarts.
+ *
+ * @param artifactsRoot - Path to the artifacts directory.
  * @returns ArtifactStore implementation
  */
 export function createArtifactStore(artifactsRoot: string): ArtifactStore {
@@ -65,20 +57,22 @@ export function createArtifactStore(artifactsRoot: string): ArtifactStore {
     async put(input: ArtifactInput): Promise<ArtifactRef> {
       const id = Bun.randomUUIDv7();
       const ext = input.path
-        ? input.path.slice(input.path.lastIndexOf('.'))
+        ? extname(input.path) || extensionForType(input.type)
         : extensionForType(input.type);
-
       const mimeType = input.mimeType ?? mimeForType(input.type);
-      const destPath = input.path ?? artifactPath(artifactsRoot, id, ext);
+
+      let destPath: string;
 
       if (input.data) {
+        destPath = join(artifactsRoot, `${id}${ext}`);
         mkdirSync(dirname(destPath), { recursive: true });
         writeFileSync(destPath, input.data);
       } else if (input.path && existsSync(input.path)) {
-        // Copy file from source path to artifacts directory if needed
-        const dest = artifactPath(artifactsRoot, id, ext);
-        mkdirSync(dirname(dest), { recursive: true });
-        writeFileSync(dest, readFileSync(input.path));
+        destPath = join(artifactsRoot, `${id}${ext}`);
+        mkdirSync(dirname(destPath), { recursive: true });
+        copyFileSync(input.path, destPath);
+      } else {
+        destPath = input.path ?? join(artifactsRoot, `${id}${ext}`);
       }
 
       const ref: ArtifactRef = {
