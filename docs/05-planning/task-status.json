@@ -346,7 +346,7 @@
           "id": "1.15",
           "title": "Subprocess controller + mock AgentRuntime",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
