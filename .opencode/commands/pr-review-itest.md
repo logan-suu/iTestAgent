@@ -135,22 +135,16 @@ agent: build
 
 ### 第七步：阶段出口检查（防止延期项被遗忘）
 
-> 每个 Phase 的集成测试（如 `1.16`, `2.8`, `3.17`）完成时，必须检查 `deferred-items.json`。
+> 每个 Phase 的**集成测试任务**完成时，必须检查 `deferred-items.json`。
+> 判断依据：任务 ID 是否等于 `task-status.json` 中对应 phase 的 `integration_test` 字段值，**不硬编码具体 ID**。
 
 1. **Phase 完成时**：
-   - 读取 `docs/05-planning/deferred-items.json`
+   - 读取 `docs/05-planning/task-status.json`，通过当前任务 ID 所属阶段获取 `integration_test` 字段
+   - 如果当前任务不是集成测试任务 → 跳过
+   - 如果是集成测试 → 读取 `docs/05-planning/deferred-items.json`
    - 筛选 `target_phase` 等于当前阶段的 `status: "open"` 条目
-   - 逐条检查是否已被该阶段的其他任务顺便修复：
-     - 已修复 → 将 `status` 更新为 `done`，填写 `resolved_by`（commit hash 或任务 ID）
-     - 未修复 → 保持 `open`，评估是否需要提升 `target_phase` 到下一阶段
-   - 输出检查报告：
-     ```markdown
-     ## 📋 Phase N 延期待办检查
-     | DEF-ID | 内容 | 状态 | 处理 |
-     |---|---|---|---|
-     | DEF-001 | 连接统一 | ✅ 已修复 | 3.2 顺便完成 (commit abc) |
-     | DEF-002 | 事务测试 | ⏳ 延期 | → target_phase: 4 |
-     ```
+   - 逐条检查是否已被该阶段的其他任务顺便修复
+   - 输出检查报告
 
 2. **启动新阶段时**（如 `next-task-itest`）：
    - 读取 `deferred-items.json`
