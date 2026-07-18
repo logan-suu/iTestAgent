@@ -1,11 +1,14 @@
+import type { SessionManager } from './session-manager.js';
 import type { SSEHub } from './sse-hub.js';
-import type { SessionInfo } from './types.js';
 
 /** iTestAgent server version. */
 const SERVER_VERSION = '0.0.1';
 
 /** Timestamp of process start, used for /health uptime. */
 const START_TIME = Date.now();
+
+/** Valid targetKind values per ADR-011. */
+const VALID_TARGET_KINDS = ['physical', 'simulator'] as const;
 
 // ─── Route handler type ──────────────────────────────────────
 
@@ -15,7 +18,7 @@ const START_TIME = Date.now();
  */
 export function createFetchHandler(
   sseHub: SSEHub,
-  sessions: Map<string, SessionInfo>,
+  sessionManager: SessionManager,
 ): (req: Request) => Response | Promise<Response> {
   return (req: Request): Response | Promise<Response> => {
     const url = new URL(req.url);
@@ -27,18 +30,18 @@ export function createFetchHandler(
 
     // POST /session — create a new session.
     if (url.pathname === '/session' && req.method === 'POST') {
-      return handleCreateSession(sessions);
+      return handleCreateSession(req, sessionManager);
     }
 
     // GET /session/:id — get session info.
     const sessionMatch = url.pathname.match(/^\/session\/([a-zA-Z0-9_-]+)$/);
     if (sessionMatch?.[1] && req.method === 'GET') {
-      return handleGetSession(sessions, sessionMatch[1]);
+      return handleGetSession(sessionManager, sessionMatch[1]);
     }
 
     // GET /events?sessionId=xxx — SSE event stream.
     if (url.pathname === '/events' && req.method === 'GET') {
-      return handleSSE(url, sseHub, sessions);
+      return handleSSE(url, sseHub, sessionManager);
     }
 
     // 404 for unmatched routes.
@@ -56,26 +59,51 @@ function handleHealth(): Response {
   });
 }
 
-function handleCreateSession(sessions: Map<string, SessionInfo>): Response {
-  const sessionId = generateSessionId();
-  const session: SessionInfo = {
-    sessionId,
-    createdAt: new Date().toISOString(),
-    status: 'active',
-  };
-  sessions.set(sessionId, session);
-  return jsonResponse({ sessionId }, 201);
+async function handleCreateSession(
+  req: Request,
+  sessionManager: SessionManager,
+): Promise<Response> {
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    // Empty body or non-JSON — treated as missing fields.
+  }
+
+  const { workspace, targetKind, backend } = body;
+
+  if (!workspace || typeof workspace !== 'string') {
+    return jsonResponse(
+      { error: 'invalid_request', message: '"workspace" (string) is required.' },
+      400,
+    );
+  }
+
+  if (!VALID_TARGET_KINDS.includes(targetKind as (typeof VALID_TARGET_KINDS)[number])) {
+    return jsonResponse(
+      { error: 'invalid_request', message: '"targetKind" must be "physical" or "simulator".' },
+      400,
+    );
+  }
+
+  const session = sessionManager.createSession({
+    workspace,
+    targetKind: targetKind as 'physical' | 'simulator',
+    backend: typeof backend === 'string' ? backend : undefined,
+  });
+
+  return jsonResponse(session, 201);
 }
 
-function handleGetSession(sessions: Map<string, SessionInfo>, sessionId: string): Response {
-  const session = sessions.get(sessionId);
+function handleGetSession(sessionManager: SessionManager, sessionId: string): Response {
+  const session = sessionManager.getSession(sessionId);
   if (!session) {
     return jsonResponse({ error: 'session_not_found', sessionId }, 404);
   }
   return jsonResponse(session);
 }
 
-function handleSSE(url: URL, sseHub: SSEHub, sessions: Map<string, SessionInfo>): Response {
+function handleSSE(url: URL, sseHub: SSEHub, sessionManager: SessionManager): Response {
   const sessionId = url.searchParams.get('sessionId');
   if (!sessionId) {
     return jsonResponse(
@@ -84,7 +112,7 @@ function handleSSE(url: URL, sseHub: SSEHub, sessions: Map<string, SessionInfo>)
     );
   }
 
-  if (!sessions.has(sessionId)) {
+  if (!sessionManager.getSession(sessionId)) {
     return jsonResponse({ error: 'session_not_found', sessionId }, 404);
   }
 
@@ -107,8 +135,4 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-function generateSessionId(): string {
-  return `ses_${Bun.randomUUIDv7()}`;
 }

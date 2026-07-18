@@ -328,7 +328,7 @@
           "id": "1.14",
           "title": "SessionManager：session 创建/关闭/隔离/超时",
           "story": "US-4.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -339,7 +339,7 @@
             "1.9"
           ],
           "test_file": null,
-          "notes": "SessionManager: session 创建 (workspace, targetKind, backend)、关闭 (cleanup + abort)、隔离 (不同 session 独立 SSE channel/state)、超时回收。依赖 T1.7 RunStateMachine (session 生命周期状态) + T1.9 Store (session 持久化)。"
+          "notes": "PR #16 (https://github.com/logan-suu/iTestAgent/pull/16). SessionManager implemented: createSession (workspace + targetKind + optional backend), closeSession (cleanup + RSM.cancel), closeAll, getSession, listSessions (filter by status), idle timeout. 23 unit tests pass. Routes + server updated to use SessionManager. targetKind (physical/simulator) per ADR-011. Store persistence via itestagent-store. RunStateMachine wired for lifecycle state machine. typecheck 0 errors, lint 0 errors, 384 tests pass."
         },
         {
           "id": "1.15",

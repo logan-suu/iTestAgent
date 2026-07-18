@@ -22,10 +22,25 @@ export interface SSESubscriber {
 
 // ─── SessionInfo ─────────────────────────────────────────────
 
-/** Lightweight session state tracked in memory. */
+/**
+ * Session state tracked in memory.
+ *
+ * Architecture §3: SessionManager manages session creation/closing,
+ * workspace, runId, SSE subscriber, and session isolation.
+ * ADR-010 §4: Each session owns an independent run (runId)
+ * tracked by RunStateMachine.
+ */
 export interface SessionInfo {
   /** Unique session identifier. */
   sessionId: string;
+  /** Run identifier tied to this session (one run per session). */
+  runId: string;
+  /** Absolute path to the iOS project workspace. */
+  workspace: string;
+  /** Target device kind: physical iPhone or iOS Simulator (ADR-011). */
+  targetKind: 'physical' | 'simulator';
+  /** Selected device backend name (optional at creation time). */
+  backend?: string;
   /** ISO-8601 timestamp when the session was created. */
   createdAt: string;
   /** Current session lifecycle status. */
