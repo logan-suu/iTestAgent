@@ -390,6 +390,23 @@ R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段。
 
 **级联更新**：Agent 启动或任务完成时，遍历所有 `pending` 任务，若 `dependencies` 全部为 `done`，则翻转为 `ready`。此操作为幂等操作。
 
+### 8.1.5 deferred-items.json 生命周期（R14）
+
+```
+R14 PR review 中合理的但延期修复的 🟡 警告，必须在 pr-review-itest 中立即写入 deferred-items.json 留档，不得遗漏。
+commit-pr-itest 在提交前须确认 🟡 警告已留档。每个 Phase 的集成测试任务完成时须检查并清理本阶段延期项。
+```
+
+**创建**：`pr-review-itest` 第五步之半 — 每条 🟡 警告必须逐条写入，含完整上下文（`detail` 字段强制必填）。
+
+**追踪**：`next-task-itest` 第一步 — 若当前阶段有 `target_phase` 匹配且 `status: "open"` 的条目，输出提醒。
+
+**提交门禁**：`commit-pr-itest` 第一步 §2 — 若刚完成 review 且有 🟡 警告未留档，阻断 commit。
+
+**出口检查**：Phase 集成测试任务中 — 检查本阶段 `target_phase` 的 open 条目是否已随其他任务顺便修复；若是，更新 `status → resolved` + `resolved_by`；若否，保留 open 并记录检查结果。
+
+**关闭**：条目修复后通过 `sync-docs-itest` 将 `status` 更新为 `resolved`，**不得删除条目**（保留审计轨迹）。
+
 ### 8.2 跨阶段阻断规则
 
 阶段 N 的任务**不得**在阶段 N-1 的最后一个任务（验收/集成测试）完成前开始执行。Agent 必须先完成前一阶段验收，推进 `current_phase`，再进入下一阶段。

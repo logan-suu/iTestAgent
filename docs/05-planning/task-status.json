@@ -356,7 +356,7 @@
             "1.10"
           ],
           "test_file": null,
-          "notes": "PR #17 (https://github.com/logan-suu/iTestAgent/pull/17). SubprocessController (spawn wrapper over Bun.spawn with AbortSignal, graceful shutdown, error handling, 304 lines of tests). MockAgentRuntime (configurable tool responses, step history tracking, abort support, 467 lines of tests). Both packages export types and implementations. Quality gates: typecheck 0 errors, lint 0 violations, 433 monorepo tests pass."
+          "notes": "PR #17 (https://github.com/logan-suu/iTestAgent/pull/17). SubprocessController (spawn wrapper over Bun.spawn with AbortSignal, graceful shutdown, error handling, 304 lines of tests). MockAgentRuntime (configurable tool responses, step history tracking, abort support, 467 lines of tests). Both packages export types and implementations. Quality gates: typecheck 0 errors, lint 0 violations, 433 monorepo tests pass. Deferred: DEF-003 (killedByGrace), DEF-004 (trigger) → Phase 3."
         },
         {
           "id": "1.16",
