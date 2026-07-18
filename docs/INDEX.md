@@ -130,12 +130,13 @@
 1. **启动时**：读取本文件 + `../AGENTS.md`，了解文档全貌和红线约束
 2. **执行任务前**：
    - 读取 `05-planning/task-status.json` 定位当前任务
+   - 读取 `05-planning/deferred-items.json` 检查当前阶段延期待办
    - 根据任务 `documents_required` 字段读取对应文档章节
    - 参考本索引"按模块快速定位"表补充上下文
 3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R12
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
 5. **完成后**：执行 G1-G7+G5-SIM 质量门禁，更新 `05-planning/task-status.json`
-6. **写测试时**：单元测试放 `packages/<pkg>/test/`，集成测试放 `tests/integration/`（`../AGENTS.md` §10）
+6. **阶段出口**：完成集成测试任务后，检查 `05-planning/deferred-items.json` 中该阶段的延期待办
 
 ---
 

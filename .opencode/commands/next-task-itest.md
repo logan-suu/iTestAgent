@@ -14,7 +14,14 @@ agent: build
 ### 第一步：定位任务
 1. 读取 `docs/05-planning/task-status.json`
 2. **级联更新 pending → ready**：遍历所有阶段中 `status: pending` 的任务，若其 `dependencies` 全部为 `done`，则翻转为 `ready`。
-3. 找到当前阶段中第一个 `status: ready` 的任务
+3. **延期待办提醒**：读取 `docs/05-planning/deferred-items.json`，如果存在 `target_phase` 等于当前阶段且 `status: "open"` 的条目，输出提醒：
+   ```
+   ⚠️ 当前阶段有 N 个延期待办项（来自 PR review），请留意：
+   | DEF-ID | 内容 | 来源 |
+   |---|---|---|
+   | DEF-001 | xxx | PR#11 CodeRabbit W2 |
+   ```
+4. 找到当前阶段中第一个 `status: ready` 的任务
 4. 如果找不到 ready 任务：
    - 输出："✅ 当前没有待执行的任务。"
    - 检查是否有 `in_progress` 的任务：如果有，询问是否继续该任务。
