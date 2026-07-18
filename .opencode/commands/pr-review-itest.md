@@ -75,12 +75,23 @@ agent: build
      ```
 
    **b) 合理但延期修复（🟡 Minor / Phase 后续）**：
-   - **必须在 `docs/06-verification/pr-review-deferred-items.md` 留档追踪**：
-     - 在 Active 表格中添加一行，含 PR 编号、来源、comment ID、严重度、描述、目标 Phase
-     - 格式参考文件内现有条目
-   - 回复评论说明延期原因并链接到该文件（**R12：回复必须用英文**）
+   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
+     - 新增条目到 `items` 数组，包含 `id`、`source`、`task`、`item`、`target_phase`、`status`
+     - 格式：
+       ```json
+       {
+         "id": "DEF-NNN",
+         "source": "CodeRabbit PR#X WY",
+         "task": "1.9",
+         "item": "描述延期修复的具体内容",
+         "target_phase": 3,
+         "status": "open",
+         "created_at": "ISO timestamp"
+       }
+       ```
+   - 回复评论说明延期原因和追踪 ID（**R12：回复必须用英文**），如：
+     > Deferred to Phase 3. Tracked as DEF-001 in docs/05-planning/deferred-items.json.
    - 如评论不阻塞当前合并，resolve conversation
-   - ⚠️ **不要放在 `task-status.json` 的 notes 字段中** — 分散在各任务 notes 中难以后续查找
 
 4. **处理不合理的评论（❌）**：
    - 无意义的评论（WAL 模式误报、工具链版本差异误判等）→ **hide**

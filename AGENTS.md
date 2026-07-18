@@ -5,6 +5,7 @@
 **适用对象**：所有参与 iTestAgent 项目开发的 AI Agent（OpenCode 桌面版 / Codex / Cursor / Claude）及人类开发者
 **优先级**：本规约优先于任何 Agent 的默认行为。当本规约与 Agent 默认行为冲突时，以本规约为准。
 **任务追踪**：`docs/05-planning/task-status.json` 记录所有任务执行状态
+**延期待办**：`docs/05-planning/deferred-items.json` 集中追踪 PR review 中合理但延期的修复条目
 **文档索引**：`docs/INDEX.md` 提供文档摘要与模块速查
 
 ---
@@ -384,6 +385,7 @@ R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段。
 |---|---|
 | `documentation_conflicts` | GitHub Issue + `docs/decisions/` ADR |
 | `decisions` | `docs/decisions/` ADR（R11） |
+| PR review 延期修复条目 | `docs/05-planning/deferred-items.json` |
 | 其他元数据/审计字段 | 各自归属的文档系统 |
 
 **级联更新**：Agent 启动或任务完成时，遍历所有 `pending` 任务，若 `dependencies` 全部为 `done`，则翻转为 `ready`。此操作为幂等操作。

@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase.",
+  "last_updated": "2026-07-18T14:11:31.718Z",
+  "items": [
+    {
+      "id": "DEF-001",
+      "source": "CodeRabbit PR#11 W2",
+      "task": "1.9",
+      "item": "Unify db.ts + store-driver.ts SQLite connections into single factory to prevent SQLITE_BUSY in transaction callbacks",
+      "target_phase": 3,
+      "status": "open",
+      "created_at": "2026-07-18T14:11:31.718Z"
+    },
+    {
+      "id": "DEF-002",
+      "source": "CodeRabbit PR#11 W7",
+      "task": "1.9",
+      "item": "Add proper transaction isolation test using driver-managed connection handle instead of external raw SQL",
+      "target_phase": 3,
+      "status": "open",
+      "created_at": "2026-07-18T14:11:31.718Z"
+    }
+  ]
+}

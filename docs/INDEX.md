@@ -16,9 +16,10 @@
 | **数据流全链路** | `02-architecture/` | `数据流全链路技术说明文档.md` | S1-S9 数据契约与落盘、端到端数据流示例 |
 | **开发避坑** | `03-implementation/` | `开发避坑与关键注意点手册.md` | 红线详解、高风险坑 Top8、真机/Simulator/签名/backend 陷阱、提交前自检清单 |
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7+G5-SIM、反模式 |
-| **验证与 Spike** | `06-verification/` | `phase-0-cross-evaluation-report.md`、`g5-sim-spike-report-*.md`、`pr-review-deferred-items.md` | 多 Backend 横评报告、G5/G5-SIM 真机与 Simulator 验证证据、PR review 延期项追踪 |
+| **验证与 Spike** | `06-verification/` | `phase-0-cross-evaluation-report.md`、`g5-sim-spike-report-*.md` | 多 Backend 横评报告、G5/G5-SIM 真机与 Simulator 验证证据
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~28-36 周） |
 | **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 69 个任务、依赖关系、当前进度 |
+| **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
 | **架构决策** | `decisions/` | `ADR-001~011` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持） |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R12、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |

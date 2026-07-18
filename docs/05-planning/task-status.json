@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-18T14:09:28.393Z",
+  "last_updated": "2026-07-18T14:11:31.717Z",
   "current_phase": 1,
   "phases": [
     {
@@ -260,7 +260,7 @@
             "0.6"
           ],
           "test_file": null,
-          "last_updated": "2026-07-18T14:09:28.394Z",
+          "last_updated": "2026-07-18T14:01:51.865Z",
           "notes": "PR #11 (https://github.com/logan-suu/iTestAgent/pull/11): feat(store) StoreDriver + ArtifactStore + schema + bootstrap。12 files changed, 698 insertions. 6 source files + 3 test files (21 tests)。StoreDriver: SQLite + WAL + migrate(幂等) + transaction。ArtifactStore: 文件系统 put/get/search。Schema: projects + runs 表（Drizzle ORM）。bootstrap: initStore() 创建 ~/.itestagent/ 目录结构。typecheck + lint + test (224/0) 全部通过。等待人类合并后设为 done。"
         },
         {
