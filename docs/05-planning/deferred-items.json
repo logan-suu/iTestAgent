@@ -1,41 +1,39 @@
 {
   "version": "1.0",
-  "description": "Deferred review items. Each entry preserves full context (comment text, file:line, PR link) so the fix can be implemented later without losing context. At every phase integration test, open items targeting that phase MUST be verified and either resolved or carried forward.",
-  "last_updated": "2026-07-18T14:30:00Z",
+  "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
+  "last_updated": "2026-07-18T14:19:51.109Z",
   "items": [
     {
       "id": "DEF-001",
-      "source": "CodeRabbit PR#11",
-      "severity": "🟠 Major",
-      "task": "1.9",
-      "item": "Unify db.ts + store-driver.ts SQLite connections into single factory to prevent SQLITE_BUSY in transaction callbacks",
-      "context": "The createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Mitigation added (busy_timeout=5000 in db.ts) but root fix requires a single connection factory shared between StoreDriver and Drizzle ORM client.",
-      "file": "packages/itestagent-store/src/store-driver.ts",
-      "line": 46,
-      "comment_id": "3608463027",
+      "source": "CodeRabbit",
+      "pr": 11,
       "pr_url": "https://github.com/logan-suu/iTestAgent/pull/11",
+      "comment_id": 3608463027,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/11#discussion_r1962510331",
+      "task": "1.9",
+      "severity": "major",
+      "item": "Unify db.ts + store-driver.ts SQLite connections into single factory",
+      "detail": "createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Fix: consolidate into a single connection factory or add connection pooling.",
       "target_phase": 3,
       "status": "open",
-      "created_at": "2026-07-18T14:30:00Z",
       "resolved_by": null,
-      "resolved_at": null
+      "created_at": "2026-07-18T14:19:51.110Z"
     },
     {
       "id": "DEF-002",
-      "source": "CodeRabbit PR#11",
-      "severity": "🟡 Minor",
-      "task": "1.9",
-      "item": "Add proper transaction isolation test using driver-managed shared connection handle instead of external raw SQL",
-      "context": "The 'maintains database state after commit (AC4)' test in store-driver.test.ts performs raw SQL insert outside driver.transaction(), completely bypassing the transaction logic it claims to test. Once connections are unified (DEF-001), rewrite this test to perform SQL inside the transaction callback using the shared connection handle, and verify correct commit/rollback behavior.",
-      "file": "packages/itestagent-store/test/store-driver.test.ts",
-      "line": 120,
-      "comment_id": "3608463035",
+      "source": "CodeRabbit",
+      "pr": 11,
       "pr_url": "https://github.com/logan-suu/iTestAgent/pull/11",
+      "comment_id": 3608463035,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/11#discussion_r1962510342",
+      "task": "1.9",
+      "severity": "minor",
+      "item": "Add proper transaction isolation test using shared connection handle",
+      "detail": "Test bypasses driver.transaction() - performs raw SQL insert outside the transaction callback. After connection unification (DEF-001), add a test that inserts via the driver-managed connection within a transaction callback and verifies commit/rollback semantics.",
       "target_phase": 3,
       "status": "open",
-      "created_at": "2026-07-18T14:30:00Z",
       "resolved_by": null,
-      "resolved_at": null
+      "created_at": "2026-07-18T14:19:51.110Z"
     }
   ]
 }

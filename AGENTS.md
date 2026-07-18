@@ -394,18 +394,6 @@ R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段。
 
 阶段 N 的任务**不得**在阶段 N-1 的最后一个任务（验收/集成测试）完成前开始执行。Agent 必须先完成前一阶段验收，推进 `current_phase`，再进入下一阶段。
 
-### 8.3 延期待办检查（阶段边界强制）
-
-每个 Phase 集成测试任务（1.16, 2.8, 3.17, 4.9, 5.6）执行前，**必须**检查 `docs/05-planning/deferred-items.json`：
-
-```
-[ ] 读取 deferred-items.json，筛选 target_phase <= current_phase 且 status == "open" 的条目
-[ ] 逐条检查对应 file:line 当前代码，判断是否已修复
-[ ] 已修复 → status: "resolved", resolved_by, resolved_at
-[ ] 未修复 → 评估是否本阶段处理：是则立即修复，否则 target_phase 后移加注
-[ ] 全部 open 条目处理完毕后才推进 current_phase
-```
-
 ## 9. Agent 自检清单与禁忌
 
 ### 9.1 每次任务执行前

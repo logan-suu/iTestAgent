@@ -53,6 +53,25 @@ agent: build
 3. 输出："🎉 任务已完成！"
 4. 提示用户执行 `/next-task-itest` 开始下一个任务。
 
+### 第八步（通用）：阶段出口延期待办检查
+
+> 当任务的 `id` 为阶段集成测试（如 `1.16`, `2.8`, `3.17`, `4.9`, `5.6`, `6.7`）且刚被标为 `done` 时，必须执行此检查。
+
+1. 读取 `docs/05-planning/deferred-items.json`
+2. 筛选 `target_phase` 等于当前阶段且 `status: "open"` 的条目
+3. 逐条检查是否已被该阶段的其他任务顺便修复：
+   - **已修复** → 更新 `status` 为 `done`，填写 `resolved_by`（commit hash 或任务 ID）
+   - **未修复** → 保持 `open`，评估是否提升 `target_phase` 到下一阶段
+4. 输出报告：
+   ```markdown
+   ## 📋 Phase N 延期待办复查
+   | DEF-ID | 内容 | 状态 | 处理 |
+   |---|---|---|---|
+   | DEF-001 | xxx | ✅ 已修复 | 3.5 顺便完成 (commit abc) |
+   | DEF-002 | yyy | ⏳ 延期 | target_phase: 3 → 4 |
+   ```
+5. 如有变更，提交 `deferred-items.json` 更新
+
 ### 第六步（非代码类）：展示产出并请求确认
 1. 读取任务 `notes` 中的产出路径和结论摘要。
 2. 输出确认摘要：

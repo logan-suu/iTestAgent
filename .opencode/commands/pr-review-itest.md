@@ -75,26 +75,28 @@ agent: build
      ```
 
    **b) 合理但延期修复（🟡 Minor / Phase 后续）**：
-   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**，保留完整上下文：
-     ```json
-     {
-       "id": "DEF-NNN",
-       "source": "CodeRabbit PR#X",
-       "severity": "🟠 Major | 🟡 Minor",
-       "task": "1.9",
-       "item": "一句话摘要",
-       "context": "完整评论原文 + 分析，足够让后续开发者无需回溯 PR 就能理解问题",
-       "file": "path/to/file.ts",
-       "line": 46,
-       "comment_id": "3608463027",
-       "pr_url": "https://github.com/...",
-       "target_phase": 3,
-       "status": "open",
-       "created_at": "ISO timestamp",
-       "resolved_by": null,
-       "resolved_at": null
-     }
-     ```
+   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
+     - 新增条目到 `items` 数组，**必须保存完整上下文**，避免日后遗忘：
+       ```json
+       {
+         "id": "DEF-NNN",
+         "source": "CodeRabbit",
+         "pr": 11,
+         "pr_url": "https://github.com/REPO/pull/11",
+         "comment_id": 3608463027,
+         "comment_url": "https://github.com/REPO/pull/11#discussion_rXXXX",
+         "task": "1.9",
+         "severity": "major|minor",
+         "item": "一句话摘要",
+         "detail": "完整的问题描述、影响范围、修复建议（从评论原文摘录）",
+         "target_phase": 3,
+         "status": "open",
+         "resolved_by": null,
+         "created_at": "ISO timestamp"
+       }
+       ```
+     - `detail` 字段是**强制必填**的——保存原始评论的完整技术上下文，确保数月后仍可理解问题
+     - `comment_url` 可直接跳转查看原始讨论线程
    - 回复评论说明延期原因和追踪 ID（**R12：回复必须用英文**）
    - 如评论不阻塞当前合并，resolve conversation
 
@@ -127,16 +129,29 @@ agent: build
    | # | 评论来源 | 内容摘要 | 判断 | 处理方式 |
    |---|------|------|------|------|
    | 1 | CodeRabbit | xxx | ✅ 合理 | 已修复 (commit hash) + resolve |
-   | 2 | CodeRabbit | yyy | ✅ 合理，延期 | DEF-001 → deferred-items.json (Phase 3) |
-   | 3 | CodeRabbit | zzz | ❌ 无意义 | hidden (OUTDATED) |
-   ```
+    | 2 | CodeRabbit | yyy | ✅ 合理，延期 | DEF-002 → deferred-items.json (Phase 3) |
+    | 3 | CodeRabbit | zzz | ❌ 无意义 | hidden (OUTDATED) |
+    ```
 
-6. **阶段边界检查（`/next-task-itest` 或 `/test-phase-itest` 时强制执行）**：
-   > 每个 Phase 的集成测试任务（1.16, 2.8, 3.17, 4.9, 5.6）执行前，必须检查 `deferred-items.json`。
-   
+### 第七步：阶段出口检查（防止延期项被遗忘）
+
+> 每个 Phase 的集成测试（如 `1.16`, `2.8`, `3.17`）完成时，必须检查 `deferred-items.json`。
+
+1. **Phase 完成时**：
    - 读取 `docs/05-planning/deferred-items.json`
-   - 筛选 `target_phase <= current_phase AND status == "open"` 的条目
-   - 对每条：检查对应 `file:line` 的当前代码是否已修复
-     - **已修复** → 设置 `status: "resolved"`, `resolved_by: "task X.Y"`, `resolved_at`
-     - **未修复** → 评估是否本阶段修复；如果是，立即处理；如果否，将 `target_phase` 后移并加注
-   - 阶段集成测试未完成前，不得推进 `current_phase`
+   - 筛选 `target_phase` 等于当前阶段的 `status: "open"` 条目
+   - 逐条检查是否已被该阶段的其他任务顺便修复：
+     - 已修复 → 将 `status` 更新为 `done`，填写 `resolved_by`（commit hash 或任务 ID）
+     - 未修复 → 保持 `open`，评估是否需要提升 `target_phase` 到下一阶段
+   - 输出检查报告：
+     ```markdown
+     ## 📋 Phase N 延期待办检查
+     | DEF-ID | 内容 | 状态 | 处理 |
+     |---|---|---|---|
+     | DEF-001 | 连接统一 | ✅ 已修复 | 3.2 顺便完成 (commit abc) |
+     | DEF-002 | 事务测试 | ⏳ 延期 | → target_phase: 4 |
+     ```
+
+2. **启动新阶段时**（如 `next-task-itest`）：
+   - 读取 `deferred-items.json`
+   - 如果存在 `target_phase` 为当前阶段且 `status: "open"` 的条目，提醒执行者检查
