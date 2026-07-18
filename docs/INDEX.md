@@ -19,6 +19,7 @@
 | **验证与 Spike** | `06-verification/` | `phase-0-cross-evaluation-report.md`、`g5-sim-spike-report-*.md` | 多 Backend 横评报告、G5/G5-SIM 真机与 Simulator 验证证据
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~28-36 周） |
 | **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 69 个任务、依赖关系、当前进度 |
+| **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
 | **架构决策** | `decisions/` | `ADR-001~011` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持） |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R12、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
@@ -129,12 +130,13 @@
 1. **启动时**：读取本文件 + `../AGENTS.md`，了解文档全貌和红线约束
 2. **执行任务前**：
    - 读取 `05-planning/task-status.json` 定位当前任务
+   - 读取 `05-planning/deferred-items.json` 检查当前阶段延期待办
    - 根据任务 `documents_required` 字段读取对应文档章节
    - 参考本索引"按模块快速定位"表补充上下文
 3. **编码时**：遵循 EPCC-V（Plan → Code → Check → Verify）+ 红线 R1-R12
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
 5. **完成后**：执行 G1-G7+G5-SIM 质量门禁，更新 `05-planning/task-status.json`
-6. **写测试时**：单元测试放 `packages/<pkg>/test/`，集成测试放 `tests/integration/`（`../AGENTS.md` §10）
+6. **阶段出口**：完成集成测试任务后，检查 `05-planning/deferred-items.json` 中该阶段的延期待办
 
 ---
 

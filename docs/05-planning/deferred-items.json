@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
+  "last_updated": "2026-07-18T14:19:51.109Z",
+  "items": [
+    {
+      "id": "DEF-001",
+      "source": "CodeRabbit",
+      "pr": 11,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/11",
+      "comment_id": 3608463027,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/11#discussion_r1962510331",
+      "task": "1.9",
+      "severity": "major",
+      "item": "Unify db.ts + store-driver.ts SQLite connections into single factory",
+      "detail": "createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Fix: consolidate into a single connection factory or add connection pooling.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-18T14:19:51.110Z"
+    },
+    {
+      "id": "DEF-002",
+      "source": "CodeRabbit",
+      "pr": 11,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/11",
+      "comment_id": 3608463035,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/11#discussion_r1962510342",
+      "task": "1.9",
+      "severity": "minor",
+      "item": "Add proper transaction isolation test using shared connection handle",
+      "detail": "Test bypasses driver.transaction() - performs raw SQL insert outside the transaction callback. After connection unification (DEF-001), add a test that inserts via the driver-managed connection within a transaction callback and verifies commit/rollback semantics.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-18T14:19:51.110Z"
+    }
+  ]
+}

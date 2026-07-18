@@ -44,4 +44,5 @@ agent: build
 
 ### 第四步：完成后
 - PR 合并后（经 `pr-merge-itest`），更新 `docs/05-planning/task-status.json`：阶段 `status` → `done`，`current_phase` 推进到下一阶段
+- `pr-merge-itest` 会自动检查 `docs/05-planning/deferred-items.json` 中该阶段的延期待办（阶段出口门禁）
 - 询问用户是否执行 `next-task-itest` 开始下一阶段

@@ -5,12 +5,13 @@ agent: build
 
 ## 📊 项目状态速览
 
-请读取根目录下的 `docs/05-planning/task-status.json`，输出以下信息：
+请读取根目录下的 `docs/05-planning/task-status.json` 和 `docs/05-planning/deferred-items.json`，输出以下信息：
 
 ### 全局概览
 - 当前阶段：Phase X - [阶段名称]
 - 整体进度：已完成 X / 总任务数（所有阶段）— XX%
 - 当前阶段状态：[in_progress / not_started / done]
+- 延期待办：N 个 open（来自 `deferred-items.json`）
 
 ### 当前阶段任务统计
 | 状态 | 数量 |

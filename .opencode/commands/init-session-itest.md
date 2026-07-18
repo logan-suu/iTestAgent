@@ -23,7 +23,8 @@ agent: build
    - `docs/06-verification/phase-0-cross-evaluation-report.md`：Phase 0 多 Backend 横评结论
    - `docs/06-verification/g5-sim-spike-report-*.md`：G5/G5-SIM Spike 验证报告（环境、证据、风险、集成笔记）
    - `docs/decisions/`：重大技术决策与需求变更记录（ADR）
-   - `docs/05-planning/task-status.json`：7 个 Phase 48 个任务、依赖关系、当前进度
+    - `docs/05-planning/task-status.json`：7 个 Phase 69 个任务、依赖关系、当前进度
+    - `docs/05-planning/deferred-items.json`：PR review 延期待办集中追踪
 
 ### 第二步：定位当前进度（任务溯源）
 4. 读取 `docs/05-planning/task-status.json`。
