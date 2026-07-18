@@ -139,10 +139,10 @@ itestagent
 | CLI 入口 + 配置 | ✅ Verified | `itestagent --version`/`config` 可用 |
 | TUI Shell 骨架 | ✅ Verified | OpenTUI+SolidJS，TTY 检测正常 |
 | Harness 核心接口契约 | ✅ Contracted | 14 Zod schemas + 5 Backend interfaces |
-| RunStateMachine / PermissionEngine | 📋 Designed | 接口已定义，实现待 Phase 1.4+ |
-| Server / SessionManager / SSE | 📋 Designed | 接口已定义，实现待 Phase 1.5a-c |
-| doctor 环境诊断 | 📋 Contracted | Schema 已定义，实现待 Phase 1.6a-b |
-| devices 设备发现 | 📋 Contracted | Schema 含 targetKind，实现待 Phase 1.7 |
+| RunStateMachine / PermissionEngine | 📋 Designed | 接口已定义，实现待 Phase 1.7+ |
+| Server / SessionManager / SSE | 📋 Designed | 接口已定义，实现待 Phase 1.8, 1.14-1.15 |
+| doctor 环境诊断 | 📋 Contracted | Schema 已定义，实现待 Phase 1.11-1.12 |
+| devices 设备发现 | 📋 Contracted | Schema 含 targetKind，实现待 Phase 1.13 |
 | Project Profile / TestPlan | 📋 Designed | 架构已定，实现待 Phase 2 |
 | AgentRuntime / Backend 执行 | 📋 Designed | 接口已定义，实现待 Phase 3 |
 | 证据采集 / 性能 / 报告 | 📋 Designed | 接口已定义，实现待 Phase 4 |

@@ -76,7 +76,7 @@ Phase 0 对 iTestAgent 各层 backend 进行了 5 轮横评（T0.1~T0.5），覆
 | UDID | 00008101-... | 00008110-...（截断） |
 | Xcode | — | 26.5 (17F42) |
 | 开发者账号 | 企业（付费） | 个人（免费） |
-| Appium | 3.5.2 + xcuitest 11.17.3 | 3.5.2 + xcuitest 11.17.6 |
+| Appium | 3.11.2 + xcuitest 11.17.3 | 3.11.2 + xcuitest 11.17.6 |
 | mobilecli | N/A | 0.3.86 |
 
 ---
@@ -127,7 +127,7 @@ npm `rezi@1.0.0` 是 2015 年发布的 CSS post-processor，非 TUI 框架。`@r
 
 `devicectl` 显示 `unavailable`，`xcdevice` 显示 `available`。不能只用 `devicectl` 否定设备可用性。
 
-**影响**: T1.4 doctor 需同时检查 `devicectl` 和 `xcdevice`。
+**影响**: T1.7 doctor 需同时检查 `devicectl` 和 `xcdevice`。
 
 ---
 
@@ -152,7 +152,7 @@ npm `rezi@1.0.0` 是 2015 年发布的 CSS post-processor，非 TUI 框架。`@r
 | 补测项 | 条件 | 关联任务 |
 |---|---|---|
 | mobile-mcp screenshot/UI tree/tap | 付费 Apple Developer Program | 后置，不阻塞 Phase 1 |
-| Appium/WDA tap/swipe/type | 真机允许执行交互操作 | Phase 3 T3.3c |
+| Appium/WDA tap/swipe/type | 真机允许执行交互操作 | Phase 3 T3.7 |
 | OpenTUI 交互式 shell | 补齐 long-log/Markdown/tool-card/keymap | Phase 1 T1.2 |
 | dSYM symbolication | xctrace symbolicate 验证 | Phase 4 T4.3 |
 | hitches parser 多表关联 | 第二版实现 | Phase 4 |
@@ -172,16 +172,23 @@ npm `rezi@1.0.0` 是 2015 年发布的 CSS post-processor，非 TUI 框架。`@r
 
 **Phase 1 ready。**
 
-Phase 1 任务（依赖 T0.6 done 后级联为 ready）：
-- T1.1 CLI 入口 + 版本/配置
-- T1.2 TuiShell 交互式 Shell 骨架（OpenTUI 目标 / Ink fallback）
-- T1.3 本地 Server + SSE + AgentRuntime
-- T1.3b 核心 Backend 接口与数据契约
-- T1.4 doctor 环境诊断（含 WDA 免费账号 workaround 引导）
-- T1.5 devices 设备发现 + healthcheck（含 devicectl + xcdevice 双检查）
-- T1.6 存储骨架 SQLite/Drizzle
-- T1.7 配置分层 JSONC + Keychain
-- T1.8 Phase 1 集成测试
+Phase 1 任务（依赖 T0.6 done 后级联为 ready，按拓扑序排列）：
+- T1.1 CLI 入口 + 版本/配置 ✅ done
+- T1.2 TuiShell 交互式 Shell 骨架（OpenTUI+SolidJS 默认，ADR-008）✅ done
+- T1.3 Harness 核心接口契约：AgentRuntime/AgentEvent/ToolCall/ToolResult + Backend interfaces ✅ done
+- T1.4 ADR-011 + Simulator 契约扩展：TargetKind, BackendCapabilities, Schema v2 ✅ done
+- T1.5 Simulator Spike：simctl lifecycle + Simulator SDK build ✅ done
+- T1.6 Simulator Spike：Appium/WDA Simulator session + UI/actions ✅ done
+- T1.7 RunStateMachine：生命周期/错误状态/暂停/恢复/取消 ✅ done
+- T1.8 本地 Bun server + SSE Hub + 基础路由 ✅ done
+- T1.9 存储骨架（SQLite/Drizzle + ~/.itestagent/ 目录结构）🔄 ready
+- T1.10 配置分层（JSONC）+ Keychain 接入 🔄 ready
+- T1.11 doctor Physical readiness：Xcode/签名/DeveloperMode/trust/Appium 🔄 ready
+- T1.12 doctor Simulator readiness：Xcode runtime/simctl/Simulator SDK/Appium 🔄 ready
+- T1.13 devices 设备发现 + backend healthcheck 🔄 ready
+- T1.14 SessionManager：session 创建/关闭/隔离/超时 ⏳ pending
+- T1.15 Subprocess controller + mock AgentRuntime ⏳ pending
+- T1.16 Phase 1 集成测试：骨架与环境联调验证（含 Simulator 骨架）⏳ pending
 
 ---
 
