@@ -1,25 +1,41 @@
 {
   "version": "1.0",
-  "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase.",
-  "last_updated": "2026-07-18T14:11:31.718Z",
+  "description": "Deferred review items. Each entry preserves full context (comment text, file:line, PR link) so the fix can be implemented later without losing context. At every phase integration test, open items targeting that phase MUST be verified and either resolved or carried forward.",
+  "last_updated": "2026-07-18T14:30:00Z",
   "items": [
     {
       "id": "DEF-001",
-      "source": "CodeRabbit PR#11 W2",
+      "source": "CodeRabbit PR#11",
+      "severity": "🟠 Major",
       "task": "1.9",
       "item": "Unify db.ts + store-driver.ts SQLite connections into single factory to prevent SQLITE_BUSY in transaction callbacks",
+      "context": "The createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Mitigation added (busy_timeout=5000 in db.ts) but root fix requires a single connection factory shared between StoreDriver and Drizzle ORM client.",
+      "file": "packages/itestagent-store/src/store-driver.ts",
+      "line": 46,
+      "comment_id": "3608463027",
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/11",
       "target_phase": 3,
       "status": "open",
-      "created_at": "2026-07-18T14:11:31.718Z"
+      "created_at": "2026-07-18T14:30:00Z",
+      "resolved_by": null,
+      "resolved_at": null
     },
     {
       "id": "DEF-002",
-      "source": "CodeRabbit PR#11 W7",
+      "source": "CodeRabbit PR#11",
+      "severity": "🟡 Minor",
       "task": "1.9",
-      "item": "Add proper transaction isolation test using driver-managed connection handle instead of external raw SQL",
+      "item": "Add proper transaction isolation test using driver-managed shared connection handle instead of external raw SQL",
+      "context": "The 'maintains database state after commit (AC4)' test in store-driver.test.ts performs raw SQL insert outside driver.transaction(), completely bypassing the transaction logic it claims to test. Once connections are unified (DEF-001), rewrite this test to perform SQL inside the transaction callback using the shared connection handle, and verify correct commit/rollback behavior.",
+      "file": "packages/itestagent-store/test/store-driver.test.ts",
+      "line": 120,
+      "comment_id": "3608463035",
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/11",
       "target_phase": 3,
       "status": "open",
-      "created_at": "2026-07-18T14:11:31.718Z"
+      "created_at": "2026-07-18T14:30:00Z",
+      "resolved_by": null,
+      "resolved_at": null
     }
   ]
 }

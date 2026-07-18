@@ -75,22 +75,27 @@ agent: build
      ```
 
    **b) 合理但延期修复（🟡 Minor / Phase 后续）**：
-   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
-     - 新增条目到 `items` 数组，包含 `id`、`source`、`task`、`item`、`target_phase`、`status`
-     - 格式：
-       ```json
-       {
-         "id": "DEF-NNN",
-         "source": "CodeRabbit PR#X WY",
-         "task": "1.9",
-         "item": "描述延期修复的具体内容",
-         "target_phase": 3,
-         "status": "open",
-         "created_at": "ISO timestamp"
-       }
-       ```
-   - 回复评论说明延期原因和追踪 ID（**R12：回复必须用英文**），如：
-     > Deferred to Phase 3. Tracked as DEF-001 in docs/05-planning/deferred-items.json.
+   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**，保留完整上下文：
+     ```json
+     {
+       "id": "DEF-NNN",
+       "source": "CodeRabbit PR#X",
+       "severity": "🟠 Major | 🟡 Minor",
+       "task": "1.9",
+       "item": "一句话摘要",
+       "context": "完整评论原文 + 分析，足够让后续开发者无需回溯 PR 就能理解问题",
+       "file": "path/to/file.ts",
+       "line": 46,
+       "comment_id": "3608463027",
+       "pr_url": "https://github.com/...",
+       "target_phase": 3,
+       "status": "open",
+       "created_at": "ISO timestamp",
+       "resolved_by": null,
+       "resolved_at": null
+     }
+     ```
+   - 回复评论说明延期原因和追踪 ID（**R12：回复必须用英文**）
    - 如评论不阻塞当前合并，resolve conversation
 
 4. **处理不合理的评论（❌）**：
@@ -122,6 +127,16 @@ agent: build
    | # | 评论来源 | 内容摘要 | 判断 | 处理方式 |
    |---|------|------|------|------|
    | 1 | CodeRabbit | xxx | ✅ 合理 | 已修复 (commit hash) + resolve |
-   | 2 | CodeRabbit | yyy | ✅ 合理，延期 | task 1.9 notes 留档 (Phase 3+), resolve |
+   | 2 | CodeRabbit | yyy | ✅ 合理，延期 | DEF-001 → deferred-items.json (Phase 3) |
    | 3 | CodeRabbit | zzz | ❌ 无意义 | hidden (OUTDATED) |
    ```
+
+6. **阶段边界检查（`/next-task-itest` 或 `/test-phase-itest` 时强制执行）**：
+   > 每个 Phase 的集成测试任务（1.16, 2.8, 3.17, 4.9, 5.6）执行前，必须检查 `deferred-items.json`。
+   
+   - 读取 `docs/05-planning/deferred-items.json`
+   - 筛选 `target_phase <= current_phase AND status == "open"` 的条目
+   - 对每条：检查对应 `file:line` 的当前代码是否已修复
+     - **已修复** → 设置 `status: "resolved"`, `resolved_by: "task X.Y"`, `resolved_at`
+     - **未修复** → 评估是否本阶段修复；如果是，立即处理；如果否，将 `target_phase` 后移并加注
+   - 阶段集成测试未完成前，不得推进 `current_phase`
