@@ -298,7 +298,7 @@
           "id": "1.12",
           "title": "doctor Simulator readiness: Xcode runtime/simctl/Simulator SDK/Appium",
           "story": "US-1.2, US-1.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
