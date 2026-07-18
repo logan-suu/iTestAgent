@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-18T14:35:24.463Z",
+  "last_updated": "2026-07-18T15:30:00.000Z",
   "current_phase": 1,
   "phases": [
     {
@@ -283,7 +283,7 @@
           "id": "1.11",
           "title": "doctor Physical readiness: Xcode/签名/DeveloperMode/trust/Appium",
           "story": "US-1.2, US-1.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -292,7 +292,7 @@
             "0.6"
           ],
           "test_file": null,
-          "notes": "Physical readiness lane: Xcode + CLI tools 版本检查、签名证书/Provisioning Profile、Developer Mode 状态、设备信任关系、Appium server 可用性。首次跑通引导 15-30min。"
+          "notes": "✅ PR #13 created: https://github.com/logan-suu/iTestAgent/pull/13。6 个物理就绪检查：Xcode、CLT、Appium、WDA、Code Signing、Physical Device。每个检查返回 pass/fail/manual 三态 + fixGuide。runDoctor() 编排器：单项失败不中断(US-1.2 AC3)。formatDoctorReport() 终端格式化 + ANSI 颜色。cli.ts 集成完毕。16 files changed, +1115/-7。Typecheck + lint + 277 tests 全部通过。等待人类合并后通过 pr-merge-itest 标 done。"
         },
         {
           "id": "1.12",

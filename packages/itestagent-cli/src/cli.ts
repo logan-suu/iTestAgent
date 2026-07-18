@@ -46,12 +46,16 @@ export function createProgram(): Command {
     await startTui();
   });
 
-  // ─── doctor (stub → task 1.6) ───
+  // ─── doctor (task 1.11: physical readiness lane) ───
   program
     .command('doctor')
     .description('environment diagnostics and setup guidance')
-    .action(() => {
-      console.log('Coming in task 1.6 — doctor environment diagnostics');
+    .option('--physical-only', 'only check physical device readiness')
+    .action(async () => {
+      const { runDoctor } = await import('./doctor/doctor.js');
+      const { formatDoctorReport } = await import('./doctor/format.js');
+      const report = await runDoctor();
+      console.log(formatDoctorReport(report));
     });
 
   // ─── devices (stub → task 1.7) ───
