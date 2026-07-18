@@ -267,7 +267,7 @@
           "id": "1.10",
           "title": "配置分层（JSONC）+ Keychain 接入",
           "story": "US-18.2, US-18.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -275,7 +275,9 @@
           "dependencies": [
             "0.6"
           ],
-          "test_file": null
+          "test_file": "packages/itestagent-cli/test/memory-secret-store.test.ts, packages/itestagent-cli/test/keychain-secret-store.test.ts, packages/itestagent-cli/test/config-saver.test.ts, packages/itestagent-cli/test/config-confirm.test.ts",
+          "last_updated": "2026-07-18T16:30:00Z",
+          "notes": "PR #12 (https://github.com/logan-suu/iTestAgent/pull/12): feat(cli) config layering + Keychain integration + confirm/save flow. 12 files (+827/-14). MemorySecretStore (5 tests) + KeychainSecretStore (6 tests, G5-verified) + confirmAction() (TTY prompt, non-TTY default deny, US-18.3 AC2/AC3) + saveProjectConfig() (JSONC write with confirmation, US-18.3 AC2) + createSecretStore() factory + resolveCredentials() (apiKeyRef→Keychain, US-18.2 AC3) + 5 CLI subcommands. Typecheck + lint + 245 tests (21 new) all pass. Awaiting human merge to dev-1.0."
         },
         {
           "id": "1.11",
@@ -324,7 +326,7 @@
           "id": "1.14",
           "title": "SessionManager：session 创建/关闭/隔离/超时",
           "story": "US-4.3",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"

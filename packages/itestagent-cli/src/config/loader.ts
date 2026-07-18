@@ -1,8 +1,14 @@
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
-import { type ItestAgentConfig, ItestAgentConfigSchema } from 'itestagent-contracts';
+import {
+  type ItestAgentConfig,
+  ItestAgentConfigSchema,
+  type SecretStore,
+} from 'itestagent-contracts';
 import { type ParseError, parse as parseJsonc } from 'jsonc-parser';
+import { KeychainSecretStore } from './keychain-secret-store.js';
+import { MemorySecretStore } from './memory-secret-store.js';
 
 /**
  * 配置加载器（三层 JSONC 合并）
@@ -148,8 +154,47 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
 }
 
 /**
- * 获取默认配置（不读取任何文件，仅返回 schema 默认值）。
+ * Get default config (does not read any files, returns schema defaults only).
  */
 export function getDefaultConfig(): ItestAgentConfig {
   return ItestAgentConfigSchema.parse({});
+}
+
+/**
+ * Create a SecretStore instance appropriate for the current platform.
+ *
+ * - macOS: KeychainSecretStore (US-18.2 AC3 — credentials stored in macOS Keychain)
+ * - Other: MemorySecretStore (non-persistent fallback for testing/dev)
+ *
+ * @returns A SecretStore implementation appropriate for the current platform.
+ */
+export function createSecretStore(): SecretStore {
+  if (platform() === 'darwin') {
+    return new KeychainSecretStore();
+  }
+  return new MemorySecretStore();
+}
+
+/**
+ * Resolve credentials referenced in config from SecretStore (US-18.2 AC3).
+ *
+ * Looks up config.model.apiKeyRef in the SecretStore and returns the resolved API key.
+ * The resolved key is returned as a separate field (`_resolvedApiKey`) for downstream
+ * consumption and is never written into the original config object (memory protection).
+ *
+ * @param config - Merged config containing an apiKeyRef reference name
+ * @param secretStore - SecretStore implementation (Keychain or Memory)
+ * @returns { config, resolvedApiKey } — resolvedApiKey is null if no matching credential found
+ */
+export async function resolveCredentials(
+  config: ItestAgentConfig,
+  secretStore: SecretStore = createSecretStore(),
+): Promise<{ config: ItestAgentConfig; resolvedApiKey: string | null }> {
+  let resolvedApiKey: string | null = null;
+
+  if (config.model.apiKeyRef) {
+    resolvedApiKey = await secretStore.get(config.model.apiKeyRef);
+  }
+
+  return { config, resolvedApiKey };
 }
