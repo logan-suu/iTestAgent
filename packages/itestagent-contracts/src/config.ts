@@ -12,8 +12,10 @@ import { z } from 'zod';
  * AGENTS.md §5 配置分层：~/.itestagent/config/itestagent.jsonc < .itestagent/itestagent.jsonc < itestagent.jsonc
  * 红线 R6：敏感数据（账号/OTP/token）不落盘明文、不入日志/报告/提交。
  *
- * 注意：US-18.2 AC3（凭证脱敏 + Keychain 接入）归 task 1.7。
- * 本 schema 只定义 apiKeyRef 字段（存储引用名，不存明文 Key）。
+ * 注意：US-18.2 AC3（凭证脱敏 + Keychain 接入）由 task 1.10 实现。
+ * apiKeyRef 字段始终存储引用名（非明文 Key），真实凭证仅通过 SecretStore
+ * 在运行时注入内存，永不进入 config 对象。因此 maskSensitiveFields 无需
+ * 额外遮蔽操作。
  */
 
 // ─── 模型配置段 ───────────────────────────────────────────
@@ -32,7 +34,7 @@ export const ModelConfigSchema = z
     /**
      * API Key 的引用名（Keychain key 或环境变量名）。
      * 不存储明文 API Key（R6 / US-18.2 AC3）。
-     * 凭证存取归 task 1.7。
+     * 凭证存取由 task 1.10 实现。
      */
     apiKeyRef: z.string().optional(),
     /** 模型名称（如 "gpt-4o"、"claude-3-5-sonnet"） */
@@ -130,11 +132,9 @@ export function parseConfig(raw: unknown): ItestAgentConfig {
 
 /**
  * 脱敏配置中的敏感字段（用于展示/日志，R6）。
- * apiKeyRef 不脱敏（它是引用名，不是明文 Key）。
- * 本函数预留给 task 1.7 扩展（届时可能有更多敏感字段）。
+ * apiKeyRef 不脱敏（它是引用名，不是明文 Key — US-18.2 AC3）。
+ * 真实凭证仅通过 SecretStore 在运行时注入内存，永不进入 config 对象。
  */
 export function maskSensitiveFields(config: ItestAgentConfig): ItestAgentConfig {
-  // 当前 schema 中无明文敏感字段（apiKeyRef 是引用名）。
-  // task 1.7 添加 Keychain 后可能需要扩展。
   return config;
 }

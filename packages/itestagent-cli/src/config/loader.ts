@@ -1,8 +1,14 @@
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
-import { type ItestAgentConfig, ItestAgentConfigSchema } from 'itestagent-contracts';
+import {
+  type ItestAgentConfig,
+  ItestAgentConfigSchema,
+  type SecretStore,
+} from 'itestagent-contracts';
 import { type ParseError, parse as parseJsonc } from 'jsonc-parser';
+import { KeychainSecretStore } from './keychain-secret-store.js';
+import { MemorySecretStore } from './memory-secret-store.js';
 
 /**
  * 配置加载器（三层 JSONC 合并）
@@ -152,4 +158,43 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
  */
 export function getDefaultConfig(): ItestAgentConfig {
   return ItestAgentConfigSchema.parse({});
+}
+
+/**
+ * 创建适用于当前平台的 SecretStore 实例。
+ *
+ * - macOS: KeychainSecretStore (US-18.2 AC3 — credentials stored in macOS Keychain)
+ * - Other: MemorySecretStore (non-persistent fallback for testing/dev)
+ *
+ * @returns A SecretStore implementation appropriate for the current platform.
+ */
+export function createSecretStore(): SecretStore {
+  if (platform() === 'darwin') {
+    return new KeychainSecretStore();
+  }
+  return new MemorySecretStore();
+}
+
+/**
+ * 从 SecretStore 解析配置中引用的凭证（US-18.2 AC3）。
+ *
+ * 遍历 config.model.apiKeyRef，从 SecretStore 查询实际的 API Key。
+ * 返回解析后的 config 副本（apiKeyRef 不变，但实际 key 被附加到返回对象的
+ * `_resolvedApiKey` 字段中供下游消费；不写入原始 config 对象以保护内存）。
+ *
+ * @param config - 合并后的配置（含 apiKeyRef 引用名）
+ * @param secretStore - SecretStore 实现（Keychain 或 Memory）
+ * @returns `<config, resolvedApiKey>` pair，resolvedApiKey 为 null 表示未找到对应凭证
+ */
+export async function resolveCredentials(
+  config: ItestAgentConfig,
+  secretStore: SecretStore = createSecretStore(),
+): Promise<{ config: ItestAgentConfig; resolvedApiKey: string | null }> {
+  let resolvedApiKey: string | null = null;
+
+  if (config.model.apiKeyRef) {
+    resolvedApiKey = await secretStore.get(config.model.apiKeyRef);
+  }
+
+  return { config, resolvedApiKey };
 }

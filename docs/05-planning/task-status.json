@@ -267,7 +267,7 @@
           "id": "1.10",
           "title": "配置分层（JSONC）+ Keychain 接入",
           "story": "US-18.2, US-18.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -275,7 +275,9 @@
           "dependencies": [
             "0.6"
           ],
-          "test_file": null
+          "test_file": "packages/itestagent-cli/test/memory-secret-store.test.ts, packages/itestagent-cli/test/keychain-secret-store.test.ts, packages/itestagent-cli/test/config-saver.test.ts, packages/itestagent-cli/test/config-confirm.test.ts",
+          "last_updated": "2026-07-18T15:30:00Z",
+          "notes": "✅ 实现完成。6 文件新增/修改，21 测试全部通过。MemorySecretStore (5 tests): Map-based SecretStore for testing/fallback。KeychainSecretStore (6 tests, macOS only G5-verified): macOS Keychain via security CLI, service prefix itestagent/。confirmAction(): TTY prompt [y/N], non-TTY default deny (US-18.3 AC2/AC3)。saveProjectConfig(): project-level JSONC write with confirmation, strips defaults for minimal output (US-18.3 AC2)。Config loader: createSecretStore() factory + resolveCredentials() for apiKeyRef→Keychain resolution (US-18.2 AC3)。CLI: config show/set-secret/get-secret/delete-secret/init subcommands。Typecheck + lint + 245 tests (21 new) all pass。Pending commit-pr-itest。"
         },
         {
           "id": "1.11",
@@ -324,7 +326,7 @@
           "id": "1.14",
           "title": "SessionManager：session 创建/关闭/隔离/超时",
           "story": "US-4.3",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
