@@ -46,16 +46,30 @@ export function createProgram(): Command {
     await startTui();
   });
 
-  // ─── doctor (task 1.11: physical readiness lane) ───
+  // ─── doctor (physical + simulator readiness lanes) ───
   program
     .command('doctor')
-    .description('environment diagnostics and setup guidance')
+    .description('environment diagnostics and setup guidance (physical + simulator)')
     .option('--physical-only', 'only check physical device readiness')
-    .action(async () => {
-      const { runDoctor } = await import('./doctor/doctor.js');
-      const { formatDoctorReport } = await import('./doctor/format.js');
-      const report = await runDoctor();
-      console.log(formatDoctorReport(report));
+    .option('--simulator-only', 'only check simulator readiness')
+    .action(async (options: { physicalOnly?: boolean; simulatorOnly?: boolean }) => {
+      const { runPhysicalDoctor, runSimulatorDoctor } = await import('./doctor/doctor.js');
+      const { formatDoctorReport, formatDualLaneReport } = await import('./doctor/format.js');
+
+      if (options.simulatorOnly) {
+        const report = await runSimulatorDoctor();
+        console.log(formatDoctorReport(report));
+      } else if (options.physicalOnly) {
+        const report = await runPhysicalDoctor();
+        console.log(formatDoctorReport(report));
+      } else {
+        // Default: run both lanes
+        const [physicalReport, simulatorReport] = await Promise.all([
+          runPhysicalDoctor(),
+          runSimulatorDoctor(),
+        ]);
+        console.log(formatDualLaneReport(physicalReport, simulatorReport));
+      }
     });
 
   // ─── devices (stub → task 1.7) ───

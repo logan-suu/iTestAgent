@@ -298,7 +298,8 @@
           "id": "1.12",
           "title": "doctor Simulator readiness: Xcode runtime/simctl/Simulator SDK/Appium",
           "story": "US-1.2, US-1.3",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-18T16:06:21Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -307,7 +308,7 @@
             "0.6"
           ],
           "test_file": null,
-          "notes": "Simulator readiness lane (ADR-011): Xcode Simulator runtime 安装状态、simctl 可用性、可启动 Simulator 设备、Simulator SDK build 能力、Appium/WDA Simulator session 连通性。签名/Developer Mode/trust 标记为 N/A。首次跑通引导 15-30min。"
+          "notes": "PR #14 (https://github.com/logan-suu/iTestAgent/pull/14) — Simulator readiness lane (ADR-011): 5 simctl checks (simctl, simulator-device, simulator-runtime, simulator-sdk, simulator-appium-wda) integrated into doctor command with --simulator option. +907/-31 across 11 files. 305 tests pass. G3+G4 green."
         },
         {
           "id": "1.13",
