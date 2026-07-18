@@ -328,7 +328,7 @@
           "id": "1.14",
           "title": "SessionManager：session 创建/关闭/隔离/超时",
           "story": "US-4.3",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"

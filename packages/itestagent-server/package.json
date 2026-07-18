@@ -12,6 +12,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "itestagent-contracts": "workspace:*"
+    "drizzle-orm": "^0.36.4",
+    "itestagent-contracts": "workspace:*",
+    "itestagent-engine": "workspace:*",
+    "itestagent-store": "workspace:*"
   }
 }

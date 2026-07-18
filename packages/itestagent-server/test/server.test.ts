@@ -1,6 +1,13 @@
+import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
+import type { RunState } from 'itestagent-contracts';
+import { RunStateMachine } from 'itestagent-engine';
+import * as storeSchema from 'itestagent-store';
+
 import { createFetchHandler } from '../src/routes.js';
 import { type ServerInstance, createServer } from '../src/server.js';
+import { SessionManager } from '../src/session-manager.js';
 import { SSEHub } from '../src/sse-hub.js';
 import type { SessionInfo } from '../src/types.js';
 
@@ -14,9 +21,42 @@ function url(instance: ServerInstance, path: string): string {
   return `http://${addr.hostname}:${addr.port}${path}`;
 }
 
-/** Create a server, run the test, then ensure cleanup. */
+/** Create a real in-memory SQLite DbClient — no mocks, no casts. */
+function makeDbClient() {
+  const sqlite = new Database(':memory:');
+  sqlite.run('PRAGMA journal_mode = WAL');
+  sqlite.run('PRAGMA foreign_keys = ON');
+  return drizzle(sqlite, { schema: storeSchema.schema });
+}
+
+/** Minimal mock RunStateMachine — object literal, no class instantiation. */
+const mockRunStateMachine = {
+  start(_runId: string): RunState {
+    return 'created';
+  },
+  cancel(_runId: string, _from: RunState, _reason?: string): RunState {
+    return 'cancelled';
+  },
+} as unknown as RunStateMachine;
+
+/** Create SessionManager backed by real in-memory DB and mock RSM. */
+function makeSessionManager(sseHub: SSEHub): SessionManager {
+  return new SessionManager({
+    sseHub,
+    db: makeDbClient(),
+    runStateMachine: mockRunStateMachine,
+    idleTimeoutMs: 60_000, // Short timeout so idle tests don't hang.
+  });
+}
+
+/**
+ * Create a server, run the test, then ensure cleanup.
+ * All deps (SSEHub + SessionManager) are created automatically.
+ */
 async function withServer<T>(fn: (inst: ServerInstance) => Promise<T>): Promise<T> {
-  const inst = createServer({ port: 0 });
+  const sseHub = new SSEHub();
+  const sessionManager = makeSessionManager(sseHub);
+  const inst = createServer({ port: 0 }, { sseHub, sessionManager });
   try {
     return await fn(inst);
   } finally {
@@ -60,17 +100,26 @@ describe('Server /health', () => {
 describe('Server /session', () => {
   test('POST /session creates a session and returns 201', () =>
     withServer(async (inst) => {
-      const res = await fetch(url(inst, '/session'), { method: 'POST' });
+      const res = await fetch(url(inst, '/session'), {
+        method: 'POST',
+        body: JSON.stringify({ workspace: '/test', targetKind: 'physical' }),
+      });
       expect(res.status).toBe(201);
 
       const body = (await res.json()) as JsonBody;
       expect(body.sessionId).toBeString();
       expect(String(body.sessionId)).toMatch(/^ses_/);
+      expect(body.workspace).toBe('/test');
+      expect(body.targetKind).toBe('physical');
+      expect(body.status).toBe('active');
     }));
 
   test('GET /session/:id returns session info', () =>
     withServer(async (inst) => {
-      const createRes = await fetch(url(inst, '/session'), { method: 'POST' });
+      const createRes = await fetch(url(inst, '/session'), {
+        method: 'POST',
+        body: JSON.stringify({ workspace: '/test', targetKind: 'simulator' }),
+      });
       const createBody = (await createRes.json()) as { sessionId: string };
       const sessionId = createBody.sessionId;
 
@@ -91,6 +140,27 @@ describe('Server /session', () => {
       const body = (await res.json()) as JsonBody;
       expect(body.error).toBe('session_not_found');
     }));
+
+  test('POST /session without body returns 400', () =>
+    withServer(async (inst) => {
+      const res = await fetch(url(inst, '/session'), { method: 'POST' });
+      expect(res.status).toBe(400);
+
+      const body = (await res.json()) as JsonBody;
+      expect(body.error).toBe('invalid_request');
+    }));
+
+  test('POST /session with invalid targetKind returns 400', () =>
+    withServer(async (inst) => {
+      const res = await fetch(url(inst, '/session'), {
+        method: 'POST',
+        body: JSON.stringify({ workspace: '/test', targetKind: 'invalid' }),
+      });
+      expect(res.status).toBe(400);
+
+      const body = (await res.json()) as JsonBody;
+      expect(body.error).toBe('invalid_request');
+    }));
 });
 
 // ─── SSE routing tests (unit-level — handler called directly) ─
@@ -99,11 +169,14 @@ describe('Server /session', () => {
 // so SSE endpoint routing is tested by calling createFetchHandler directly.
 
 describe('Server /events (SSE) — route handler', () => {
-  test('GET /events without sessionId returns 400', async () => {
+  function makeHandler(): ReturnType<typeof createFetchHandler> {
     const hub = new SSEHub();
-    const sessions = new Map<string, SessionInfo>();
-    const handler = createFetchHandler(hub, sessions);
+    const sessionManager = makeSessionManager(hub);
+    return createFetchHandler(hub, sessionManager);
+  }
 
+  test('GET /events without sessionId returns 400', async () => {
+    const handler = makeHandler();
     const res = callHandler(handler, makeReq('/events'));
     expect(res.status).toBe(400);
 
@@ -112,10 +185,7 @@ describe('Server /events (SSE) — route handler', () => {
   });
 
   test('GET /events with unknown sessionId returns 404', async () => {
-    const hub = new SSEHub();
-    const sessions = new Map<string, SessionInfo>();
-    const handler = createFetchHandler(hub, sessions);
-
+    const handler = makeHandler();
     const res = callHandler(handler, makeReq('/events?sessionId=unknown'));
     expect(res.status).toBe(404);
 
@@ -125,34 +195,33 @@ describe('Server /events (SSE) — route handler', () => {
 
   test('GET /events with valid sessionId returns SSE stream response', () => {
     const hub = new SSEHub();
-    const sessions = new Map<string, SessionInfo>();
-    sessions.set('ses_test', {
-      sessionId: 'ses_test',
-      createdAt: new Date().toISOString(),
-      status: 'active',
+    const sessionManager = makeSessionManager(hub);
+    // Create a session in SessionManager so getSession() resolves.
+    const session = sessionManager.createSession({
+      workspace: '/test',
+      targetKind: 'physical',
     });
-    const handler = createFetchHandler(hub, sessions);
+    const handler = createFetchHandler(hub, sessionManager);
 
-    const res = callHandler(handler, makeReq('/events?sessionId=ses_test'));
+    const res = callHandler(handler, makeReq(`/events?sessionId=${session.sessionId}`));
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('text/event-stream');
     expect(res.headers.get('Cache-Control')).toBe('no-cache');
     expect(res.headers.get('Connection')).toBe('keep-alive');
-    expect(res.headers.get('X-Session-Id')).toBe('ses_test');
+    expect(res.headers.get('X-Session-Id')).toBe(session.sessionId);
   });
 
   test('SSE endpoint creates a subscriber in the hub', () => {
     const hub = new SSEHub();
-    const sessions = new Map<string, SessionInfo>();
-    sessions.set('ses_test', {
-      sessionId: 'ses_test',
-      createdAt: new Date().toISOString(),
-      status: 'active',
+    const sessionManager = makeSessionManager(hub);
+    const session = sessionManager.createSession({
+      workspace: '/test',
+      targetKind: 'physical',
     });
-    const handler = createFetchHandler(hub, sessions);
+    const handler = createFetchHandler(hub, sessionManager);
 
     expect(hub.sessionCount).toBe(0);
-    callHandler(handler, makeReq('/events?sessionId=ses_test'));
+    callHandler(handler, makeReq(`/events?sessionId=${session.sessionId}`));
     expect(hub.sessionCount).toBe(1);
   });
 });
@@ -162,19 +231,18 @@ describe('Server /events (SSE) — route handler', () => {
 describe('Server /events (SSE) — hub integration', () => {
   test('broadcast to session after SSE subscribe succeeds', () => {
     const hub = new SSEHub();
-    const sessions = new Map<string, SessionInfo>();
-    sessions.set('ses_test', {
-      sessionId: 'ses_test',
-      createdAt: new Date().toISOString(),
-      status: 'active',
+    const sessionManager = makeSessionManager(hub);
+    const session = sessionManager.createSession({
+      workspace: '/test',
+      targetKind: 'physical',
     });
-    const handler = createFetchHandler(hub, sessions);
+    const handler = createFetchHandler(hub, sessionManager);
 
-    callHandler(handler, makeReq('/events?sessionId=ses_test'));
+    callHandler(handler, makeReq(`/events?sessionId=${session.sessionId}`));
     expect(hub.sessionCount).toBe(1);
 
     // Broadcast should not throw.
-    hub.broadcast('ses_test', {
+    hub.broadcast(session.sessionId, {
       type: 'tool.progress',
       callId: 'c1',
       message: 'hello',
@@ -185,18 +253,17 @@ describe('Server /events (SSE) — hub integration', () => {
 
   test('terminal event closes subscriber added via SSE endpoint', () => {
     const hub = new SSEHub();
-    const sessions = new Map<string, SessionInfo>();
-    sessions.set('ses_test', {
-      sessionId: 'ses_test',
-      createdAt: new Date().toISOString(),
-      status: 'active',
+    const sessionManager = makeSessionManager(hub);
+    const session = sessionManager.createSession({
+      workspace: '/test',
+      targetKind: 'physical',
     });
-    const handler = createFetchHandler(hub, sessions);
+    const handler = createFetchHandler(hub, sessionManager);
 
-    callHandler(handler, makeReq('/events?sessionId=ses_test'));
+    callHandler(handler, makeReq(`/events?sessionId=${session.sessionId}`));
     expect(hub.sessionCount).toBe(1);
 
-    hub.broadcast('ses_test', { type: 'session.idle', sessionId: 'ses_test' });
+    hub.broadcast(session.sessionId, { type: 'session.idle', sessionId: session.sessionId });
     expect(hub.sessionCount).toBe(0);
   });
 });
@@ -205,7 +272,13 @@ describe('Server /events (SSE) — hub integration', () => {
 
 describe('Server lifecycle', () => {
   test('server close stops accepting new connections', async () => {
-    const inst = createServer({ port: 0 });
+    const inst = createServer(
+      { port: 0 },
+      {
+        sseHub: new SSEHub(),
+        sessionManager: makeSessionManager(new SSEHub()),
+      },
+    );
     const addr = inst.server;
 
     const res = await fetch(url(inst, '/health'));
@@ -222,7 +295,14 @@ describe('Server lifecycle', () => {
   });
 
   test('close cleans up all SSE sessions', () => {
-    const inst = createServer({ port: 0 });
+    const sseHub = new SSEHub();
+    const inst = createServer(
+      { port: 0 },
+      {
+        sseHub,
+        sessionManager: makeSessionManager(sseHub),
+      },
+    );
     inst.sseHub.subscribe('ses_A');
     inst.sseHub.subscribe('ses_B');
     expect(inst.sseHub.sessionCount).toBe(2);

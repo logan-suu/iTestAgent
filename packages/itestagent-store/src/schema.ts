@@ -27,6 +27,7 @@ export const runs = sqliteTable('runs', {
     .notNull()
     .references(() => projects.projectHash),
   targetKind: text('target_kind').notNull(),
+  backend: text('backend'),
   status: text('status').notNull().default('created'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
