@@ -328,7 +328,7 @@
           "id": "1.14",
           "title": "SessionManager：session 创建/关闭/隔离/超时",
           "story": "US-4.3",
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -338,14 +338,15 @@
             "1.7",
             "1.9"
           ],
+          "last_updated": "2026-07-19T12:00:00Z",
           "test_file": null,
-          "notes": "PR #16 (https://github.com/logan-suu/iTestAgent/pull/16). SessionManager implemented: createSession (workspace + targetKind + optional backend), closeSession (cleanup + RSM.cancel), closeAll, getSession, listSessions (filter by status), idle timeout. 23 unit tests pass. Routes + server updated to use SessionManager. targetKind (physical/simulator) per ADR-011. Store persistence via itestagent-store. RunStateMachine wired for lifecycle state machine. typecheck 0 errors, lint 0 errors, 384 tests pass."
+          "notes": "PR #16 (https://github.com/logan-suu/iTestAgent/pull/16) merged to dev-1.0 (25a4852). SessionManager implemented: createSession (workspace + targetKind + optional backend), closeSession (cleanup + RSM.cancel), closeAll, getSession, listSessions, idle timeout. 66 tests in server package (42 session-manager + 24 server). Routes (/session + /events) updated. Store runs table extended with backend column. .onConflictDoNothing() for idempotent project insert. PR review: 4 warnings fixed. typecheck 0 errors, lint 0 errors, 384 monorepo tests pass."
         },
         {
           "id": "1.15",
           "title": "Subprocess controller + mock AgentRuntime",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
           ],
