@@ -12,20 +12,7 @@
  * AGENTS.md §2 (R2): reuses Appium/WDA base, no self-built replacement.
  */
 import type { DoctorCheckResult } from '../types.js';
-
-/** Execute a command and return { exitCode, stdout, stderr }. */
-function exec(cmd: string, args: string[]): { exitCode: number; stdout: string; stderr: string } {
-  try {
-    const result = Bun.spawnSync({ cmd: [cmd, ...args] });
-    return {
-      exitCode: result.exitCode,
-      stdout: result.stdout.toString().trim(),
-      stderr: result.stderr.toString().trim(),
-    };
-  } catch {
-    return { exitCode: -1, stdout: '', stderr: 'command not found' };
-  }
-}
+import { exec } from '../utils.js';
 
 export async function checkAppium(): Promise<DoctorCheckResult> {
   const version = exec('appium', ['--version']);

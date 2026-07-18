@@ -13,26 +13,20 @@
  * AGENTS.md §3.1.4 (R12): comments in English.
  */
 import type { DoctorCheckResult } from '../types.js';
-
-/** Execute a command and return { exitCode, stdout, stderr }. */
-function exec(cmd: string, args: string[]): { exitCode: number; stdout: string; stderr: string } {
-  try {
-    const result = Bun.spawnSync({ cmd: [cmd, ...args] });
-    return {
-      exitCode: result.exitCode,
-      stdout: result.stdout.toString().trim(),
-      stderr: result.stderr.toString().trim(),
-    };
-  } catch {
-    return { exitCode: -1, stdout: '', stderr: 'command not found' };
-  }
-}
+import { exec } from '../utils.js';
 
 export async function checkSigning(): Promise<DoctorCheckResult> {
   const identities = exec('security', ['find-identity', '-v', '-p', 'codesigning']);
-  const profiles = exec('ls', [
-    `${process.env.HOME || '/Users'}/Library/MobileDevice/Provisioning Profiles`,
-  ]);
+  const home = process.env.HOME;
+  if (!home) {
+    return {
+      name: 'Code Signing',
+      status: 'manual',
+      message: 'Cannot determine home directory for Provisioning Profiles lookup.',
+      fixGuide: ['Verify HOME environment variable is set.'],
+    };
+  }
+  const profiles = exec('ls', [`${home}/Library/MobileDevice/Provisioning Profiles`]);
   const details: string[] = [];
 
   // Count valid identities
