@@ -260,8 +260,8 @@
             "0.6"
           ],
           "test_file": null,
-          "last_updated": "2026-07-18T13:10:11.403Z",
-          "notes": "实现完成。新增 6 源文件 + 3 测试文件 (21 tests)。StoreDriver: SQLite + WAL + migrate(幂等) + transaction(BEGIN/COMMIT/ROLLBACK)。ArtifactStore: 文件系统 put/get/search。Schema: projects + runs 表（Drizzle ORM）。bootstrap: initStore() 创建 ~/.itestagent/{config,db,projects,sessions,flows,baselines/{physical,simulator},runs}。依赖: drizzle-orm 0.36.4 + bun:sqlite。typecheck + lint + test (224/0) 全部通过。"
+          "last_updated": "2026-07-18T18:00:00.000Z",
+          "notes": "PR #11 (https://github.com/logan-suu/iTestAgent/pull/11): feat(store) StoreDriver + ArtifactStore + schema + bootstrap。12 files changed, 698 insertions. 6 source files + 3 test files (21 tests)。StoreDriver: SQLite + WAL + migrate(幂等) + transaction。ArtifactStore: 文件系统 put/get/search。Schema: projects + runs 表（Drizzle ORM）。bootstrap: initStore() 创建 ~/.itestagent/ 目录结构。typecheck + lint + test (224/0) 全部通过。等待人类合并后设为 done。"
         },
         {
           "id": "1.10",

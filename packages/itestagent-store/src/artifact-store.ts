@@ -1,6 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { ArtifactInput, ArtifactRef, ArtifactStore } from 'itestagent-contracts';
 
 type InternalArtifactRef = ArtifactRef & { _id: string };
@@ -64,7 +63,7 @@ export function createArtifactStore(artifactsRoot: string): ArtifactStore {
 
   return {
     async put(input: ArtifactInput): Promise<ArtifactRef> {
-      const id = randomUUID();
+      const id = Bun.randomUUIDv7();
       const ext = input.path
         ? input.path.slice(input.path.lastIndexOf('.'))
         : extensionForType(input.type);
