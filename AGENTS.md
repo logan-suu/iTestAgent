@@ -393,8 +393,8 @@ R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段。
 ### 8.1.5 deferred-items.json 生命周期（R14）
 
 ```
-R14 PR review 中合理的但延期修复的 🟡 警告，必须在 pr-review-itest 中立即写入 deferred-items.json 留档，不得遗漏。
-commit-pr-itest 在提交前须确认 🟡 警告已留档。每个 Phase 的集成测试任务完成时须检查并清理本阶段延期项。
+R14 PR review 中合理但**延期修复**的 🟡 警告，必须在 pr-review-itest 中立即写入 deferred-items.json 留档，不得遗漏。
+能立即修复的应在当前 PR 中直接修掉，无需留档。commit-pr-itest 在提交前须确认延期项已留档。
 ```
 
 **创建**：`pr-review-itest` 第五步之半 — 每条 🟡 警告必须逐条写入，含完整上下文（`detail` 字段强制必填）。

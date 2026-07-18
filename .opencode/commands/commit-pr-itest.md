@@ -24,7 +24,7 @@ agent: build
    - 如果存在 open 条目：
      - ⚠️ 这些条目已在 `pr-review-itest` 中被认定为不阻塞合并但需后续修复。
      - 输出提醒并确认已记录（不阻塞 commit）。
-   - **如果当前任务刚完成 `pr-review-itest` 且审查报告中存在 🟡 警告，但 deferred-items.json 中尚无对应条目**：
+    - **如果当前任务刚完成 `pr-review-itest` 且审查报告中有**延期修复的 **🟡 警告**（即未在当前 PR 中修复的），但 deferred-items.json 中尚无对应条目：
      - ❌ **阻断 commit** — 必须先通过 `pr-review-itest` 的第五步之半将 🟡 警告写入 deferred-items.json。
      - 输出："❌ 审查报告中有 N 条 🟡 警告未记录到 deferred-items.json，请先执行 pr-review-itest 完成留档。"
 3. **运行质量门禁 G1-G4**：
