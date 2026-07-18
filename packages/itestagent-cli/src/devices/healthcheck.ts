@@ -12,21 +12,7 @@
 
 import { HealthCheckResultSchema } from 'itestagent-contracts';
 import type { DeviceInfo, HealthCheckResult } from 'itestagent-contracts';
-
-// ─── Subprocess helpers ─────────────────────────────────────
-
-function exec(args: string[]): { exitCode: number; stdout: string; stderr: string } {
-  try {
-    const result = Bun.spawnSync({ cmd: args });
-    return {
-      exitCode: result.exitCode,
-      stdout: result.stdout.toString().trim(),
-      stderr: result.stderr.toString().trim(),
-    };
-  } catch {
-    return { exitCode: -1, stdout: '', stderr: 'command not found' };
-  }
-}
+import { exec } from './exec.js';
 
 // ─── Physical device healthcheck ────────────────────────────
 

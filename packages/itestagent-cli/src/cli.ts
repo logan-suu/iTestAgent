@@ -85,9 +85,8 @@ export function createProgram(): Command {
         physicalOnly?: boolean;
         simulatorOnly?: boolean;
       }) => {
-        const { discoverPhysicalDevices, discoverSimulatorDevices } = await import(
-          './devices/discover.js'
-        );
+        const { discoverPhysicalDevices, discoverSimulatorDevices, discoverAllDevices } =
+          await import('./devices/discover.js');
         const { healthcheckAllDevices } = await import('./devices/healthcheck.js');
         const { formatDeviceList, formatHealthcheckResults } = await import('./devices/format.js');
 
@@ -99,17 +98,7 @@ export function createProgram(): Command {
           if (options.physicalOnly) {
             return discoverPhysicalDevices();
           }
-          // Default: both
-          const [physical, simulator] = await Promise.all([
-            discoverPhysicalDevices(),
-            discoverSimulatorDevices(),
-          ]);
-          return [...physical, ...simulator].sort((a, b) => {
-            if (a.targetKind !== b.targetKind) {
-              return a.targetKind === 'physical' ? -1 : 1;
-            }
-            return (a.name ?? '').localeCompare(b.name ?? '');
-          });
+          return discoverAllDevices();
         })();
 
         // Print device list
