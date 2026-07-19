@@ -400,8 +400,8 @@
           "id": "2.1",
           "title": "工程结构解析：XcodeProj + xcodebuild -list/-showBuildSettings",
           "story": "US-3.1",
-          "status": "in_progress",
-          "last_updated": "2026-07-19T17:45:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-19T18:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -410,13 +410,13 @@
             "1.9"
           ],
           "test_file": "packages/itestagent-backends/analyzer-xcodeproj/test/",
-          "notes": "PR #20: https://github.com/logan-suu/iTestAgent/pull/20 — Implemented XcodeProjAnalyzerBackend deterministic layer: discover (xcodebuild -list -json), graph (self-contained pbxproj parser), buildSettings (xcodebuild -showBuildSettings). 6 source files + 6 test files (42 tests). Dependencies: zero external (xcodebuild CLI + self-contained pbxproj parser). Review: R12 Chinese comments fixed, parseListText bug fixed, dependencyTargetUuids→dependencyTargetNames renamed. Deferred: DEF-005(graph integration), DEF-006(indirect dep fixture), DEF-007(indirect dep test) → Phase 2.2. scanSources/scanResources deferred to task 2.2. G3 typecheck/lint 0 err, G4 553 tests all green. Awaiting human merge to dev-1.0."
+          "notes": "PR #20: https://github.com/logan-suu/iTestAgent/pull/20 — Merged to dev-1.0 (d4f48d2). Implemented XcodeProjAnalyzerBackend deterministic layer: discover (xcodebuild -list -json), graph (self-contained pbxproj parser), buildSettings (xcodebuild -showBuildSettings). 6 source files + 6 test files (42 tests). Dependencies: zero external (xcodebuild CLI + self-contained pbxproj parser). Review: R12 Chinese comments fixed, parseListText bug fixed, dependencyTargetUuids→dependencyTargetNames renamed. Deferred: DEF-005(graph integration), DEF-006(indirect dep fixture), DEF-007(indirect dep test) → Phase 2.2. scanSources/scanResources deferred to task 2.2. G3 typecheck/lint 0 err, G4 553 tests all green."
         },
         {
           "id": "2.2",
           "title": "Swift 结构/符号：swift-syntax + sourcekit-lsp/SourceKitten",
           "story": "US-3.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
