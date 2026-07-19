@@ -7,3 +7,4 @@ export {
   resolveCredentials,
 } from './config/loader.js';
 export type { LoadConfigResult, ConfigSource } from './config/loader.js';
+export { MemorySecretStore } from './config/memory-secret-store.js';

@@ -87,7 +87,11 @@ export class SessionManager {
         workspacePath: params.workspace,
       })
       .onConflictDoNothing()
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (process.env.ITESTAGENT_DEBUG) {
+          console.warn('[SessionManager] DB insert (projects) failed:', err);
+        }
+      });
 
     // Persist run record.
     this.db
@@ -99,7 +103,11 @@ export class SessionManager {
         backend: params.backend ?? null,
         status: 'created',
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (process.env.ITESTAGENT_DEBUG) {
+          console.warn('[SessionManager] DB insert (runs) failed:', err);
+        }
+      });
 
     // Start the RunStateMachine: enters initial 'created' state.
     const state = this.runStateMachine.start(runId);
@@ -153,7 +161,11 @@ export class SessionManager {
       .update(runs)
       .set({ status: 'cancelled' })
       .where(eq(runs.runId, session.runId))
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (process.env.ITESTAGENT_DEBUG) {
+          console.warn('[SessionManager] DB update (runs) failed:', err);
+        }
+      });
 
     // Clean up SSE subscribers for this session.
     this.sseHub.closeSession(sessionId);

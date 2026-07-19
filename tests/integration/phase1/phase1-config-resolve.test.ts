@@ -16,13 +16,13 @@ import { mkdtempSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  MemorySecretStore,
   createSecretStore,
   getDefaultConfig,
   loadConfig,
   resolveCredentials,
 } from 'itestagent-cli';
 import { ItestAgentConfigSchema } from 'itestagent-contracts';
-import { MemorySecretStore } from '../../../packages/itestagent-cli/src/config/memory-secret-store.js';
 
 function tempDir(): string {
   return mkdtempSync(join(tmpdir(), 'itestagent-config-'));
