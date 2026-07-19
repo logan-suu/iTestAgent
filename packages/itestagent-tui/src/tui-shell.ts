@@ -7,9 +7,20 @@
  *   OpenTUI 和 Ink 都只是 renderer。
  *
  * US-4.1 AC1-AC3：itestagent 无参数进入 TUI，显示 workspace/设备状态/可输入自然语言。
+ * US-3.3 AC2-AC4：candidate_review mode for user confirmation of core paths.
  */
+import type { CandidateLink } from 'itestagent-project-analyzer';
+import {
+  confirmAllCandidates,
+  editCandidateNameAtIndex,
+  reorderCandidates,
+  toggleCandidateAtIndex,
+  unconfirmAllCandidates,
+} from './candidate-review.js';
 
 // ─── State ─────────────────────────────────────────────────────────────
+
+export type TuiShellMode = 'chat' | 'candidate_review';
 
 /** 设备连接状态。当前为占位值，后续由 engine/server 驱动。 */
 export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 'busy';
@@ -26,9 +37,15 @@ export interface Message {
 export interface TuiShellState {
   readonly workspace: string;
   readonly deviceStatus: DeviceStatus;
+  readonly mode: TuiShellMode;
   readonly messages: readonly Message[];
   readonly inputDraft: string;
   readonly running: boolean;
+  /** Candidate review state (only meaningful when mode === 'candidate_review'). */
+  readonly candidates: readonly CandidateLink[];
+  readonly candidateIndex: number;
+  readonly candidateEditMode: boolean;
+  readonly candidateEditDraft: string;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -38,7 +55,19 @@ export type TuiShellEvent =
   | { readonly type: 'submit' }
   | { readonly type: 'quit' }
   | { readonly type: 'system_message'; readonly text: string }
-  | { readonly type: 'device_status_updated'; readonly status: DeviceStatus };
+  | { readonly type: 'device_status_updated'; readonly status: DeviceStatus }
+  // Candidate review events (US-3.3 AC2)
+  | { readonly type: 'enter_candidate_review'; readonly candidates: readonly CandidateLink[] }
+  | { readonly type: 'exit_candidate_review' }
+  | { readonly type: 'candidate_toggle' }
+  | { readonly type: 'candidate_navigate'; readonly direction: 'up' | 'down' }
+  | { readonly type: 'candidate_reorder'; readonly direction: 'up' | 'down' }
+  | { readonly type: 'candidate_edit_start' }
+  | { readonly type: 'candidate_edit_input'; readonly text: string }
+  | { readonly type: 'candidate_edit_commit' }
+  | { readonly type: 'candidate_edit_cancel' }
+  | { readonly type: 'candidate_confirm_all' }
+  | { readonly type: 'candidate_unconfirm_all' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -50,9 +79,14 @@ export function createInitialState(workspace?: string): TuiShellState {
   return {
     workspace: workspace ?? process.cwd(),
     deviceStatus: 'no_device',
+    mode: 'chat',
     messages: [],
     inputDraft: '',
     running: true,
+    candidates: [],
+    candidateIndex: 0,
+    candidateEditMode: false,
+    candidateEditDraft: '',
   };
 }
 
@@ -111,5 +145,95 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
 
     case 'quit':
       return { ...state, running: false };
+
+    // ── Candidate review events (US-3.3 AC2) ───────────────────────
+
+    case 'enter_candidate_review':
+      return {
+        ...state,
+        mode: 'candidate_review',
+        candidates: event.candidates,
+        candidateIndex: 0,
+        candidateEditMode: false,
+        candidateEditDraft: '',
+      };
+
+    case 'exit_candidate_review':
+      return {
+        ...state,
+        mode: 'chat',
+        candidateIndex: 0,
+        candidateEditMode: false,
+        candidateEditDraft: '',
+      };
+
+    case 'candidate_toggle': {
+      const updated = toggleCandidateAtIndex(
+        state.candidates as CandidateLink[],
+        state.candidateIndex,
+      );
+      return { ...state, candidates: updated };
+    }
+
+    case 'candidate_navigate': {
+      const len = state.candidates.length;
+      if (len === 0) return state;
+      const delta = event.direction === 'up' ? -1 : 1;
+      const next = (state.candidateIndex + delta + len) % len;
+      return { ...state, candidateIndex: next };
+    }
+
+    case 'candidate_reorder': {
+      const idx = state.candidateIndex;
+      const targetIdx = event.direction === 'up' ? idx - 1 : idx + 1;
+      const updated = reorderCandidates(state.candidates as CandidateLink[], idx, targetIdx);
+      const newIdx =
+        event.direction === 'up' ? Math.max(0, idx - 1) : Math.min(updated.length - 1, idx + 1);
+      return { ...state, candidates: updated, candidateIndex: newIdx };
+    }
+
+    case 'candidate_edit_start': {
+      const current = state.candidates[state.candidateIndex];
+      if (!current) return state;
+      return {
+        ...state,
+        candidateEditMode: true,
+        candidateEditDraft: current.name,
+      };
+    }
+
+    case 'candidate_edit_input':
+      return { ...state, candidateEditDraft: event.text };
+
+    case 'candidate_edit_commit': {
+      const updated = editCandidateNameAtIndex(
+        state.candidates as CandidateLink[],
+        state.candidateIndex,
+        state.candidateEditDraft,
+      );
+      return {
+        ...state,
+        candidates: updated,
+        candidateEditMode: false,
+        candidateEditDraft: '',
+      };
+    }
+
+    case 'candidate_edit_cancel':
+      return {
+        ...state,
+        candidateEditMode: false,
+        candidateEditDraft: '',
+      };
+
+    case 'candidate_confirm_all': {
+      const updated = confirmAllCandidates(state.candidates as CandidateLink[]);
+      return { ...state, candidates: updated };
+    }
+
+    case 'candidate_unconfirm_all': {
+      const updated = unconfirmAllCandidates(state.candidates as CandidateLink[]);
+      return { ...state, candidates: updated };
+    }
   }
 }

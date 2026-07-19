@@ -10,6 +10,22 @@ export {
   tuiShellReducer,
   type TuiShellState,
   type TuiShellEvent,
+  type TuiShellMode,
   type Message,
   type DeviceStatus,
 } from './tui-shell.js';
+
+export {
+  getConfidenceTier,
+  getConfidenceLabel,
+  formatConfidenceBar,
+  toggleCandidate,
+  toggleCandidateAtIndex,
+  editCandidateName,
+  editCandidateNameAtIndex,
+  reorderCandidates,
+  getConfirmedCandidates,
+  sortByConfidence,
+  sortByDisplayOrder,
+  type ConfidenceTier,
+} from './candidate-review.js';

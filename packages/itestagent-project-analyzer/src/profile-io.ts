@@ -20,7 +20,7 @@ const TestAssetsProfileSchema = z.object({
   testTargets: z.array(z.string()).optional(),
 });
 
-const FeatureCandidateSchema = z.object({
+const CandidateLinkSchema = z.object({
   name: z.string(),
   entry: z.string().optional(),
   keywords: z.array(z.string()).optional(),
@@ -28,6 +28,10 @@ const FeatureCandidateSchema = z.object({
   requiresAccount: z.boolean().optional(),
   evidence: z.array(z.string()).min(1),
   confidence: z.number().min(0).max(1),
+  /** Whether the user has confirmed this candidate in the TUI (AC3: only confirmed links enter TestPlan/Flow). Default false. */
+  confirmed: z.boolean().default(false),
+  /** User-controlled display ordering; lower = higher priority. Default 0 (insertion order). */
+  displayOrder: z.number().int().nonnegative().default(0),
 });
 
 const ProjectProfileSchema = z.object({
@@ -42,7 +46,7 @@ const ProjectProfileSchema = z.object({
   }),
   targets: z.array(TargetProfileSchema),
   testAssets: TestAssetsProfileSchema,
-  features: z.array(FeatureCandidateSchema),
+  features: z.array(CandidateLinkSchema),
   suggestedSmoke: z.array(z.string()),
 });
 
@@ -51,7 +55,10 @@ const ProjectProfileSchema = z.object({
 export type ProjectProfile = z.infer<typeof ProjectProfileSchema>;
 export type TargetProfile = z.infer<typeof TargetProfileSchema>;
 export type TestAssetsProfile = z.infer<typeof TestAssetsProfileSchema>;
-export type FeatureCandidate = z.infer<typeof FeatureCandidateSchema>;
+export type CandidateLink = z.infer<typeof CandidateLinkSchema>;
+
+/** @deprecated Use CandidateLink instead. Kept for backward compat with existing callers. */
+export type FeatureCandidate = CandidateLink;
 
 // ─── Storage paths ──────────────────────────────────────────────────
 

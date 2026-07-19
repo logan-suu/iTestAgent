@@ -1,6 +1,6 @@
 import type { ProjectAnalyzerBackend } from 'itestagent-contracts';
 import type {
-  FeatureCandidate,
+  CandidateLink,
   ProjectProfile,
   TargetProfile,
   TestAssetsProfile,
@@ -14,7 +14,7 @@ import { computeProjectHash } from './project-hash.js';
  *   discover  → app.{name, workspace, project, scheme}
  *   graph     → targets, hasXCUITest, hasUnitTests
  *   buildSettings → app.bundleId
- *   scanSources → features (VCs → FeatureCandidate)
+ *   scanSources → features (VCs → CandidateLink)
  *   scanResources → enriches context (not directly in profile, used for feature inference)
  *
  * AC1: Profile contains app, features, testAssets, suggestedSmoke.
@@ -122,16 +122,16 @@ function mapTargetType(type: string): TargetProfile['type'] {
 }
 
 /**
- * Infer FeatureCandidate list from SourceFacts.
+ * Infer CandidateLink list from SourceFacts.
  *
- * R4-compliant: every feature carries evidence (source file) + confidence (heuristic).
+ * R4-compliant: every candidate carries evidence (source file) + confidence (heuristic).
  * Never auto-finalize core paths — these are candidates for TUI confirmation (task 2.4).
  */
 function inferFeatures(
   facts: { viewControllers: Array<{ name: string; file: string }>; storyboardRefs: string[] },
   hasXCUITest: boolean,
-): FeatureCandidate[] {
-  const features: FeatureCandidate[] = [];
+): CandidateLink[] {
+  const features: CandidateLink[] = [];
 
   // Each ViewController becomes a candidate feature
   for (const vc of facts.viewControllers) {
@@ -155,6 +155,8 @@ function inferFeatures(
       requiresAccount: requiresAccount || undefined,
       evidence: [`Source: ${vc.file}`],
       confidence,
+      confirmed: false,
+      displayOrder: 0,
     });
   }
 
@@ -173,13 +175,19 @@ function inferFeatures(
         entry: sb,
         testability: 'device_backend',
         evidence: [`Storyboard: ${sb}`],
-        confidence: 0.3, // Lower confidence for storyboard-only features
+        confidence: 0.3,
+        confirmed: false,
+        displayOrder: 0,
       });
     }
   }
 
-  // Sort by confidence descending
+  // Sort by confidence descending, then pin display order
   features.sort((a, b) => b.confidence - a.confidence);
+
+  features.forEach((f, i) => {
+    f.displayOrder = i;
+  });
 
   return features;
 }
@@ -307,7 +315,7 @@ function isAccountRelated(name: string): boolean {
  * R4: These are suggestions, not automated decisions.
  * Picks features with confidence >= 0.5, plus "launch" as a universal baseline.
  */
-function inferSuggestedSmoke(features: FeatureCandidate[]): string[] {
+function inferSuggestedSmoke(features: CandidateLink[]): string[] {
   const smoke: string[] = ['launch']; // Universal smoke baseline
 
   for (const f of features) {
