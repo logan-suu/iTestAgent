@@ -63,6 +63,16 @@ agent: build
 
 > PR 中可能有 CodeRabbit 等 AI 审查机器人或人工 reviewer 的评论。需逐条分析并处理。
 
+**决策流程**（每条评论按此顺序判定）：
+
+```
+评论 → 有无意义？
+  ├─ 无意义（噪声/限额告警/误报） → hide（选择合适的 reason）
+  └─ 有意义 → 是否需要延后解决？
+       ├─ 延后 → 评论 "Deferred" + 写入 deferred-items.json + resolve
+       └─ 不延后 → 立刻修复 → 验证通过 → resolve conversation
+```
+
 1. **获取所有评论**：
    ```bash
    gh pr view {PR编号} --json comments,reviews
@@ -80,17 +90,21 @@ agent: build
 3. **处理合理的评论（按严重度分流）**：
 
    **a) 合理且立即修复（🔴/🟠 级别）**：
-   - 按评论建议修复代码
-   - 运行 `bun run typecheck && bun run lint && bun test` 验证
-   - 提交修复并推送
-   - 回复评论说明修复内容（**R12：回复必须用英文**）
-   - **Resolve conversation**（标记为已解决）：
+    - 按评论建议修复代码
+    - 运行 `bun run typecheck && bun run lint && bun test` 验证
+    - **验证通过后** → 提交修复并推送
+    - 回复评论说明修复内容（**R12：回复必须用英文**）
+    - **Resolve conversation**（标记为已解决，必须在修复 commit 已推送后执行）：
      ```bash
      gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
      ```
 
    **b) 合理但延期修复（🟡 Minor / Phase 后续）**：
-   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
+    - **在该评论 thread 下回复 `Deferred`**（明确标记为延期，R12：回复必须用英文）：
+      ```
+      Deferred — tracked as DEF-NNN (target_phase: N). Will be addressed when the dependency is in place.
+      ```
+    - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
      - 新增条目到 `items` 数组，**必须保存完整上下文**，避免日后遗忘：
        ```json
        {
