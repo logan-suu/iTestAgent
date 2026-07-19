@@ -2,7 +2,7 @@
   "version": "1.0",
   "project": "iTestAgent MVP",
   "last_updated": "2026-07-19T12:00:00.000Z",
-  "current_phase": 1,
+  "current_phase": 2,
   "phases": [
     {
       "id": 0,
@@ -112,7 +112,7 @@
     {
       "id": 1,
       "name": "骨架与环境",
-      "status": "in_progress",
+      "status": "done",
       "integration_test": "1.16",
       "tasks": [
         {
@@ -363,11 +363,12 @@
           "id": "1.16",
           "title": "Phase 1 集成测试：骨架与环境联调验证",
           "story": null,
-          "status": "in_progress",
+          "status": "done",
+          "last_updated": "2026-07-19T14:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
-          "notes": "PR #19 (https://github.com/logan-suu/iTestAgent/pull/19) — branch test/phase1-integration. ✅ 全量回归：单元 433 + 集成 79 = 512 pass / 0 fail（39 files, 1527 expects）。集成测试 (tests/integration/phase1/): session-lifecycle (SSEHub→SessionManager→RSM→SQLite)、server-routes (Bun.serve HTTP)、config-resolve (JSONC→SecretStore)、subprocess-lifecycle (real Bun.spawn)、tui-contracts (TUI→Agent flow)、artifact-store (filesystem)。Bug fixes: SessionManager .catch() + runs backend column。typecheck 0 / lint 0。Phase 1 出口就绪。",
+          "notes": "PR #19 (https://github.com/logan-suu/iTestAgent/pull/19) merged to dev-1.0. ✅ 全量回归：单元 433 + 集成 79 = 512 pass / 0 fail（39 files, 1527 expects）。集成测试 (tests/integration/phase1/): session-lifecycle (SSEHub→SessionManager→RSM→SQLite)、server-routes (Bun.serve HTTP)、config-resolve (JSONC→SecretStore)、subprocess-lifecycle (real Bun.spawn)、tui-contracts (TUI→Agent flow)、artifact-store (filesystem)。Bug fixes: SessionManager .catch() + runs backend column。typecheck 0 / lint 0。Phase 1 → done, current_phase → 2。",
           "dependencies": [
             "1.1",
             "1.2",
