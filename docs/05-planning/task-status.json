@@ -363,11 +363,11 @@
           "id": "1.16",
           "title": "Phase 1 集成测试：骨架与环境联调验证",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
-          "notes": "验证 CLI/TUI/Server/SSE/SessionManager/subprocess/mock AgentRuntime/doctor(physical+simulator)/devices/store/config 跨模块联调。含 T1.4/b/c Simulator 骨架验证。运行 bun test + bun run typecheck + bun run lint。出口：全部通过后 Phase 1 done。",
+          "notes": "PR #19 (https://github.com/logan-suu/iTestAgent/pull/19) — branch test/phase1-integration. ✅ 全量回归：单元 433 + 集成 79 = 512 pass / 0 fail（39 files, 1527 expects）。集成测试 (tests/integration/phase1/): session-lifecycle (SSEHub→SessionManager→RSM→SQLite)、server-routes (Bun.serve HTTP)、config-resolve (JSONC→SecretStore)、subprocess-lifecycle (real Bun.spawn)、tui-contracts (TUI→Agent flow)、artifact-store (filesystem)。Bug fixes: SessionManager .catch() + runs backend column。typecheck 0 / lint 0。Phase 1 出口就绪。",
           "dependencies": [
             "1.1",
             "1.2",

@@ -1,55 +1,79 @@
 ---
-description: 运行项目的所有单元测试（全量回归），生成完整报告
+description: 累进全量集成测试 — Phase 1→N 全部集成测试 + 跨 Phase 联调 + 单元测试全量回归
 agent: build
 ---
 
-## 🌐 全量测试
+## 🌐 累进全量集成测试
 
-### 第一步：前置检查与执行
-1. 检查代码是否能编译：
+此命令运行**从 Phase 1 到当前 Phase** 的全部测试，包括跨 Phase 联调。
+当前 Phase 的专项测试请用 `test-phase-itest`。
+
+### 第一步：定位范围
+
+1. 读取 `docs/05-planning/task-status.json`，获取 `current_phase`。
+2. 确定测试范围：`Phase 1` 至 `Phase {current_phase}` 的所有集成测试。
+
+### 第二步：检查跨 Phase 联调测试
+
+3. 检查 `tests/integration/cross-phase/` 目录。
+4. 如果目录**不存在**或为空：
+   - 创建目录。
+   - 基于各 Phase 之间的数据流依赖，生成跨 Phase 联调测试。
+   - 跨 Phase 联调场景示例：
+     - Phase 1 的 `SessionManager.createSession()` 产出的 `runId` 能否被 Phase 2 的 `TestPlan` 正确引用
+     - Phase 1 的 `RunStateMachine` 状态转移能否被 Phase 3 的 `ToolDispatcher` 正确驱动
+     - Phase 1 的 `ArtifactStore` 能否正确存储 Phase 4 的 `xcresult` 解析产物
+5. 如果目录**已存在**：审查覆盖是否反映当前各 Phase 间的关键数据流。
+
+### 第三步：运行全部 Phase 集成测试
+
+6. 对 `N = 1..current_phase`，运行每个 Phase 的集成测试：
    ```bash
-   bun run build
+   bun test tests/integration/phase{N}/
    ```
-   如果编译失败，输出错误，建议先修复编译问题。
-2. 运行所有测试（单元 + 集成）：
+7. 运行跨 Phase 联调测试：
    ```bash
-   bun test
+   bun test tests/integration/cross-phase/
    ```
-   - 单元测试位于各包 `packages/<pkg>/test/*.test.ts`
-   - 集成测试位于根 `tests/integration/*.test.ts`（AGENTS.md §10 测试文件存放约定）
-3. 如需仅运行集成测试：
+8. 运行全部单元测试：
    ```bash
-   bun test tests/integration/
+   bun test packages/
    ```
 
-### 第二步：质量与门禁检查
-1. 类型检查：`bun run typecheck`
-2. Lint：`bun run lint`
-3. 生成测试报告摘要：
-   - 总用例数、通过数、失败数
-   - 失败用例名称及涉及模块
+### 第四步：质量门禁
 
-### 第三步：对比基线
-1. 如果存在历史测试日志，对比差异：
-   - 新增失败用例 → 分析是否由本次变更引起
-   - 通过率变化 → 标记为 ⚠️ 或 🔴
-2. 如果未找到历史日志，本次结果将作为基线。
+9. 类型检查：`bun run typecheck`
+10. Lint：`bun run lint`
 
-### 第四步：输出报告
-输出 Markdown 格式：
-```markdown
-## 🌐 全量测试报告
-| 指标 | 结果 | 状态 |
-| --- | --- | --- |
-| 总用例数 | X | - |
-| 通过数 | X | - |
-| 失败数 | X | ✅/❌ |
-| 通过率 | X% | ✅/❌ |
-| 类型检查 | - | ✅/❌ |
-| Lint | - | ✅/❌ |
-| 新增失败 | [无 / 列表] | - |
-```
+### 第五步：累积回归报告
 
-### 第五步：后续操作
-- **全部通过**：✅ 提示可进入 `commit-pr-itest`
-- **部分失败**：输出失败用例列表，修复后重新运行
+11. 汇总所有测试结果，输出报告：
+    ```
+    ## 🌐 累进全量测试报告（Phase 1→{N}）
+
+    | 层级 | 测试数 | 通过 | 失败 | 状态 |
+    | --- | --- | --- | --- | --- |
+    | 单元测试 (packages/) | X | X | Y | ✅/❌ |
+    | Phase 1 集成 | A | A | 0 | ✅/❌ |
+    | Phase 2 集成 | B | B | 0 | ✅/❌ |
+    | ... | ... | ... | ... | ... |
+    | 跨 Phase 联调 | C | C | 0 | ✅/❌ |
+    | **合计** | **Z** | **Z** | **F** | ✅/❌ |
+
+    | 门禁 | 结果 |
+    | --- | --- |
+    | 类型检查 | ✅/❌ |
+    | Lint | ✅/❌ |
+    ```
+
+### 第六步：失败处理
+
+12. 任何失败必须分析根因：
+    - 业务代码 regression → 修复业务代码
+    - 集成测试逻辑有误 → 修正测试
+    - 新增 Phase 引入的兼容性破坏 → 评估是否需要适配旧 Phase
+
+### 第七步：后续操作
+
+- **全部通过** → 确认当前累进质量基线
+- **部分失败** → 修复后重跑，直到全绿

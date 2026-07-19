@@ -78,23 +78,36 @@ export class SessionManager {
     };
 
     // Persist project record (INSERT OR IGNORE — idempotent across sessions
-    // sharing the same workspace).
+    // sharing the same workspace). .catch() triggers Promise resolution for
+    // fire-and-forget pattern (async/await deferred to DEF-001, Phase 3).
     this.db
       .insert(projects)
       .values({
         projectHash,
         workspacePath: params.workspace,
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .catch((err: unknown) => {
+        if (process.env.ITESTAGENT_DEBUG) {
+          console.warn('[SessionManager] DB insert (projects) failed:', err);
+        }
+      });
 
     // Persist run record.
-    this.db.insert(runs).values({
-      runId,
-      projectHash,
-      targetKind: params.targetKind,
-      backend: params.backend ?? null,
-      status: 'created',
-    });
+    this.db
+      .insert(runs)
+      .values({
+        runId,
+        projectHash,
+        targetKind: params.targetKind,
+        backend: params.backend ?? null,
+        status: 'created',
+      })
+      .catch((err: unknown) => {
+        if (process.env.ITESTAGENT_DEBUG) {
+          console.warn('[SessionManager] DB insert (runs) failed:', err);
+        }
+      });
 
     // Start the RunStateMachine: enters initial 'created' state.
     const state = this.runStateMachine.start(runId);
@@ -142,8 +155,17 @@ export class SessionManager {
       this.runStates.set(session.runId, newState);
     }
 
-    // Persist cancelled status to DB.
-    this.db.update(runs).set({ status: 'cancelled' }).where(eq(runs.runId, session.runId));
+    // Persist cancelled status to DB. .catch() triggers Promise resolution
+    // for fire-and-forget pattern (async/await deferred to DEF-001, Phase 3).
+    this.db
+      .update(runs)
+      .set({ status: 'cancelled' })
+      .where(eq(runs.runId, session.runId))
+      .catch((err: unknown) => {
+        if (process.env.ITESTAGENT_DEBUG) {
+          console.warn('[SessionManager] DB update (runs) failed:', err);
+        }
+      });
 
     // Clean up SSE subscribers for this session.
     this.sseHub.closeSession(sessionId);

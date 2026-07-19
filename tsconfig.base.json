@@ -21,7 +21,7 @@
     "jsxImportSource": "@opentui/solid",
     "noEmit": true
   },
-  "include": ["packages/**/*.ts", "packages/**/*.tsx"],
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "tests/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",

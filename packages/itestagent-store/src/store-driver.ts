@@ -21,6 +21,7 @@ const MIGRATIONS: [string, string][] = [
       run_id          TEXT NOT NULL UNIQUE,
       project_hash    TEXT NOT NULL REFERENCES projects(project_hash),
       target_kind     TEXT NOT NULL CHECK(target_kind IN ('physical', 'simulator')),
+      backend         TEXT,
       status          TEXT NOT NULL DEFAULT 'created',
       created_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
