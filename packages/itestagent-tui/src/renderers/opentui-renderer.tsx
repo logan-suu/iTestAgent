@@ -92,7 +92,7 @@ function InputBar(props: {
   );
 }
 
-// ─── 子组件：CandidateReviewPanel (US-3.3 AC2) ──────────────────────────
+// ─── Sub-component: CandidateReviewPanel (US-3.3 AC2) ─────────────────────
 
 function CandidateReviewPanel(props: {
   state: () => TuiShellState;
@@ -103,10 +103,19 @@ function CandidateReviewPanel(props: {
   const [cmd, setCmd] = createSignal('');
 
   const handleCommand = (value: string) => {
-    const key = value.trim();
+    if (!value) return;
+    const key = value === ' ' ? ' ' : value.trim();
     if (!key) return;
 
     if (s().candidateEditMode) {
+      if (key === 'enter') {
+        handleEditSubmit();
+        return;
+      }
+      if (key === 'escape') {
+        dispatch({ type: 'candidate_edit_cancel' });
+        return;
+      }
       for (const ch of key) {
         dispatch({ type: 'candidate_edit_input', text: s().candidateEditDraft + ch });
       }
@@ -208,26 +217,20 @@ function CandidateReviewPanel(props: {
           <text>{`Edit: "${candidates[idx]?.name ?? ''}" → `}</text>
           <text>{s().candidateEditDraft}</text>
         </box>
-        <box borderStyle="rounded" padding={1}>
-          <text opacity={0.5}>Type new name, then Enter to save</text>
-        </box>
       </Show>
 
-      <Show when={!s().candidateEditMode}>
-        <box borderStyle="rounded" padding={1} marginTop={1}>
-          <text
-            opacity={0.5}
-          >{`${candidates.filter((c) => c.confirmed).length}/${candidates.length} confirmed  `}</text>
+      <box borderStyle="rounded" padding={1} marginTop={1}>
+        <text
+          opacity={0.5}
+        >{`${candidates.filter((c) => c.confirmed).length}/${candidates.length} confirmed  `}</text>
+        <Show when={s().candidateEditMode}>
+          <text opacity={0.5}>Editing — type name, then Enter to save. Escape to cancel </text>
+        </Show>
+        <Show when={!s().candidateEditMode}>
           <text opacity={0.5}>Cmd: </text>
-          <input value={cmd()} onInput={handleCmdInput} placeholder="j/k/space/e/A/N/q" />
-        </box>
-      </Show>
-
-      <Show when={s().candidateEditMode}>
-        <box borderStyle="rounded" padding={1}>
-          <text opacity={0.5}>Enter text then type '!' to save edit</text>
-        </box>
-      </Show>
+        </Show>
+        <input value={cmd()} onInput={handleCmdInput} placeholder="j/k/space/e/A/N/q" />
+      </box>
     </box>
   );
 }

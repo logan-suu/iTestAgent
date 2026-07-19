@@ -32,14 +32,10 @@ export function getConfidenceLabel(confidence: number): string {
  * Example: "▰▰▰▰▰▰▱▱▱▱  0.75 High"
  */
 export function formatConfidenceBar(confidence: number, width = 10): string {
-  const tier = getConfidenceTier(confidence);
   const filled = Math.round(confidence * width);
   const empty = width - filled;
 
-  const block = tier === 'high' ? '▰' : tier === 'medium' ? '▰' : '▱';
-  const gap = tier === 'high' ? ' ' : tier === 'medium' ? ' ' : ' ';
-
-  const bar = block.repeat(filled) + '▱'.repeat(Math.max(0, empty));
+  const bar = '▰'.repeat(filled) + '▱'.repeat(Math.max(0, empty));
   return `${bar}  ${confidence.toFixed(2)} ${getConfidenceLabel(confidence)}`;
 }
 

@@ -182,8 +182,12 @@ function inferFeatures(
     }
   }
 
-  // Sort by confidence descending
+  // Sort by confidence descending, then pin display order
   features.sort((a, b) => b.confidence - a.confidence);
+
+  features.forEach((f, i) => {
+    f.displayOrder = i;
+  });
 
   return features;
 }
