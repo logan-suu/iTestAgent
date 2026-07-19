@@ -464,8 +464,8 @@
           "id": "2.5",
           "title": "Intent 解析（自然语言）",
           "story": "US-4.2",
-          "status": "ready",
-          "last_updated": "2026-07-19T22:15:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-19T23:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
@@ -474,7 +474,8 @@
             "1.2",
             "2.3"
           ],
-          "test_file": null
+          "test_file": "packages/itestagent-contracts/test/intent-schema.test.ts, packages/itestagent-engine/test/intent-parser.test.ts, packages/itestagent-tui/test/tui-intent.test.ts",
+          "notes": "PR #24: https://github.com/logan-suu/iTestAgent/pull/24 — IntentSchema Zod schemas (Scope/Intent/Clarification/CompleteResult/IncompleteResult), parseIntent keyword-based extraction in engine, TuiShell state integration with intent_parsed/clarify_response/cancel events, multi-turn clarification dialog support. G3 typecheck 0, lint 0. G4 694 tests pass."
         },
         {
           "id": "2.6",
@@ -556,6 +557,7 @@
           "title": "DeviceBackend mock 实现 + backend 选择框架",
           "story": null,
           "status": "ready",
+          "last_updated": "2026-07-19T17:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
@@ -587,7 +589,8 @@
           "id": "3.4",
           "title": "ContextBuilder：ProjectProfile/Intent/TestPlan/Run state 上下文组装",
           "story": null,
-          "status": "pending",
+          "status": "ready",
+          "last_updated": "2026-07-19T17:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"

@@ -12,6 +12,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "itestagent-contracts": "workspace:*"
+    "itestagent-contracts": "workspace:*",
+    "itestagent-project-analyzer": "workspace:*"
   }
 }

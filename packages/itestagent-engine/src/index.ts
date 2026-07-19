@@ -6,6 +6,8 @@ export {
 
 export { MockAgentRuntime } from './mock-agent-runtime.js';
 
+export { parseIntent } from './intent-parser.js';
+
 export type {
   ErrorLevel,
   StateChangeHandler,

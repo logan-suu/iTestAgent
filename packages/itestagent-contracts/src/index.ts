@@ -271,3 +271,22 @@ export type {
   RunResult,
   ArtifactIndex,
 } from './data-contracts.js';
+
+export {
+  ScopeSchema,
+  IntentSchema,
+  ClarificationSchema,
+  CompleteResultSchema,
+  IncompleteResultSchema,
+  IntentParseResultSchema,
+  parseIntentResult,
+} from './intent-schema.js';
+
+export type {
+  Scope,
+  Intent,
+  Clarification,
+  IntentParseResult,
+  CompleteResult,
+  IncompleteResult,
+} from './intent-schema.js';

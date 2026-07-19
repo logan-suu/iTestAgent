@@ -1,3 +1,4 @@
+import type { IntentParseResult } from 'itestagent-contracts';
 /**
  * TuiShell — framework-independent ViewModel, State, Event, and reducer.
  *
@@ -8,6 +9,7 @@
  *
  * US-4.1 AC1-AC3：itestagent 无参数进入 TUI，显示 workspace/设备状态/可输入自然语言。
  * US-3.3 AC2-AC4：candidate_review mode for user confirmation of core paths.
+ * US-4.2 AC1：multi-turn dialog with intent clarification.
  */
 import type { CandidateLink } from 'itestagent-project-analyzer';
 import {
@@ -46,6 +48,8 @@ export interface TuiShellState {
   readonly candidateIndex: number;
   readonly candidateEditMode: boolean;
   readonly candidateEditDraft: string;
+  /** Current intent parse result (US-4.2 AC1: multi-turn clarification). */
+  readonly currentIntent: IntentParseResult | null;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -67,7 +71,11 @@ export type TuiShellEvent =
   | { readonly type: 'candidate_edit_commit' }
   | { readonly type: 'candidate_edit_cancel' }
   | { readonly type: 'candidate_confirm_all' }
-  | { readonly type: 'candidate_unconfirm_all' };
+  | { readonly type: 'candidate_unconfirm_all' }
+  // Intent events (US-4.2 AC1)
+  | { readonly type: 'intent_parsed'; readonly result: IntentParseResult }
+  | { readonly type: 'intent_clarify_response'; readonly text: string }
+  | { readonly type: 'intent_cancel' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -87,6 +95,7 @@ export function createInitialState(workspace?: string): TuiShellState {
     candidateIndex: 0,
     candidateEditMode: false,
     candidateEditDraft: '',
+    currentIntent: null,
   };
 }
 
@@ -113,17 +122,21 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
 
     case 'submit': {
       const trimmed = state.inputDraft.trim();
-      if (!trimmed) return state; // 空提交不产生消息
+      if (!trimmed) return state;
       const msg: Message = {
         id: makeId(),
         type: 'user',
         text: trimmed,
         timestamp: Date.now(),
       };
+      // If submitting during active clarification (US-4.2 AC1: multi-turn),
+      // treat as clarification response and clear the pending intent.
+      const isClarificationResponse = state.currentIntent?.status === 'incomplete';
       return {
         ...state,
         messages: [...state.messages, msg],
         inputDraft: '',
+        currentIntent: isClarificationResponse ? null : state.currentIntent,
       };
     }
 
@@ -235,5 +248,41 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       const updated = unconfirmAllCandidates(state.candidates as CandidateLink[]);
       return { ...state, candidates: updated };
     }
+
+    // ── Intent events (US-4.2 AC1) ───────────────────────────
+
+    case 'intent_parsed': {
+      const next: TuiShellState = { ...state, currentIntent: event.result };
+      // For incomplete intents, append clarification questions as system messages
+      if (event.result.status === 'incomplete') {
+        const clarifications = event.result.clarificationsNeeded;
+        const msgs = clarifications.map((c) => ({
+          id: makeId(),
+          type: 'system' as const,
+          text: c.options ? `${c.question} [${c.options.join(' / ')}]` : c.question,
+          timestamp: Date.now(),
+        }));
+        return { ...next, messages: [...state.messages, ...msgs] };
+      }
+      return next;
+    }
+
+    case 'intent_clarify_response': {
+      // User explicitly responds to a clarification with a preset answer
+      const msg: Message = {
+        id: makeId(),
+        type: 'user',
+        text: event.text,
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        messages: [...state.messages, msg],
+        currentIntent: null,
+      };
+    }
+
+    case 'intent_cancel':
+      return { ...state, currentIntent: null };
   }
 }
