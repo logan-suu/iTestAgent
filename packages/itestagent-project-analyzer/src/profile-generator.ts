@@ -88,7 +88,7 @@ export async function generateProjectProfile(
   const features = inferFeatures(sourceFacts, graph.hasXCUITests);
 
   // AC1: suggestedSmoke — inferred from features (R4: candidate only)
-  const suggestedSmoke = inferSuggestedSmoke(features, sourceFacts);
+  const suggestedSmoke = inferSuggestedSmoke(features);
 
   return {
     schemaVersion: 'itestagent.project-profile.v1',
@@ -307,7 +307,7 @@ function isAccountRelated(name: string): boolean {
  * R4: These are suggestions, not automated decisions.
  * Picks features with confidence >= 0.5, plus "launch" as a universal baseline.
  */
-function inferSuggestedSmoke(features: FeatureCandidate[], _sourceFacts: unknown): string[] {
+function inferSuggestedSmoke(features: FeatureCandidate[]): string[] {
   const smoke: string[] = ['launch']; // Universal smoke baseline
 
   for (const f of features) {

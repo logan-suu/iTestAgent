@@ -247,9 +247,13 @@ describe('generateProjectProfile', () => {
     const profile = await generateProjectProfile(backend, '/fake/MyApp');
 
     for (let i = 1; i < profile.features.length; i++) {
-      const prev = profile.features[i - 1]!;
-      const curr = profile.features[i]!;
-      expect(prev.confidence).toBeGreaterThanOrEqual(curr.confidence);
+      const prev = profile.features[i - 1];
+      const curr = profile.features[i];
+      expect(prev).toBeDefined();
+      expect(curr).toBeDefined();
+      if (prev && curr) {
+        expect(prev.confidence).toBeGreaterThanOrEqual(curr.confidence);
+      }
     }
   });
 
