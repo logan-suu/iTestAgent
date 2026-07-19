@@ -481,8 +481,8 @@
           "id": "2.6",
           "title": "TestPlan 编译器（过 plan.yaml schema）",
           "story": "US-5.1",
-          "status": "in_progress",
-          "last_updated": "2026-07-20T02:15:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-20T03:30:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
@@ -492,7 +492,7 @@
             "2.5"
           ],
           "test_file": "packages/itestagent-contracts/test/test-plan.test.ts, packages/itestagent-engine/test/test-plan-compiler.test.ts",
-          "notes": "PR #25: https://github.com/logan-suu/iTestAgent/pull/25 — feat(engine): implement TestPlan compiler with Zod schemas. testPlanSchema contracts (TestPlan/ExecutionEnv/FeatureTest/FlowRef/TestData/Assertion/Metrics/Performance/CompilerInput/CompilerOutput). compileTestPlan() compiler function + TestPlanCompilerError. test-plan.schema.json updated to v2. G3: typecheck 0 err, lint 0. G4: 755 tests pass (100+ new)."
+          "notes": "PR #25: https://github.com/logan-suu/iTestAgent/pull/25 — Merged to dev-1.0 (2ec39b0). Zod TestPlan schema (DeviceSelector with ADR-011 kind+physical/simulator, PerformancePlan with baselineDomain) + compileTestPlan(Intent, Profile) compiler + YAML serialization via yaml package. JSON Schema updated for ADR-011 gap. 50 new tests. Review W-1/W-2 fixed in c695d84. G3 0/0, G4 758 tests pass."
         },
         {
           "id": "2.7",
