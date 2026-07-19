@@ -63,6 +63,16 @@ agent: build
 
 > PR 中可能有 CodeRabbit 等 AI 审查机器人或人工 reviewer 的评论。需逐条分析并处理。
 
+**决策流程**（每条评论按此顺序判定）：
+
+```
+评论 → 有无意义？
+  ├─ 无意义（噪声/限额告警/误报） → hide（选择合适的 reason）
+  └─ 有意义 → 是否需要延后解决？
+       ├─ 延后 → 评论 "Deferred" + 写入 deferred-items.json + resolve
+       └─ 不延后 → 立刻修复 → 验证通过 → resolve conversation
+```
+
 1. **获取所有评论**：
    ```bash
    gh pr view {PR编号} --json comments,reviews
@@ -80,17 +90,21 @@ agent: build
 3. **处理合理的评论（按严重度分流）**：
 
    **a) 合理且立即修复（🔴/🟠 级别）**：
-   - 按评论建议修复代码
-   - 运行 `bun run typecheck && bun run lint && bun test` 验证
-   - 提交修复并推送
-   - 回复评论说明修复内容（**R12：回复必须用英文**）
-   - **Resolve conversation**（标记为已解决）：
+    - 按评论建议修复代码
+    - 运行 `bun run typecheck && bun run lint && bun test` 验证
+    - **验证通过后** → 提交修复并推送
+    - 回复评论说明修复内容（**R12：回复必须用英文**）
+    - **Resolve conversation**（标记为已解决，必须在修复 commit 已推送后执行）：
      ```bash
      gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
      ```
 
    **b) 合理但延期修复（🟡 Minor / Phase 后续）**：
-   - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
+    - **在该评论 thread 下回复 `Deferred`**（明确标记为延期，R12：回复必须用英文）：
+      ```
+      Deferred — tracked as DEF-NNN (target_phase: N). Will be addressed when the dependency is in place.
+      ```
+    - **必须在 `docs/05-planning/deferred-items.json` 留档追踪**：
      - 新增条目到 `items` 数组，**必须保存完整上下文**，避免日后遗忘：
        ```json
        {
@@ -116,27 +130,39 @@ agent: build
    - 如评论不阻塞当前合并，resolve conversation
 
 4. **处理不合理的评论（❌）**：
-   - 无意义的评论（WAL 模式误报、工具链版本差异误判等）→ **hide**
-   - 选择合适的 reason：
-     | Reason | 适用场景 |
-     |---|---|
-     | `OUTDATED` | 评论引用的代码已不存在或已更新 |
-     | `RESOLVED` | 评论的问题已在代码中正确处理 |
-     | `DUPLICATE` | 评论内容与已有评论重复 |
-   - **获取 GraphQL node ID**（hide 需要 GraphQL ID，非 REST API 的 databaseId）：
-     ```bash
-     gh api graphql -f query='
-     query { repository(owner:"REPO_OWNER", name:"REPO_NAME") {
-       pullRequest(number:PR_NUMBER) {
-         reviews(first:5) { nodes { comments(first:20) { nodes { databaseId id bodyText } } } }
-       }
-     }}' --jq '.data.repository.pullRequest.reviews.nodes[].comments.nodes[]'
-     ```
-   - **Hide comment**：
-     ```bash
-     gh api graphql -f query='mutation { minimizeComment(input: {subjectId: "NODE_ID", classifier: OUTDATED}) { minimizedComment { isMinimized } } }'
-     ```
-   - 如果无法 hide（权限不足），回复说明不采纳的理由并 resolve conversation
+    - 无意义的评论（rate-limit 噪声、WAL 模式误报、工具链版本差异误判等）→ **hide**
+    - 选择合适的 reason：
+      | Reason | 适用场景 |
+      |---|---|
+      | `OUTDATED` | 评论引用的代码已不存在或已更新 |
+      | `RESOLVED` | 评论的问题已在代码中正确处理 |
+      | `DUPLICATE` | 评论内容与已有评论重复 |
+      | `OFF_TOPIC` | 完全无关的自动消息（如审查限额告警） |
+    - **获取 GraphQL node ID**（hide 需要 GraphQL ID，非 REST API 的 databaseId）：
+      - 线内评论（review comments）：
+        ```bash
+        gh api graphql -f query='
+        query { repository(owner:"OWNER", name:"REPO") {
+          pullRequest(number:N) {
+            reviews(first:5) { nodes { comments(first:20) { nodes { databaseId id bodyText } } } }
+          }
+        }}'
+        ```
+      - PR 级评论（issue comments）：
+        ```bash
+        gh api graphql -f query='
+        query { repository(owner:"OWNER", name:"REPO") {
+          pullRequest(number:N) {
+            comments(first:20) { nodes { databaseId id author { login } bodyText } }
+          }
+        }}'
+        ```
+    - **Hide comment**：
+      ```bash
+      gh api graphql -f query='mutation { minimizeComment(input: {subjectId: "NODE_ID", classifier: OUTDATED}) { minimizedComment { isMinimized } } }'
+      ```
+    - 如果无法 hide（权限不足），回复说明不采纳的理由并 resolve conversation
+    - **注意**：CodeRabbit 的 nitpick 类评论可能以 review body 摘要形式出现，非独立线程。此类评论经综合评估后统一在审查报告中处理，无需逐条 hide。
 
 5. **输出评论处理报告**：
    ```markdown

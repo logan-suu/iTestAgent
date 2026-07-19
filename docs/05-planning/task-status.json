@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-19T12:00:00.000Z",
+  "last_updated": "2026-07-19T16:30:00.000Z",
   "current_phase": 2,
   "phases": [
     {
@@ -292,7 +292,7 @@
             "0.6"
           ],
           "test_file": null,
-          "notes": "✅ PR #13 merged to dev-1.0. 6 physical readiness checks: Xcode, CLT, Appium, WDA, Code Signing, Physical Device. Each returns pass/fail/manual with fixGuide. runDoctor() orchestrator: failures do not interrupt (US-1.2 AC3). formatDoctorReport() with ANSI terminal output. 17 files, +1065/-8. 15 new tests. typecheck + lint + 277 tests pass. W-1 (extract shared exec()) and W-2 (remove dead HOME fallback) fixed per review.",
+          "notes": "✅ PR #13 merged to dev-1.0. 6 physical readiness checks: Xcode, CLT, Appium, WDA, Code Signing, Physical Device. Each returns pass/fail/manual with fixGuide. runDoctor() orchestrator: failures do not interrupt (US-1.2 AC3). formatDoctorReport() with ANSI terminal output. 17 files, +1065/-8. 15 new tests. typecheck + lint + 277 tests pass. W-1 (extract shared exec()) and W-2 (remove dead HOME fallback) fixed per review."
         },
         {
           "id": "1.12",
@@ -400,7 +400,8 @@
           "id": "2.1",
           "title": "工程结构解析：XcodeProj + xcodebuild -list/-showBuildSettings",
           "story": "US-3.1",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-19T17:45:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md"
@@ -408,7 +409,8 @@
           "dependencies": [
             "1.9"
           ],
-          "test_file": null
+          "test_file": "packages/itestagent-backends/analyzer-xcodeproj/test/",
+          "notes": "PR #20: https://github.com/logan-suu/iTestAgent/pull/20 — Implemented XcodeProjAnalyzerBackend deterministic layer: discover (xcodebuild -list -json), graph (self-contained pbxproj parser), buildSettings (xcodebuild -showBuildSettings). 6 source files + 6 test files (42 tests). Dependencies: zero external (xcodebuild CLI + self-contained pbxproj parser). Review: R12 Chinese comments fixed, parseListText bug fixed, dependencyTargetUuids→dependencyTargetNames renamed. Deferred: DEF-005(graph integration), DEF-006(indirect dep fixture), DEF-007(indirect dep test) → Phase 2.2. scanSources/scanResources deferred to task 2.2. G3 typecheck/lint 0 err, G4 553 tests all green. Awaiting human merge to dev-1.0."
         },
         {
           "id": "2.2",

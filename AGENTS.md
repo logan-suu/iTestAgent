@@ -46,7 +46,8 @@
 | | `docs/decisions/ADR-010-agent-harness-runtime-boundary.md` | Harness 边界：自研/复用/禁止 |
 | **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
-| **实现 Project Analyzer** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer |
+| **实现 Project Analyzer / ProjectAnalyzerBackend** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer、§5.4 ProjectAnalyzerBackend |
+| | `docs/02-architecture/技术选型文档.md` | §10 项目分析技术栈 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §5 AI 过度自信 |
 | **实现 doctor / devices** | `docs/01-spec/全量用户故事与验收标准规格书.md` | E1/E2 |
 | | `docs/03-implementation/开发避坑与关键注意点手册.md` | §3 真机/签名/backend |

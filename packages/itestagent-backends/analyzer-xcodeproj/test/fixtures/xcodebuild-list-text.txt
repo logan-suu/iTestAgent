@@ -1,0 +1,13 @@
+Information about project "MyApp":
+    Targets:
+        MyApp
+        MyAppTests
+        MyAppUITests
+    Build Configurations:
+        Debug
+        Release
+    If no build configuration is specified and -scheme is not passed then "Release" is used.
+    Schemes:
+        MyApp
+        MyAppTests
+        MyAppUITests
