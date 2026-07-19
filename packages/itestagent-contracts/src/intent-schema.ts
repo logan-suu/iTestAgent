@@ -46,6 +46,8 @@ export type Scope = z.infer<typeof ScopeSchema>;
 export const IntentSchema = z.object({
   /** Denoised testing goal, e.g., "run login smoke test" */
   goal: z.string().min(1),
+  /** Human-readable target description (e.g., "my iPhone", "iPhone Simulator") */
+  targetHint: z.string().optional(),
   /** Execution target kind; missing means clarification is needed */
   targetKind: TargetKindSchema.optional(),
   /** Device hint from user input */

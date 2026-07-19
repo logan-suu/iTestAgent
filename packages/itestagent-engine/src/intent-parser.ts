@@ -1,4 +1,4 @@
-import type { Clarification, Intent, IntentParseResult } from 'itestagent-contracts';
+import type { Clarification, Intent, IntentParseResult, Scope } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
 
 /**
@@ -96,8 +96,6 @@ function extractTargetKind(normalized: string): 'physical' | 'simulator' | undef
   }
   return undefined;
 }
-
-type Scope = 'smoke' | 'explore' | 'full' | 'perf' | 'custom';
 
 const SCOPE_PATTERNS: Array<{ scope: Scope; keywords: string[] }> = [
   { scope: 'explore', keywords: ['explore', '探索'] },
@@ -246,7 +244,7 @@ function buildClarifications(intent: Intent, profile?: ProjectProfile): Clarific
   const clarifications: Clarification[] = [];
 
   // targetKind: required for smoke/full/perf, optional for explore/custom
-  const REQUIRES_TARGET = ['smoke', 'full', 'perf'] as string[];
+  const REQUIRES_TARGET: Scope[] = ['smoke', 'full', 'perf'];
   if (!intent.targetKind && REQUIRES_TARGET.includes(intent.scope)) {
     clarifications.push({
       question: '你想在什么设备上测试？',
@@ -256,7 +254,7 @@ function buildClarifications(intent: Intent, profile?: ProjectProfile): Clarific
   }
 
   // features: only when profile is available and scope is smoke/full and no features matched
-  const REQUIRES_FEATURES = ['smoke', 'full'] as string[];
+  const REQUIRES_FEATURES: Scope[] = ['smoke', 'full'];
   if (profile && intent.features.length === 0 && REQUIRES_FEATURES.includes(intent.scope)) {
     const candidateNames = profile.features.slice(0, 5).map((f) => f.name);
     if (candidateNames.length > 0) {
