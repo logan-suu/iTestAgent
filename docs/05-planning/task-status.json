@@ -546,7 +546,7 @@
           "id": "3.2",
           "title": "DeviceBackend mock 实现 + backend 选择框架",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
