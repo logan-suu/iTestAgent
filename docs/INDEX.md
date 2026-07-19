@@ -103,7 +103,8 @@
 | **itestagent-tui** | 核心产品界面 / 交互式 Agent Shell（OpenTUI/Ink） | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-engine** | 编排引擎 / Agent 循环 / 权限引擎 / RunStateMachine / ToolDispatcher / ContextBuilder / TestPlan 编译 / 失败归因（ADR-010；runner 为内部运行角色，非独立包） | `02-architecture/架构设计文档.md` §3 |
 | **itestagent-server** | 本地运行时服务 / SessionManager / SSE / subprocess controller | `02-architecture/架构设计文档.md` §3 |
-| **itestagent-project-analyzer** | 项目分析 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-project-analyzer** | 项目分析编排 / Project Profile 生成 / 候选核心链路 | `02-architecture/架构设计文档.md` §3 |
+| **itestagent-backends/analyzer-xcodeproj** | ProjectAnalyzerBackend 实现：xcodebuild 封装 + 自研 pbxproj 解析（discover / graph / buildSettings） | `02-architecture/架构设计文档.md` §5.4 |
 | **DeviceBackend** | 真机与 Simulator 操作统一接口（listDevices/launchApp/tap/截图/UI tree） | `02-architecture/架构设计文档.md` §5.1 |
 | **itestagent-store** | SQLite+Drizzle + 文件系统 + 报告 | `02-architecture/架构设计文档.md` §3 |
 
@@ -119,7 +120,7 @@
 | 工具协议 | MCP TypeScript SDK | `02-architecture/技术选型文档.md` §7 |
 | 存储 | SQLite + Drizzle + 文件系统 + JSONC 配置 | `02-architecture/技术选型文档.md` §8 |
 | 设备执行 | DeviceBackend（Appium-WDA(physical+simulator) / mobile-mcp / iphone-use） | `02-architecture/技术选型文档.md` §9 |
-| 项目分析 | XcodeProj + swift-syntax + sourcekit-lsp/SourceKitten | `02-architecture/技术选型文档.md` §10 |
+| 项目分析 | analyzer-xcodeproj（xcodebuild + 自研 pbxproj 解析）+ swift-syntax（待实现） | `02-architecture/技术选型文档.md` §10 |
 | 性能采集 | xcrun xctrace / XCTest metrics / xcresultparser / xcparse | `02-architecture/技术选型文档.md` §11 |
 | 辅助 | fastlane（签名/构建）/ xcbeautify（日志） | `02-architecture/技术选型文档.md` §9 |
 

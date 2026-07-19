@@ -116,27 +116,39 @@ agent: build
    - 如评论不阻塞当前合并，resolve conversation
 
 4. **处理不合理的评论（❌）**：
-   - 无意义的评论（WAL 模式误报、工具链版本差异误判等）→ **hide**
-   - 选择合适的 reason：
-     | Reason | 适用场景 |
-     |---|---|
-     | `OUTDATED` | 评论引用的代码已不存在或已更新 |
-     | `RESOLVED` | 评论的问题已在代码中正确处理 |
-     | `DUPLICATE` | 评论内容与已有评论重复 |
-   - **获取 GraphQL node ID**（hide 需要 GraphQL ID，非 REST API 的 databaseId）：
-     ```bash
-     gh api graphql -f query='
-     query { repository(owner:"REPO_OWNER", name:"REPO_NAME") {
-       pullRequest(number:PR_NUMBER) {
-         reviews(first:5) { nodes { comments(first:20) { nodes { databaseId id bodyText } } } }
-       }
-     }}' --jq '.data.repository.pullRequest.reviews.nodes[].comments.nodes[]'
-     ```
-   - **Hide comment**：
-     ```bash
-     gh api graphql -f query='mutation { minimizeComment(input: {subjectId: "NODE_ID", classifier: OUTDATED}) { minimizedComment { isMinimized } } }'
-     ```
-   - 如果无法 hide（权限不足），回复说明不采纳的理由并 resolve conversation
+    - 无意义的评论（rate-limit 噪声、WAL 模式误报、工具链版本差异误判等）→ **hide**
+    - 选择合适的 reason：
+      | Reason | 适用场景 |
+      |---|---|
+      | `OUTDATED` | 评论引用的代码已不存在或已更新 |
+      | `RESOLVED` | 评论的问题已在代码中正确处理 |
+      | `DUPLICATE` | 评论内容与已有评论重复 |
+      | `OFF_TOPIC` | 完全无关的自动消息（如审查限额告警） |
+    - **获取 GraphQL node ID**（hide 需要 GraphQL ID，非 REST API 的 databaseId）：
+      - 线内评论（review comments）：
+        ```bash
+        gh api graphql -f query='
+        query { repository(owner:"OWNER", name:"REPO") {
+          pullRequest(number:N) {
+            reviews(first:5) { nodes { comments(first:20) { nodes { databaseId id bodyText } } } }
+          }
+        }}'
+        ```
+      - PR 级评论（issue comments）：
+        ```bash
+        gh api graphql -f query='
+        query { repository(owner:"OWNER", name:"REPO") {
+          pullRequest(number:N) {
+            comments(first:20) { nodes { databaseId id author { login } bodyText } }
+          }
+        }}'
+        ```
+    - **Hide comment**：
+      ```bash
+      gh api graphql -f query='mutation { minimizeComment(input: {subjectId: "NODE_ID", classifier: OUTDATED}) { minimizedComment { isMinimized } } }'
+      ```
+    - 如果无法 hide（权限不足），回复说明不采纳的理由并 resolve conversation
+    - **注意**：CodeRabbit 的 nitpick 类评论可能以 review body 摘要形式出现，非独立线程。此类评论经综合评估后统一在审查报告中处理，无需逐条 hide。
 
 5. **输出评论处理报告**：
    ```markdown
