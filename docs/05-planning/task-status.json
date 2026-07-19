@@ -448,8 +448,8 @@
           "id": "2.4",
           "title": "候选核心链路：证据+置信度 + TUI 勾选确认",
           "story": "US-3.3",
-          "status": "in_progress",
-          "last_updated": "2026-07-19T23:00:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-19T23:30:00.000Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -458,7 +458,7 @@
             "2.3"
           ],
           "test_file": "packages/itestagent-tui/test/candidate-review.test.ts, packages/itestagent-tui/test/tui-shell-candidate.test.ts",
-          "notes": "PR #23: https://github.com/logan-suu/iTestAgent/pull/23 — candidate-review.ts (evidence display, confidence badges, user confirmation flow), tui-shell integration, opentui-renderer candidate cards. Project-analyzer exports candidate link types. 21 new tests. G3 typecheck 0, lint 0. G4 651 tests pass. R4 compliant: candidates+evidence only, no auto-determination. Awaiting human merge to dev-1.0."
+          "notes": "PR #23: https://github.com/logan-suu/iTestAgent/pull/23 — Merged to dev-1.0 (60faae9). CandidateLink schema (confirmed+displayOrder), CandidateReviewPanel TUI component (scrollbox+command bar), 65 pure functions + reducer tests. G3 typecheck 0, lint 0. G4 651 tests pass. R4 compliant."
         },
         {
           "id": "2.5",
