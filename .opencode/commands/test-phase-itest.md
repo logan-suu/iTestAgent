@@ -1,48 +1,76 @@
 ---
-description: 执行当前阶段的集成测试任务（作为正式任务，验证该阶段所有测试全部通过后走分支→PR流程）
+description: 当前 Phase 的集成测试 — 生成、审查完整性、补全缺口、运行回归
 agent: build
 ---
 
-## 🔗 阶段验收测试（正式任务）
+## 🔗 Phase 集成测试（当前阶段专用）
 
-阶段验收测试是每个 Phase 的最后一个正式任务（如 0.4、Phase 1 的集成测试等），遵循与其他任务完全相同的 EPCC-V 开发流程。
+此命令只关注**当前 Phase** 的跨包集成测试。累进全量回归请用 `test-integration-itest`。
 
-### 第一步：定位阶段验收任务
-1. 读取 `docs/05-planning/task-status.json`。
-2. 确定目标阶段：
-   - 如果用户指定了阶段 ID（如 `test-phase-itest 2`），以用户指定的为准。
-   - 如果未指定，使用 `current_phase`。
-3. 找到该阶段任务列表中 ID 最大的那个任务——即验收/集成测试任务。
+### 第一步：定位当前 Phase
 
-### 第二步：状态检查与分流
-检查该验收任务的状态：
+1. 读取 `docs/05-planning/task-status.json`，获取 `current_phase`。
+2. 读取 `docs/INDEX.md` 建立全局文档认知。
 
-| 状态 | 行为 |
-|---|---|
-| `pending` | 前置任务尚未全部完成。列出未完成的前置任务，提示用户先完成。 |
-| `ready` | 前置任务全部 `done`，任务就绪。**调用 `do-task-itest {id}` 执行标准流程**。 |
-| `in_progress` | 任务正在执行中。显示当前进度。 |
-| `done` | 阶段验收已通过。报告结果，提示阶段完成。 |
+### 第二步：检查集成测试目录
 
-### 第三步：执行（仅当 status=ready）
-调用 `do-task-itest {验收任务ID}`，按 EPCC-V 流程执行：
-1. Explore：查阅文档并引用原文
-2. Plan：输出实现计划，等用户确认
-3. Code + Check：编写验收/集成测试用例，TDD 增量实现
-   - 集成测试文件放在 `tests/integration/phase{N}-*.test.ts`（AGENTS.md §10 测试文件存放约定）
-   - 在 task-status.json 的 `test_file` 字段记录测试文件路径
-4. **累积回归检查**：
-   - 运行 `bun test` 验证该阶段所有单元测试 **全部通过**
-   - 同时运行 `bun run typecheck && bun run lint`
-   - 确保新阶段不会破坏已交付阶段
-5. **保持任务 `status` 为 `in_progress`**（PR 合并后才设为 `done`，由 `pr-merge-itest` 命令处理）
+3. 检查 `tests/integration/phase{current_phase}/` 目录是否存在。
+4. 如果目录**不存在**：创建目录，**跳到第五步**（生成集成测试）。
+5. 如果目录**已存在**：列出所有 `.test.ts` 文件，**进入第三步**（审查完整性）。
 
-### ⚠️ 质量门禁（G1-G7，不可跳过）
-- G1 规格一致、G2 契约校验、G3 静态检查、G4 测试通过 **全部满足**
-- G5 真机验证（涉及真机能力必须真机 spike 实测）
-- G6 证据留档、G7 安全合规
+### 第三步：审查现有集成测试完整性
 
-### 第四步：完成后
-- PR 合并后（经 `pr-merge-itest`），更新 `docs/05-planning/task-status.json`：阶段 `status` → `done`，`current_phase` 推进到下一阶段
-- `pr-merge-itest` 会自动检查 `docs/05-planning/deferred-items.json` 中该阶段的延期待办（阶段出口门禁）
-- 询问用户是否执行 `next-task-itest` 开始下一阶段
+6. 读取 `docs/05-planning/task-status.json` 中当前 Phase 的所有已完成任务。
+7. 读取每个已完成任务的 `notes` 字段，了解模块职责和关键 API。
+8. 列出当前 Phase **所有已有的跨包交互链路**（基于各包 public API 和任务依赖关系）。
+9. 对比现有测试文件覆盖的链路，标记缺失项。
+
+### 第四步：补全缺口
+
+10. 对每个缺失链路，编写新测试或扩展现有文件。按优先级：
+    - **P0**：核心编排链路（如 SessionManager→RSM→SSEHub→DB）
+    - **P1**：各 Backend 接口 + 真实实现
+    - **P2**：类型/契约验证（schema round-trip）
+
+11. **测试失败处理红线**：
+    - ❌ 禁止弱化断言或 mock 绕过真实代码来让测试通过
+    - ✅ 必须分析业务代码和测试代码两边逻辑，判定根因在哪边
+    - 业务代码 bug → 修复业务代码
+    - 测试逻辑有误 → 修正测试
+    - 测试环境限制 → 显式标注 `.skip(reason)` 并记录
+
+12. 真实依赖优先：`createDb` / `createServer` / `Bun.spawn` / 文件系统。mock 需在文件头部显式说明原因。
+
+### 第五步：生成集成测试（目录不存在时）
+
+13. 遍历当前 Phase 所有已完成任务，提取跨包交互。
+14. 按 P0→P1→P2 优先级生成测试文件，命名 `phase{N}-{name}.test.ts`。
+
+### 第六步：运行当前 Phase 测试
+
+15. 类型检查：`bun run typecheck`
+16. Lint：`bun run lint`
+17. 当前 Phase 集成测试：`bun test tests/integration/phase{current_phase}/`
+18. 输出报告：
+    ```
+    ## 🔗 Phase {N} 集成测试
+    | 指标 | 结果 |
+    | --- | --- |
+    | Phase {N} 集成测试 | X pass / Y fail |
+    | 类型检查 | ✅/❌ |
+    | Lint | ✅/❌ |
+    | 跨包链路覆盖 | X/Y (P0: A/Y1, P1: B/Y2, P2: C/Y3) |
+    ```
+
+### 第七步：更新任务状态
+
+19. 如果当前 Phase 的集成测试任务（如 `1.16`）存在且为 `ready`：
+    - 更新 `status` → `in_progress`
+    - 在 `notes` 中记录测试文件列表和测试数量
+20. 任务保持 `in_progress`，等待 `commit-pr-itest`。
+
+### 第八步：后续操作
+
+- **全部通过** → `commit-pr-itest` 提交
+- **部分失败** → 分析根因，修复后重跑
+- **覆盖率不足** → 列出缺失链路，继续补全

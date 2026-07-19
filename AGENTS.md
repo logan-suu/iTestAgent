@@ -490,7 +490,10 @@ schemas/ (project-profile, test-plan, result, artifact-index, flow, config)
 fixtures/ (device-responses, mobile-mcp, appium, xctrace, xcresult)
 mocks/ (mock backends — 约定：mock 实现放在 packages/itestagent-backends/)
 tests/
-  integration/                    (跨包集成测试 phase{N}-*.test.ts，Phase 验收级)
+  integration/                    (跨包集成测试，按 Phase 分目录)
+    cross-phase/                  (跨 Phase 联调，Phase N 不破坏 Phase N-1)
+    phase1/                       (Phase 1 跨包集成测试)
+    phase2/...                    (后续 Phase 集成测试)
 docs/01-spec/                  (规格与需求)
 docs/02-architecture/          (架构设计与技术选型)
 docs/03-implementation/        (避坑手册)
@@ -503,7 +506,8 @@ AGENTS.md
 
 测试文件存放约定：
 - 单元测试：各包内 `packages/<pkg>/test/*.test.ts`（测试本包内部逻辑，Bun 自动发现）
-- 集成测试：`tests/integration/phase{N}-*.test.ts`（跨包联调，Phase 验收级）
+- 集成测试：`tests/integration/phase{N}/phase{N}-*.test.ts`（跨包联调，Phase 验收级）
+- 跨 Phase 联调：`tests/integration/cross-phase/*.test.ts`（累进验证，Phase N 不破坏 Phase N-1）
 - 测试数据：`fixtures/`（跨包共享）
 - Mock backends：`packages/itestagent-backends/`（mock 实现）
 - 各包 `src/` 目录只放生产代码，`test/` 目录只放测试代码

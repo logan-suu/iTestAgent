@@ -178,7 +178,10 @@ iTestAgent/
 ├── schemas/               # JSON Schema（config/project-profile/test-plan/result/artifact-index/flow）
 ├── fixtures/              # 测试数据（device-responses/mobile-mcp/appium/xctrace/xcresult）
 ├── tests/
-│   └── integration/       # 跨包集成测试（Phase 验收级）
+│   └── integration/          # 跨包集成测试
+│       ├── cross-phase/      # 跨 Phase 联调（Phase N 不破坏 Phase N-1）
+│       ├── phase1/           # Phase 1 跨包集成测试
+│       └── phase2/...        # 后续 Phase 集成测试
 └── docs/
     ├── INDEX.md
     ├── 01-spec/            # 规格与需求
