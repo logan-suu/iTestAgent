@@ -1,0 +1,8 @@
+{
+  "project": {
+    "name": "MyApp",
+    "schemes": ["MyApp", "MyAppTests", "MyAppUITests"],
+    "configurations": ["Debug", "Release"],
+    "targets": ["MyApp", "MyAppTests", "MyAppUITests"]
+  }
+}
