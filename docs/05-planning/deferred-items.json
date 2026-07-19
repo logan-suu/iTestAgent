@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-19T17:30:00.000Z",
+  "last_updated": "2026-07-19T23:45:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -114,6 +114,22 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-19T17:30:00.000Z"
+    },
+    {
+      "id": "DEF-008",
+      "source": "CodeRabbit",
+      "pr": 23,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/23",
+      "comment_id": 3610674741,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/23#discussion_r3610674741",
+      "task": "2.4",
+      "severity": "major",
+      "item": "SolidJS reactivity: CandidateReviewPanel reads candidates/idx outside tracking scope",
+      "detail": "In opentui-renderer.tsx CandidateReviewPanel, const candidates = s().candidates and const idx = s().candidateIndex are read once in the component body (outside JSX tracking scope). Subsequent state changes from toggle/navigate/reorder events won't reflect in the UI — the For each list, selection highlight, confirmed count, and edit preview all use stale values. Fix: either access s().candidates / s().candidateIndex directly in JSX expressions (reactive through Solid's auto-tracking), or wrap them in createMemo(() => s().candidates). Also consider adding eslint-plugin-solid to the project to catch future reactivity violations statically. Deferred to Phase 3 when the TUI renderer is refactored for real backend-driven state updates.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-19T23:30:00.000Z"
     }
   ]
 }
