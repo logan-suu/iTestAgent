@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-19T23:45:00.000Z",
+  "last_updated": "2026-07-19T23:50:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -130,6 +130,38 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-19T23:30:00.000Z"
+    },
+    {
+      "id": "DEF-009",
+      "source": "Sisyphus (PR review)",
+      "pr": 24,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/24",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "2.5",
+      "severity": "minor",
+      "item": "Intent.features uses required empty-array instead of optional per data flow doc",
+      "detail": "Data Flow Specification §4 defines Intent fields as { goal, targetHint, targetKind?, deviceHint, features?, metricsHint?, scope }. Current IntentSchema declares features as z.array(z.string()) (required, defaults to []) rather than z.array(z.string()).optional(). Rationale: an empty array semantically means 'no features matched' which is equivalent to 'not specified' and simplifies parser logic. Revisit in Phase 3 when the Intent schema is integrated with LLM-based parsing (task 3.8) — the optional form may be more appropriate for LLM tool-calling marshalling.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-19T23:50:00.000Z"
+    },
+    {
+      "id": "DEF-010",
+      "source": "Sisyphus (PR review)",
+      "pr": 24,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/24",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "2.5",
+      "severity": "minor",
+      "item": "Intent uses metricsRequested (boolean) instead of metricsHint? (string) per data flow doc",
+      "detail": "Data Flow Specification §4 defines metricsHint? as an optional string field. Current implementation uses metricsRequested: z.boolean(). Rationale: boolean is simpler for the rule-based parser — it only needs to know yes/no whether metrics were requested. A hint string would be more appropriate for LLM-based parsing (task 3.8) where the LLM could produce richer signals like 'fps+hitches' vs 'memory only'. Revisit in Phase 3 to either rename to metricsHint or add both fields.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-19T23:50:00.000Z"
     }
   ]
 }
