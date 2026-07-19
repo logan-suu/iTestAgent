@@ -448,7 +448,8 @@
           "id": "2.4",
           "title": "候选核心链路：证据+置信度 + TUI 勾选确认",
           "story": "US-3.3",
-          "status": "pending",
+          "status": "ready",
+          "last_updated": "2026-07-19T22:15:00.000Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
