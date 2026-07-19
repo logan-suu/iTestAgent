@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import type { Stats } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import type { ResourceFacts, ResourceScanInput } from 'itestagent-contracts';
 import { collectFiles, isIgnored, loadGitignore } from './gitignore.js';
 
@@ -68,7 +68,7 @@ function findXcassetsDirectories(
       const fullPath = join(dir, entry);
 
       // Check if ignored
-      const relPath = fullPath.slice(root.length + 1);
+      const relPath = relative(root, fullPath);
       if (isIgnored(relPath, gitignoreRules)) continue;
 
       // Skip hidden dirs

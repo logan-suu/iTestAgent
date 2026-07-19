@@ -12,7 +12,8 @@ import { join, relative, sep } from 'node:path';
  *   - Leading / for anchored patterns
  *
  * Used by scanSources and scanResources to honor AC3:
- * "默认不读取 .gitignore 命中项、secrets、DerivedData 等敏感/无关文件"
+ * "Default exclusion: do not read .gitignore matches, secrets, DerivedData,
+ * or other sensitive/irrelevant files."
  */
 export interface GitignoreRule {
   /** The raw pattern text */
@@ -26,8 +27,7 @@ export interface GitignoreRule {
 /** Hardcoded patterns always excluded regardless of .gitignore */
 const DEFAULT_DENY_PATTERNS = [
   'DerivedData/',
-  '*.xcworkspace/xcuserdata/',
-  '*.xcodeproj/xcuserdata/',
+  '**/xcuserdata/',
   'Pods/',
   '.build/',
   '.swiftpm/',
@@ -37,6 +37,13 @@ const DEFAULT_DENY_PATTERNS = [
   '*.dSYM.zip',
   '*.dSYM/',
 ];
+
+/** Pre-compiled regexes for default deny patterns. */
+const DEFAULT_DENY_REGEXES: RegExp[] = DEFAULT_DENY_PATTERNS.map((p) => {
+  const isDir = p.endsWith('/');
+  const trimmed = isDir ? p.slice(0, -1) : p;
+  return patternToRegex(trimmed, isDir);
+});
 
 /**
  * Compile a gitignore-style pattern into a RegExp for matching file paths.
@@ -188,13 +195,12 @@ export function loadGitignore(root: string): GitignoreRule[] | null {
  *
  * Path must be relative to the project root.
  *
- * AC3: 默认不读取 .gitignore 命中项、secrets、DerivedData 等敏感/无关文件
+ * AC3: Default exclusion — do not read .gitignore matches, secrets,
+ * DerivedData, or other sensitive/irrelevant files.
  */
 export function isIgnored(relPath: string, gitignoreRules: GitignoreRule[] | null): boolean {
   // Step 1: Check default deny patterns (always excluded)
-  for (const pattern of DEFAULT_DENY_PATTERNS) {
-    const p = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern;
-    const regex = new RegExp(`(?:^|/)${escapeRegex(p)}(?:/.*)?$`);
+  for (const regex of DEFAULT_DENY_REGEXES) {
     if (regex.test(relPath)) {
       return true;
     }
@@ -214,13 +220,6 @@ export function isIgnored(relPath: string, gitignoreRules: GitignoreRule[] | nul
   }
 
   return ignored;
-}
-
-/**
- * Escape a string for use in a RegExp literal.
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
