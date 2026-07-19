@@ -48,19 +48,49 @@
     }
   },
   "$defs": {
-    "DeviceSelector": {
+    "PhysicalDeviceSelector": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "selector": {
           "type": "string",
           "enum": ["local_connected", "by_udid", "by_name"],
-          "description": "Device selection strategy. MVP: local_connected."
+          "description": "Physical device selection strategy."
         },
         "udid": { "type": "string" },
         "name": { "type": "string" }
       },
       "required": ["selector"]
+    },
+    "SimulatorDeviceSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "type": "string",
+          "enum": ["booted", "by_udid", "by_name", "create_from_profile"],
+          "description": "Simulator device selection strategy."
+        },
+        "udid": { "type": "string" },
+        "name": { "type": "string" },
+        "runtimeIdentifier": { "type": "string", "description": "e.g. com.apple.CoreSimulator.SimRuntime.iOS-18-2" },
+        "deviceTypeIdentifier": { "type": "string", "description": "e.g. com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro" }
+      },
+      "required": ["selector"]
+    },
+    "DeviceSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["physical", "simulator"],
+          "description": "ADR-011: Target execution kind (physical device or iOS Simulator)."
+        },
+        "physical": { "$ref": "#/$defs/PhysicalDeviceSelector" },
+        "simulator": { "$ref": "#/$defs/SimulatorDeviceSelector" }
+      },
+      "required": ["kind"]
     },
     "BackendPreference": {
       "type": "object",
@@ -190,9 +220,14 @@
           "enum": ["local_auto", "skip"],
           "description": "local_auto: first successful run establishes baseline (ADR)."
         },
+        "baselineDomain": {
+          "type": "string",
+          "enum": ["physical", "simulator"],
+          "description": "ADR-011: Baseline domain isolation. physical and simulator baselines are strictly separated."
+        },
         "thresholdRequired": { "type": "boolean" }
       },
-      "required": ["baseline", "thresholdRequired"]
+      "required": ["baseline", "baselineDomain", "thresholdRequired"]
     },
     "PermissionPolicyRef": {
       "type": "object",

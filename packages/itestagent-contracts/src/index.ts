@@ -290,3 +290,37 @@ export type {
   CompleteResult,
   IncompleteResult,
 } from './intent-schema.js';
+
+export {
+  DeviceSelectorSchema,
+  PhysicalDeviceSelectorSchema,
+  SimulatorDeviceSelectorSchema,
+  TargetSchema,
+  AppSourceSchema,
+  BackendPreferenceSchema,
+  ExecutionPlanSchema,
+  AssertionPolicySchema,
+  TestDataPolicySchema,
+  ArtifactPolicySchema,
+  PerformancePlanSchema,
+  PermissionPolicyRefSchema,
+  TestPlanSchema,
+  parseTestPlan,
+  safeParseTestPlan,
+} from './test-plan.js';
+
+export type {
+  DeviceSelector,
+  PhysicalDeviceSelector,
+  SimulatorDeviceSelector,
+  Target,
+  AppSource,
+  BackendPreference,
+  ExecutionPlan,
+  AssertionPolicy,
+  TestDataPolicy,
+  ArtifactPolicy,
+  PerformancePlan,
+  PermissionPolicyRef,
+  TestPlan,
+} from './test-plan.js';

@@ -481,8 +481,8 @@
           "id": "2.6",
           "title": "TestPlan 编译器（过 plan.yaml schema）",
           "story": "US-5.1",
-          "status": "ready",
-          "last_updated": "2026-07-20T00:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-20T01:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
