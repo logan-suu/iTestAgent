@@ -12,7 +12,7 @@ import { existsSync, readFileSync } from 'node:fs';
  * - PBXTargetDependency: target proxy references
  *
  * Used by graph() to build the ProjectGraph.
- * Reference: 技术选型文档 §10 — XcodeProj / Tuist XcodeProj 第一候选
+ * Reference: tech selection document — XcodeProj / Tuist XcodeProj is primary candidate
  */
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -23,8 +23,8 @@ export interface ParsedNativeTarget {
   name: string;
   /** Apple product type (e.g. "com.apple.product-type.application"). */
   productType: string;
-  /** Resolved dependency target names. */
-  dependencyTargetUuids: string[];
+  /** Resolved dependency target names (e.g. ["MyApp"]). */
+  dependencyTargetNames: string[];
 }
 
 /** Full parse result. */
@@ -91,7 +91,6 @@ export function isUnitTest(productType: string): boolean {
  * Returns capturable group 1 from each match.
  */
 function collectGroup1(regex: RegExp, input: string): string[] {
-  // Reset lastIndex
   const re = new RegExp(regex.source, regex.flags);
   const results: string[] = [];
   let m = re.exec(input);
@@ -135,9 +134,9 @@ function findGroup(regex: RegExp, input: string, groupIndex: number): string | n
  * Extract a section body from pbxproj content.
  *
  * Sections are delimited by C-style block comment markers:
- *   (open) Begin SectionName (close)
+ *   (open) Begin SectionName section (close)
  *   ... content ...
- *   (open) End SectionName (close)
+ *   (open) End SectionName section (close)
  */
 function extractSection(content: string, sectionName: string): string | null {
   // pbxproj format: /* Begin <SectionName> section */
@@ -334,7 +333,7 @@ export function parsePbxproj(pbxprojPath: string): PbxprojParseResult | null {
     resolvedTargets.push({
       name: fields.name ?? '',
       productType: fields.productType ?? '',
-      dependencyTargetUuids: resolvedDepNames,
+      dependencyTargetNames: resolvedDepNames,
     });
   }
 

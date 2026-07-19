@@ -1,4 +1,4 @@
-import { statSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
  * official xcodebuild tool. We do NOT parse pbxproj directly for these
  * calls — that's handled by pbxproj-parser.ts for the target graph.
  *
- * Reference: 技术选型文档 §10 — xcodebuild -list/-showBuildSettings 必用
+ * Reference: tech selection document — xcodebuild -list/-showBuildSettings is mandatory
  */
 
 // ─── Errors ────────────────────────────────────────────────────
@@ -61,15 +61,12 @@ export function findProjectFile(root: string): {
   path: string;
 } | null {
   // Prefer workspace over project (common case)
-  const entries = (() => {
-    try {
-      // Use readdir for cross-platform safety; the statSync checks stay
-      const { readdirSync } = require('node:fs') as typeof import('node:fs');
-      return readdirSync(root);
-    } catch {
-      return [];
-    }
-  })();
+  let entries: string[];
+  try {
+    entries = readdirSync(root);
+  } catch {
+    return null;
+  }
 
   const workspace = entries.find((e: string) => e.endsWith('.xcworkspace'));
   if (workspace) {
@@ -123,6 +120,9 @@ function parseListText(stdout: string): XcodebuildListText {
   const configurations: string[] = [];
   const targets: string[] = [];
 
+  // Lines that are xcodebuild informational messages, not actual entries
+  const informPatterns = [/^If no build configuration/, /^$/];
+
   let section: 'targets' | 'configurations' | 'schemes' | null = null;
 
   for (const line of stdout.split('\n')) {
@@ -140,14 +140,17 @@ function parseListText(stdout: string): XcodebuildListText {
       section = 'schemes';
       continue;
     }
+
     // Section boundary: blank line or next section header
     if (trimmed === '' || trimmed.includes(':')) {
-      // Only reset section on blank lines; headers already handled above
       if (trimmed === '') {
         section = null;
       }
       continue;
     }
+
+    // Skip informational lines that aren't real entries
+    if (informPatterns.some((p) => p.test(trimmed))) continue;
 
     // Collect entries in the current section
     if (section === 'targets') targets.push(trimmed);

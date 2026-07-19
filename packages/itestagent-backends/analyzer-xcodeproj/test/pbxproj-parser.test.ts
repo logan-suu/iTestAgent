@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { classifyProductType, isUnitTest, isXCUITest, parsePbxproj } from '../src/pbxproj-parser';
 
 const FIXTURE_DIR = resolve(import.meta.dir, 'fixtures');
-
-function readFixture(name: string): string {
-  return readFileSync(resolve(FIXTURE_DIR, name), 'utf-8');
-}
 
 describe('parsePbxproj', () => {
   it('parses a valid project.pbxproj and extracts target info', () => {
@@ -26,7 +22,7 @@ describe('parsePbxproj', () => {
     expect(appTarget).toBeDefined();
     if (appTarget) {
       expect(appTarget.productType).toBe('com.apple.product-type.application');
-      expect(appTarget.dependencyTargetUuids).toEqual([]);
+      expect(appTarget.dependencyTargetNames).toEqual([]);
     }
 
     // MyAppTests
@@ -35,7 +31,7 @@ describe('parsePbxproj', () => {
     if (testTarget) {
       expect(testTarget.productType).toBe('com.apple.product-type.bundle.unit-test');
       // Should resolve PBXTargetDependency → MyApp
-      expect(testTarget.dependencyTargetUuids).toContain('MyApp');
+      expect(testTarget.dependencyTargetNames).toContain('MyApp');
     }
 
     // MyAppUITests
@@ -43,7 +39,7 @@ describe('parsePbxproj', () => {
     expect(uiTestTarget).toBeDefined();
     if (uiTestTarget) {
       expect(uiTestTarget.productType).toBe('com.apple.product-type.bundle.ui-testing');
-      expect(uiTestTarget.dependencyTargetUuids).toContain('MyApp');
+      expect(uiTestTarget.dependencyTargetNames).toContain('MyApp');
     }
   });
 
@@ -52,11 +48,21 @@ describe('parsePbxproj', () => {
     expect(result).toBeNull();
   });
 
-  it('returns empty targets for empty pbxproj', () => {
-    const result = parsePbxproj(resolve(FIXTURE_DIR, 'project.pbxproj'));
-    expect(result).not.toBeNull();
-    if (result) {
-      expect(result.targets.length).toBeGreaterThan(0);
+  it('returns empty targets when pbxproj has no PBXNativeTarget section', () => {
+    const pbxprojWithNoTargets =
+      '// !$*UTF8*$!\n{\n\tarchiveVersion = 1;\n\tobjects = {\n};\n\trootObject = 7627B99262ADE7B14DDB4D37;\n}\n';
+    const tmpPath = resolve(FIXTURE_DIR, 'empty-project.pbxproj');
+    writeFileSync(tmpPath, pbxprojWithNoTargets, 'utf-8');
+
+    try {
+      const result = parsePbxproj(tmpPath);
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.targets).toEqual([]);
+        expect(result.rootObject).toBe('7627B99262ADE7B14DDB4D37');
+      }
+    } finally {
+      unlinkSync(tmpPath);
     }
   });
 });

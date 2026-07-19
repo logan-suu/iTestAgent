@@ -4,15 +4,16 @@ import { ResolvedBuildSettingsSchema } from 'itestagent-contracts';
 import { runShowBuildSettings } from './xcodebuild-exec.js';
 
 /**
- * buildSettings(query) — 查询指定 target + configuration 的构建设置。
+ * buildSettings(query) — Resolves build settings for a target and configuration.
  *
- * 技术选型文档 §10：xcodebuild -showBuildSettings 是 Apple 官方事实源，
- * 用于获取 bundleId / deploymentTarget / swiftVersion / architectures / infoPlist。
+ * Per the tech selection document: xcodebuild -showBuildSettings is Apple's
+ * official source of truth for bundleId, deploymentTarget, swiftVersion,
+ * architectures, and infoPlist.
  *
- * 流程：
- *   1. 运行 xcodebuild -showBuildSettings -target <target> [-configuration <config>]
- *   2. 从输出中提取关键 build settings
- *   3. 组装 ResolvedBuildSettings 并过 Zod schema 校验
+ * Flow:
+ *   1. Run xcodebuild -showBuildSettings -target <target> [-configuration <config>]
+ *   2. Extract key build settings from output
+ *   3. Validate via ResolvedBuildSettingsSchema
  */
 
 /**

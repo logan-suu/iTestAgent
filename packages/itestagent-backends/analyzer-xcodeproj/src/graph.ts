@@ -1,21 +1,23 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { ProjectDiscovery, ProjectGraph } from 'itestagent-contracts';
 import { ProjectGraphSchema } from 'itestagent-contracts';
 import { classifyProductType, isUnitTest, isXCUITest, parsePbxproj } from './pbxproj-parser.js';
 
 /**
- * graph(discovery) — 分析 target 依赖图。
+ * graph(discovery) — Analyses the target dependency graph.
  *
- * 技术选型文档 §10：XcodeProj / Tuist XcodeProj 是 Project graph 第一候选。
- * 这里用自研轻量 pbxproj 解析器（pbxproj-parser.ts）替代外部 XcodeProj 依赖，
- * 只提取 target 名称/类型/依赖关系。
+ * Per the tech selection document: XcodeProj / Tuist XcodeProj is the
+ * primary candidate for project graph. Here we use a self-contained
+ * lightweight pbxproj parser (pbxproj-parser.ts) instead of the external
+ * XcodeProj dependency, extracting only target names, types, and
+ * dependency relationships.
  *
- * 流程：
- *   1. 从 ProjectDiscovery 找到 .xcodeproj 路径
- *   2. 读取 project.pbxproj
- *   3. 解析 PBXNativeTarget → 名称/类型/依赖
- *   4. 组装 ProjectGraph 并过 Zod schema 校验
+ * Flow:
+ *   1. Locate .xcodeproj path from ProjectDiscovery
+ *   2. Read project.pbxproj
+ *   3. Parse PBXNativeTarget for name / type / dependencies
+ *   4. Assemble and validate via ProjectGraphSchema
  */
 
 /**
@@ -30,10 +32,9 @@ function resolveXcodeprojPath(discovery: ProjectDiscovery): string | null {
 
   // Workspace: look for nested .xcodeproj
   if (discovery.xcworkspacePath) {
-    const workspaceDir = dirname(discovery.xcworkspacePath);
     const workspaceRoot = discovery.root;
 
-    // Try common patterns: <workspaceDir>/<name>.xcodeproj
+    // Try common patterns: <workspaceRoot>/<name>.xcodeproj
     if (discovery.name) {
       const candidate = resolve(workspaceRoot, `${discovery.name}.xcodeproj`, 'project.pbxproj');
       if (existsSync(candidate)) return candidate;
@@ -41,7 +42,6 @@ function resolveXcodeprojPath(discovery: ProjectDiscovery): string | null {
 
     // Try looking one level deep for any .xcodeproj
     try {
-      const { readdirSync } = require('node:fs') as typeof import('node:fs');
       const entries = readdirSync(workspaceRoot);
       for (const entry of entries) {
         if (entry.endsWith('.xcodeproj')) {
@@ -82,7 +82,7 @@ export async function graph(discovery: ProjectDiscovery): Promise<ProjectGraph> 
   const targets = result.targets.map((t) => ({
     name: t.name,
     type: classifyProductType(t.productType),
-    dependencies: t.dependencyTargetUuids,
+    dependencies: t.dependencyTargetNames,
   }));
 
   const hasXCUITests = result.targets.some((t) => isXCUITest(t.productType));

@@ -5,15 +5,15 @@ import { ProjectDiscoverySchema } from 'itestagent-contracts';
 import { findProjectFile, runList } from './xcodebuild-exec.js';
 
 /**
- * discover(root) — 发现项目类型、schemes、configurations。
+ * discover(root) — Discovers project type, schemes, and configurations.
  *
- * 技术选型文档 §10：xcodebuild -list/-showBuildSettings 是 Apple 官方事实源，
- * 不要只读 pbxproj 推断。
+ * Per the tech selection document: xcodebuild -list/-showBuildSettings is
+ * Apple's official source of truth. Do not infer from pbxproj alone.
  *
- * 流程：
- *   1. 查找 .xcworkspace 或 .xcodeproj
- *   2. 运行 xcodebuild -list -json（或纯文本 fallback）
- *   3. 组装 ProjectDiscovery 并过 Zod schema 校验
+ * Flow:
+ *   1. Locate .xcworkspace or .xcodeproj
+ *   2. Run xcodebuild -list -json (with plain-text fallback for older Xcode)
+ *   3. Assemble and validate via ProjectDiscoverySchema
  */
 
 /**

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-19T01:50:00.000Z",
+  "last_updated": "2026-07-19T17:30:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -66,6 +66,54 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-19T01:50:00.000Z"
+    },
+    {
+      "id": "DEF-005",
+      "source": "CodeRabbit",
+      "pr": 20,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/20",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "2.1",
+      "severity": "minor",
+      "item": "Add integration tests for graph() function with real pbxproj fixtures",
+      "detail": "graph.test.ts currently only tests ProjectGraphSchema validation, not the graph() function itself. Add integration tests that invoke graph() with a ProjectDiscovery pointing to real fixture .xcodeproj directories, covering resolveXcodeprojPath for both direct project and workspace layouts. Deferred to Phase 2.2 to avoid duplicating fixture refactoring work.",
+      "target_phase": 2,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-19T17:30:00.000Z"
+    },
+    {
+      "id": "DEF-006",
+      "source": "CodeRabbit",
+      "pr": 20,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/20",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "2.1",
+      "severity": "minor",
+      "item": "Add fixture covering indirect dependency form (targetProxy → PBXContainerItemProxy → remoteGlobalIDString)",
+      "detail": "Current project.pbxproj fixture only uses direct target=UUID references in PBXTargetDependency. Real Xcode projects commonly use the indirect form via targetProxy → PBXContainerItemProxy → remoteGlobalIDString. The parser code already handles this path but has no fixture/test coverage for it. Deferred to Phase 2.2 alongside DEF-005 (graph integration tests).",
+      "target_phase": 2,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-19T17:30:00.000Z"
+    },
+    {
+      "id": "DEF-007",
+      "source": "CodeRabbit",
+      "pr": 20,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/20",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "2.1",
+      "severity": "minor",
+      "item": "Add test coverage for indirect dependency resolution path in parsePbxproj",
+      "detail": "The targetProxy → PBXContainerItemProxy → remoteGlobalIDString resolution chain in parsePbxproj has no dedicated unit test. Deferred to Phase 2.2 alongside DEF-005 and DEF-006 (file prioritisation to avoid fixture restructuring churn).",
+      "target_phase": 2,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-19T17:30:00.000Z"
     }
   ]
 }

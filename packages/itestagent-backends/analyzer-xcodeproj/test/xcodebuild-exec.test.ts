@@ -68,6 +68,11 @@ describe('runList', () => {
     expect(result.text.schemes).toContain('MyApp');
     expect(result.text.configurations).toContain('Debug');
     expect(result.text.targets).toContain('MyApp');
+
+    // Informational lines must not leak into the configurations array
+    expect(result.text.configurations).not.toContain(
+      expect.stringContaining('If no build configuration'),
+    );
   });
 
   it('throws XcodebuildError when both JSON and text fail', () => {
@@ -116,10 +121,5 @@ describe('findProjectFile', () => {
   it('returns null for non-existent directory', () => {
     const result = findProjectFile('/non/existent/path/12345');
     expect(result).toBeNull();
-  });
-
-  it('returns null for empty directory', () => {
-    // We can't test with real dir here without fixtures, but the logic is verified by typecheck
-    expect(true).toBe(true);
   });
 });
