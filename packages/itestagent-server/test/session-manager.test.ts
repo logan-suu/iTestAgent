@@ -88,11 +88,11 @@ function createMockDb() {
         values(data: Record<string, unknown>) {
           const key = (data.id ?? data.runId ?? data.projectHash) as string;
           tbl.set(String(key), { ...data });
-          return {
-            onConflictDoNothing() {
-              return data;
-            },
+          const thenable = Promise.resolve(data) as Promise<unknown> & {
+            onConflictDoNothing: () => Promise<unknown>;
           };
+          thenable.onConflictDoNothing = () => Promise.resolve(data);
+          return thenable;
         },
       };
     },
@@ -116,13 +116,16 @@ function createMockDb() {
       const tbl = getOrCreate(resolveName(t));
       return {
         set(data: Record<string, unknown>) {
-          return {
-            where(_condition: unknown) {
-              for (const record of tbl.values()) {
-                Object.assign(record, data);
-              }
-            },
+          const thenable = Promise.resolve(undefined) as Promise<unknown> & {
+            where: (c: unknown) => Promise<unknown>;
           };
+          thenable.where = (_condition: unknown) => {
+            for (const record of tbl.values()) {
+              Object.assign(record, data);
+            }
+            return Promise.resolve(undefined);
+          };
+          return thenable;
         },
       };
     },
