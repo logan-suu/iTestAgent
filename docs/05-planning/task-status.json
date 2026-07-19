@@ -431,8 +431,8 @@
           "id": "2.3",
           "title": "生成 Project Profile（schema 化）",
           "story": "US-3.2",
-          "status": "in_progress",
-          "last_updated": "2026-07-19T21:30:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-19T22:15:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
@@ -442,7 +442,7 @@
             "2.2"
           ],
           "test_file": "packages/itestagent-project-analyzer/test/profile-generator.test.ts",
-          "notes": "PR #22: https://github.com/logan-suu/iTestAgent/pull/22 — profile-generator (confidence scoring, feature detection, target profiles, test assets), profile-io (save/load with Zod validation), project-hash (deterministic SHA-256). 9 unit tests. G3: typecheck 0, lint 0. G4: 600 tests pass."
+          "notes": "PR #22: https://github.com/logan-suu/iTestAgent/pull/22 — Merged to dev-1.0 (a27e88d). profile-generator (feature inference with evidence+confidence, R4), profile-io (save/load with Zod G2 validation), project-hash (sha256 deterministic). 24 tests. Review W1-W3 fixed in 07ec076. G3: typecheck 0, lint 0. G4: 600 tests pass."
         },
         {
           "id": "2.4",
