@@ -367,7 +367,7 @@
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
-          "notes": "PR #18 (https://github.com/logan-suu/iTestAgent/pull/18). ✅ 全量回归通过。单元测试 433 pass + 新增集成测试 74 pass = 507 pass / 0 fail（39 files, 1509 expects）。集成测试覆盖：phase1-session-lifecycle（SSEHub→SessionManager→RSM）、phase1-server-routes（Bun.serve HTTP 路由）、phase1-config-resolve（3层JSONC合并→SecretStore→凭证解析）、phase1-subprocess-lifecycle（真实Bun.spawn + kill/timeout/AbortSignal）、phase1-tui-contracts（TUI状态机→Zod schema对齐）、phase1-artifact-store（文件系统 artifact 持久化）。typecheck 0 errors, lint 154 files 0 issues。已知限制：SSE HTTP 连接因测试环境竞态未覆盖（改为直接 SSEHub 测试）；SessionManager DB 操作异步未 await（DEF-001）。Phase 1 出口就绪。",
+          "notes": "PR #18 (https://github.com/logan-suu/iTestAgent/pull/18) — branch test/phase1-integration. ✅ 全量回归：单元 433 + 集成 79 = 512 pass / 0 fail（39 files, 1527 expects）。集成测试 (tests/integration/phase1/): session-lifecycle (SSEHub→SessionManager→RSM→SQLite)、server-routes (Bun.serve HTTP)、config-resolve (JSONC→SecretStore)、subprocess-lifecycle (real Bun.spawn)、tui-contracts (TUI→Agent flow)、artifact-store (filesystem)。Bug fixes: SessionManager .catch() + runs backend column。typecheck 0 / lint 0。Phase 1 出口就绪。",
           "dependencies": [
             "1.1",
             "1.2",
