@@ -4,7 +4,7 @@ import type { ProjectProfile } from 'itestagent-project-analyzer';
 /**
  * parseIntent — rule-based intent parser (Phase 2.5, no AI SDK dependency).
  *
- * Data flow (per 数据流全链路 §4):
+ * Data flow (Data Flow Specification §4):
  *   NL input → keyword matching → Intent { goal, targetKind?, features, scope, … }
  *   If critical info missing → incomplete with clarificationsNeeded.
  *

@@ -2,26 +2,26 @@ import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
 
 /**
- * Intent schema — S1 阶段：自然语言 → 结构化意图。
+ * Intent schema — S1 phase: natural language → structured intent.
  *
- * 数据流全链路 §4：
+ * Data Flow Specification §4:
  *   Intent { goal, targetHint, targetKind?, deviceHint, features?, metricsHint?, scope }
  *
- * 要点：
- *   - Intent 只是意图草稿，不直接执行
- *   - 缺失关键信息（设备/目标）时在 TUI 追问补全
- *   - Intent 与后续 TestPlan 解耦，便于多轮修改
+ * Key points:
+ *   - Intent is a draft; it does NOT trigger execution
+ *   - Missing critical info (device/target) triggers TUI clarification prompts
+ *   - Intent is decoupled from TestPlan, enabling multi-turn refinement
  */
 
 // ─── Scope ────────────────────────────────────────────────────
 
 /**
- * 测试范围枚举。
- * smoke:    冒烟测试（关键链路快速验证）
- * explore:  探索式测试（无预设路径）
- * full:     完整回归
- * perf:     仅性能采集
- * custom:   用户自定义组合
+ * Test scope enumeration.
+ * smoke:    smoke test (quick critical path verification)
+ * explore:  exploratory testing (no preset path)
+ * full:     full regression
+ * perf:     performance-only
+ * custom:   user-defined combination
  */
 export const ScopeSchema = z.enum(['smoke', 'explore', 'full', 'perf', 'custom']);
 
@@ -30,33 +30,33 @@ export type Scope = z.infer<typeof ScopeSchema>;
 // ─── Intent ───────────────────────────────────────────────────
 
 /**
- * 结构化测试意图。
+ * Structured test intent.
  *
- * 核心字段（required）:
- *   - goal: 用户原始意图的自然语言提炼（非 sourceText，是去噪后的）。
- *   - features: 匹配到的功能列表（来自 ProjectProfile.features 的 name 或 keyword）。
- *   - metricsRequested: 用户是否要求性能指标。
- *   - scope: 测试范围。
- *   - sourceText: 用户原始输入（审计用途）。
+ * Required fields:
+ *   - goal: denoised natural-language summary of the testing goal (not raw sourceText).
+ *   - features: matched feature names from ProjectProfile.features (by name or keyword).
+ *   - metricsRequested: whether the user asked for performance metrics.
+ *   - scope: test scope.
+ *   - sourceText: original user input (for audit trail, immutable).
  *
- * 可选字段:
- *   - targetKind: physical | simulator（缺失时触发追问）。
- *   - deviceHint: 用户提到的设备描述（如"本机 iPhone"、"iPhone 14 Plus"）。
+ * Optional fields:
+ *   - targetKind: physical | simulator (missing → clarification prompt).
+ *   - deviceHint: device description from user (e.g., "iPhone 14 Plus").
  */
 export const IntentSchema = z.object({
-  /** 提炼后的测试目标描述，如"跑登录冒烟测试" */
+  /** Denoised testing goal, e.g., "run login smoke test" */
   goal: z.string().min(1),
-  /** 执行目标类型。缺失时表示需要追问补全。 */
+  /** Execution target kind; missing means clarification is needed */
   targetKind: TargetKindSchema.optional(),
-  /** 设备提示（如"本机 iPhone"、"iPhone 14 Plus"） */
+  /** Device hint from user input */
   deviceHint: z.string().optional(),
-  /** 匹配到的 features（来自 ProjectProfile） */
+  /** Matched features from ProjectProfile */
   features: z.array(z.string()),
-  /** 是否需要性能指标采集 */
+  /** Whether performance metrics were requested */
   metricsRequested: z.boolean(),
-  /** 测试范围 */
+  /** Test scope */
   scope: ScopeSchema,
-  /** 用户原始输入（审计，不可篡改） */
+  /** Original user input (immutable audit trail) */
   sourceText: z.string().min(1),
 });
 
@@ -65,14 +65,14 @@ export type Intent = z.infer<typeof IntentSchema>;
 // ─── Clarification ────────────────────────────────────────────
 
 /**
- * 追问项 — 当 Intent 缺失关键信息时，TUI 展示追问用户。
+ * Clarification item — displayed in TUI when Intent is missing critical info.
  */
 export const ClarificationSchema = z.object({
-  /** 人类可读的追问文本 */
+  /** Human-readable prompt text */
   question: z.string().min(1),
-  /** 需要补全的 Intent 字段名 */
+  /** Intent field to populate */
   field: z.enum(['targetKind', 'deviceHint', 'features', 'scope', 'metricsRequested']),
-  /** 可选答案列表（TUI 展示为快捷选项） */
+  /** Suggested answer options (displayed as shortcuts in TUI) */
   options: z.array(z.string()).optional(),
 });
 
@@ -81,7 +81,7 @@ export type Clarification = z.infer<typeof ClarificationSchema>;
 // ─── IntentParseResult ────────────────────────────────────────
 
 /**
- * 完整解析结果 — 所有必要信息已就绪。
+ * Complete parse result — all required info is present.
  */
 export const CompleteResultSchema = z.object({
   status: z.literal('complete'),
@@ -89,7 +89,7 @@ export const CompleteResultSchema = z.object({
 });
 
 /**
- * 不完整解析结果 — 缺失关键信息，需在 TUI 追问用户。
+ * Incomplete parse result — missing critical info; TUI should prompt user.
  */
 export const IncompleteResultSchema = z.object({
   status: z.literal('incomplete'),
@@ -98,10 +98,10 @@ export const IncompleteResultSchema = z.object({
 });
 
 /**
- * Intent 解析结果（有区分联合）。
+ * Intent parse result (discriminated union).
  *
- * complete:   所有关键字段已填充，可直接进入 S3（TestPlan 编译）。
- * incomplete: 缺失 targetKind 或 features 等信息，TUI 展示追问。
+ * complete:   all critical fields filled; ready for S3 (TestPlan compilation).
+ * incomplete: targetKind or features missing; TUI displays clarification prompts.
  */
 export const IntentParseResultSchema = z.discriminatedUnion('status', [
   CompleteResultSchema,
@@ -115,8 +115,8 @@ export type IncompleteResult = z.infer<typeof IncompleteResultSchema>;
 // ─── Parse helper ─────────────────────────────────────────────
 
 /**
- * 安全解析 IntentParseResult。
- * 非法字段抛出 ZodError。
+ * Safely parse an IntentParseResult.
+ * Invalid fields throw ZodError.
  */
 export function parseIntentResult(raw: unknown): IntentParseResult {
   return IntentParseResultSchema.parse(raw);
