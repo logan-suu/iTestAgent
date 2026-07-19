@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test';
+import { join } from 'node:path';
 import { createXcodeProjAnalyzerBackend } from '../src/index';
+
+const FIXTURE_ROOT = join(import.meta.dir, 'fixtures', 'sample-project');
 
 describe('createXcodeProjAnalyzerBackend', () => {
   it('creates a backend with all required methods', () => {
@@ -21,15 +24,28 @@ describe('createXcodeProjAnalyzerBackend', () => {
     expect(typeof backend.scanResources).toBe('function');
   });
 
-  it('throws "not implemented" for scanSources (deferred to 2.2)', async () => {
+  it('scanSources returns SourceFacts with correct shape (task 2.2)', async () => {
     const backend = createXcodeProjAnalyzerBackend();
+    const result = await backend.scanSources({ root: FIXTURE_ROOT });
 
-    await expect(backend.scanSources({ root: '/fake' })).rejects.toThrow('not yet implemented');
+    expect(typeof result.swiftFiles).toBe('number');
+    expect(result.swiftFiles).toBeGreaterThan(0);
+    expect(typeof result.objcFiles).toBe('number');
+    expect(Array.isArray(result.viewControllers)).toBe(true);
+    expect(Array.isArray(result.protocols)).toBe(true);
+    expect(Array.isArray(result.storyboardRefs)).toBe(true);
+    expect(Array.isArray(result.xibRefs)).toBe(true);
   });
 
-  it('throws "not implemented" for scanResources (deferred to 2.2)', async () => {
+  it('scanResources returns ResourceFacts with correct shape (task 2.2)', async () => {
     const backend = createXcodeProjAnalyzerBackend();
+    const result = await backend.scanResources({ root: FIXTURE_ROOT });
 
-    await expect(backend.scanResources({ root: '/fake' })).rejects.toThrow('not yet implemented');
+    expect(typeof result.assetCatalogs).toBe('number');
+    expect(result.assetCatalogs).toBeGreaterThan(0);
+    expect(Array.isArray(result.fontFiles)).toBe(true);
+    expect(Array.isArray(result.localizedStrings)).toBe(true);
+    expect(Array.isArray(result.infoPlistKeys)).toBe(true);
+    expect(result.infoPlistKeys.length).toBeGreaterThan(0);
   });
 });
