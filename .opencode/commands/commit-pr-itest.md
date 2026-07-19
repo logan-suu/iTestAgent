@@ -17,16 +17,19 @@ agent: build
    - 执行 `git status`，确认有变更可提交。
    - 如果没有变更，输出："当前没有可提交的变更。"并退出。
    - 执行 `git branch --show-current`，获取当前分支名。
-2. **延期待办检查**（防止 🟡 警告遗漏）：
+2. **延期待办检查**（防止 🟡 警告遗漏，R14）：
    - 读取 `docs/05-planning/deferred-items.json`。
    - 检查是否有 `status: "open"` 且 `task` 等于当前任务 ID 的条目。
    - 如果没有 open 条目：✅ 合规，继续。
    - 如果存在 open 条目：
-     - ⚠️ 这些条目已在 `pr-review-itest` 中被认定为不阻塞合并但需后续修复。
+     - ⚠️ 这些条目已在 `pr-review-itest` 或自行检查中被认定为不阻塞合并但需后续修复。
      - 输出提醒并确认已记录（不阻塞 commit）。
-    - **如果当前任务刚完成 `pr-review-itest` 且审查报告中有**延期修复的 **🟡 警告**（即未在当前 PR 中修复的），但 deferred-items.json 中尚无对应条目：
-     - ❌ **阻断 commit** — 必须先通过 `pr-review-itest` 的第五步之半将 🟡 警告写入 deferred-items.json。
-     - 输出："❌ 审查报告中有 N 条 🟡 警告未记录到 deferred-items.json，请先执行 pr-review-itest 完成留档。"
+   - ⚠️ **自行检查**：如果在实现过程中发现了与文档/架构的偏离或设计权衡，且决定延期修复：
+     - 必须在 commit 前**立即写入** `deferred-items.json`（`source: "Sisyphus (self-review)"`，AGENTS.md §8.1.5 R14）。
+     - 不得留到 `pr-review-itest` 时才记录。
+   - **如果当前任务刚完成 `pr-review-itest` 且审查报告或自行检查中有延期项**尚未写入 deferred-items.json：
+     - ❌ **阻断 commit** — 必须先通过 `pr-review-itest` 第五步之半写入 deferred-items.json。
+     - 输出："❌ 有 N 条延期项未记录到 deferred-items.json，请先执行 pr-review-itest 完成留档。"
 3. **运行质量门禁 G1-G4**：
    - G1 规格一致：确认实现与文档不冲突
    - G2 契约校验：产物过 schema（plan/result/artifact-index/project-profile）
