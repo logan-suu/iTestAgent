@@ -8,7 +8,8 @@
 
 import { render as otRender } from '@opentui/solid';
 import type { JSX } from '@opentui/solid';
-import { createSignal } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
+import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
 import type { TuiRenderer } from '../renderer.js';
 import {
   type DeviceStatus,
@@ -26,6 +27,12 @@ const DEVICE_LABELS: Record<DeviceStatus, string> = {
   healthy: '[✓ connected]',
   untrusted: '[✗ untrusted]',
   busy: '[… busy]',
+};
+
+const CONFIDENCE_PREFIX: Record<string, string> = {
+  high: '[H]',
+  medium: '[M]',
+  low: '[L]',
 };
 
 // ─── 子组件 ────────────────────────────────────────────────────────────
@@ -85,6 +92,146 @@ function InputBar(props: {
   );
 }
 
+// ─── 子组件：CandidateReviewPanel (US-3.3 AC2) ──────────────────────────
+
+function CandidateReviewPanel(props: {
+  state: () => TuiShellState;
+  dispatch: (event: TuiShellEvent) => void;
+}): JSX.Element {
+  const s = props.state;
+  const dispatch = props.dispatch;
+  const [cmd, setCmd] = createSignal('');
+
+  const handleCommand = (value: string) => {
+    const key = value.trim();
+    if (!key) return;
+
+    if (s().candidateEditMode) {
+      for (const ch of key) {
+        dispatch({ type: 'candidate_edit_input', text: s().candidateEditDraft + ch });
+      }
+      return;
+    }
+
+    switch (key) {
+      case 'j':
+        dispatch({ type: 'candidate_navigate', direction: 'down' });
+        break;
+      case 'k':
+        dispatch({ type: 'candidate_navigate', direction: 'up' });
+        break;
+      case ' ':
+        dispatch({ type: 'candidate_toggle' });
+        break;
+      case 'e':
+        dispatch({ type: 'candidate_edit_start' });
+        break;
+      case 'A':
+        dispatch({ type: 'candidate_confirm_all' });
+        break;
+      case 'N':
+        dispatch({ type: 'candidate_unconfirm_all' });
+        break;
+      case 'q':
+        dispatch({ type: 'exit_candidate_review' });
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleCmdInput = (value: string) => {
+    if (!value) {
+      setCmd('');
+      return;
+    }
+    handleCommand(value);
+    setTimeout(() => setCmd(''), 0);
+  };
+
+  const handleEditSubmit = () => {
+    if (s().candidateEditMode) {
+      dispatch({ type: 'candidate_edit_commit' });
+      setCmd('');
+    }
+  };
+
+  const candidates = s().candidates;
+  const idx = s().candidateIndex;
+
+  return (
+    <box flexDirection="column" flexGrow={1} padding={1}>
+      <box borderStyle="double" padding={1} marginBottom={1}>
+        <text>Candidate Core Paths — Review & Confirm</text>
+        <text opacity={0.5}>j/k:nav space:toggle e:edit A:all N:none q:done</text>
+      </box>
+
+      <scrollbox flexGrow={1} padding={0}>
+        <box flexDirection="column">
+          <For each={candidates as unknown as Array<(typeof candidates)[number]>}>
+            {(candidate, index) => {
+              const isSelected = index() === idx;
+              const tier = getConfidenceTier(candidate.confidence);
+              const marker = candidate.confirmed ? '[x]' : '[ ]';
+              const prefix = isSelected ? '>' : ' ';
+
+              return (
+                <box
+                  flexDirection="column"
+                  padding={0}
+                  borderStyle={isSelected ? 'single' : undefined}
+                  backgroundColor={isSelected ? '#222233' : undefined}
+                >
+                  <text>
+                    <text opacity={0.5}>{`${prefix} ${marker} `}</text>
+                    <text>{`${CONFIDENCE_PREFIX[tier]} ${candidate.name}`}</text>
+                    <Show when={candidate.keywords && candidate.keywords.length > 0}>
+                      <text opacity={0.4}>{`  (${(candidate.keywords ?? []).join(', ')})`}</text>
+                    </Show>
+                  </text>
+                  <text opacity={0.5}>{`    ${formatConfidenceBar(candidate.confidence)}`}</text>
+                  <Show when={candidate.evidence && candidate.evidence.length > 0}>
+                    <text opacity={0.3}>{`    ev: ${candidate.evidence[0]}`}</text>
+                  </Show>
+                  <Show when={candidate.requiresAccount}>
+                    <text opacity={0.6}>⚠ requires account</text>
+                  </Show>
+                </box>
+              );
+            }}
+          </For>
+        </box>
+      </scrollbox>
+
+      <Show when={s().candidateEditMode}>
+        <box borderStyle="rounded" padding={1} marginTop={1}>
+          <text>{`Edit: "${candidates[idx]?.name ?? ''}" → `}</text>
+          <text>{s().candidateEditDraft}</text>
+        </box>
+        <box borderStyle="rounded" padding={1}>
+          <text opacity={0.5}>Type new name, then Enter to save</text>
+        </box>
+      </Show>
+
+      <Show when={!s().candidateEditMode}>
+        <box borderStyle="rounded" padding={1} marginTop={1}>
+          <text
+            opacity={0.5}
+          >{`${candidates.filter((c) => c.confirmed).length}/${candidates.length} confirmed  `}</text>
+          <text opacity={0.5}>Cmd: </text>
+          <input value={cmd()} onInput={handleCmdInput} placeholder="j/k/space/e/A/N/q" />
+        </box>
+      </Show>
+
+      <Show when={s().candidateEditMode}>
+        <box borderStyle="rounded" padding={1}>
+          <text opacity={0.5}>Enter text then type '!' to save edit</text>
+        </box>
+      </Show>
+    </box>
+  );
+}
+
 // ─── App 根组件 ────────────────────────────────────────────────────────
 
 function App(props: {
@@ -116,8 +263,15 @@ function App(props: {
   return (
     <box flexDirection="column" padding={1}>
       <Header workspace={state().workspace} deviceStatus={state().deviceStatus} />
-      <MessageList messages={state().messages} />
-      <InputBar draft={draft()} setDraft={setDraft} onSubmit={handleSubmit} />
+
+      {state().mode === 'candidate_review' ? (
+        <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
+      ) : (
+        <>
+          <MessageList messages={state().messages} />
+          <InputBar draft={draft()} setDraft={setDraft} onSubmit={handleSubmit} />
+        </>
+      )}
     </box>
   );
 }
