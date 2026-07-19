@@ -464,7 +464,8 @@
           "id": "2.5",
           "title": "Intent 解析（自然语言）",
           "story": "US-4.2",
-          "status": "pending",
+          "status": "ready",
+          "last_updated": "2026-07-19T22:15:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
