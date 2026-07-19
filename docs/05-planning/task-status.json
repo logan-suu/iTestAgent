@@ -431,7 +431,8 @@
           "id": "2.3",
           "title": "生成 Project Profile（schema 化）",
           "story": "US-3.2",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-19T21:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"

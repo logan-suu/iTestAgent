@@ -8,6 +8,10 @@
   "description": "iOS project analysis — XcodeProj + swift-syntax + sourcekit",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/"
+    "lint": "biome check src/ test/",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "itestagent-contracts": "workspace:*"
   }
 }
