@@ -29,6 +29,9 @@ Thumbs.db
 # OpenCode / Agent
 .omo/
 
+# Code intelligence (local tool index, never commit)
+.codegraph/
+
 # macOS
 *.dSYM/
 
