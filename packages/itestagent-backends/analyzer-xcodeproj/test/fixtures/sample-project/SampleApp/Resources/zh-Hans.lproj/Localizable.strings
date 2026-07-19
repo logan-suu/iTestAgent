@@ -1,0 +1,3 @@
+/* Localizable.strings — Chinese */
+"welcome_message" = "欢迎使用 SampleApp";
+"login_button" = "登录";

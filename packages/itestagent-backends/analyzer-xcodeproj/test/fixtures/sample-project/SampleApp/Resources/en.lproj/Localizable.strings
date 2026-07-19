@@ -1,0 +1,4 @@
+/* Localizable.strings — English */
+"welcome_message" = "Welcome to SampleApp";
+"login_button" = "Log In";
+"settings_title" = "Settings";

@@ -1,0 +1,11 @@
+# Xcode
+DerivedData/
+*.xcuserdata
+*.xcworkspace/xcuserdata/
+
+# Dependencies
+Pods/
+
+# Secrets
+*.xcconfig
+Secrets/

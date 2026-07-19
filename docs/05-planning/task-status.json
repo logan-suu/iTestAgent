@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-19T16:30:00.000Z",
+  "last_updated": "2026-07-19T17:00:00.000Z",
   "current_phase": 2,
   "phases": [
     {
@@ -416,14 +416,16 @@
           "id": "2.2",
           "title": "Swift 结构/符号：swift-syntax + sourcekit-lsp/SourceKitten",
           "story": "US-3.1",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-19T17:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
             "2.1"
           ],
-          "test_file": null
+          "test_file": "packages/itestagent-backends/analyzer-xcodeproj/test/scan-sources.test.ts, packages/itestagent-backends/analyzer-xcodeproj/test/scan-resources.test.ts",
+          "notes": "scanSources/scanResources implemented. scanSources: regex-based Swift/ObjC pattern matching (ViewController, SwiftUI View, Protocol, Storyboard/XIB ref detection). scanResources: file system scanning (.xcassets, fonts, .strings, .entitlements, Info.plist). .gitignore parser + default deny patterns (DerivedData/Pods/Carthage) for AC3. Zero external deps. 28 new tests. swift-syntax AST full analysis designed as pluggable tier 2. sourcekit-lsp/SourceKitten noted as optional enhancement. G3: typecheck 0, lint 0, 576 tests pass. PR #21: https://github.com/logan-suu/iTestAgent/pull/21 (awaiting merge to dev-1.0)."
         },
         {
           "id": "2.3",
