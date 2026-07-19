@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { Intent, TestPlan } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
-import { compileTestPlan } from '../src/test-plan-compiler.js';
+import { compileTestPlan, parseTestPlanYaml, testPlanToYaml } from '../src/test-plan-compiler.js';
 
 // ─── Fixtures ────────────────────────────────────────────────
 
@@ -336,6 +336,44 @@ describe('compileTestPlan', () => {
         }),
       );
       expect(plan.backendPreference.build).toEqual(['xcodebuild']);
+    });
+  });
+
+  // ── YAML round-trip ─────────────────────────────────────────
+
+  describe('YAML serialization round-trip', () => {
+    it('serializes and deserializes a TestPlan through YAML', () => {
+      const plan = compileTestPlan(makeIntent(), makeProfile(), { runId: 'fixed-run' });
+      const yaml = testPlanToYaml(plan);
+      const parsed = parseTestPlanYaml(yaml);
+
+      expect(parsed.runId).toBe('fixed-run');
+      expect(parsed.device.kind).toBe('physical');
+      expect(parsed.execution.features).toEqual(['Login']);
+      expect(parsed.performance.baselineDomain).toBe('physical');
+    });
+
+    it('round-trips simulator TestPlan through YAML', () => {
+      const plan = compileTestPlan(makeSimulatorIntent(), makeProfile(), {
+        runId: 'sim-run',
+      });
+      const yaml = testPlanToYaml(plan);
+      const parsed = parseTestPlanYaml(yaml);
+
+      expect(parsed.device.kind).toBe('simulator');
+      expect(parsed.device.simulator?.selector).toBe('booted');
+      expect(parsed.performance.baselineDomain).toBe('simulator');
+    });
+
+    it('produces valid YAML output (not JSON)', () => {
+      const plan = compileTestPlan(makeIntent(), makeProfile(), { runId: 'test' });
+      const yaml = testPlanToYaml(plan);
+      // YAML output should NOT start with { or [
+      expect(yaml.trimStart()[0]).not.toBe('{');
+      expect(yaml.trimStart()[0]).not.toBe('[');
+      // Should contain key: value syntax
+      expect(yaml).toContain('schemaVersion:');
+      expect(yaml).toContain('runId:');
     });
   });
 });

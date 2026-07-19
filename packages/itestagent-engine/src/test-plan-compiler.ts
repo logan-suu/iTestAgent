@@ -8,6 +8,7 @@ import {
   parseTestPlan,
 } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
+import YAML from 'yaml';
 
 // Re-export schema types for convenience
 export type { TestPlan, DeviceSelector, ExecutionPlan, AssertionPolicy };
@@ -211,12 +212,10 @@ function resolveBackendPreference(profile: ProjectProfile) {
 
 /**
  * Serialize a TestPlan to YAML string.
- *
- * Uses a minimal inline YAML serializer (zero external dependencies).
- * For production use, swap to the `yaml` npm package for full ECMA-404/ YAML 1.2 compliance.
+ * Uses the `yaml` npm package (YAML 1.2 / ECMA-404 compliant).
  */
 export function testPlanToYaml(plan: TestPlan): string {
-  return yamlStringify(plan, 0);
+  return YAML.stringify(plan);
 }
 
 /**
@@ -224,90 +223,6 @@ export function testPlanToYaml(plan: TestPlan): string {
  * Validates against Zod schema (G2 compliance).
  */
 export function parseTestPlanYaml(yamlStr: string): TestPlan {
-  const obj = yamlParse(yamlStr);
+  const obj = YAML.parse(yamlStr);
   return parseTestPlan(obj);
-}
-
-// ─── Minimal YAML serializer (no external deps) ──────────────
-// Provides basic YAML output for plan.yaml. Covers all TestPlan field types:
-// strings, numbers, booleans, arrays, and nested objects (depth ≤ 4).
-
-function yamlStringify(value: unknown, indent: number): string {
-  const pad = '  '.repeat(indent);
-
-  if (value === null || value === undefined) return `${pad}null`;
-  if (typeof value === 'boolean') return `${pad}${value}`;
-  if (typeof value === 'number') return `${pad}${value}`;
-  if (typeof value === 'string') {
-    // Simple strings don't need quoting unless they contain special YAML chars
-    if (
-      /[:{}[\],&*#?|\-<>=!%@`]/.test(value) ||
-      value.length === 0 ||
-      value === 'null' ||
-      value === 'true' ||
-      value === 'false'
-    ) {
-      return `${pad}"${value.replace(/"/g, '\\"')}"`;
-    }
-    return `${pad}${value}`;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return `${pad}[]`;
-    return value
-      .map((item) => {
-        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          const lines = yamlStringify(item, indent + 1);
-          const firstLine = lines.split('\n')[0] ?? '';
-          return `${pad}- ${firstLine.trimStart()}`;
-        }
-        return `${pad}- ${yamlStringify(item, 0).trimStart()}`;
-      })
-      .join('\n');
-  }
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return `${pad}{}`;
-    return entries
-      .map(([key, val]) => {
-        if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-          return `${pad}${key}:\n${yamlStringify(val, indent + 1)}`;
-        }
-        if (Array.isArray(val)) {
-          if (val.length === 0) return `${pad}${key}: []`;
-          return `${pad}${key}:\n${val
-            .map((item) => {
-              if (typeof item === 'object' && item !== null) {
-                const itemLines = yamlStringify(item, indent + 1);
-                return itemLines
-                  .split('\n')
-                  .map((l, i) =>
-                    i === 0 ? `${pad}  - ${l.trimStart()}` : `${pad}    ${l.trimStart()}`,
-                  )
-                  .join('\n');
-              }
-              return `${pad}  - ${yamlStringify(item, 0).trimStart()}`;
-            })
-            .join('\n')}`;
-        }
-        return `${pad}${key}: ${yamlStringify(val, 0).trimStart()}`;
-      })
-      .join('\n');
-  }
-  return `${pad}${String(value)}`;
-}
-
-// ─── Minimal YAML parser (no external deps) ──────────────────
-
-function yamlParse(yamlStr: string): unknown {
-  // Delegate to JSON.parse for simple cases; for full YAML compliance,
-  // swap to the `yaml` npm package.
-  // This minimal parser handles the plan.yaml format which is JSON-compatible
-  // (no YAML-specific anchors, tags, or multi-line strings with |/>).
-  try {
-    return JSON.parse(yamlStr);
-  } catch {
-    throw new Error(
-      'Failed to parse YAML: input is not JSON-compatible. Use `yaml` npm package for full YAML 1.2 support.',
-    );
-  }
 }
