@@ -8,6 +8,20 @@ export { MockAgentRuntime } from './mock-agent-runtime.js';
 
 export { parseIntent } from './intent-parser.js';
 
+export {
+  compileTestPlan,
+  testPlanToYaml,
+  parseTestPlanYaml,
+} from './test-plan-compiler.js';
+
+export type {
+  TestPlan,
+  DeviceSelector,
+  ExecutionPlan,
+  AssertionPolicy,
+  CompileOptions,
+} from './test-plan-compiler.js';
+
 export type {
   ErrorLevel,
   StateChangeHandler,

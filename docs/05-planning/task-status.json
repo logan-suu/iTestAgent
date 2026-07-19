@@ -481,8 +481,8 @@
           "id": "2.6",
           "title": "TestPlan 编译器（过 plan.yaml schema）",
           "story": "US-5.1",
-          "status": "ready",
-          "last_updated": "2026-07-20T00:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-20T02:15:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
@@ -491,8 +491,8 @@
             "2.3",
             "2.5"
           ],
-          "test_file": null,
-          "notes": "自然语言、TUI 操作编译为统一 TestPlan。可审计、可复现、可重跑。"
+          "test_file": "packages/itestagent-contracts/test/test-plan.test.ts, packages/itestagent-engine/test/test-plan-compiler.test.ts",
+          "notes": "PR #25: https://github.com/logan-suu/iTestAgent/pull/25 — feat(engine): implement TestPlan compiler with Zod schemas. testPlanSchema contracts (TestPlan/ExecutionEnv/FeatureTest/FlowRef/TestData/Assertion/Metrics/Performance/CompilerInput/CompilerOutput). compileTestPlan() compiler function + TestPlanCompilerError. test-plan.schema.json updated to v2. G3: typecheck 0 err, lint 0. G4: 755 tests pass (100+ new)."
         },
         {
           "id": "2.7",

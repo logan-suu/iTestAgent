@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "itestagent-contracts": "workspace:*",
-    "itestagent-project-analyzer": "workspace:*"
+    "itestagent-project-analyzer": "workspace:*",
+    "yaml": "^2.7.0"
   }
 }
