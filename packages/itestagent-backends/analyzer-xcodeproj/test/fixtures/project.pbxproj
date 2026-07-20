@@ -79,7 +79,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				C1FF1611A14380E6A332B5FA /* PBXTargetDependency */,
+				B2C3D4E5F6789012345678A1 /* PBXTargetDependency */,
 			);
 			name = MyAppUITests;
 			productName = MyAppUITests;
@@ -140,10 +140,24 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXContainerItemProxy section */
+		A1B2C3D4E5F6789012345678 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7627B99262ADE7B14DDB4D37 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7F7CC67EE6CA8184EAE250B1;
+			remoteInfo = MyApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXTargetDependency section */
 		C1FF1611A14380E6A332B5FA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7F7CC67EE6CA8184EAE250B1 /* MyApp */;
+		};
+		B2C3D4E5F6789012345678A1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			targetProxy = A1B2C3D4E5F6789012345678 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
