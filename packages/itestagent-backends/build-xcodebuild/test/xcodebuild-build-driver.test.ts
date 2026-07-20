@@ -687,11 +687,11 @@ describe('build integration — devicectl install', () => {
       findAppPath: mockFindApp,
     });
 
-    const result = (await driver.build({
+    const result = await driver.build({
       root: '/fake/project',
       scheme: 'MyApp',
       deviceId: 'DEVICE-UDID',
-    })) as { success: boolean; installed?: boolean; installError?: string };
+    });
 
     expect(result.success).toBe(true);
     expect(result.installed).toBe(false);

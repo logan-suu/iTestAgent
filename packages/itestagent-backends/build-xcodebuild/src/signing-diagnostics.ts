@@ -93,11 +93,12 @@ const SIGNING_PATTERNS: SigningPattern[] = [
   // 4. "Certificate has expired"
   {
     name: 'cert_expired',
-    pattern: /certificate\s+.*expired|code\s+sign.*expired|has\s+expired/i,
+    pattern:
+      /(code\s+sign|certificate|signing\s+certificate|signing\s+identity).*(?:has\s+expired|expired)/i,
     buildDiagnostic: (match) => {
-      // Only match if we see "certificate" or "code sign" context, not just any "expired"
-      const index = match.index ?? 0;
-      const ctx = match.input?.slice(Math.max(0, index - 100), index + 200) ?? '';
+      const matchedText = match[0] ?? '';
+      const ctx =
+        match.input?.slice(Math.max(0, (match.index ?? 0) - 100), (match.index ?? 0) + 200) ?? '';
       if (!/certificate|code\s*sign/i.test(ctx)) {
         // False positive — let a more specific pattern handle it
         return {
