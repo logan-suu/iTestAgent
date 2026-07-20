@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-19T23:50:00.000Z",
+  "last_updated": "2026-07-20T15:30:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -165,6 +165,22 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-19T23:50:00.000Z"
+    },
+    {
+      "id": "DEF-011",
+      "source": "CodeRabbit",
+      "pr": 29,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/29",
+      "comment_id": 3615337867,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/29#discussion_r3615337867",
+      "task": "3.2",
+      "severity": "minor",
+      "item": "BackendPreferences.allowCrossTargetFallback is a no-op — field is exported and documented but never wired into select()/filterByTargetKind()/autoPick()",
+      "detail": "BackendPreferences.allowCrossTargetFallback is exported and documented, but select()/filterByTargetKind()/autoPick() never read it. Rule 6 still always returns blocked.target_unsupported, so setting allowCrossTargetFallback: true has no effect. Either wire the fallback branch or mark the field/docstring as not implemented yet. Cross-target fallback (physical↔simulator) is an edge case relevant when a targetKind has no registered backends at all — this needs healthcheckGate integration (Phase 3.3/3.5) before wiring makes sense.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-20T15:30:00.000Z"
     }
   ]
 }
