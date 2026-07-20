@@ -595,8 +595,8 @@
           "id": "3.4",
           "title": "ContextBuilder：ProjectProfile/Intent/TestPlan/Run state 上下文组装",
           "story": null,
-          "status": "ready",
-          "last_updated": "2026-07-19T17:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-21T00:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
