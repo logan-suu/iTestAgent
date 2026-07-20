@@ -515,7 +515,7 @@
           "id": "2.8",
           "title": "Phase 2 集成测试：项目分析与 TestPlan 联调验证",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
