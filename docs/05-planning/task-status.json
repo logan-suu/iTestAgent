@@ -560,8 +560,8 @@
           "id": "3.2",
           "title": "DeviceBackend mock 实现 + backend 选择框架",
           "story": null,
-          "status": "ready",
-          "last_updated": "2026-07-19T17:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-20T00:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
@@ -572,7 +572,7 @@
             "1.15"
           ],
           "test_file": null,
-          "notes": "实现 DeviceBackend 接口的 mock 实现（fixtures 模拟所有 backend 输出）。backend 选择策略（preference/healthcheck/fallback）。ADR-010 BackendSelector 职责。保障 Phase 3.4 及后续无需真机即可开发与 CI。"
+          "notes": "PR #29: https://github.com/logan-suu/iTestAgent/pull/29 — MockDeviceBackend: fixture-driven DeviceBackend test double implementing 16 interface methods with runtime-reconfigurable MockDeviceConfig + fixtures (DeviceInfo/AppInfo/UiTreeSnapshot/ArtifactRef/ActionResult/CrashSummary). BackendSelector: 8-rule selection pipeline (ADR-010 §4.3) — filterByTargetKind, applyPreference, autoPick, healthcheckGate, cross-target-fallback blocked. 34 tests. Mock backend enables CI development for Phase 3.3–3.17 without real devices."
         },
         {
           "id": "3.3",

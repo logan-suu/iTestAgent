@@ -14,6 +14,12 @@ export {
   parseTestPlanYaml,
 } from './test-plan-compiler.js';
 
+export {
+  BackendRegistry,
+  BackendSelector,
+  DEFAULT_PREFERENCES,
+} from './backend-selector.js';
+
 export type {
   TestPlan,
   DeviceSelector,
@@ -21,6 +27,11 @@ export type {
   AssertionPolicy,
   CompileOptions,
 } from './test-plan-compiler.js';
+
+export type {
+  BackendPreferences,
+  SelectResult,
+} from './backend-selector.js';
 
 export type {
   ErrorLevel,
