@@ -15,6 +15,9 @@
  * AGENTS.md R12: All code/comments in English.
  */
 
+import { readdirSync } from 'node:fs';
+import { join as pathJoin } from 'node:path';
+
 import { findProjectFile as defaultFindProjectFile } from 'itestagent-backends-analyzer-xcodeproj';
 import type {
   ArchiveInput,
@@ -381,33 +384,35 @@ function findAppInDerivedData(
   configuration: string,
 ): string | undefined {
   try {
-    const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
-    const { join } = require('node:path') as typeof import('node:path');
-
     // Step 1: Find the project build directory inside DerivedData
     const entries = readdirSync(derivedDataPath);
     for (const entry of entries) {
-      const projectBuildDir = join(derivedDataPath, entry);
-      const productsDir = join(projectBuildDir, 'Build', 'Products');
+      const projectBuildDir = pathJoin(derivedDataPath, entry);
+      const productsDir = pathJoin(projectBuildDir, 'Build', 'Products');
 
       // Step 2: Look for <Config>-iphoneos or <Config>-iphonesimulator
       const platforms = [`${configuration}-iphoneos`, `${configuration}-iphonesimulator`];
       for (const platform of platforms) {
-        const platformDir = join(productsDir, platform);
+        const platformDir = pathJoin(productsDir, platform);
         try {
           const platformEntries = readdirSync(platformDir);
           // Step 3: Look for <Scheme>.app
           const appEntry = platformEntries.find((e) => e === `${scheme}.app`);
           if (appEntry) {
-            return join(platformDir, appEntry);
+            return pathJoin(platformDir, appEntry);
           }
         } catch {
           // Directory may not exist — skip
         }
       }
     }
-  } catch {
-    // DerivedData may not exist or may be inaccessible
+  } catch (err) {
+    // DerivedData scan failed — non-blocking (caller continues without appPath).
+    // Log as warning so the failure is not silent (R5 compliance).
+    console.warn(
+      `[itestagent-build] findAppInDerivedData: scan failed for ${derivedDataPath}:`,
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
   return undefined;

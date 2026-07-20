@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "itestagent-contracts": "workspace:*",
-    "itestagent-backends-analyzer-xcodeproj": "workspace:*",
-    "itestagent-server": "workspace:*"
+    "itestagent-backends-analyzer-xcodeproj": "workspace:*"
   }
 }
