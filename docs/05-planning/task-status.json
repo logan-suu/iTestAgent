@@ -544,8 +544,8 @@
           "id": "3.1",
           "title": "App 来源决策 + xcodebuild 构建 + xcbeautify",
           "story": "US-6.1",
-          "status": "ready",
-          "last_updated": "2026-07-20T00:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-20T08:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -554,7 +554,7 @@
             "2.7"
           ],
           "test_file": null,
-          "notes": "来源优先级：用户指定 > 已有产物 > 自动 xcodebuild。日志经 xcbeautify。"
+          "notes": "PR #28: https://github.com/logan-suu/iTestAgent/pull/28 — Implemented AppSourceResolver (user>artifact>build priority chain), XcodebuildBuildDriver (doctor/listSchemes/showBuildSettings/build, test/archive stubs→3.11), xcbeautify CLI pipe wrapper with fallback. 10 files +1795/-2. G3 typecheck 0, lint 0. G4 875 tests pass."
         },
         {
           "id": "3.2",

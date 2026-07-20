@@ -5,6 +5,8 @@ import { graph } from './graph.js';
 import { scanResources } from './scan-resources.js';
 import { scanSources } from './scan-sources.js';
 
+export { findProjectFile } from './xcodebuild-exec.js';
+
 /**
  * XcodeProjAnalyzerBackend — ProjectAnalyzerBackend interface implementation.
  *

@@ -9,5 +9,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/"
+  },
+  "dependencies": {
+    "itestagent-contracts": "workspace:*",
+    "itestagent-backends-analyzer-xcodeproj": "workspace:*"
   }
 }
