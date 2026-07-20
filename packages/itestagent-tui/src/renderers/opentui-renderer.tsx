@@ -10,6 +10,7 @@ import { render as otRender } from '@opentui/solid';
 import type { JSX } from '@opentui/solid';
 import { For, Show, createSignal } from 'solid-js';
 import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
+import { PLAN_SECTIONS, formatPlanSections } from '../plan-review.js';
 import type { TuiRenderer } from '../renderer.js';
 import {
   type DeviceStatus,
@@ -235,6 +236,138 @@ function CandidateReviewPanel(props: {
   );
 }
 
+// ─── Sub-component: PlanReviewPanel (US-5.2 AC1-AC3) ───────────────────────
+
+function PlanReviewPanel(props: {
+  state: () => TuiShellState;
+  dispatch: (event: TuiShellEvent) => void;
+}): JSX.Element {
+  const s = props.state;
+  const dispatch = props.dispatch;
+  const [cmd, setCmd] = createSignal('');
+
+  const sections = () => {
+    const plan = s().plan;
+    if (!plan) return [];
+    return formatPlanSections(plan);
+  };
+  const sectionIndex = () => s().planSectionIndex;
+
+  const handleCommand = (value: string) => {
+    if (!value) return;
+    const key = value === ' ' ? ' ' : value.trim();
+    if (!key) return;
+
+    if (s().planModifyMode) {
+      if (key === 'enter') {
+        dispatch({ type: 'plan_modify_submit' });
+        return;
+      }
+      if (key === 'escape') {
+        dispatch({ type: 'plan_modify_cancel' });
+        return;
+      }
+      for (const ch of key) {
+        dispatch({ type: 'plan_modify_input', text: s().planModifyDraft + ch });
+      }
+      return;
+    }
+
+    switch (key) {
+      case 'j':
+        dispatch({ type: 'plan_navigate_section', direction: 'down' });
+        break;
+      case 'k':
+        dispatch({ type: 'plan_navigate_section', direction: 'up' });
+        break;
+      case 'm':
+        dispatch({ type: 'plan_start_modify' });
+        break;
+      case 'enter':
+        dispatch({ type: 'plan_confirm' });
+        break;
+      case 'q':
+        dispatch({ type: 'plan_cancel' });
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleCmdInput = (value: string) => {
+    if (!value) {
+      setCmd('');
+      return;
+    }
+    handleCommand(value);
+    setTimeout(() => setCmd(''), 0);
+  };
+
+  return (
+    <box flexDirection="column" flexGrow={1} padding={1}>
+      <box borderStyle="double" padding={1} marginBottom={1}>
+        <text>TestPlan Review — Confirm, Modify or Cancel</text>
+        <text opacity={0.5}>j/k:nav m:modify Enter:start q:cancel</text>
+      </box>
+
+      <scrollbox flexGrow={1} padding={1}>
+        <box flexDirection="column">
+          <For each={sections() as unknown as Array<ReturnType<typeof formatPlanSections>[number]>}>
+            {(section, index) => {
+              const isSelected = index() === sectionIndex();
+              const prefix = isSelected ? '>' : ' ';
+
+              return (
+                <box
+                  flexDirection="column"
+                  padding={0}
+                  marginBottom={1}
+                  borderStyle={isSelected ? 'single' : undefined}
+                  backgroundColor={isSelected ? '#222233' : undefined}
+                >
+                  <text>
+                    <text opacity={0.7}>{`${prefix} ${section.title}`}</text>
+                  </text>
+                  <For each={section.fields as unknown as Array<(typeof section.fields)[number]>}>
+                    {(field) => (
+                      <box padding={0}>
+                        <text>
+                          <text opacity={0.4}>{`    ${field.label}: `}</text>
+                          <text>{field.value}</text>
+                        </text>
+                      </box>
+                    )}
+                  </For>
+                </box>
+              );
+            }}
+          </For>
+        </box>
+      </scrollbox>
+
+      <Show when={s().planModifyMode}>
+        <box borderStyle="rounded" padding={1} marginTop={1}>
+          <text opacity={0.5}>Modify (natural language): </text>
+          <text>{s().planModifyDraft}</text>
+        </box>
+      </Show>
+
+      <box borderStyle="rounded" padding={1} marginTop={1}>
+        <text opacity={0.5}>{`Section ${sectionIndex() + 1}/${sections().length}  `}</text>
+        <Show when={s().planModifyMode}>
+          <text opacity={0.5}>
+            Describe changes in natural language, then Enter to submit. Escape to cancel{' '}
+          </text>
+        </Show>
+        <Show when={!s().planModifyMode}>
+          <text opacity={0.5}>Cmd: </text>
+        </Show>
+        <input value={cmd()} onInput={handleCmdInput} placeholder="j/k/m/Enter/q" />
+      </box>
+    </box>
+  );
+}
+
 // ─── App 根组件 ────────────────────────────────────────────────────────
 
 function App(props: {
@@ -267,7 +400,9 @@ function App(props: {
     <box flexDirection="column" padding={1}>
       <Header workspace={state().workspace} deviceStatus={state().deviceStatus} />
 
-      {state().mode === 'candidate_review' ? (
+      {state().mode === 'plan_review' ? (
+        <PlanReviewPanel state={state} dispatch={wrappedDispatch} />
+      ) : state().mode === 'candidate_review' ? (
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : (
         <>
