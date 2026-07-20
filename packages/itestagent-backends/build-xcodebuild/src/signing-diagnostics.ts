@@ -41,7 +41,8 @@ const SIGNING_PATTERNS: SigningPattern[] = [
   // 1. "No provisioning profile found" — most common
   {
     name: 'no_provisioning_profile',
-    pattern: /no\s+provisioning\s+profile/i,
+    pattern:
+      /no\s+provisioning\s+profile|no\s+profiles\s+for\s+'.*'\s+were\s+found|automatic\s+signing\s+is\s+disabled/i,
     buildDiagnostic: () => ({
       reason:
         'No provisioning profile found matching the bundle identifier and signing certificate.',

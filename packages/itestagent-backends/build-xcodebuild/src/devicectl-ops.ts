@@ -116,6 +116,39 @@ function categorizeDevicectlError(action: string, udid: string, result: SyncSpaw
   return `${action} failed: ${errMsg}`;
 }
 
+/**
+ * Extract the PID for a given bundleId from devicectl process listing.
+ *
+ * Format: "<pid>    <path>" — whitespace-separated, PID first.
+ * Example: "1499    /private/var/.../TestSwiftUI.app/TestSwiftUI"
+ *
+ * Returns the PID as a string, or null if not found.
+ */
+function extractPidFromProcessList(processesOutput: string, bundleId: string): string | null {
+  if (!processesOutput) return null;
+
+  const lines = processesOutput.split('\n');
+  // The bundleId's last component (e.g., "TestSwiftUI" from "name.logan.TestSwiftUI")
+  // appears in the process path. Match against the full bundle ID and the app name.
+  const appName = bundleId.split('.').pop() ?? bundleId;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Match lines where the path contains the app name or full bundle ID
+    if (trimmed.includes(appName) || trimmed.includes(bundleId)) {
+      // Extract PID: first column (whitespace-separated)
+      const pidMatch = trimmed.match(/^(\d+)/);
+      if (pidMatch?.[1]) {
+        return pidMatch[1];
+      }
+    }
+  }
+
+  return null;
+}
+
 // ─── Implementation ───────────────────────────────────────────────
 
 /**
@@ -195,27 +228,62 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
   // ─── terminateApp ───────────────────────────────────────────
 
   /**
-   * Terminate (kill) an app process on a physical device.
+   * Terminate (kill) an app process on a physical device by bundle ID.
    *
-   * Command: xcrun devicectl device process terminate --device <UDID> <bundleId>
+   * Two-step process:
+   *   1. List running processes via devicectl device info processes --device <UDID>
+   *   2. Filter by bundle/app name, extract PID, then terminate via --pid <pid>
+   *
+   * Command: xcrun devicectl device process terminate --device <UDID> --pid <pid>
    */
   async function terminateApp(udid: string, bundleId: string): Promise<DevicectlResult> {
-    const result = spawnSync('xcrun', [
+    // Step 1: Find the PID by listing processes
+    const listResult = spawnSync('xcrun', [
+      'devicectl',
+      'device',
+      'info',
+      'processes',
+      '--device',
+      udid,
+    ]);
+
+    if (listResult.exitCode !== 0) {
+      return {
+        success: false,
+        error: categorizeDevicectlError('devicectl list processes', udid, listResult),
+        exitCode: listResult.exitCode,
+        stderr: listResult.stderr,
+      };
+    }
+
+    // Parse PID from process listing.
+    // Format: "<pid>    <path>" — extract PID where the path contains the bundleId.
+    const pid = extractPidFromProcessList(listResult.stdout, bundleId);
+    if (pid === null) {
+      return {
+        success: false,
+        error: `devicectl terminate failed: app "${bundleId}" is not running on device "${udid}"`,
+      };
+    }
+
+    // Step 2: Terminate by PID
+    const terminateResult = spawnSync('xcrun', [
       'devicectl',
       'device',
       'process',
       'terminate',
       '--device',
       udid,
-      bundleId,
+      '--pid',
+      pid,
     ]);
 
-    if (result.exitCode !== 0) {
+    if (terminateResult.exitCode !== 0) {
       return {
         success: false,
-        error: categorizeDevicectlError('devicectl terminate', udid, result),
-        exitCode: result.exitCode,
-        stderr: result.stderr,
+        error: categorizeDevicectlError('devicectl terminate', udid, terminateResult),
+        exitCode: terminateResult.exitCode,
+        stderr: terminateResult.stderr,
       };
     }
 

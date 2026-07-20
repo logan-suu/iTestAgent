@@ -165,27 +165,47 @@ describe('launchApp', () => {
   });
 });
 
-// ─── terminateApp (uses spawnSync) ────────────────────────────────
+// ─── terminateApp (uses spawnSync: list processes + terminate by PID) ─
 
 describe('terminateApp', () => {
-  it('terminates successfully', async () => {
-    const ops = createDevicectlOps({
-      spawnSync: () => syncOk(),
-      spawnAsync: async () => asyncOk(),
-    });
-    const result = await ops.terminateApp('UDID-123', 'com.example.app');
+  it('terminates successfully when app is running', async () => {
+    let capturedListArgs: string[] = [];
+    let capturedTerminateArgs: string[] = [];
+    let callCount = 0;
+
+    const spawnSync: SpawnSyncFn = (_cmd, args) => {
+      callCount++;
+      if (callCount === 1) {
+        capturedListArgs = args;
+        return { exitCode: 0, stdout: '1499    /path/TestSwiftUI.app/TestSwiftUI', stderr: '' };
+      }
+      capturedTerminateArgs = args;
+      return syncOk();
+    };
+
+    const ops = createDevicectlOps({ spawnSync, spawnAsync: async () => asyncOk() });
+    const result = await ops.terminateApp('UDID-123', 'com.example.TestSwiftUI');
     expect(result.success).toBe(true);
-    expect(result.error).toBeUndefined();
+    expect(capturedListArgs).toContain('processes');
+    expect(capturedTerminateArgs).toContain('terminate');
+    expect(capturedTerminateArgs).toContain('--pid');
+    expect(capturedTerminateArgs).toContain('1499');
   });
 
-  it('returns error when app not found', async () => {
-    const ops = createDevicectlOps({
-      spawnSync: () => syncErr('no such app with bundle identifier com.missing.app'),
-      spawnAsync: async () => asyncOk(),
-    });
+  it('returns error when app is not running', async () => {
+    const spawnSync: SpawnSyncFn = () => ({ exitCode: 0, stdout: '', stderr: '' });
+    const ops = createDevicectlOps({ spawnSync, spawnAsync: async () => asyncOk() });
     const result = await ops.terminateApp('UDID-123', 'com.missing.app');
     expect(result.success).toBe(false);
-    expect(result.error).toContain('app not found');
+    expect(result.error).toContain('not running');
+  });
+
+  it('returns error when process listing fails', async () => {
+    const spawnSync: SpawnSyncFn = () => syncErr('device not found');
+    const ops = createDevicectlOps({ spawnSync, spawnAsync: async () => asyncOk() });
+    const result = await ops.terminateApp('UDID-404', 'com.example.app');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('device "UDID-404" not found');
   });
 });
 
@@ -251,21 +271,30 @@ describe('command arguments', () => {
     expect(capturedArgs).toContain('com.app.test');
   });
 
-  it('terminateApp calls xcrun devicectl device process terminate', async () => {
-    let capturedArgs: string[] = [];
+  it('terminateApp: list processes then terminate by PID', async () => {
+    let capturedListArgs: string[] = [];
+    let capturedTerminateArgs: string[] = [];
+    let callCount = 0;
+
     const ops = createDevicectlOps({
       spawnSync: (_cmd, args) => {
-        capturedArgs = args;
+        callCount++;
+        if (callCount === 1) {
+          capturedListArgs = args;
+          return { exitCode: 0, stdout: '99    /path/test.app/test', stderr: '' };
+        }
+        capturedTerminateArgs = args;
         return syncOk();
       },
       spawnAsync: async () => asyncOk(),
     });
     await ops.terminateApp('MY-UDID', 'com.app.test');
-    expect(capturedArgs).toContain('process');
-    expect(capturedArgs).toContain('terminate');
-    expect(capturedArgs).toContain('--device');
-    expect(capturedArgs).toContain('MY-UDID');
-    expect(capturedArgs).toContain('com.app.test');
+    expect(capturedListArgs).toContain('processes');
+    expect(capturedListArgs).toContain('--device');
+    expect(capturedListArgs).toContain('MY-UDID');
+    expect(capturedTerminateArgs).toContain('terminate');
+    expect(capturedTerminateArgs).toContain('--pid');
+    expect(capturedTerminateArgs).toContain('99');
   });
 
   it('openDeepLink calls xcrun devicectl device process launch with bundleId', async () => {
