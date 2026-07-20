@@ -80,7 +80,7 @@ export class MockDeviceBackend implements DeviceBackend {
   private cfg: Required<MockDeviceConfig>;
 
   constructor(config?: MockDeviceConfig) {
-    this.cfg = { ...createDefaultConfig(), ...config } as Required<MockDeviceConfig>;
+    this.cfg = { ...createDefaultConfig(), ...config };
   }
 
   // ─── Runtime Configuration ──────────────────────────────────

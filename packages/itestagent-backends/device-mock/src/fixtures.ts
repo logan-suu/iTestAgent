@@ -146,7 +146,7 @@ export function createDefaultCrashLogs(): CrashSummary[] {
 /**
  * Create a complete MockDeviceConfig with all defaults.
  */
-export function createDefaultConfig(): MockDeviceConfig {
+export function createDefaultConfig(): Required<MockDeviceConfig> {
   return {
     devices: createDefaultDevices(),
     apps: createDefaultApps(),

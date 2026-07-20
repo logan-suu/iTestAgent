@@ -203,8 +203,9 @@ export class BackendSelector {
     };
 
     // Record fallbackChain only when auto-pick chose something other than
-    // the first filter-passing backend (i.e. there was reordering).
-    if (candidates.length > 1 || candidates[0]?.name !== filtered[0]?.name) {
+    // the first filter-passing backend (i.e. there was reordering/skipping).
+    const firstFiltered = filtered[0];
+    if (firstFiltered && picked.name !== firstFiltered.name) {
       result.fallbackChain = candidates.map((b) => b.name);
     }
 
