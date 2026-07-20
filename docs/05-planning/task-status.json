@@ -595,8 +595,8 @@
           "id": "3.4",
           "title": "ContextBuilder：ProjectProfile/Intent/TestPlan/Run state 上下文组装",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-21T00:00:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-21T12:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -606,7 +606,7 @@
             "1.7"
           ],
           "test_file": null,
-          "notes": "PR #31 (https://github.com/logan-suu/iTestAgent/pull/31): feat(engine) ContextBuilder implementation. ADR-010 §7 §11 compliant. ContextBuilder class: buildSystemPrompt (4 markdown sections: Profile/Intent/TestPlan/RunState), sanitizeText (4 default secret patterns + custom), truncateEvidence (head+tail with configurable limit, default 4096 chars), buildTurn (AgentTurnInput with system prompt + sanitized user messages). 43 tests: 10 secret sanitization + 6 evidence truncation + 12 prompt assembly + 6 turn assembly + 9 edge cases. G3 typecheck 0/lint 0. G4 1028+ tests. Secrets never enter model context (R6/G7)."
+          "notes": "PR #31 (https://github.com/logan-suu/iTestAgent/pull/31): feat(engine) ContextBuilder implementation. ADR-010 §7 §11 compliant. ContextBuilder class: buildSystemPrompt (4 markdown sections: Profile/Intent/TestPlan/RunState), sanitizeText (4 default secret patterns + custom), truncateEvidence (head+tail with configurable limit, default 4096 chars), buildTurn (AgentTurnInput with system prompt + sanitized user messages). 43 tests: 10 secret sanitization + 6 evidence truncation + 12 prompt assembly + 6 turn assembly + 9 edge cases. G3 typecheck 0/lint 0. G4 1028+ tests. Secrets never enter model context (R6/G7). PR #31 merged to dev-1.0 (af3d905): all 4 CodeRabbit review threads resolved (c0308a5), review approved, task marked done."
         },
         {
           "id": "3.5",
