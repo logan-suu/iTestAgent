@@ -544,7 +544,7 @@
           "id": "3.1",
           "title": "App 来源决策 + xcodebuild 构建 + xcbeautify",
           "story": "US-6.1",
-          "status": "ready",
+          "status": "in_progress",
           "last_updated": "2026-07-20T00:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
