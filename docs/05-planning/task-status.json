@@ -2,7 +2,7 @@
   "version": "1.0",
   "project": "iTestAgent MVP",
   "last_updated": "2026-07-20T00:00:00.000Z",
-  "current_phase": 2,
+  "current_phase": 3,
   "phases": [
     {
       "id": 0,
@@ -393,7 +393,8 @@
     {
       "id": 2,
       "name": "项目分析与 TestPlan",
-      "status": "not_started",
+      "status": "done",
+      "last_updated": "2026-07-20T07:00:00.000Z",
       "integration_test": "2.8",
       "tasks": [
         {
@@ -515,11 +516,12 @@
           "id": "2.8",
           "title": "Phase 2 集成测试：项目分析与 TestPlan 联调验证",
           "story": null,
-          "status": "in_progress",
+          "status": "done",
+          "last_updated": "2026-07-20T07:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "✅ Completed. PR #27 (https://github.com/logan-suu/iTestAgent/pull/27). Phase 2 integration tests: (1) phase2-profile-to-testplan.test.ts — 17 tests covering full S2→S3 pipeline (mock backend→Profile→Intent→TestPlan→TUI format, YAML round-trip, G2 validation, device selector, metrics policy, explore-only assertions); (2) phase2-candidate-confirmed-in-plan.test.ts — 5 tests covering confirmedOnly filter + suggestedSmoke fallback + YAML preservation. Deferred items resolved: DEF-005 (graph() integration tests with real pbxproj fixture + both direct & indirect deps), DEF-006 (indirect dependency fixture in project.pbxproj via PBXContainerItemProxy), DEF-007 (dedicated indirect dependency resolution test in pbxproj-parser.test.ts). G3: typecheck 0, lint 0. G4: 823 tests pass (0 fail). Phase 2 exit gate: all 8 tasks done, ready for Phase 3.",
+          "notes": "✅ Completed. PR #27 merged to dev-1.0 (2026-07-20). Phase 2 integration tests: (1) phase2-profile-to-testplan.test.ts — 17 tests covering full S2→S3 pipeline (mock backend→Profile→Intent→TestPlan→TUI format, YAML round-trip, G2 validation, device selector, metrics policy, explore-only assertions); (2) phase2-candidate-confirmed-in-plan.test.ts — 5 tests covering confirmedOnly filter + suggestedSmoke fallback + YAML preservation. Deferred items resolved: DEF-005 (graph() integration tests with real pbxproj fixture + both direct & indirect deps), DEF-006 (indirect dependency fixture in project.pbxproj via PBXContainerItemProxy), DEF-007 (dedicated indirect dependency resolution test in pbxproj-parser.test.ts). G3: typecheck 0, lint 0. G4: 823 tests pass (0 fail). Phase 2 exit gate passed → Phase 3.",
           "dependencies": [
             "2.1",
             "2.2",
@@ -536,7 +538,7 @@
     {
       "id": 3,
       "name": "真机执行核心",
-      "status": "not_started",
+      "status": "in_progress",
       "integration_test": "3.17",
       "tasks": [
         {
