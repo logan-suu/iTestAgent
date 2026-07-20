@@ -14,9 +14,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import type { BuildDriver } from 'itestagent-contracts';
+import type { DevicectlOps } from '../src/devicectl-ops.js';
+import type { SigningDiagnostic } from '../src/signing-diagnostics.js';
 import { createXcodebuildBuildDriver } from '../src/xcodebuild-build-driver.js';
 import type {
   BeautifyFn,
+  FindAppPathFn,
   FindProjectFileFn,
   SpawnAsyncFn,
   SpawnSyncFn,
@@ -32,6 +35,9 @@ function createMockDriver(opts?: {
   spawnAsync?: SpawnAsyncFn;
   beautify?: BeautifyFn;
   findProjectFile?: FindProjectFileFn;
+  findAppPath?: FindAppPathFn;
+  devicectlOps?: DevicectlOps;
+  diagnoseSigning?: (output: string) => SigningDiagnostic | null;
 }): BuildDriver {
   return createXcodebuildBuildDriver({
     spawnSync: opts?.spawnSync ?? (() => ({ exitCode: 0, stdout: '', stderr: '' })),
@@ -43,6 +49,9 @@ function createMockDriver(opts?: {
         type: 'xcode_project',
         path: '/fake/project/MyApp.xcodeproj',
       })),
+    findAppPath: opts?.findAppPath,
+    devicectlOps: opts?.devicectlOps,
+    diagnoseSigning: opts?.diagnoseSigning,
   });
 }
 
@@ -606,5 +615,273 @@ describe('integration', () => {
       deviceId: '00008110-001234567890001E',
     });
     expect(buildResult.success).toBe(true);
+  });
+});
+
+// ─── build integration — devicectl install ────────────────────────
+
+describe('build integration — devicectl install', () => {
+  it('auto-installs after successful build', async () => {
+    let installCalled = false;
+    let capturedUdid = '';
+    let capturedAppPath = '';
+
+    const mockDevicectlOps: DevicectlOps = {
+      installApp: async (udid, appPath) => {
+        installCalled = true;
+        capturedUdid = udid;
+        capturedAppPath = appPath;
+        return { success: true };
+      },
+      launchApp: async () => ({ success: true }),
+      terminateApp: async () => ({ success: true }),
+      openDeepLink: async () => ({ success: true }),
+    };
+
+    const mockFindApp: FindAppPathFn = () => '/fake/DerivedData/Debug-iphoneos/MyApp.app';
+
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: 'BUILD SUCCEEDED', stderr: '' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+      devicectlOps: mockDevicectlOps,
+      findAppPath: mockFindApp,
+    });
+
+    const result = await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID-123',
+    });
+
+    expect(result.success).toBe(true);
+    expect(installCalled).toBe(true);
+    expect(capturedUdid).toBe('DEVICE-UDID-123');
+    expect(capturedAppPath).toBe('/fake/DerivedData/Debug-iphoneos/MyApp.app');
+  });
+
+  it('returns installed=false when install fails', async () => {
+    const mockDevicectlOps: DevicectlOps = {
+      installApp: async () => ({
+        success: false,
+        error: 'devicectl install failed: device locked',
+      }),
+      launchApp: async () => ({ success: true }),
+      terminateApp: async () => ({ success: true }),
+      openDeepLink: async () => ({ success: true }),
+    };
+
+    const mockFindApp: FindAppPathFn = () => '/fake/apps/MyApp.app';
+
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: 'BUILD SUCCEEDED', stderr: '' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+      devicectlOps: mockDevicectlOps,
+      findAppPath: mockFindApp,
+    });
+
+    const result = (await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID',
+    })) as { success: boolean; installed?: boolean; installError?: string };
+
+    expect(result.success).toBe(true);
+    expect(result.installed).toBe(false);
+    expect(result.installError).toContain('device locked');
+  });
+
+  it('does not install when appPath not found', async () => {
+    let installCalled = false;
+
+    const mockDevicectlOps: DevicectlOps = {
+      installApp: async () => {
+        installCalled = true;
+        return { success: true };
+      },
+      launchApp: async () => ({ success: true }),
+      terminateApp: async () => ({ success: true }),
+      openDeepLink: async () => ({ success: true }),
+    };
+
+    const mockFindApp: FindAppPathFn = () => undefined;
+
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: 'BUILD SUCCEEDED', stderr: '' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+      devicectlOps: mockDevicectlOps,
+      findAppPath: mockFindApp,
+    });
+
+    const result = await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID',
+    });
+
+    expect(result.success).toBe(true);
+    expect(installCalled).toBe(false);
+  });
+});
+
+// ─── build integration — signing diagnostics ──────────────────────
+
+describe('build integration — signing diagnostics', () => {
+  it('includes SIGNING DIAGNOSTIC in log when provisioning profile missing', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 65,
+        stdout: '',
+        stderr: 'error: No provisioning profile found for bundle identifier com.example.MyApp',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.log).toContain('SIGNING DIAGNOSTIC');
+    expect(result.log).toContain('provisioning profile');
+  });
+
+  it('includes fix guidance when signing certificate missing', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 65,
+        stdout: '',
+        stderr: 'error: No signing certificate for "iPhone Developer" found',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.log).toContain('SIGNING DIAGNOSTIC');
+    expect(result.log).toContain('Fix guidance');
+  });
+
+  it('returns raw log without diagnostic for non-signing errors', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 1,
+        stdout: '',
+        stderr: 'clang: error: linker command failed with exit code 1',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.log).not.toContain('SIGNING DIAGNOSTIC');
+  });
+});
+
+// ─── build integration — injected deps ────────────────────────────
+
+describe('build integration — injected deps', () => {
+  it('devicectlOps.installApp receives correct udid and appPath', async () => {
+    let capturedUdid = '';
+    let capturedAppPath = '';
+
+    const mockDevicectlOps: DevicectlOps = {
+      installApp: async (udid, appPath) => {
+        capturedUdid = udid;
+        capturedAppPath = appPath;
+        return { success: true };
+      },
+      launchApp: async () => ({ success: true }),
+      terminateApp: async () => ({ success: true }),
+      openDeepLink: async () => ({ success: true }),
+    };
+
+    const mockFindApp: FindAppPathFn = () => '/apps/MyApp.app';
+
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: 'BUILD SUCCEEDED', stderr: '' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+      devicectlOps: mockDevicectlOps,
+      findAppPath: mockFindApp,
+    });
+
+    await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'ABCD-1234-EFGH',
+    });
+
+    expect(capturedUdid).toBe('ABCD-1234-EFGH');
+    expect(capturedAppPath).toBe('/apps/MyApp.app');
+  });
+
+  it('diagnoseSigning is called with raw output on build failure', async () => {
+    let receivedOutput = '';
+    const mockDiagnose = (output: string): SigningDiagnostic | null => {
+      receivedOutput = output;
+      return null;
+    };
+
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 1,
+        stdout: 'CompileSwift',
+        stderr: 'error: something went wrong',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+      diagnoseSigning: mockDiagnose,
+    });
+
+    await driver.build({
+      root: '/fake/project',
+      scheme: 'MyApp',
+      deviceId: 'DEVICE-UDID',
+    });
+
+    expect(receivedOutput).toContain('CompileSwift');
+    expect(receivedOutput).toContain('error: something went wrong');
   });
 });
