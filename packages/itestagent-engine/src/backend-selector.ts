@@ -94,8 +94,8 @@ export class BackendRegistry {
 // ─── BackendSelector ──────────────────────────────────────────
 
 /**
- * Backend selection engine implementing the 8 selection rules from
- * Architecture Doc §4.3.
+ * Backend selection engine implementing the 8 selection rules from the
+ * iTestAgent Architecture Document (backend selection strategy, ADR-010 Harness boundary).
  *
  * Rules:
  *   1. Filter by BackendCapabilities.supportedTargetKinds.
