@@ -20,7 +20,7 @@ import {
   toggleCandidateAtIndex,
   unconfirmAllCandidates,
 } from './candidate-review.js';
-import { navigatePlanSection } from './plan-review.js';
+import { PLAN_SECTIONS, navigatePlanSection } from './plan-review.js';
 
 // ─── State ─────────────────────────────────────────────────────────────
 
@@ -350,13 +350,12 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       };
 
     case 'plan_navigate_section': {
-      const sectionCount = 7; // PLAN_SECTIONS length
       return {
         ...state,
         planSectionIndex: navigatePlanSection(
           state.planSectionIndex,
           event.direction,
-          sectionCount,
+          PLAN_SECTIONS.length,
         ),
       };
     }

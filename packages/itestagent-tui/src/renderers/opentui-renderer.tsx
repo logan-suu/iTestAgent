@@ -252,7 +252,6 @@ function PlanReviewPanel(props: {
     return formatPlanSections(plan);
   };
   const sectionIndex = () => s().planSectionIndex;
-  const current = () => sections()[sectionIndex()];
 
   const handleCommand = (value: string) => {
     if (!value) return;
