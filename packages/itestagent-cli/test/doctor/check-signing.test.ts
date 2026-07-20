@@ -4,9 +4,21 @@
  * Tests three-state behavior per US-1.2 AC1 + US-1.3 AC1
  * ("signing unavailable / Developer Mode off" recognition).
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { checkPhysicalDevice } from '../../src/doctor/checks/check-device-physical.js';
 import { checkSigning } from '../../src/doctor/checks/check-signing.js';
+import { setExecOverride } from '../../src/doctor/utils.js';
+
+function successExec() {
+  return {
+    exitCode: 0,
+    stdout: 'iPhone Developer: Test User (ABC123)\n1 identity found',
+    stderr: '',
+  };
+}
+
+beforeAll(() => setExecOverride(successExec));
+afterAll(() => setExecOverride());
 
 describe('checkSigning', () => {
   test('returns structured result with name', async () => {

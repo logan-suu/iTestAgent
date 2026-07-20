@@ -2,11 +2,19 @@
  * Doctor check unit tests — Xcode and Command Line Tools.
  *
  * Tests the three-state (pass/fail/manual) behavior per US-1.2 AC1.
- * Uses Bun.spawnSync mocking to simulate command outputs.
+ * Uses setExecOverride to isolate from real system tools.
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { checkCommandLineTools } from '../../src/doctor/checks/check-clt.js';
 import { checkXcode } from '../../src/doctor/checks/check-xcode.js';
+import { setExecOverride } from '../../src/doctor/utils.js';
+
+function successExec() {
+  return { exitCode: 0, stdout: '16.2\n15.4', stderr: '' };
+}
+
+beforeAll(() => setExecOverride(successExec));
+afterAll(() => setExecOverride());
 
 describe('checkXcode', () => {
   test('returns structured result with name', async () => {

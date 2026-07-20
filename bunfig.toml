@@ -1,0 +1,16 @@
+# iTestAgent — Bun workspace configuration.
+#
+# Ensures reproducible installs and proper JSX runtime resolution
+# for @opentui/solid in Bun's test runner and runtime.
+
+[install]
+# Use exact versions for reproducible installs across machines
+exact = true
+
+# Save lockfile at workspace root (monorepo)
+save = { lockfile = "bun.lock" }
+
+[test]
+# Preload OpenTUI Solid JSX runtime for test files that transitively
+# import renderer code (solves "Cannot find module 'react/jsx-dev-runtime'").
+preload = ["./node_modules/@opentui/solid/jsx-runtime.js"]

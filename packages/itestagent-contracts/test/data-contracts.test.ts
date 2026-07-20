@@ -568,6 +568,47 @@ test('migrateV1ToV2 passes through v2 data unchanged', () => {
   expect(result.environment.comparisonScope).toBe('simulator_only');
 });
 
+test('migrateV1ToV2 passes through future v10 schema without string-comparison bugs', () => {
+  const v10data = {
+    schemaVersion: '10.0',
+    runId: 'run-future-001',
+    status: 'passed' as const,
+    projectProfileRef: '~/.itestagent/projects/abc/profile.json',
+    device: {
+      udid: 'XYZ-9999',
+      name: 'iPhone 20',
+      model: 'iPhone20,1',
+      osVersion: '99.0',
+      targetKind: 'physical' as const,
+    },
+    execution: {
+      totalSteps: 3,
+      completedSteps: 3,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 1000,
+      startTime: '2026-07-20T00:00:00.000Z',
+      endTime: '2026-07-20T00:00:01.000Z',
+      targetKind: 'physical' as const,
+      backendUsed: 'appium',
+      deviceId: 'XYZ-9999',
+    },
+    environment: {
+      targetKind: 'physical' as const,
+      representativeOfPhysicalDevice: true,
+      comparisonScope: 'physical_only' as const,
+      xcodeVersion: '99.0',
+    },
+    metrics: {},
+    cases: [],
+    artifactRefs: [],
+  };
+
+  const result = migrateV1ToV2(v10data);
+  expect(result.schemaVersion).toBe('10.0');
+  expect(result.device.targetKind).toBe('physical');
+});
+
 // ─── Test 20: RunResultSchema parses simulator run result ─────
 
 test('RunResultSchema parses simulator run result with environment annotations', () => {

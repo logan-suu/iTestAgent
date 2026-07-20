@@ -9,7 +9,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "itestagent.result.v1"
+      "const": "itestagent.result.v2",
+      "description": "ADR-011: v2 adds targetKind, environment block, baselineDomain."
     },
     "runId": { "type": "string" },
     "status": {
@@ -23,6 +24,10 @@
     },
     "device": { "$ref": "#/$defs/DeviceSnapshot" },
     "execution": { "$ref": "#/$defs/ExecutionSummary" },
+    "environment": {
+      "$ref": "#/$defs/EnvironmentInfo",
+      "description": "ADR-011: run environment metadata."
+    },
     "cases": {
       "type": "array",
       "items": { "$ref": "#/$defs/TestCaseResult" }
@@ -44,28 +49,67 @@
         "name": { "type": "string" },
         "model": { "type": "string" },
         "os": { "type": "string" },
-        "udid": { "type": "string" }
+        "osVersion": { "type": "string" },
+        "udid": { "type": "string" },
+        "targetKind": {
+          "type": "string",
+          "enum": ["physical", "simulator"],
+          "description": "ADR-011: target execution domain."
+        },
+        "runtimeIdentifier": {
+          "type": "string",
+          "description": "CoreSimulator runtime identifier (simulator only)."
+        }
       },
-      "required": ["name", "os", "udid"]
+      "required": ["name", "os", "udid", "targetKind"]
     },
     "ExecutionSummary": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "mode": {
+        "totalSteps": { "type": "number", "minimum": 0 },
+        "completedSteps": { "type": "number", "minimum": 0 },
+        "failedSteps": { "type": "number", "minimum": 0 },
+        "skippedSteps": { "type": "number", "minimum": 0 },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "targetKind": {
           "type": "string",
-          "enum": ["xcuitest", "device_backend"]
+          "enum": ["physical", "simulator"],
+          "description": "ADR-011: execution domain."
         },
-        "flowId": {
-          "type": "string",
-          "description": "If recorded/saved as Flow, the Flow ID for replay."
-        },
-        "backend": {
+        "backendUsed": {
           "type": "string",
           "description": "Which DeviceBackend implementation was used."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Device UDID or serial used for this run."
         }
       },
-      "required": ["mode"]
+      "required": ["totalSteps", "completedSteps", "failedSteps", "targetKind"]
+    },
+    "EnvironmentInfo": {
+      "type": "object",
+      "description": "ADR-011: run environment metadata.",
+      "additionalProperties": false,
+      "properties": {
+        "targetKind": {
+          "type": "string",
+          "enum": ["physical", "simulator"]
+        },
+        "representativeOfPhysicalDevice": {
+          "type": "boolean",
+          "description": "Always false for simulator (ADR-011)."
+        },
+        "comparisonScope": {
+          "type": "string",
+          "enum": ["physical_only", "simulator_only"]
+        },
+        "xcodeVersion": { "type": "string" }
+      },
+      "required": ["targetKind", "representativeOfPhysicalDevice", "comparisonScope"]
     },
     "TestCaseResult": {
       "type": "object",

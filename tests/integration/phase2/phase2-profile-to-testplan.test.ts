@@ -31,7 +31,7 @@ import {
   formatEstimatedDuration,
   formatPlanSections,
   navigatePlanSection,
-} from 'itestagent-tui';
+} from 'itestagent-tui/pure';
 
 // ─── Mock backend (returns deterministic, schema-compliant data) ─
 

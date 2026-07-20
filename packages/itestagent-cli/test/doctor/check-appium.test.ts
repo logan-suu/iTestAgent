@@ -4,9 +4,17 @@
  * Tests three-state behavior per US-1.2 AC1 + US-1.3 AC1
  * ("backend not ready" recognition).
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { checkAppium } from '../../src/doctor/checks/check-appium.js';
 import { checkWda } from '../../src/doctor/checks/check-wda.js';
+import { setExecOverride } from '../../src/doctor/utils.js';
+
+function successExec() {
+  return { exitCode: 0, stdout: '3.11.2\nxcuitest', stderr: '' };
+}
+
+beforeAll(() => setExecOverride(successExec));
+afterAll(() => setExecOverride());
 
 describe('checkAppium', () => {
   test('returns structured result with name', async () => {

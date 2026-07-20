@@ -40,13 +40,26 @@
     },
     "device": {
       "type": "object",
-      "description": "设备配置（技术选型 §9：可插拔 DeviceBackend 架构）",
+      "description": "Device configuration (ADR-011: physical/simulator dual-domain).",
       "properties": {
-        "preferredBackend": {
-          "type": "string",
-          "enum": ["appium", "mobile-mcp", "mock"],
-          "description": "首选 DeviceBackend（Phase 0 横评结论：Appium/WDA MVP 主 backend）",
-          "default": "appium"
+        "preferredBackends": {
+          "type": "object",
+          "description": "Preferred DeviceBackend per target kind (ADR-011: targetKind-aware backend selection).",
+          "properties": {
+            "physical": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["appium", "mobile-mcp", "mock"] },
+              "description": "Backend preference order for physical devices.",
+              "default": ["appium"]
+            },
+            "simulator": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["appium", "mock"] },
+              "description": "Backend preference order for simulator devices.",
+              "default": ["appium"]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

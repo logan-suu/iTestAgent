@@ -347,7 +347,6 @@
           "title": "Subprocess controller + mock AgentRuntime",
           "story": null,
           "status": "done",
-          "last_updated": "2026-07-19T02:00:00.000Z",
           "last_updated": "2026-07-19T12:00:00Z",
           "documents_required": [
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -467,7 +466,7 @@
           "story": "US-4.2",
           "status": "done",
           "last_updated": "2026-07-20T00:00:00.000Z",
-          "notes": "PR #24: https://github.com/logan-suu/iTestAgent/pull/24 — Merged to dev-1.0. Implemented Intent zod schemas (Intent/IntentParseResult/Clarification), rule-based parseIntent() with CN→EN keyword mapping + ProjectProfile feature fuzzy matching, TuiShell intent state + events (intent_parsed/intent_clarify_response/intent_cancel). 45 new tests (16 contracts + 21 engine + 8 TUI). G3 typecheck 0/lint 0. G4 694 tests pass. Deferred: DEF-009 (features required vs optional), DEF-010 (metricsRequested boolean vs metricsHint? string) → Phase 3."
+          "notes": "PR #24: https://github.com/logan-suu/iTestAgent/pull/24 — Merged to dev-1.0. Implemented Intent zod schemas (Intent/IntentParseResult/Clarification), rule-based parseIntent() with CN→EN keyword mapping + ProjectProfile feature fuzzy matching, TuiShell intent state + events (intent_parsed/intent_clarify_response/intent_cancel). 45 new tests (16 contracts + 21 engine + 8 TUI). G3 typecheck 0/lint 0. G4 694 tests pass. Deferred: DEF-009 (features required vs optional), DEF-010 (metricsRequested boolean vs metricsHint? string) → Phase 3.",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"

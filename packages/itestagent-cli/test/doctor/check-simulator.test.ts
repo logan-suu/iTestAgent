@@ -3,17 +3,26 @@
  *
  * US-1.2 AC1: three-state pass/fail/manual per check.
  * US-1.3 AC1: "backend not ready" recognition.
- * 避坑手册 §3: signing/Developer Mode/trust → N/A for Simulator.
- *
- * Tests run with real CLI commands (matching existing test convention).
- * Structural assertions work even when tools are absent.
+ * Uses setExecOverride for test isolation from real system tools.
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { checkSimctl } from '../../src/doctor/checks/check-simctl.js';
 import { checkSimulatorAppiumWda } from '../../src/doctor/checks/check-simulator-appium-wda.js';
 import { checkSimulatorDevice } from '../../src/doctor/checks/check-simulator-device.js';
 import { checkSimulatorRuntime } from '../../src/doctor/checks/check-simulator-runtime.js';
 import { checkSimulatorSdk } from '../../src/doctor/checks/check-simulator-sdk.js';
+import { setExecOverride } from '../../src/doctor/utils.js';
+
+function successExec() {
+  return {
+    exitCode: 0,
+    stdout: 'iOS 18.2 Simulator\nDevice: iPhone 16 Pro\niOS 18.2\nxcuitest',
+    stderr: '',
+  };
+}
+
+beforeAll(() => setExecOverride(successExec));
+afterAll(() => setExecOverride());
 
 // ════════════════════════════════════════════════════════════
 // checkSimctl

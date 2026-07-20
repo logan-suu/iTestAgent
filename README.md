@@ -85,7 +85,7 @@ itestagent
 > 对比上次结果，这个包启动有没有变慢
 ```
 
-### MVP 完成标准（19 条，含 Simulator 同级支持）
+### MVP 完成标准（18 条，含 Simulator 同级支持）
 
 1. 运行 `itestagent` 进入 OpenTUI 交互式 TUI
 2. Agent 自动分析 iOS 项目并生成 Project Profile
@@ -139,11 +139,11 @@ itestagent
 | CLI 入口 + 配置 | ✅ Verified | `itestagent --version`/`config` 可用 |
 | TUI Shell 骨架 | ✅ Verified | OpenTUI+SolidJS，TTY 检测正常 |
 | Harness 核心接口契约 | ✅ Contracted | 14 Zod schemas + 5 Backend interfaces |
-| RunStateMachine / PermissionEngine | 📋 Designed | 接口已定义，实现待 Phase 1.7+ |
-| Server / SessionManager / SSE | 📋 Designed | 接口已定义，实现待 Phase 1.8, 1.14-1.15 |
-| doctor 环境诊断 | 📋 Contracted | Schema 已定义，实现待 Phase 1.11-1.12 |
-| devices 设备发现 | 📋 Contracted | Schema 含 targetKind，实现待 Phase 1.13 |
-| Project Profile / TestPlan | 📋 Designed | 架构已定，实现待 Phase 2 |
+| RunStateMachine / PermissionEngine | ✅ Verified | State machine, permission rules implemented |
+| Server / SessionManager / SSE | ✅ Verified | Bun server + SSE + session lifecycle |
+| doctor 环境诊断 | ✅ Verified | physical + simulator lanes, all checks |
+| devices 设备发现 | ✅ Verified | physical + simulator discovery + healthcheck |
+| Project Profile / TestPlan | ✅ Verified | S2→S3 pipeline, 22 integration tests |
 | AgentRuntime / Backend 执行 | 📋 Designed | 接口已定义，实现待 Phase 3 |
 | 证据采集 / 性能 / 报告 | 📋 Designed | 接口已定义，实现待 Phase 4 |
 
@@ -159,9 +159,9 @@ itestagent
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | Phase 0 | ✅ 完成 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
-| Phase 1 | 🔄 in_progress | 骨架与环境（CLI/TUI/contracts done, RunStateMachine/Server/doctor/devices/store/config pending） |
-| Phase 2 | ⬜ 待开始 | 项目分析与 TestPlan |
-| Phase 3 | ⬜ 待开始 | 真机+Simulator 执行核心（双路径 + Flow） |
+| Phase 1 | ✅ 完成 | 骨架与环境（CLI/TUI/Server/SessionManager/doctor/devices/store/config） |
+| Phase 2 | ✅ 完成 | 项目分析与 TestPlan（Profile→Intent→TestPlan→TUI 确认） |
+| Phase 3 | 🔄 in_progress | 真机+Simulator 执行核心（双路径 + Flow） |
 | Phase 4 | ⬜ 待开始 | 证据 / 性能 / 报告 |
 | Phase 5 | ⬜ 待开始 | 打磨与 MVP 验收 |
 | Phase 6+ | ⬜ 待开始 | 增强路线 |
@@ -209,7 +209,7 @@ iTestAgent/
 - **工作流**：EPCC-V（Explore → Plan → Code → Check → Verify）
 - **质量门禁**：G1-G7+G5-SIM（规格一致 / 契约校验 / 静态检查 / 测试通过 / 真机验证(G5) / Simulator验证(G5-SIM) / 证据留档 / 安全合规）
 - **命名约定**：组件统一 `itestagent-*`，禁止 `qa-*`
-- **红线(R1-R12)**：不碰 Apple 私有框架、不自研已复用底座、真机+Simulator必spike实测、不静默降级/臆造指标、敏感数据不落盘明文、对外内容必英文
+- **红线(R1-R14)**：不碰 Apple 私有框架、不自研已复用底座、真机+Simulator必spike实测、不静默降级/臆造指标、敏感数据不落盘明文、对外内容必英文、重大决策须 ADR 记录、task-status.json 纯任务追踪
 - **决策**：重大技术决策与需求变更必须记录到 `docs/decisions/`（ADR 格式）
 
 ## 硬红线（违反必被拒绝）
@@ -227,6 +227,8 @@ R9 组件命名统一 itestagent-*，禁止使用 qa-*
 R10 不引入 Effect-TS / SQLite 事件溯源等重型编排；不 fork/import OpenCode 私有核心
 R11 重大技术决策与需求变更必须记录到 docs/decisions/（ADR 格式），口头决策无效
 R12 所有对外可见的版本控制内容必须使用英文；项目文档（docs/ 目录）除外
+R13 task-status.json 是纯任务追踪文件，禁止添加非任务字段
+R14 PR review 或自行检查中发现的合理但需延期修复的问题，必须在识别后立即写入 deferred-items.json 留档，不得遗漏
 ```
 
 ## License

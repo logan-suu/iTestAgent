@@ -119,6 +119,17 @@
           "description": "0.0-1.0. <0.5 should be flagged as low-confidence in TUI.",
           "minimum": 0,
           "maximum": 1
+        },
+        "confirmed": {
+          "type": "boolean",
+          "description": "Whether the user has confirmed this candidate in the TUI (US-3.3 AC3: only confirmed links enter TestPlan/Flow). Default false.",
+          "default": false
+        },
+        "displayOrder": {
+          "type": "integer",
+          "description": "User-controlled display ordering; lower = higher priority. Default 0 (insertion order).",
+          "minimum": 0,
+          "default": 0
         }
       },
       "required": ["name", "evidence", "confidence"]

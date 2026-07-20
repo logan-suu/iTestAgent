@@ -301,6 +301,16 @@ export type ArtifactIndex = z.infer<typeof ArtifactIndexSchema>;
 // ─── Migration ───────────────────────────────────────────────
 
 /**
+ * Extract major version number from a schema version string.
+ * Returns NaN for unparseable versions (treated as v1 for migration).
+ */
+function extractMajorVersion(version: string | undefined): number {
+  if (!version) return 1;
+  const major = Number.parseInt(version.split('.')[0] ?? '', 10);
+  return Number.isNaN(major) ? 1 : major;
+}
+
+/**
  * Migrate a v1 RunResult to v2.
  *
  * ADR-011 §8 Schema Version:
@@ -324,7 +334,8 @@ export function migrateV1ToV2(raw: unknown): RunResult {
   // If v3+ or unknown future version, parse and pass-through unchanged
   // (migration only applies to 1.0 → 2.0)
   const version = data.schemaVersion as string | undefined;
-  if (version && version >= '3.0') {
+  const majorVersion = extractMajorVersion(version);
+  if (majorVersion >= 3) {
     return RunResultSchema.parse(raw);
   }
 
