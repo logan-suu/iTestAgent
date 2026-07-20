@@ -79,6 +79,8 @@ export const BuildResultSchema = z
     success: z.boolean(),
     appPath: z.string().optional(),
     xcresultPath: z.string().optional(),
+    installed: z.boolean().optional(),
+    installError: z.string().optional(),
     log: z.string(),
     durationMs: z.number().int().nonnegative(),
   })

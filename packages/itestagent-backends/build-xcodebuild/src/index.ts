@@ -16,5 +16,14 @@ export type {
   SpawnSyncFn,
   SpawnAsyncFn,
   BeautifyFn,
+  FindAppPathFn,
   XcodebuildDriverDeps,
 } from './xcodebuild-build-driver.js';
+
+// Devicectl operations (US-6.2 AC1/AC4)
+export { createDevicectlOps } from './devicectl-ops.js';
+export type { DevicectlResult, DevicectlDeps, DevicectlOps } from './devicectl-ops.js';
+
+// Signing diagnostics (US-6.2 AC3)
+export { diagnoseSigningError, hasSigningError } from './signing-diagnostics.js';
+export type { SigningDiagnostic } from './signing-diagnostics.js';

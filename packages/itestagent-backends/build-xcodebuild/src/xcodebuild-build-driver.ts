@@ -32,6 +32,10 @@ import type {
   TestInput,
   TestResult,
 } from 'itestagent-contracts';
+import { createDevicectlOps } from './devicectl-ops.js';
+import type { DevicectlDeps, DevicectlOps } from './devicectl-ops.js';
+import { diagnoseSigningError } from './signing-diagnostics.js';
+import type { SigningDiagnostic } from './signing-diagnostics.js';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -62,12 +66,23 @@ export type FindProjectFileFn = (
   root: string,
 ) => { type: 'xcode_workspace' | 'xcode_project'; path: string } | null;
 
+export type FindAppPathFn = (
+  derivedDataPath: string,
+  scheme: string,
+  configuration: string,
+) => string | undefined;
+
 /** Injectable dependencies for XcodebuildBuildDriver. */
 export interface XcodebuildDriverDeps {
   spawnSync: SpawnSyncFn;
   spawnAsync: SpawnAsyncFn;
   beautify: BeautifyFn;
   findProjectFile: FindProjectFileFn;
+  findAppPath: FindAppPathFn;
+  /** Devicectl operations for install/launch/terminate (US-6.2 AC1/AC4). */
+  devicectlOps: DevicectlOps;
+  /** Signing error diagnosis function (US-6.2 AC3). */
+  diagnoseSigning: (output: string) => SigningDiagnostic | null;
 }
 
 // ─── Default implementations ──────────────────────────────────────
@@ -155,6 +170,13 @@ export function createXcodebuildBuildDriver(deps?: Partial<XcodebuildDriverDeps>
   const spawnAsync = deps?.spawnAsync ?? defaultSpawnAsync;
   const beautify = deps?.beautify ?? defaultBeautify;
   const resolveProjectFile = deps?.findProjectFile ?? defaultFindProjectFile;
+  const findApp = deps?.findAppPath ?? findAppInDerivedData;
+
+  // Devicectl ops: use same spawn fns for consistency; tests can inject their own via deps.
+  const devicectlOps = deps?.devicectlOps ?? createDevicectlOps({ spawnSync, spawnAsync });
+
+  // Signing diagnosis: pure function, default no-op replacement in tests.
+  const diagnoseSigning = deps?.diagnoseSigning ?? diagnoseSigningError;
 
   // ─── doctor ──────────────────────────────────────────────────
 
@@ -316,18 +338,56 @@ export function createXcodebuildBuildDriver(deps?: Partial<XcodebuildDriverDeps>
     const durationMs = Date.now() - startMs;
 
     if (result.exitCode !== 0) {
+      // US-6.2 AC3: diagnose signing errors from xcodebuild output
+      const signingDiag = diagnoseSigning(rawOutput);
+      if (signingDiag) {
+        const diagnosticLog = [
+          log,
+          '',
+          '═══ SIGNING DIAGNOSTIC ═══',
+          `Reason: ${signingDiag.reason}`,
+          '',
+          'Fix guidance:',
+          ...signingDiag.fixGuide.map((g, i) => `  ${i + 1}. ${g}`),
+        ].join('\n');
+        return { success: false, log: diagnosticLog, durationMs };
+      }
+
       return { success: false, log, durationMs };
     }
 
-    // Try to find .app path in DerivedData
-    const appPath = findAppInDerivedData(resolvedDerivedDataPath, scheme, configuration);
+    // Find .app path in DerivedData
+    const appPath = findApp(resolvedDerivedDataPath, scheme, configuration);
 
-    return {
+    // US-6.2 AC1: install built .app to device via devicectl
+    let installed = false;
+    let installError: string | undefined;
+
+    if (appPath) {
+      const installResult = await devicectlOps.installApp(deviceId, appPath);
+      if (installResult.success) {
+        installed = true;
+      } else {
+        installError = installResult.error;
+      }
+    }
+
+    const buildResult: BuildResult & {
+      installed?: boolean;
+      installError?: string;
+    } = {
       success: true,
       appPath,
       log,
       durationMs,
+      installed,
     };
+
+    if (installError) {
+      buildResult.installError = installError;
+    }
+
+    return buildResult;
   }
 
   // ─── test (stub) ─────────────────────────────────────────────
