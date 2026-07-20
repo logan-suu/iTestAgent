@@ -544,8 +544,8 @@
           "id": "3.1",
           "title": "App 来源决策 + xcodebuild 构建 + xcbeautify",
           "story": "US-6.1",
-          "status": "in_progress",
-          "last_updated": "2026-07-20T08:00:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-20T08:15:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -554,7 +554,7 @@
             "2.7"
           ],
           "test_file": null,
-          "notes": "PR #28: https://github.com/logan-suu/iTestAgent/pull/28 — Implemented AppSourceResolver (user>artifact>build priority chain), XcodebuildBuildDriver (doctor/listSchemes/showBuildSettings/build, test/archive stubs→3.11), xcbeautify CLI pipe wrapper with fallback. 10 files +1795/-2. G3 typecheck 0, lint 0. G4 875 tests pass."
+          "notes": "PR #28: https://github.com/logan-suu/iTestAgent/pull/28 — Implemented AppSourceResolver (user>artifact>build priority chain), XcodebuildBuildDriver (doctor/listSchemes/showBuildSettings/build, test/archive stubs→3.11), xcbeautify CLI pipe wrapper with fallback. 10 files +1795/-2. G3 typecheck 0, lint 0. G4 875 tests pass. Merged to dev-1.0 (2026-07-20)."
         },
         {
           "id": "3.2",
@@ -610,7 +610,7 @@
           "id": "3.5",
           "title": "BuildDriver: devicectl 安装/启动 + 签名（fastlane）链路",
           "story": "US-6.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
