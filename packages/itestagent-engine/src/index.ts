@@ -45,6 +45,13 @@ export type {
   StateChangeHandler,
 } from './run-state-machine.js';
 
+export { ContextBuilder } from './context-builder.js';
+
+export type {
+  BuildContextInput,
+  ContextBuilderOptions,
+} from './context-builder.js';
+
 export type {
   MockAgentRuntimeConfig,
   RuntimeHistory,
