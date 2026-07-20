@@ -606,7 +606,7 @@
             "1.7"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness 边界。ContextBuilder 输入 ProjectProfile/Intent/TestPlan/Run state/确认过的链路/RunStep/Artifact 摘要。禁止 secret 明文和大体积原始证据进入模型上下文。测试：secret 不进入 prompt/history、大体积证据截断（ADR-010 §11）。"
+          "notes": "PR #31 (https://github.com/logan-suu/iTestAgent/pull/31): feat(engine) ContextBuilder implementation. ADR-010 §7 §11 compliant. ContextBuilder class: buildSystemPrompt (4 markdown sections: Profile/Intent/TestPlan/RunState), sanitizeText (4 default secret patterns + custom), truncateEvidence (head+tail with configurable limit, default 4096 chars), buildTurn (AgentTurnInput with system prompt + user messages). 30 tests: 8 secret sanitization + 6 evidence truncation + 12 prompt assembly + 4 turn assembly. G3 typecheck 0/lint 0. G4 1028 tests pass. Secrets never enter model context (R6/G7)."
         },
         {
           "id": "3.5",
