@@ -560,19 +560,19 @@
           "id": "3.2",
           "title": "DeviceBackend mock 实现 + backend 选择框架",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-20T00:00:00.000Z",
-          "documents_required": [
-            "docs/02-architecture/架构设计文档.md",
-            "docs/02-architecture/技术选型文档.md",
-            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
-          ],
-          "dependencies": [
-            "1.3",
-            "1.15"
-          ],
-          "test_file": null,
-          "notes": "PR #29: https://github.com/logan-suu/iTestAgent/pull/29 — MockDeviceBackend: fixture-driven DeviceBackend test double implementing 16 interface methods with runtime-reconfigurable MockDeviceConfig + fixtures (DeviceInfo/AppInfo/UiTreeSnapshot/ArtifactRef/ActionResult/CrashSummary). BackendSelector: 8-rule selection pipeline (ADR-010 §4.3) — filterByTargetKind, applyPreference, autoPick, healthcheckGate, cross-target-fallback blocked. 34 tests. Mock backend enables CI development for Phase 3.3–3.17 without real devices."
+"status": "done",
+  "last_updated": "2026-07-20T12:00:00.000Z",
+  "documents_required": [
+    "docs/02-architecture/架构设计文档.md",
+    "docs/02-architecture/技术选型文档.md",
+    "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+  ],
+  "dependencies": [
+    "1.3",
+    "1.15"
+  ],
+  "test_file": null,
+  "notes": "PR #29: https://github.com/logan-suu/iTestAgent/pull/29 — MockDeviceBackend: fixture-driven DeviceBackend test double implementing 16 interface methods with runtime-reconfigurable MockDeviceConfig + fixtures (DeviceInfo/AppInfo/UiTreeSnapshot/ArtifactRef/ActionResult/CrashSummary). BackendSelector: 8-rule selection pipeline (ADR-010 §4.3) — filterByTargetKind, applyPreference, autoPick, healthcheckGate, cross-target-fallback blocked. 68 tests (38 mock + 25 selector + 5 cross-phase). G3: typecheck clean, lint 206 files 0 violations. G4: 943 pass / 0 fail. Merged to dev-1.0 (2026-07-20). Deferred: DEF-011 (allowCrossTargetFallback wiring → Phase 3.3/3.5)."
         },
         {
           "id": "3.3",
