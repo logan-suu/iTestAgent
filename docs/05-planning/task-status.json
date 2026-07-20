@@ -606,7 +606,7 @@
             "1.7"
           ],
           "test_file": null,
-          "notes": "PR #31 (https://github.com/logan-suu/iTestAgent/pull/31): feat(engine) ContextBuilder implementation. ADR-010 §7 §11 compliant. ContextBuilder class: buildSystemPrompt (4 markdown sections: Profile/Intent/TestPlan/RunState), sanitizeText (4 default secret patterns + custom), truncateEvidence (head+tail with configurable limit, default 4096 chars), buildTurn (AgentTurnInput with system prompt + user messages). 30 tests: 8 secret sanitization + 6 evidence truncation + 12 prompt assembly + 4 turn assembly. G3 typecheck 0/lint 0. G4 1028 tests pass. Secrets never enter model context (R6/G7)."
+          "notes": "PR #31 (https://github.com/logan-suu/iTestAgent/pull/31): feat(engine) ContextBuilder implementation. ADR-010 §7 §11 compliant. ContextBuilder class: buildSystemPrompt (4 markdown sections: Profile/Intent/TestPlan/RunState), sanitizeText (4 default secret patterns + custom), truncateEvidence (head+tail with configurable limit, default 4096 chars), buildTurn (AgentTurnInput with system prompt + sanitized user messages). 43 tests: 10 secret sanitization + 6 evidence truncation + 12 prompt assembly + 6 turn assembly + 9 edge cases. G3 typecheck 0/lint 0. G4 1028+ tests. Secrets never enter model context (R6/G7)."
         },
         {
           "id": "3.5",

@@ -80,7 +80,7 @@ export class ContextBuilder {
   constructor(options?: ContextBuilderOptions) {
     this.maxEvidenceChars = options?.maxEvidenceChars ?? DEFAULT_MAX_EVIDENCE_CHARS;
     this.secretPlaceholder = options?.secretPlaceholder ?? DEFAULT_SECRET_PLACEHOLDER;
-    this.secretPatterns = options?.secretPatterns ?? DEFAULT_SECRET_PATTERNS;
+    this.secretPatterns = [...DEFAULT_SECRET_PATTERNS, ...(options?.secretPatterns ?? [])];
   }
 
   // ─── System Prompt Assembly ──────────────────────────────
@@ -160,7 +160,7 @@ export class ContextBuilder {
     const half = Math.floor(limit / 2);
     const head = text.slice(0, half);
     const tail = text.slice(text.length - half);
-    const truncated = text.length - limit;
+    const truncated = text.length - head.length - tail.length;
     const notice = `\n\n... [${truncated} characters truncated] ...\n\n`;
 
     return head + notice + tail;
@@ -182,10 +182,31 @@ export class ContextBuilder {
     const messages: unknown[] = [{ role: 'system', content: systemPrompt }];
 
     if (userMessages && userMessages.length > 0) {
-      messages.push(...userMessages);
+      messages.push(...userMessages.map((m) => this.sanitizeMessage(m)));
     }
 
     return { messages };
+  }
+
+  // ─── Private: Helpers ────────────────────────────────────
+
+  /**
+   * Sanitize a message object's content field if it contains a string.
+   * Preserves message structure and fields while redacting secrets.
+   */
+  private sanitizeMessage(message: unknown): unknown {
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      'content' in message &&
+      typeof (message as { content: unknown }).content === 'string'
+    ) {
+      return {
+        ...(message as Record<string, unknown>),
+        content: this.sanitizeText((message as { content: string }).content),
+      };
+    }
+    return message;
   }
 
   // ─── Private: Section Builders ───────────────────────────

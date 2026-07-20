@@ -185,15 +185,9 @@ describe('ADR-010 §11: secret sanitization — secrets MUST NOT enter model con
     expect(result).toContain('login flow');
   });
 
-  test('custom secret patterns are applied alongside defaults', () => {
-    // Providing custom patterns replaces defaults — verify both custom pattern
-    // and a known default pattern (token=) work.
+  test('custom secret patterns are merged with (not replaced by) defaults', () => {
     const cb = new ContextBuilder({
-      secretPatterns: [
-        /\bmy-custom-token:\s*\S{10,}/gi,
-        // Also include a default-like pattern to ensure token matching still works
-        /\b(?:token|password|secret|api[_-]?key|credential)\s*[=:]\s*["']?[^\s"']{8,}["']?/gi,
-      ],
+      secretPatterns: [/\bmy-custom-token:\s*\S{10,}/gi],
     });
     const input =
       'my-custom-token: VERY-LONG-SECRET-VALUE-HERE and also token=another-secret-123456789';
@@ -258,6 +252,13 @@ describe('ADR-010 §11: evidence truncation — large raw evidence MUST be trunc
     const longText = 'C'.repeat(8000);
     const result = cb.truncateEvidence(longText, 200);
     expect(result.length).toBeLessThanOrEqual(200 + 100);
+  });
+
+  test('truncateEvidence reports correct number of truncated characters with odd limit', () => {
+    const cb = new ContextBuilder({ maxEvidenceChars: 101 });
+    const longText = 'Y'.repeat(500);
+    const result = cb.truncateEvidence(longText);
+    expect(result).toContain('[400');
   });
 
   test('truncateEvidence reports correct number of truncated characters', () => {
@@ -442,6 +443,23 @@ describe('buildTurn: AgentTurnInput construction', () => {
     const content = first.content as string;
     expect(content).not.toContain('sk-test-secret-key');
     expect(content).toContain('[REDACTED]');
+  });
+
+  test('buildTurn sanitizes secrets in userMessages content', () => {
+    const cb = makeBuilder();
+    const userMessages = [
+      { role: 'user', content: 'Use this token: password=SuperSecret123!' },
+      { role: 'assistant', content: 'Got it. Using your Bearer eyJhbGciOiJIUzI1NiJ9.sig' },
+    ];
+    const turn = cb.buildTurn(makeInput(), userMessages);
+
+    expect(turn.messages.length).toBe(3);
+    const userMsg = turn.messages[1] as Record<string, unknown>;
+    const assistantMsg = turn.messages[2] as Record<string, unknown>;
+    expect(userMsg.content as string).not.toContain('SuperSecret123');
+    expect(userMsg.content as string).toContain('[REDACTED]');
+    expect(assistantMsg.content as string).not.toContain('eyJhbGci');
+    expect(assistantMsg.content as string).toContain('[REDACTED]');
   });
 });
 
