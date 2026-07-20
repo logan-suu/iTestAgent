@@ -1,4 +1,5 @@
 import type { IntentParseResult } from 'itestagent-contracts';
+import type { TestPlan } from 'itestagent-contracts';
 /**
  * TuiShell — framework-independent ViewModel, State, Event, and reducer.
  *
@@ -19,10 +20,11 @@ import {
   toggleCandidateAtIndex,
   unconfirmAllCandidates,
 } from './candidate-review.js';
+import { navigatePlanSection } from './plan-review.js';
 
 // ─── State ─────────────────────────────────────────────────────────────
 
-export type TuiShellMode = 'chat' | 'candidate_review';
+export type TuiShellMode = 'chat' | 'candidate_review' | 'plan_review';
 
 /** 设备连接状态。当前为占位值，后续由 engine/server 驱动。 */
 export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 'busy';
@@ -50,6 +52,12 @@ export interface TuiShellState {
   readonly candidateEditDraft: string;
   /** Current intent parse result (US-4.2 AC1: multi-turn clarification). */
   readonly currentIntent: IntentParseResult | null;
+  /** Plan review state (US-5.2: plan_review mode). */
+  readonly plan: TestPlan | null;
+  readonly planSectionIndex: number;
+  readonly planModifyMode: boolean;
+  readonly planModifyDraft: string;
+  readonly planConfirmed: boolean;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -75,7 +83,17 @@ export type TuiShellEvent =
   // Intent events (US-4.2 AC1)
   | { readonly type: 'intent_parsed'; readonly result: IntentParseResult }
   | { readonly type: 'intent_clarify_response'; readonly text: string }
-  | { readonly type: 'intent_cancel' };
+  | { readonly type: 'intent_cancel' }
+  // Plan review events (US-5.2 AC1-AC3)
+  | { readonly type: 'enter_plan_review'; readonly plan: TestPlan }
+  | { readonly type: 'exit_plan_review' }
+  | { readonly type: 'plan_confirm' }
+  | { readonly type: 'plan_cancel' }
+  | { readonly type: 'plan_navigate_section'; readonly direction: 'up' | 'down' }
+  | { readonly type: 'plan_start_modify' }
+  | { readonly type: 'plan_modify_input'; readonly text: string }
+  | { readonly type: 'plan_modify_submit' }
+  | { readonly type: 'plan_modify_cancel' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -96,6 +114,11 @@ export function createInitialState(workspace?: string): TuiShellState {
     candidateEditMode: false,
     candidateEditDraft: '',
     currentIntent: null,
+    plan: null,
+    planSectionIndex: 0,
+    planModifyMode: false,
+    planModifyDraft: '',
+    planConfirmed: false,
   };
 }
 
@@ -284,5 +307,83 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
 
     case 'intent_cancel':
       return { ...state, currentIntent: null };
+
+    // ── Plan review events (US-5.2 AC1-AC3) ─────────────────
+
+    case 'enter_plan_review':
+      return {
+        ...state,
+        mode: 'plan_review',
+        plan: event.plan,
+        planSectionIndex: 0,
+        planModifyMode: false,
+        planModifyDraft: '',
+        planConfirmed: false,
+      };
+
+    case 'exit_plan_review':
+      return {
+        ...state,
+        mode: 'chat',
+        planSectionIndex: 0,
+        planModifyMode: false,
+        planModifyDraft: '',
+      };
+
+    case 'plan_confirm':
+      return {
+        ...state,
+        mode: 'chat',
+        planConfirmed: true,
+        planModifyMode: false,
+        planModifyDraft: '',
+      };
+
+    case 'plan_cancel':
+      return {
+        ...state,
+        mode: 'chat',
+        plan: null,
+        planConfirmed: false,
+        planModifyMode: false,
+        planModifyDraft: '',
+      };
+
+    case 'plan_navigate_section': {
+      const sectionCount = 7; // PLAN_SECTIONS length
+      return {
+        ...state,
+        planSectionIndex: navigatePlanSection(
+          state.planSectionIndex,
+          event.direction,
+          sectionCount,
+        ),
+      };
+    }
+
+    case 'plan_start_modify':
+      return {
+        ...state,
+        planModifyMode: true,
+        planModifyDraft: '',
+      };
+
+    case 'plan_modify_input':
+      return { ...state, planModifyDraft: event.text };
+
+    case 'plan_modify_submit':
+      return {
+        ...state,
+        planModifyMode: false,
+        mode: 'chat',
+        // planModifyDraft retains the modification text for engine consumption
+      };
+
+    case 'plan_modify_cancel':
+      return {
+        ...state,
+        planModifyMode: false,
+        planModifyDraft: '',
+      };
   }
 }

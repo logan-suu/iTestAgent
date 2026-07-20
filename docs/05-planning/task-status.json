@@ -498,8 +498,8 @@
           "id": "2.7",
           "title": "计划展示与确认（TUI）+ 自然语言修改",
           "story": "US-5.2",
-          "status": "ready",
-          "last_updated": "2026-07-20T03:30:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-20T04:00:00.000Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -509,7 +509,7 @@
             "2.6"
           ],
           "test_file": null,
-          "notes": "TUI 展示 TestPlan 并让用户确认/修改。awaiting_confirm 状态接入 RunStateMachine（ADR-010）。"
+          "notes": "✅ Implemented: (1) plan-review.ts — pure formatPlanSections() extracting 7 display sections (overview/device/execution/features/metrics/performance/safety) + formatEstimatedDuration() + navigatePlanSection(); (2) tui-shell.ts — added plan_review mode + 9 new events (enter_plan_review/exit_plan_review/plan_confirm/plan_cancel/plan_navigate_section/plan_start_modify/plan_modify_input/plan_modify_submit/plan_modify_cancel) + 5 new state fields + reducer cases; (3) opentui-renderer.tsx — PlanReviewPanel component with section navigation (j/k), confirm (Enter), cancel (q), modify (m with natural language input). plan_confirm sets planConfirmed=true, plan_cancel nullifies plan (AC3: not confirmed → not executed). modify flow stays in awaiting_confirm (RSM not transitioned during edits). 40 new tests (23 plan-review + 17 tui-shell-plan). G3: typecheck 0, lint 0. G4: 798 tests pass. R7 satisfied via confirm/cancel gates. AC1-AC3 all covered. PR #26: https://github.com/logan-suu/iTestAgent/pull/26"
         },
         {
           "id": "2.8",

@@ -29,3 +29,15 @@ export {
   sortByDisplayOrder,
   type ConfidenceTier,
 } from './candidate-review.js';
+
+export {
+  formatPlanSections,
+  formatEstimatedDuration,
+  formatExecutionPath,
+  navigatePlanSection,
+  type PlanSection,
+  type PlanSectionId,
+  type PlanField,
+  type PlanReviewAction,
+  PLAN_SECTIONS,
+} from './plan-review.js';
