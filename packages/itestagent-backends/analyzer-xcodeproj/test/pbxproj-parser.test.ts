@@ -39,7 +39,39 @@ describe('parsePbxproj', () => {
     expect(uiTestTarget).toBeDefined();
     if (uiTestTarget) {
       expect(uiTestTarget.productType).toBe('com.apple.product-type.bundle.ui-testing');
+      // Resolved through indirect targetProxy → PBXContainerItemProxy → remoteGlobalIDString
       expect(uiTestTarget.dependencyTargetNames).toContain('MyApp');
+    }
+  });
+
+  it('resolves indirect dependencies via targetProxy → PBXContainerItemProxy → remoteGlobalIDString', () => {
+    const pbxprojPath = resolve(FIXTURE_DIR, 'project.pbxproj');
+    const result = parsePbxproj(pbxprojPath);
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    // MyAppUITests uses B2C3D4E5F6789012345678A1 (indirect dependency)
+    const uiTestTarget = result.targets.find((t) => t.name === 'MyAppUITests');
+    expect(uiTestTarget).toBeDefined();
+    if (uiTestTarget) {
+      // Must resolve to 'MyApp' through the indirect chain
+      expect(uiTestTarget.dependencyTargetNames).toContain('MyApp');
+      expect(uiTestTarget.dependencyTargetNames).toHaveLength(1);
+    }
+
+    // MyAppTests uses C1FF1611A14380E6A332B5FA (direct dependency) — still works
+    const testTarget = result.targets.find((t) => t.name === 'MyAppTests');
+    expect(testTarget).toBeDefined();
+    if (testTarget) {
+      expect(testTarget.dependencyTargetNames).toContain('MyApp');
+    }
+
+    // MyApp has no dependencies
+    const appTarget = result.targets.find((t) => t.name === 'MyApp');
+    expect(appTarget).toBeDefined();
+    if (appTarget) {
+      expect(appTarget.dependencyTargetNames).toEqual([]);
     }
   });
 

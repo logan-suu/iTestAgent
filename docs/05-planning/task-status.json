@@ -515,11 +515,11 @@
           "id": "2.8",
           "title": "Phase 2 集成测试：项目分析与 TestPlan 联调验证",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "验证工程解析→Profile→候选链路→Intent→TestPlan→TUI确认 全链路。运行 bun test。出口：全部通过后 Phase 2 done。",
+          "notes": "✅ Completed. PR #27 (https://github.com/logan-suu/iTestAgent/pull/27). Phase 2 integration tests: (1) phase2-profile-to-testplan.test.ts — 17 tests covering full S2→S3 pipeline (mock backend→Profile→Intent→TestPlan→TUI format, YAML round-trip, G2 validation, device selector, metrics policy, explore-only assertions); (2) phase2-candidate-confirmed-in-plan.test.ts — 5 tests covering confirmedOnly filter + suggestedSmoke fallback + YAML preservation. Deferred items resolved: DEF-005 (graph() integration tests with real pbxproj fixture + both direct & indirect deps), DEF-006 (indirect dependency fixture in project.pbxproj via PBXContainerItemProxy), DEF-007 (dedicated indirect dependency resolution test in pbxproj-parser.test.ts). G3: typecheck 0, lint 0. G4: 823 tests pass (0 fail). Phase 2 exit gate: all 8 tasks done, ready for Phase 3.",
           "dependencies": [
             "2.1",
             "2.2",
@@ -543,7 +543,8 @@
           "id": "3.1",
           "title": "App 来源决策 + xcodebuild 构建 + xcbeautify",
           "story": "US-6.1",
-          "status": "pending",
+          "status": "ready",
+          "last_updated": "2026-07-20T00:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"

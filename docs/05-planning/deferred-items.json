@@ -79,8 +79,9 @@
       "item": "Add integration tests for graph() function with real pbxproj fixtures",
       "detail": "graph.test.ts currently only tests ProjectGraphSchema validation, not the graph() function itself. Add integration tests that invoke graph() with a ProjectDiscovery pointing to real fixture .xcodeproj directories, covering resolveXcodeprojPath for both direct project and workspace layouts. Deferred to Phase 2.2 to avoid duplicating fixture refactoring work.",
       "target_phase": 2,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "2.8",
+      "resolved_at": "2026-07-20T06:00:00.000Z",
       "created_at": "2026-07-19T17:30:00.000Z"
     },
     {
@@ -95,8 +96,9 @@
       "item": "Add fixture covering indirect dependency form (targetProxy → PBXContainerItemProxy → remoteGlobalIDString)",
       "detail": "Current project.pbxproj fixture only uses direct target=UUID references in PBXTargetDependency. Real Xcode projects commonly use the indirect form via targetProxy → PBXContainerItemProxy → remoteGlobalIDString. The parser code already handles this path but has no fixture/test coverage for it. Deferred to Phase 2.2 alongside DEF-005 (graph integration tests).",
       "target_phase": 2,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "2.8",
+      "resolved_at": "2026-07-20T06:00:00.000Z",
       "created_at": "2026-07-19T17:30:00.000Z"
     },
     {
@@ -111,8 +113,9 @@
       "item": "Add test coverage for indirect dependency resolution path in parsePbxproj",
       "detail": "The targetProxy → PBXContainerItemProxy → remoteGlobalIDString resolution chain in parsePbxproj has no dedicated unit test. Deferred to Phase 2.2 alongside DEF-005 and DEF-006 (file prioritisation to avoid fixture restructuring churn).",
       "target_phase": 2,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "2.8",
+      "resolved_at": "2026-07-20T06:00:00.000Z",
       "created_at": "2026-07-19T17:30:00.000Z"
     },
     {
