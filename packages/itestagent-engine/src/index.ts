@@ -4,6 +4,13 @@ export {
   ErrorLevelSchema,
 } from './run-state-machine.js';
 
+export { PermissionEngine } from './permission-engine.js';
+
+export type {
+  ResolveResult,
+  PermissionEngineOptions,
+} from './permission-engine.js';
+
 export { MockAgentRuntime } from './mock-agent-runtime.js';
 
 export { parseIntent } from './intent-parser.js';
