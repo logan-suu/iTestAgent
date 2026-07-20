@@ -635,7 +635,7 @@ describe('build integration — devicectl install', () => {
       },
       launchApp: async () => ({ success: true }),
       terminateApp: async () => ({ success: true }),
-      openDeepLink: async () => ({ success: true }),
+      openDeepLink: async (_udid, _bundleId, _url) => ({ success: true }),
     };
 
     const mockFindApp: FindAppPathFn = () => '/fake/DerivedData/Debug-iphoneos/MyApp.app';
@@ -671,7 +671,7 @@ describe('build integration — devicectl install', () => {
       }),
       launchApp: async () => ({ success: true }),
       terminateApp: async () => ({ success: true }),
-      openDeepLink: async () => ({ success: true }),
+      openDeepLink: async (_udid, _bundleId, _url) => ({ success: true }),
     };
 
     const mockFindApp: FindAppPathFn = () => '/fake/apps/MyApp.app';
@@ -708,7 +708,7 @@ describe('build integration — devicectl install', () => {
       },
       launchApp: async () => ({ success: true }),
       terminateApp: async () => ({ success: true }),
-      openDeepLink: async () => ({ success: true }),
+      openDeepLink: async (_udid, _bundleId, _url) => ({ success: true }),
     };
 
     const mockFindApp: FindAppPathFn = () => undefined;
@@ -828,7 +828,7 @@ describe('build integration — injected deps', () => {
       },
       launchApp: async () => ({ success: true }),
       terminateApp: async () => ({ success: true }),
-      openDeepLink: async () => ({ success: true }),
+      openDeepLink: async (_udid, _bundleId, _url) => ({ success: true }),
     };
 
     const mockFindApp: FindAppPathFn = () => '/apps/MyApp.app';

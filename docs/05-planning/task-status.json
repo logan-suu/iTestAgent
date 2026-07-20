@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-20T00:00:00.000Z",
+  "last_updated": "2026-07-21T14:00:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -612,7 +612,8 @@
           "id": "3.5",
           "title": "BuildDriver: devicectl 安装/启动 + 签名（fastlane）链路",
           "story": "US-6.2",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-21T14:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -621,7 +622,7 @@
             "3.1"
           ],
           "test_file": null,
-          "notes": "签名失败给出修复建议，不静默失败。"
+          "notes": "PR #32: https://github.com/logan-suu/iTestAgent/pull/32 — DevicectlOps (install/launch/terminate/isInstalled for physical+simulator), FastlaneSigning (gym/match integration), SigningDiagnostics (categorized fix suggestions, US-6.2 AC3), xcodebuild-build-driver integration, BuildDriver contract DevicectlOps interface. 11 files, +1517/-4. G3 typecheck 0/lint 0. G4 1076 tests pass. 签名失败给出修复建议，不静默失败。"
         },
         {
           "id": "3.6",

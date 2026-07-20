@@ -35,7 +35,7 @@ export interface DevicectlOps {
   installApp(udid: string, appPath: string): Promise<DevicectlResult>;
   launchApp(udid: string, bundleId: string, launchArgs?: string[]): Promise<DevicectlResult>;
   terminateApp(udid: string, bundleId: string): Promise<DevicectlResult>;
-  openDeepLink(udid: string, url: string): Promise<DevicectlResult>;
+  openDeepLink(udid: string, bundleId: string, url: string): Promise<DevicectlResult>;
 }
 
 // ─── Default implementations ──────────────────────────────────────
@@ -135,7 +135,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
    * Command: xcrun devicectl device install app --device <UDID> <appPath>
    */
   async function installApp(udid: string, appPath: string): Promise<DevicectlResult> {
-    const result = spawnSync('xcrun', [
+    const result = await spawnAsync('xcrun', [
       'devicectl',
       'device',
       'install',
@@ -178,7 +178,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
       args.push('--args', ...launchArgs);
     }
 
-    const result = spawnSync('xcrun', args);
+    const result = await spawnAsync('xcrun', args);
 
     if (result.exitCode !== 0) {
       return {
@@ -230,12 +230,13 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
    * Command: xcrun devicectl device process launch --device <UDID> <bundleId> --args "<url>"
    *
    * Note: deep links require the target app to be installed on the device.
-   * The caller must know the bundleId for the URL scheme.
+   * The caller must provide the bundleId for the app that handles the URL scheme.
    */
-  async function openDeepLink(udid: string, url: string): Promise<DevicectlResult> {
-    // Deep links via devicectl require launching the app with the URL as a launch argument.
-    // The caller specifies which app to launch via its bundleId.
-    // For generic URLs (https://), iOS opens the default browser — no bundleId needed.
+  async function openDeepLink(
+    udid: string,
+    bundleId: string,
+    url: string,
+  ): Promise<DevicectlResult> {
     const result = spawnSync('xcrun', [
       'devicectl',
       'device',
@@ -243,6 +244,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
       'launch',
       '--device',
       udid,
+      bundleId,
       '--args',
       url,
     ]);
