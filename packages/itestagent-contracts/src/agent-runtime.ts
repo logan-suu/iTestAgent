@@ -89,6 +89,8 @@ export const AgentTurnInputSchema = z
     messages: z.array(z.unknown()),
     /** 最大执行步数（可选），正整数 */
     maxSteps: z.number().int().positive().optional(),
+    /** System prompt（可选），由 ContextBuilder 注入 */
+    system: z.string().optional(),
   })
   .strict();
 

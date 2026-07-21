@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-21T17:50:00.000Z",
+  "last_updated": "2026-07-22T01:40:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -658,7 +658,8 @@
           "id": "3.8",
           "title": "AgentRuntime：AI SDK 多步 tool-calling 包装",
           "story": "US-17.1",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-22T01:40:00.000Z",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -669,7 +670,7 @@
             "3.2"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/generateText/tool.execute/stopWhen/prepareStep/abortSignal）。默认实现：streamTurn/executeToolCall/abort。不直接执行设备命令。测试：无 tool call 后 idle、有 tool call 执行续跑、provider error→typed error event、abort 停止 stream/tool（ADR-010 §11）。"
+          "notes": "PR #34: https://github.com/logan-suu/iTestAgent/pull/34 — ADR-010 Harness 边界。AgentRuntime 包装 AI SDK（streamText/generateText/tool.execute/stopWhen/prepareStep/abortSignal）。默认实现：streamTurn/executeToolCall/abort。不直接执行设备命令。✅ 已实现：AiSdkAgentRuntime（~210行），含 buildSdkToolSet/buildModelMessages/mapStreamPart 内部方法。依赖注入 toolExecutor 回调委托 tool 执行（ToolDispatcher 3.9）。14 tests all pass。typecheck 0 / lint 0 / 1151 monorepo tests pass。AgentTurnInput 新增可选 system 字段。Wait for human merge → pr-merge-itest to set done."
         },
         {
           "id": "3.9",

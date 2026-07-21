@@ -12,6 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.17",
+    "ai": "7.0.34",
     "itestagent-contracts": "workspace:*",
     "itestagent-project-analyzer": "workspace:*",
     "yaml": "^2.7.0"
