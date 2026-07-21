@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-21T17:20:00.000Z",
+  "last_updated": "2026-07-21T17:50:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -644,7 +644,7 @@
           "id": "3.7",
           "title": "AppiumDeviceBackend — physical adapter: devicectl/xcodebuild + Appium/WDA",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -652,8 +652,8 @@
             "1.11",
             "3.2"
           ],
-          "test_file": null,
-          "notes": "基于 Appium/WDA 的 DeviceBackend 实现 (physical targetKind)。Physical adapter: devicectl 安装/启动、xcodebuild destination (platform=iOS,id=UDID)、签名 (fastlane fallback)、Appium/WDA 真机 session。TargetKind.physical。T1.6aa (Physical doctor) 依赖此实现。"
+          "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
+          "notes": "PR #33: feat(backends) AppiumDeviceBackend physical adapter. 6 source files + 66 unit tests (1138 total). G5: ✅ 7/7 PASS on iPhone 14 Plus (iOS 18.2.1) — session, uiTree(45K chars), screenshot(399KB), swipe, tap, lifecycle, cleanup. Key: xcodebuild -xctestrun bypasses reinstall. ADR-012: WdaManager owns WDA lifecycle. WDA pbxproj patched for free-account signing."
         },
         {
           "id": "3.8",

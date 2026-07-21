@@ -144,7 +144,7 @@ itestagent
 | doctor 环境诊断 | ✅ Verified | physical + simulator lanes, all checks |
 | devices 设备发现 | ✅ Verified | physical + simulator discovery + healthcheck |
 | Project Profile / TestPlan | ✅ Verified | S2→S3 pipeline, 22 integration tests |
-| AgentRuntime / Backend 执行 | 🔧 Implemented | PermissionEngine, ContextBuilder, BackendSelector, BuildDriver done; AgentRuntime(3.8), ToolDispatcher(3.9), physical backends(3.6/3.7) pending |
+| AgentRuntime / Backend 执行 | 🔧 Implemented | PermissionEngine, ContextBuilder, BackendSelector, BuildDriver, AppiumDeviceBackend (physical, G5 ✅) done; AgentRuntime(3.8), ToolDispatcher(3.9), Simulator adapter(3.10) pending |
 | 证据采集 / 性能 / 报告 | 📋 Designed | 接口已定义，实现待 Phase 4 |
 
 **成熟度定义**（ADR-011 审计建议）：
