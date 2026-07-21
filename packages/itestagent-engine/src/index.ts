@@ -52,7 +52,10 @@ export type {
   ContextBuilderOptions,
 } from './context-builder.js';
 
+export { AiSdkAgentRuntime } from './ai-sdk-agent-runtime.js';
+
 export type {
-  MockAgentRuntimeConfig,
-  RuntimeHistory,
-} from './mock-agent-runtime.js';
+  AiToolDefinition,
+  AiSdkAgentRuntimeOptions,
+  ToolExecutor,
+} from './ai-sdk-agent-runtime.js';
