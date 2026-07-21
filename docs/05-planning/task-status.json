@@ -653,7 +653,7 @@
             "3.2"
           ],
           "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
-          "notes": "PR #33: feat(backends) AppiumDeviceBackend physical adapter. 6 source files + 66 unit tests (1138 total). G5: ✅ 7/7 PASS on iPhone 14 Plus (iOS 18.2.1) — session, uiTree(45K chars), screenshot(399KB), swipe, tap, lifecycle, cleanup. Key: xcodebuild -xctestrun bypasses reinstall. ADR-012: WdaManager owns WDA lifecycle. WDA pbxproj patched for free-account signing.",
+          "notes": "PR #33: feat(backends) AppiumDeviceBackend physical adapter. 6 source files + 66 unit tests (1138 total). G5: ✅ 7/7 PASS on iPhone 14 Plus (iOS 18.2.1) — session, uiTree(45K chars), screenshot(399KB), swipe, tap, lifecycle, cleanup. Key: xcodebuild -xctestrun bypasses reinstall. ADR-012: WdaManager owns WDA lifecycle. WDA pbxproj patched for free-account signing."
         },
         {
           "id": "3.8",

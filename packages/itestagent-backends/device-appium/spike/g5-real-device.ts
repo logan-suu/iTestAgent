@@ -15,6 +15,7 @@
  * Run: bun run packages/itestagent-backends/device-appium/spike/g5-real-device.ts
  */
 
+import type { Browser } from 'webdriverio';
 import { remote } from 'webdriverio';
 
 const DEVICE_UDID = '00008110-0012690901C1401E';
@@ -22,10 +23,14 @@ const WDA_BUNDLE_ID = 'com.logansu.WebDriverAgentRunner.xctrunner';
 const WDA_DERIVED_DATA =
   '/Users/logansu/Library/Developer/Xcode/DerivedData/WebDriverAgent-fbosvpzstodhhjgmjmbcggbibcra';
 const APPIUM_PORT = 4723;
-const TARGET_APP = 'com.apple.Preferences'; // Settings app (always installed)
+const TARGET_APP = 'com.apple.Preferences';
 
-async function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 async function main() {
@@ -39,13 +44,11 @@ async function main() {
 
   const results: Record<string, { passed: boolean; detail: string }> = {};
 
-  // ─── Step 1: Create Session ───────────────────────────────────
-
   try {
     console.log('[1/7] Creating Appium session with WDA...');
     const startTime = Date.now();
 
-    const browser = await remote({
+    const browser = (await remote({
       hostname: 'localhost',
       port: APPIUM_PORT,
       path: '/',
@@ -65,7 +68,7 @@ async function main() {
         'appium:noReset': true,
         'appium:newCommandTimeout': 600,
       },
-    } as any);
+    })) as Browser;
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`  ✅ Session created in ${elapsed}s`);
@@ -75,8 +78,6 @@ async function main() {
       passed: true,
       detail: `Session ${browser.sessionId} created in ${elapsed}s`,
     };
-
-    // ─── Step 2: Get Page Source ──────────────────────────────
 
     try {
       console.log('[2/7] Getting page source (UI tree)...');
@@ -92,12 +93,11 @@ async function main() {
         passed: true,
         detail: `${pageSource.length} chars (${sizeKB} KB), format=xml, elapsed=${pageElapsed}s`,
       };
-    } catch (err: any) {
-      console.log(`  ❌ Page source failed: ${err.message}`);
-      results.uitree = { passed: false, detail: err.message };
+    } catch (err) {
+      const message = errMsg(err);
+      console.log(`  ❌ Page source failed: ${message}`);
+      results.uitree = { passed: false, detail: message };
     }
-
-    // ─── Step 3: Screenshot ───────────────────────────────────
 
     try {
       console.log('[3/7] Taking screenshot...');
@@ -105,7 +105,6 @@ async function main() {
       const screenshot = await browser.takeScreenshot();
       const ssElapsed = ((Date.now() - startSs) / 1000).toFixed(1);
 
-      // screenshot is base64-encoded PNG
       const sizeKB = (screenshot.length / 1024).toFixed(1);
       console.log(`  ✅ Screenshot: ${sizeKB} KB (base64) in ${ssElapsed}s`);
 
@@ -113,16 +112,14 @@ async function main() {
         passed: true,
         detail: `${sizeKB} KB base64 PNG, elapsed=${ssElapsed}s`,
       };
-    } catch (err: any) {
-      console.log(`  ❌ Screenshot failed: ${err.message}`);
-      results.screenshot = { passed: false, detail: err.message };
+    } catch (err) {
+      const message = errMsg(err);
+      console.log(`  ❌ Screenshot failed: ${message}`);
+      results.screenshot = { passed: false, detail: message };
     }
-
-    // ─── Step 4: Tap (Settings > General) ─────────────────────
 
     try {
       console.log('[4/7] Tapping "General" in Settings...');
-      // Get element by accessibility id first
       const generalCell = await browser.$('~General');
       const exists = await generalCell.isExisting();
 
@@ -131,7 +128,6 @@ async function main() {
         await sleep(1500);
         console.log('  ✅ Tapped "General" successfully');
 
-        // Verify we navigated by checking page source
         const navPage = await browser.getPageSource();
         const hasAbout = navPage.includes('About');
         console.log(`  Navigation verified: About section visible = ${hasAbout}`);
@@ -142,7 +138,6 @@ async function main() {
         };
       } else {
         console.log('  ⚠️ "General" cell not found — trying coordinate tap');
-        // Fallback: tap center of screen
         await browser.performActions([
           {
             type: 'pointer',
@@ -164,12 +159,11 @@ async function main() {
           detail: 'Coordinate tap at (200, 400) executed',
         };
       }
-    } catch (err: any) {
-      console.log(`  ❌ Tap failed: ${err.message}`);
-      results.tap = { passed: false, detail: err.message };
+    } catch (err) {
+      const message = errMsg(err);
+      console.log(`  ❌ Tap failed: ${message}`);
+      results.tap = { passed: false, detail: message };
     }
-
-    // ─── Step 5: Swipe (scroll down in Settings) ──────────────
 
     try {
       console.log('[5/7] Swiping (scroll down)...');
@@ -189,32 +183,27 @@ async function main() {
       ]);
       await sleep(1000);
 
-      // Verify scroll by checking page source change
       const scrollPage = await browser.getPageSource();
       console.log(`  ✅ Swipe executed, page source: ${scrollPage.length} chars`);
       results.swipe = {
         passed: true,
         detail: `Swipe gesture executed (200,700)→(200,300), page source ${scrollPage.length} chars`,
       };
-    } catch (err: any) {
-      console.log(`  ❌ Swipe failed: ${err.message}`);
-      results.swipe = { passed: false, detail: err.message };
+    } catch (err) {
+      const message = errMsg(err);
+      console.log(`  ❌ Swipe failed: ${message}`);
+      results.swipe = { passed: false, detail: message };
     }
-
-    // ─── Step 6: App Lifecycle ────────────────────────────────
 
     try {
       console.log('[6/7] Verifying app lifecycle...');
 
-      // Terminate Settings
       await browser.executeScript('mobile: terminateApp', [{ bundleId: TARGET_APP }]);
       console.log('  ✅ terminateApp: Settings terminated');
 
-      // Re-launch Settings
       await browser.executeScript('mobile: launchApp', [{ bundleId: TARGET_APP }]);
       await sleep(2000);
 
-      // Verify app is running
       const relaunchPage = await browser.getPageSource();
       console.log(
         `  ✅ launchApp: Settings re-launched (page source ${relaunchPage.length} chars)`,
@@ -224,12 +213,11 @@ async function main() {
         passed: true,
         detail: 'terminateApp → launchApp cycle successful',
       };
-    } catch (err: any) {
-      console.log(`  ⚠️ App lifecycle: ${err.message}`);
-      results.lifecycle = { passed: false, detail: err.message };
+    } catch (err) {
+      const message = errMsg(err);
+      console.log(`  ⚠️ App lifecycle: ${message}`);
+      results.lifecycle = { passed: false, detail: message };
     }
-
-    // ─── Step 7: Delete Session ───────────────────────────────
 
     try {
       console.log('[7/7] Deleting session...');
@@ -241,23 +229,22 @@ async function main() {
         passed: true,
         detail: `Session deleted in ${delElapsed}s`,
       };
-    } catch (err: any) {
-      console.log(`  ❌ Session delete failed: ${err.message}`);
-      results['session.delete'] = { passed: false, detail: err.message };
+    } catch (err) {
+      const message = errMsg(err);
+      console.log(`  ❌ Session delete failed: ${message}`);
+      results['session.delete'] = { passed: false, detail: message };
     }
-  } catch (err: any) {
-    console.log(`  ❌ Session creation failed: ${err.message}`);
-    results['session.create'] = { passed: false, detail: err.message };
+  } catch (err) {
+    const message = errMsg(err);
+    console.log(`  ❌ Session creation failed: ${message}`);
+    results['session.create'] = { passed: false, detail: message };
 
-    // Continue with other results as N/A
     for (const key of ['uitree', 'screenshot', 'tap', 'swipe', 'lifecycle', 'session.delete']) {
       if (!results[key]) {
         results[key] = { passed: false, detail: 'session.create failed — skipped' };
       }
     }
   }
-
-  // ─── Summary ────────────────────────────────────────────────
 
   console.log('');
   console.log('═══════════════════════════════════════════════════════════');

@@ -20,8 +20,8 @@
 | **State** | available (paired), booted |
 | **Xcode** | 26.5 (17F42) |
 | **Appium** | 3.5.2 (npx), xcuitest driver 11.17.7 |
-| **Signing Identity** | Apple Development: suweipeng1025@gmail.com (L4CX67KLT5) |
-| **WDA Bundle ID** | L4CX67KLT5.WebDriverAgentRunner.xctrunner |
+| **Signing Identity** | Apple Development (L4CX67KLT5) |
+| **WDA Bundle ID** | com.logansu.WebDriverAgentRunner.xctrunner |
 
 ---
 

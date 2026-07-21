@@ -28,6 +28,8 @@ export interface WdaBuildOptions {
   codeSignIdentity?: string;
   /** Minimum iOS deployment target (default: 17.0). */
   deploymentTarget?: string;
+  /** Custom derived data path for xcodebuild. */
+  derivedDataPath?: string;
 }
 
 export interface WdaInstallOptions {
@@ -101,6 +103,10 @@ export class WdaManager {
       'COMPILER_INDEX_STORE_ENABLE=NO',
       '-allowProvisioningUpdates',
     ];
+
+    if (options.derivedDataPath) {
+      args.push('-derivedDataPath', options.derivedDataPath);
+    }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',
@@ -241,20 +247,6 @@ export class WdaManager {
   private extractBundleId(_stdout: string, _appPath: string): string {
     // Parse from Info.plist in the .app bundle
     try {
-      const result = Bun.spawnSync({
-        cmd: ['plutil', '-extract', 'CFBundleIdentifier', 'raw', '-'],
-        stdin: new TextEncoder().encode(
-          new TextDecoder().decode(
-            Bun.spawnSync({
-              cmd: ['plutil', '-p', `${_appPath}/Info.plist`],
-              stdout: 'pipe',
-            }).stdout,
-          ),
-        ),
-        stdout: 'pipe',
-      });
-
-      // Simpler approach: just use plutil directly
       const infoProc = Bun.spawnSync({
         cmd: [
           'plutil',
