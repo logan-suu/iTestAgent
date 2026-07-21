@@ -199,7 +199,12 @@ export class AiSdkAgentRuntime implements AgentRuntime {
             arguments: args as Record<string, unknown>,
           });
           if (result.status === 'error') {
-            throw new Error(String(result.output));
+            const output = result.output as Record<string, unknown> | undefined;
+            const message =
+              output && typeof output === 'object' && 'error' in output
+                ? String(output.error)
+                : String(result.output);
+            throw new Error(message);
           }
           return result.output;
         },
