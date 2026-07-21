@@ -35,3 +35,13 @@ export type {
 
 export { buildPhysicalCapabilities } from './appium-capabilities.js';
 export type { PhysicalCapabilitiesOptions } from './appium-capabilities.js';
+
+export { WdaManager } from './wda-manager.js';
+export type {
+  WdaBuildOptions,
+  WdaBuildResult,
+  WdaInstallOptions,
+  WdaInstallResult,
+  WdaLaunchOptions,
+  WdaLaunchResult,
+} from './wda-manager.js';

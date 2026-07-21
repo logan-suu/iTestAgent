@@ -21,7 +21,7 @@
 | **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 69 个任务、依赖关系、当前进度 |
 | **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
-| **架构决策** | `decisions/` | `ADR-001~011` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持） |
+| **架构决策** | `decisions/` | `ADR-001~012` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持、ADR-012 WDA 生命周期分离） |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R14、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
 
 ---
