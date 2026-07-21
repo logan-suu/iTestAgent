@@ -644,7 +644,7 @@
           "id": "3.7",
           "title": "AppiumDeviceBackend — physical adapter: devicectl/xcodebuild + Appium/WDA",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -652,8 +652,8 @@
             "1.11",
             "3.2"
           ],
-          "test_file": null,
-          "notes": "基于 Appium/WDA 的 DeviceBackend 实现 (physical targetKind)。Physical adapter: devicectl 安装/启动、xcodebuild destination (platform=iOS,id=UDID)、签名 (fastlane fallback)、Appium/WDA 真机 session。TargetKind.physical。T1.6aa (Physical doctor) 依赖此实现。"
+          "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
+          "notes": "✅ Implemented: AppiumDeviceBackend implements DeviceBackend (physical targetKind) with dependency-injected AppiumDriver. 4 source files: appium-driver.ts (AppiumDriver interface + AppiumDriverError), appium-capabilities.ts (buildPhysicalCapabilities with free-account WDA workaround), appium-device-backend.ts (16 DeviceBackend methods + lazy session lifecycle + normalized→pixel coordinate conversion), index.ts (exports). 66 tests covering: metadata (name/capabilities/targetKind), session lifecycle (lazy create/idempotent/closeSession), all 16 methods (success + error paths), coordinate conversion (edge cases 0,0 and 1,1), R5 compliance (never throws — all errors returned as ActionResult), BackendSelector compatibility. G3: typecheck 0, lint 0. G4: 1138 tests pass (0 fail). G5 spike: pending real iPhone verification (iPhone 14 Plus, iOS 18.2.1) — createSession→getPageSource→screenshot→tap→swipe→terminateApp→deleteSession."
         },
         {
           "id": "3.8",
