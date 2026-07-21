@@ -637,7 +637,7 @@
             "3.2"
           ],
           "test_file": null,
-          "notes": "基于 mobile-mcp 的 DeviceBackend 实现。设备发现/launch/UI tree/截图/tap/swipe/type。Phase 0 横评后若 mobile-mcp 通过则作为 MVP 主 backend。"
+          "notes": "基于 mobile-mcp 的 DeviceBackend 实现。设备发现/app列表功能可用（免费账号），但 screenshot/UI tree/tap 被免费账号限制阻塞（mobilecli 硬编码 bundle ID，不可覆盖）。Phase 0 横评结论：Appium/WDA 确定为 MVP 主 backend（免费账号 workaround 验证通过），mobile-mcp 保留为强候选（MCP-native+独特能力，待付费账号补测）。当前状态：需付费账号才能完成核心能力验证；若需推进 Phase 3 执行，建议跳过或实现 skeleton/stub 版本后置。"
         },
         {
           "id": "3.7",

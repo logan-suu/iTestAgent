@@ -54,7 +54,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 
 ## 快速开始
 
-> iTestAgent 当前处于 **Phase 1：骨架与环境** 阶段，尚未发布可安装版本。
+> iTestAgent 当前处于 **Phase 3：真机执行核心** 阶段，尚未发布可安装版本。
 
 ### 前置依赖
 
@@ -144,7 +144,7 @@ itestagent
 | doctor 环境诊断 | ✅ Verified | physical + simulator lanes, all checks |
 | devices 设备发现 | ✅ Verified | physical + simulator discovery + healthcheck |
 | Project Profile / TestPlan | ✅ Verified | S2→S3 pipeline, 22 integration tests |
-| AgentRuntime / Backend 执行 | 📋 Designed | 接口已定义，实现待 Phase 3 |
+| AgentRuntime / Backend 执行 | 🔧 Implemented | PermissionEngine, ContextBuilder, BackendSelector, BuildDriver done; AgentRuntime(3.8), ToolDispatcher(3.9), physical backends(3.6/3.7) pending |
 | 证据采集 / 性能 / 报告 | 📋 Designed | 接口已定义，实现待 Phase 4 |
 
 **成熟度定义**（ADR-011 审计建议）：

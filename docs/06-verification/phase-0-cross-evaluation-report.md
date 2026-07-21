@@ -159,7 +159,9 @@ npm `rezi@1.0.0` 是 2015 年发布的 CSS post-processor，非 TUI 框架。`@r
 
 ---
 
-## 7. Phase 1 准入清单
+## 7. Phase 1 准入清单 ⚠️ 历史归档
+
+> **注意**：本节写于 2026-07-15 Phase 0 出口时，记录当时的 Phase 1 任务状态。Phase 1（骨架与环境）已于 2026-07-19 完成，Phase 2（项目分析与 TestPlan）已于 2026-07-20 完成，当前为 Phase 3（真机执行核心）。**本节内容为历史快照，实际任务状态以 `docs/05-planning/task-status.json` 为准。**
 
 进入 Phase 1（骨架与环境）前需确认：
 
