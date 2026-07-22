@@ -481,19 +481,262 @@ describe('build', () => {
   });
 });
 
-// ─── test (stub) ──────────────────────────────────────────────────
+// ─── test ──────────────────────────────────────────────────────────
 
 describe('test', () => {
-  it('throws not implemented error', async () => {
-    const driver = createMockDriver();
+  const testInput = {
+    root: '/fake/project',
+    scheme: 'MyAppTests',
+    deviceId: '00008110-001234567890001E',
+  };
 
-    await expect(
-      driver.test({
-        root: '/fake/project',
-        scheme: 'MyApp',
-        deviceId: '00008110-001234567890001E',
-      }),
-    ).rejects.toThrow('test() not implemented — deferred to task 3.11');
+  it('returns success result with parsed test counts on exit 0', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 0,
+        stdout:
+          '** TEST SUCCEEDED **\nExecuted 5 tests, with 0 failures (0 unexpected) in 2.345 (3.000) seconds',
+        stderr: '',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.test(testInput);
+
+    expect(result.success).toBe(true);
+    expect(result.totalTests).toBe(5);
+    expect(result.passed).toBe(5);
+    expect(result.failed).toBe(0);
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(result.log).toContain('TEST SUCCEEDED');
+  });
+
+  it('returns failure result with failed count on non-zero exit code', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 1,
+        stdout:
+          '** TEST FAILED **\nExecuted 10 tests, with 3 failures (0 unexpected) in 8.123 (9.000) seconds',
+        stderr: '',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.test(testInput);
+
+    expect(result.success).toBe(false);
+    expect(result.totalTests).toBe(10);
+    expect(result.passed).toBe(7);
+    expect(result.failed).toBe(3);
+  });
+
+  it('passes correct arguments to xcodebuild test', async () => {
+    let capturedArgs: string[] = [];
+
+    const mockAsync = mock(async (_cmd: string, args: string[], _cwd?: string) => {
+      capturedArgs = args;
+      return {
+        exitCode: 0,
+        stdout: 'Executed 1 test, with 0 failures',
+        stderr: '',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    await driver.test(testInput);
+
+    const argsStr = capturedArgs.join(' ');
+    expect(argsStr).toContain('-scheme MyAppTests');
+    expect(argsStr).toContain('platform=iOS,id=00008110-001234567890001E');
+    expect(argsStr).toContain('-derivedDataPath /fake/project/build/derivedData');
+    expect(argsStr).toContain(
+      '-resultBundlePath /fake/project/build/derivedData/Logs/Test/Test-MyAppTests.xcresult',
+    );
+    expect(capturedArgs).toContain('test');
+  });
+
+  it('includes -testPlan when provided', async () => {
+    let capturedArgs: string[] = [];
+
+    const mockAsync = mock(async (_cmd: string, args: string[], _cwd?: string) => {
+      capturedArgs = args;
+      return { exitCode: 0, stdout: 'Executed 1 test, with 0 failures', stderr: '' };
+    });
+
+    const driver = createMockDriver({ spawnAsync: mockAsync, beautify: async (s) => s });
+
+    await driver.test({ ...testInput, testPlan: 'MyAppTestPlan' });
+
+    const argsStr = capturedArgs.join(' ');
+    expect(argsStr).toContain('-testPlan MyAppTestPlan');
+  });
+
+  it('includes -only-testing when provided', async () => {
+    let capturedArgs: string[] = [];
+
+    const mockAsync = mock(async (_cmd: string, args: string[], _cwd?: string) => {
+      capturedArgs = args;
+      return { exitCode: 0, stdout: 'Executed 1 test, with 0 failures', stderr: '' };
+    });
+
+    const driver = createMockDriver({ spawnAsync: mockAsync, beautify: async (s) => s });
+
+    await driver.test({
+      ...testInput,
+      only: ['MyAppTests/LoginTests/testLogin', 'MyAppTests/SignupTests/testSignup'],
+    });
+
+    expect(capturedArgs.filter((a) => a === '-only-testing')).toHaveLength(2);
+    expect(capturedArgs).toContain('MyAppTests/LoginTests/testLogin');
+    expect(capturedArgs).toContain('MyAppTests/SignupTests/testSignup');
+  });
+
+  it('includes -skip-testing when provided', async () => {
+    let capturedArgs: string[] = [];
+
+    const mockAsync = mock(async (_cmd: string, args: string[], _cwd?: string) => {
+      capturedArgs = args;
+      return { exitCode: 0, stdout: 'Executed 1 test, with 0 failures', stderr: '' };
+    });
+
+    const driver = createMockDriver({ spawnAsync: mockAsync, beautify: async (s) => s });
+
+    await driver.test({
+      ...testInput,
+      skip: ['MyAppTests/SlowTests/testSlow', 'MyAppTests/FlakyTests/testFlaky'],
+    });
+
+    expect(capturedArgs.filter((a) => a === '-skip-testing')).toHaveLength(2);
+    expect(capturedArgs).toContain('MyAppTests/SlowTests/testSlow');
+    expect(capturedArgs).toContain('MyAppTests/FlakyTests/testFlaky');
+  });
+
+  it('calls xcbeautify on test output', async () => {
+    const rawOutput = 'Test Case MyAppTests started';
+
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: rawOutput, stderr: '' };
+    });
+
+    let beautifyCalledWith = '';
+    const beautifyMock = mock(async (raw: string, _cwd?: string) => {
+      beautifyCalledWith = raw;
+      return raw;
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: beautifyMock,
+    });
+
+    await driver.test(testInput);
+
+    expect(beautifyMock).toHaveBeenCalled();
+    expect(beautifyCalledWith).toBe(rawOutput);
+  });
+
+  it('returns failure when no project file is found', async () => {
+    const driver = createMockDriver({
+      beautify: async (s) => s,
+      findProjectFile: () => null,
+    });
+
+    const result = await driver.test({
+      ...testInput,
+      root: '/tmp/empty-dir',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.totalTests).toBe(0);
+    expect(result.passed).toBe(0);
+    expect(result.failed).toBe(0);
+    expect(result.log).toContain('No .xcworkspace or .xcodeproj found');
+  });
+
+  it('records durationMs', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: 'Executed 1 test, with 0 failures', stderr: '' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.test(testInput);
+
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(result.durationMs)).toBe(true);
+  });
+
+  it('omits xcresultPath when file does not exist on disk (R5)', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: 0, stdout: 'Executed 1 test, with 0 failures', stderr: '' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.test(testInput);
+
+    // The xcresult path is /fake/project/build/derivedData/Logs/Test/Test-MyAppTests.xcresult
+    // which will not exist in test environment → xcresultPath must be undefined per R5
+    expect(result.xcresultPath).toBeUndefined();
+  });
+
+  it('handles xcodebuild spawn error gracefully (exitCode -1)', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return { exitCode: -1, stdout: '', stderr: 'command not found: xcodebuild' };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.test(testInput);
+
+    expect(result.success).toBe(false);
+    expect(result.totalTests).toBe(0);
+    expect(result.passed).toBe(0);
+    expect(result.failed).toBe(0);
+    expect(result.xcresultPath).toBeUndefined();
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('parses "1 test" singular form correctly', async () => {
+    const mockAsync = mock(async (_cmd: string, _args: string[], _cwd?: string) => {
+      return {
+        exitCode: 0,
+        stdout: 'Executed 1 test, with 1 failure (0 unexpected) in 0.123 seconds',
+        stderr: '',
+      };
+    });
+
+    const driver = createMockDriver({
+      spawnAsync: mockAsync,
+      beautify: async (s) => s,
+    });
+
+    const result = await driver.test(testInput);
+
+    expect(result.totalTests).toBe(1);
+    expect(result.passed).toBe(0);
+    expect(result.failed).toBe(1);
   });
 });
 

@@ -4,7 +4,7 @@
  * Implements the 6-method BuildDriver contract (architecture §5.3):
  *   doctor / listSchemes / showBuildSettings / build / test / archive
  *
- * test() and archive() are stubs — deferred to task 3.11.
+ * archive() is a stub — deferred to a future task.
  *
  * Dependencies are injectable for testability:
  *   spawnSync  — for synchronous commands (doctor, listSchemes, showBuildSettings)
@@ -15,7 +15,7 @@
  * AGENTS.md R12: All code/comments in English.
  */
 
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 
 import { findProjectFile as defaultFindProjectFile } from 'itestagent-backends-analyzer-xcodeproj';
@@ -390,10 +390,82 @@ export function createXcodebuildBuildDriver(deps?: Partial<XcodebuildDriverDeps>
     return buildResult;
   }
 
-  // ─── test (stub) ─────────────────────────────────────────────
+  // ─── test ───────────────────────────────────────────────────
 
-  async function test(_input: TestInput): Promise<TestResult> {
-    throw new Error('test() not implemented — deferred to task 3.11');
+  async function test(input: TestInput): Promise<TestResult> {
+    const { root, scheme, deviceId, testPlan, only, skip } = input;
+
+    const startMs = Date.now();
+
+    const projectFile = resolveProjectFile(root);
+    if (!projectFile) {
+      const log = 'No .xcworkspace or .xcodeproj found in project root';
+      return {
+        success: false,
+        totalTests: 0,
+        passed: 0,
+        failed: 0,
+        log,
+        durationMs: Date.now() - startMs,
+      };
+    }
+
+    const resolvedDerivedDataPath = `${root}/build/derivedData`;
+    const xcresultPath = pathJoin(
+      resolvedDerivedDataPath,
+      'Logs',
+      'Test',
+      `Test-${scheme}.xcresult`,
+    );
+
+    const args: string[] = [
+      projectFile.type === 'xcode_workspace' ? '-workspace' : '-project',
+      projectFile.path,
+      '-scheme',
+      scheme,
+      '-destination',
+      `platform=iOS,id=${deviceId}`,
+      '-derivedDataPath',
+      resolvedDerivedDataPath,
+      '-resultBundlePath',
+      xcresultPath,
+    ];
+
+    if (testPlan) {
+      args.push('-testPlan', testPlan);
+    }
+    if (only && only.length > 0) {
+      for (const test of only) {
+        args.push('-only-testing', test);
+      }
+    }
+    if (skip && skip.length > 0) {
+      for (const test of skip) {
+        args.push('-skip-testing', test);
+      }
+    }
+
+    args.push('test');
+
+    const result = await spawnAsync('xcodebuild', args, root);
+    const rawOutput = [result.stdout, result.stderr].filter(Boolean).join('\n');
+    const log = await beautify(rawOutput, root);
+    const durationMs = Date.now() - startMs;
+
+    const counts = parseTestCounts(rawOutput);
+
+    // R5: only return xcresultPath if the file actually exists on disk
+    const xcresultExists = existsSync(xcresultPath);
+
+    return {
+      success: result.exitCode === 0,
+      totalTests: counts.total,
+      passed: counts.passed,
+      failed: counts.failed,
+      xcresultPath: xcresultExists ? xcresultPath : undefined,
+      log,
+      durationMs,
+    };
   }
 
   // ─── archive (stub) ──────────────────────────────────────────
@@ -412,6 +484,25 @@ export function createXcodebuildBuildDriver(deps?: Partial<XcodebuildDriverDeps>
     test,
     archive,
   };
+}
+
+/**
+ * Parse basic test counts from xcodebuild test output.
+ *
+ * xcodebuild prints a summary line after all tests:
+ *   "Executed 10 tests, with 2 failures (0 unexpected) in 5.678 (6.000) seconds"
+ *   "Executed 1 test, with 0 failures (0 unexpected) in 0.123 (0.150) seconds"
+ *
+ * Returns { total: 0, passed: 0, failed: 0 } when no match found (R5: no guessing).
+ */
+function parseTestCounts(output: string): { total: number; passed: number; failed: number } {
+  const match = output.match(/Executed\s+(\d+)\s+tests?,\s+with\s+(\d+)\s+failures?/);
+  if (!match) {
+    return { total: 0, passed: 0, failed: 0 };
+  }
+  const total = Number.parseInt(match[1] ?? '0', 10);
+  const failed = Number.parseInt(match[2] ?? '0', 10);
+  return { total, passed: total - failed, failed };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────

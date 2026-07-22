@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-22T04:00:00.000Z",
+  "last_updated": "2026-07-22T06:00:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -627,7 +627,7 @@
           "id": "3.6",
           "title": "MobileMcpBackend 实现",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -712,7 +712,7 @@
           "id": "3.11",
           "title": "BuildDriver XCUITest 路径：xcodebuild test → xcresult",
           "story": "US-7.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -722,7 +722,8 @@
             "3.9"
           ],
           "test_file": null,
-          "notes": "有 XCUITest 项目优先此路径。无既有测试项目此路径自动跳过。"
+          "last_updated": "2026-07-22T06:00:00.000Z",
+          "notes": "PR #37: https://github.com/logan-suu/iTestAgent/pull/37 — Implemented xcodebuild test() with xcresult output. Replaced stub with full xcodebuild test execution (+99/-10 lines): auto-detects xcworkspace/xcodeproj, -testPlan/-only-testing/-skip-testing flags, deterministic derivedDataPath+resultBundlePath, xcbeautify log beautification. parseTestCounts() parses test summary from output (R5: no guessing, returns zeros when unmatched). R5: xcresultPath only returned when file exists on disk. 110 tests pass (build-xcodebuild). G5 deferred to Phase 3 integration gate (3.17)."
         },
         {
           "id": "3.12",
