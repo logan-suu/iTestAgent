@@ -1,8 +1,9 @@
 /**
- * AppiumDeviceBackend — DeviceBackend implementation for physical iOS devices.
+ * AppiumDeviceBackend — DeviceBackend implementation for physical + simulator iOS devices.
  *
  * Implements the stable DeviceBackend interface (§5.1) using Appium/WDA.
- * Physical-only (TargetKind.physical). Simulator support is added in Task 3.10.
+ * ADR-011: supports both TargetKind.physical (devicectl/xcodebuild) and
+ * TargetKind.simulator (simctl/xcodebuild).
  *
  * Architecture:
  *   - AppiumDriver (injected) abstracts WebDriverIO/Appium operations
@@ -35,6 +36,7 @@ import type {
   ScreenshotInput,
   SwipeInput,
   TapInput,
+  TargetKind,
   TerminateAppInput,
   TypeTextInput,
   UiTreeSnapshot,
@@ -42,23 +44,29 @@ import type {
 
 import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
 
+import { buildSimulatorCapabilities } from './appium-capabilities.js';
+import type { SimulatorCapabilitiesOptions } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
 /** Options for AppiumDeviceBackend construction. */
 export interface AppiumDeviceBackendOptions {
-  /** Device UDID (required for physical device targeting). */
+  /** Device UDID (required). */
   udid: string;
+  /** Execution target type: 'physical' (devicectl/xcodebuild) or 'simulator' (simctl/xcodebuild). */
+  targetKind: TargetKind;
   /** App bundle ID to test. */
   bundleId?: string;
   /**
-   * WDA bundle ID override for free-account workaround.
+   * WDA bundle ID override for free-account workaround (physical only).
    * Example: "UJ876FXT32.WebDriverAgentRunner.xctrunner"
    */
   wdaBundleId?: string;
   /** WDA local port for WebDriverAgent communication (default: 8100). */
   wdaLocalPort?: number;
+  /** MJPEG server port for video streaming (default: 9100). Required for parallel simulator sessions. */
+  mjpegServerPort?: number;
   /**
    * Device display name for capabilities (optional).
    * If omitted, Appium infers from UDID. Used in capabilities for logging.
@@ -66,6 +74,11 @@ export interface AppiumDeviceBackendOptions {
   deviceName?: string;
   /** iOS version string (optional — for capabilities logging). */
   platformVersion?: string;
+  /**
+   * Custom derived data path for WDA builds.
+   * Required for parallel simulator sessions (G5-SIM T1.6 finding #5).
+   */
+  derivedDataPath?: string;
 }
 
 // ─── Default capabilities ────────────────────────────────────────────────
@@ -93,29 +106,61 @@ const PHYSICAL_CAPABILITIES: BackendCapabilities = {
   supportsPush: false,
 };
 
+const SIMULATOR_CAPABILITIES: BackendCapabilities = {
+  supportedTargetKinds: ['simulator'],
+  features: [
+    'uitree',
+    'screenshot',
+    'tap',
+    'swipe',
+    'text',
+    'button',
+    'url',
+    'launch',
+    'log',
+    'recording',
+  ],
+  supportsUiTree: true,
+  supportsScreenshot: true,
+  supportsVideo: true,
+  supportsCrashLogs: false,
+  supportsLocation: false,
+  supportsPush: false,
+};
+
 // ─── Implementation ───────────────────────────────────────────────────────
 
 export class AppiumDeviceBackend implements DeviceBackend {
   readonly name = 'appium';
-  readonly capabilities: BackendCapabilities = PHYSICAL_CAPABILITIES;
 
-  private readonly opts: Required<Omit<AppiumDeviceBackendOptions, 'bundleId'>> &
-    Pick<AppiumDeviceBackendOptions, 'bundleId'>;
+  private readonly opts: Required<
+    Omit<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath'>
+  > &
+    Pick<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath'>;
 
+  private readonly targetKind: TargetKind;
   private driver: AppiumDriver;
   private sessionActive = false;
   private screenSize: AppiumScreenSize | null = null;
 
   constructor(driver: AppiumDriver, options: AppiumDeviceBackendOptions) {
     this.driver = driver;
+    this.targetKind = options.targetKind;
     this.opts = {
       udid: options.udid,
+      targetKind: options.targetKind,
       bundleId: options.bundleId,
-      wdaBundleId: options.wdaBundleId ?? '',
+      wdaBundleId: options.wdaBundleId,
       wdaLocalPort: options.wdaLocalPort ?? 8100,
+      mjpegServerPort: options.mjpegServerPort ?? 9100,
       deviceName: options.deviceName ?? '',
       platformVersion: options.platformVersion ?? '',
+      derivedDataPath: options.derivedDataPath,
     };
+  }
+
+  get capabilities(): BackendCapabilities {
+    return this.targetKind === 'simulator' ? SIMULATOR_CAPABILITIES : PHYSICAL_CAPABILITIES;
   }
 
   // ── Session lifecycle ──────────────────────────────────────────────
@@ -127,32 +172,46 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private async ensureSession(): Promise<void> {
     if (this.sessionActive) return;
 
-    const caps = {
-      platformName: 'iOS',
-      'appium:automationName': 'XCUITest',
-      'appium:udid': this.opts.udid,
-      'appium:usePrebuiltWDA': true,
-      'appium:noReset': true,
-      'appium:newCommandTimeout': 600,
-      'appium:wdaLocalPort': this.opts.wdaLocalPort,
-    };
+    let caps: Record<string, unknown>;
 
-    // Only include optional caps that are explicitly set
-    const extendedCaps: Record<string, unknown> = { ...caps };
-    if (this.opts.bundleId) {
-      extendedCaps['appium:bundleId'] = this.opts.bundleId;
-    }
-    if (this.opts.wdaBundleId) {
-      extendedCaps['appium:updatedWDABundleId'] = this.opts.wdaBundleId;
-    }
-    if (this.opts.deviceName) {
-      extendedCaps['appium:deviceName'] = this.opts.deviceName;
-    }
-    if (this.opts.platformVersion) {
-      extendedCaps['appium:platformVersion'] = this.opts.platformVersion;
+    if (this.targetKind === 'simulator') {
+      const simOpts: SimulatorCapabilitiesOptions = {
+        udid: this.opts.udid,
+        wdaLocalPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
+        newCommandTimeout: 600,
+      };
+      if (this.opts.bundleId) simOpts.bundleId = this.opts.bundleId;
+      if (this.opts.deviceName) simOpts.deviceName = this.opts.deviceName;
+      if (this.opts.platformVersion) simOpts.platformVersion = this.opts.platformVersion;
+      if (this.opts.derivedDataPath) simOpts.derivedDataPath = this.opts.derivedDataPath;
+      caps = buildSimulatorCapabilities(simOpts) as Record<string, unknown>;
+    } else {
+      caps = {
+        platformName: 'iOS',
+        'appium:automationName': 'XCUITest',
+        'appium:udid': this.opts.udid,
+        'appium:usePrebuiltWDA': true,
+        'appium:noReset': true,
+        'appium:newCommandTimeout': 600,
+        'appium:wdaLocalPort': this.opts.wdaLocalPort,
+      };
+
+      if (this.opts.bundleId) {
+        caps['appium:bundleId'] = this.opts.bundleId;
+      }
+      if (this.opts.wdaBundleId) {
+        caps['appium:updatedWDABundleId'] = this.opts.wdaBundleId;
+      }
+      if (this.opts.deviceName) {
+        caps['appium:deviceName'] = this.opts.deviceName;
+      }
+      if (this.opts.platformVersion) {
+        caps['appium:platformVersion'] = this.opts.platformVersion;
+      }
     }
 
-    await this.driver.createSession(extendedCaps as Record<string, unknown>);
+    await this.driver.createSession(caps);
     this.sessionActive = true;
 
     // Cache screen size for coordinate conversion
@@ -224,15 +283,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── listDevices ─────────────────────────────────────────
 
-  /**
-   * List physical iOS devices connected to this machine.
-   *
-   * Uses xcrun devicectl (no Appium session needed).
-   * Only returns physical devices (targetKind: 'physical').
-   *
-   * R5: If devicectl is unavailable, returns empty array (annotated in notes).
-   */
   async listDevices(): Promise<DeviceInfo[]> {
+    if (this.targetKind === 'simulator') {
+      return this.listSimulatorDevices();
+    }
+    return this.listPhysicalDevices();
+  }
+
+  /**
+   * List physical iOS devices via devicectl (no Appium session needed).
+   */
+  private async listPhysicalDevices(): Promise<DeviceInfo[]> {
     try {
       const proc = Bun.spawnSync({
         cmd: ['xcrun', 'devicectl', 'list', 'devices', '--json'],
@@ -257,7 +318,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         };
       };
 
-      // devicectl JSON format: { result: { devices: [...] } }
       const devices = parsed?.result?.devices ?? [];
 
       return devices
@@ -281,16 +341,78 @@ export class AppiumDeviceBackend implements DeviceBackend {
     }
   }
 
+  /**
+   * List iOS Simulator devices via simctl (no Appium session needed).
+   *
+   * Uses `xcrun simctl list devices --json` to discover all simulator
+   * devices, including booted and shutdown ones. Filters to iOS runtimes only.
+   *
+   * R5: If simctl is unavailable, returns empty array.
+   */
+  private async listSimulatorDevices(): Promise<DeviceInfo[]> {
+    try {
+      const proc = Bun.spawnSync({
+        cmd: ['xcrun', 'simctl', 'list', 'devices', '--json'],
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+
+      if (proc.exitCode !== 0) {
+        return [];
+      }
+
+      const raw = proc.stdout.toString().trim();
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw) as {
+        devices?: Record<string, Array<Record<string, unknown>>>;
+      };
+      const devicesMap = parsed.devices ?? {};
+
+      const results: DeviceInfo[] = [];
+
+      for (const [runtimeKey, deviceList] of Object.entries(devicesMap)) {
+        if (!Array.isArray(deviceList)) continue;
+
+        // Extract iOS version from runtime identifier
+        // e.g. "com.apple.CoreSimulator.SimRuntime.iOS-18-2" → "18.2"
+        const osMatch = runtimeKey.match(/iOS[- ](\d+)[-.](\d+)/);
+        const osVersion = osMatch ? `${osMatch[1]}.${osMatch[2]}` : undefined;
+
+        for (const d of deviceList) {
+          const dObj = d as Record<string, unknown>;
+          const state = String(dObj.state ?? 'shutdown').toLowerCase();
+
+          results.push({
+            udid: String(dObj.udid ?? ''),
+            name: String(dObj.name ?? 'unknown'),
+            model: String(dObj.deviceTypeIdentifier ?? 'unknown'),
+            osVersion,
+            platform: 'ios' as const,
+            targetKind: 'simulator' as const,
+            runtimeIdentifier: runtimeKey,
+            deviceTypeIdentifier: String(dObj.deviceTypeIdentifier ?? ''),
+            state: state as DeviceInfo['state'],
+          });
+        }
+      }
+
+      return results.filter((d) => d.udid !== '');
+    } catch {
+      return [];
+    }
+  }
+
   // ────────── healthcheck ─────────────────────────────────────────
 
-  /**
-   * Check whether the target device is connected and reachable.
-   *
-   * Does NOT require an Appium session — only checks devicectl connectivity.
-   * Full Appium healthcheck (WDA build + session create) is a separate
-   * G5 spike — see docs/06-verification/.
-   */
   async healthcheck(deviceId: string): Promise<HealthCheckResult> {
+    if (this.targetKind === 'simulator') {
+      return this.simulatorHealthcheck(deviceId);
+    }
+    return this.physicalHealthcheck(deviceId);
+  }
+
+  private async physicalHealthcheck(deviceId: string): Promise<HealthCheckResult> {
     try {
       const proc = Bun.spawnSync({
         cmd: ['xcrun', 'devicectl', 'list', 'devices', '--json'],
@@ -328,6 +450,52 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         healthy: false,
         details: 'Failed to check device health — devicectl error',
+      };
+    }
+  }
+
+  private async simulatorHealthcheck(deviceId: string): Promise<HealthCheckResult> {
+    try {
+      const proc = Bun.spawnSync({
+        cmd: ['xcrun', 'simctl', 'list', 'devices', '--json'],
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+
+      if (proc.exitCode !== 0) {
+        return {
+          healthy: false,
+          details: 'simctl unavailable — ensure Xcode CLI tools are installed',
+        };
+      }
+
+      const raw = proc.stdout.toString().trim();
+      if (!raw) {
+        return {
+          healthy: false,
+          details: 'No simulator devices found — simctl returned empty output',
+        };
+      }
+
+      const parsed = JSON.parse(raw) as {
+        devices?: Record<string, Array<Record<string, unknown>>>;
+      };
+      const devicesMap = parsed.devices ?? {};
+
+      for (const deviceList of Object.values(devicesMap)) {
+        if (!Array.isArray(deviceList)) continue;
+        const found = deviceList.some((d) => (d as Record<string, unknown>).udid === deviceId);
+        if (found) return { healthy: true };
+      }
+
+      return {
+        healthy: false,
+        details: `Simulator ${deviceId} not found in simctl device list`,
+      };
+    } catch {
+      return {
+        healthy: false,
+        details: 'Failed to check simulator health — simctl error',
       };
     }
   }
@@ -590,9 +758,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
   // ────────── listCrashes ─────────────────────────────────────────
 
   async listCrashes(_input: DeviceTarget): Promise<CrashSummary[]> {
+    if (this.targetKind === 'simulator') {
+      // R5: Simulator crash log listing is not supported via simctl.
+      // Crash diagnostics for simulator apps live in ~/Library/Logs/DiagnosticReports/
+      // and are not queryable through a standard CLI. Return empty — caller must
+      // interpret this as "not available for this target kind."
+      return [];
+    }
+
     try {
-      // Physical: use devicectl diagnostics for crash reports.
-      // Appium does not have a standard crash listing API.
       const proc = Bun.spawnSync({
         cmd: [
           'xcrun',
@@ -633,7 +807,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         bundleId: d.bundleId,
       }));
     } catch {
-      // R5: crash listing is approximate — return empty array if unavailable
       return [];
     }
   }

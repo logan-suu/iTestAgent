@@ -1,13 +1,16 @@
 /**
  * itestagent-backends-device-appium
  *
- * DeviceBackend implementation using Appium/WDA for physical iOS devices.
+ * DeviceBackend implementation using Appium/WDA for physical + simulator iOS devices.
+ *
+ * ADR-011: Dual targetKind support — devicectl for physical, simctl for simulator.
  *
  * Exports:
- *   - AppiumDeviceBackend: DeviceBackend implementation (physical targetKind)
+ *   - AppiumDeviceBackend: DeviceBackend implementation (dual-target: physical + simulator)
  *   - AppiumDriver: abstract interface for DI/testability
  *   - AppiumDriverError: typed error class
- *   - buildPhysicalCapabilities: W3C capabilities builder
+ *   - buildPhysicalCapabilities: W3C capabilities builder (physical)
+ *   - buildSimulatorCapabilities: W3C capabilities builder (simulator, G5-SIM verified)
  *
  * R2: Uses Appium/WDA (mature open-source), does not re-implement device control.
  * R9: Component name is "appium" (registered in BackendRegistry as 'appium').
@@ -33,8 +36,11 @@ export type {
   AppiumDriverErrorCode,
 } from './appium-driver.js';
 
-export { buildPhysicalCapabilities } from './appium-capabilities.js';
-export type { PhysicalCapabilitiesOptions } from './appium-capabilities.js';
+export { buildPhysicalCapabilities, buildSimulatorCapabilities } from './appium-capabilities.js';
+export type {
+  PhysicalCapabilitiesOptions,
+  SimulatorCapabilitiesOptions,
+} from './appium-capabilities.js';
 
 export { WdaManager } from './wda-manager.js';
 export type {

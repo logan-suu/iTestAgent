@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-22T02:00:00.000Z",
+  "last_updated": "2026-07-22T04:00:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -696,7 +696,7 @@
           "id": "3.10",
           "title": "AppiumDeviceBackend — simulator adapter extension: simctl + Appium/WDA",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/decisions/ADR-011-ios-simulator-first-class-support.md"
@@ -706,7 +706,7 @@
           ],
           "test_file": null,
           "notes": "扩展 AppiumDeviceBackend 支持 simulator targetKind。Simulator adapter: simctl install/launch/terminate、xcodebuild destination (platform=iOS Simulator,id=UDID)、Appium/WDA Simulator session。Appium capability/sessionId/WDA 封装在 device-appium 内，不泄漏到上层。T1.12 (Simulator doctor) + T1.5/T1.6 (Simulator Spike) 依赖此实现。预计 3-5 天。",
-          "last_updated": "2026-07-21T15:50:00.000Z"
+          "last_updated": "2026-07-22T04:00:00.000Z"
         },
         {
           "id": "3.11",
