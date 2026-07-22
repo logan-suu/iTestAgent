@@ -729,7 +729,8 @@
           "id": "3.12",
           "title": "DeviceBackend 探索执行：run steps 记录 + UI 动作",
           "story": "US-8.1",
-          "status": "in_progress",
+          "status": "done",
+          "last_updated": "2026-07-22T16:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -740,13 +741,13 @@
             "3.9"
           ],
           "test_file": null,
-          "notes": "PR #38: https://github.com/logan-suu/iTestAgent/pull/38 — Implemented DeviceBackend exploration path (US-8.1). ElementLocator (5-level degradation, AC4), SystemAlertHandler (iOS alerts), RunStepRecorder (structured step recording), DeviceExplorer (orchestrator loop). 7 source files + 5 test files (68 tests) + 7 XML fixtures. DEF-013 fixed: console.error in 7 AppiumDeviceBackend catch blocks. G3 typecheck 0, lint 0, 1321 tests pass. PR created, waiting for human merge."
+          "notes": "PR #39: https://github.com/logan-suu/iTestAgent/pull/39 — Merged to dev-1.0 (bdc9a17). Implemented DeviceBackend exploration path (US-8.1). ElementLocator (5-level degradation, AC4), SystemAlertHandler (iOS alerts), RunStepRecorder (structured step recording), DeviceExplorer (orchestrator loop). 7 source files + 5 test files (68 tests) + 7 XML fixtures. DEF-013 fixed: console.error in 7 AppiumDeviceBackend catch blocks. PR review fixes in add8700 (alert detection in all actions, wait RunStep, stale UI tree fix). G3 typecheck 0, lint 0, 1321 tests pass."
         },
         {
           "id": "3.13",
           "title": "交互式录制：Agent 建议下一步 + 用户确认/纠偏",
           "story": "US-8.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -761,7 +762,7 @@
           "id": "3.14",
           "title": "断言策略：分层，无断言不判 passed",
           "story": "US-11.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
