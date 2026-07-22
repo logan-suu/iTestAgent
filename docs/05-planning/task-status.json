@@ -696,7 +696,7 @@
           "id": "3.10",
           "title": "AppiumDeviceBackend — simulator adapter extension: simctl + Appium/WDA",
           "story": null,
-          "status": "in_progress",
+"status": "done",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/decisions/ADR-011-ios-simulator-first-class-support.md"
@@ -705,8 +705,8 @@
             "3.7"
           ],
           "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
-          "notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Awaiting merge to dev-1.0. Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl-based listDevices/healthcheck/listCrashes, dynamic capabilities getter, dual-target ensureSession routing. 5 files, +613/-61 lines, 25 new tests (1222 total pass). G5-SIM verified: simctl listDevices parsing (35 devices/3 runtimes) + healthcheck (booted→healthy, nonexistent→unhealthy). Passes on real CoreSimulator iOS 18.2/17.5/26.5. Appium session test skipped (not installed). Full G5-SIM report: docs/06-verification/g5-sim-spike-report-3.10.md",
-          "last_updated": "2026-07-22T04:30:00.000Z"
+"notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Merged to dev-1.0 (2026-07-22). Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl-based listDevices/healthcheck/listCrashes, dynamic capabilities getter, dual-target ensureSession routing using buildPhysicalCapabilities()/buildSimulatorCapabilities(). 7 files, +910/-63 lines, 25 new tests (1222 total pass). G5-SIM: 6/6 PASS — simctl listDevices parsing (35 devices/3 runtimes), healthcheck (booted→healthy), Appium session end-to-end (buildSimulatorCapabilities() → session → page source 38K/159 elements → screenshot → tap/swipe/launchApp). Verified on iPhone 16 Pro (iOS 18.2 Simulator, headless), Appium 3.5.2 + XCUITest 11.17.7. G5-SIM report: docs/06-verification/g5-sim-spike-report-3.10.md.",
+      "last_updated": "2026-07-22T14:00:00.000Z"
         },
         {
           "id": "3.11",
