@@ -1,12 +1,13 @@
 /**
- * ToolDispatcher — ADR-010 §5 Harness 边界核心组件。
+ * ToolDispatcher — ADR-010 §5 Harness boundary core component.
  *
- * 职责链：
+ * Responsibility chain:
  *   ToolCall → Zod parse → PermissionEngine → BackendSelector
  *   → backend method → normalize ToolResult → AgentEvent
  *
- * 作为 toolExecutor 回调注入 AiSdkAgentRuntime。
- * 权限事件（permission.requested/resolved）由本组件通过 onEvent 回调发出。
+ * Injected as the toolExecutor callback into AiSdkAgentRuntime.
+ * Permission events (permission.requested/resolved) are emitted by this component
+ * via the onEvent callback.
  */
 
 import type { AgentEvent, ArtifactRef, DeviceBackend, TargetKind } from 'itestagent-contracts';
@@ -112,12 +113,22 @@ const TOOL_REGISTRY: Record<string, ToolMapping> = {
   },
   healthcheck: {
     method: 'healthcheck',
-    parseParams: noopParse,
+    parseParams: (args: Record<string, unknown>): string => {
+      if (typeof args.deviceId !== 'string') {
+        throw new Error('healthcheck requires string deviceId');
+      }
+      return args.deviceId;
+    },
     action: 'healthcheck',
   },
   list_apps: {
     method: 'listApps',
-    parseParams: noopParse,
+    parseParams: (args: Record<string, unknown>): string => {
+      if (typeof args.deviceId !== 'string') {
+        throw new Error('list_apps requires string deviceId');
+      }
+      return args.deviceId;
+    },
     action: 'list_apps',
   },
   start_recording: {
@@ -200,19 +211,21 @@ function normalizeOutput(raw: unknown): unknown {
     return raw;
   }
 
-  // Generic truncation for large string/number outputs
+  // Generic truncation for large outputs
   try {
-    const serialized = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const isString = typeof raw === 'string';
+    const serialized = isString ? raw : JSON.stringify(raw);
     if (serialized.length > MAX_OUTPUT_SIZE) {
+      const truncatedStr = `${serialized.slice(0, MAX_OUTPUT_SIZE)}... [truncated: ${serialized.length - MAX_OUTPUT_SIZE} chars omitted]`;
       return {
-        value: typeof raw === 'string' ? `${raw.slice(0, MAX_OUTPUT_SIZE)}...` : raw,
+        value: isString ? truncatedStr : JSON.parse(truncatedStr),
         truncated: true,
         truncationReason: `Output exceeded ${MAX_OUTPUT_SIZE} chars (R5: explicit truncation)`,
         originalSize: serialized.length,
       };
     }
   } catch {
-    // JSON.stringify failed (circular ref / non-serializable) — fall through to safeSerialize
+    // JSON.stringify/parse failed (circular ref / non-serializable) — fall through to safeSerialize
   }
 
   // Ensure JSON-serializable (handles circular refs gracefully)
