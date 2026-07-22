@@ -4,7 +4,7 @@
  * Implements the 6-method BuildDriver contract (architecture §5.3):
  *   doctor / listSchemes / showBuildSettings / build / test / archive
  *
- * test() and archive() are stubs — deferred to task 3.11.
+ * archive() is a stub — deferred to a future task.
  *
  * Dependencies are injectable for testability:
  *   spawnSync  — for synchronous commands (doctor, listSchemes, showBuildSettings)
