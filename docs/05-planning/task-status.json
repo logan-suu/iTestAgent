@@ -627,7 +627,7 @@
           "id": "3.6",
           "title": "MobileMcpBackend 实现",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -712,7 +712,7 @@
           "id": "3.11",
           "title": "BuildDriver XCUITest 路径：xcodebuild test → xcresult",
           "story": "US-7.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
