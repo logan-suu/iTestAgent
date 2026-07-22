@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-21T18:00:00.000Z",
+  "last_updated": "2026-07-22T03:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -229,6 +229,22 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-21T18:00:00.000Z"
+    },
+    {
+      "id": "DEF-015",
+      "source": "CodeRabbit",
+      "pr": 35,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/35",
+      "comment_id": 3629516576,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/35#discussion_r3629516576",
+      "task": "3.9",
+      "severity": "major",
+      "item": "Thread AbortSignal through DeviceBackend interface to enable in-flight cancellation",
+      "detail": "ToolDispatcher checks AbortSignal before dispatch and before execution, but DeviceBackend methods (tap, swipe, screenshot, launchApp, etc.) lack a signal/options parameter. Running backend operations still cannot be cancelled mid-flight. Fix: add signal?: AbortSignal to the DeviceBackend contract methods, then pass this.signal into method.call() in ToolDispatcher, and propagate through every backend implementation (AppiumDeviceBackend, MockDeviceBackend, and future backends). Deferred because: (1) requires contract changes affecting all backend implementations, (2) needs coordination with DEF-012 (async Bun.spawn conversion) and DEF-014 (WdaManager AbortSignal propagation) for the complete signal chain from ToolDispatcher → backend → subprocess.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-22T03:00:00.000Z"
     }
   ]
 }

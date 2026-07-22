@@ -59,3 +59,10 @@ export type {
   AiSdkAgentRuntimeOptions,
   ToolExecutor,
 } from './ai-sdk-agent-runtime.js';
+
+export { ToolDispatcher } from './tool-dispatcher.js';
+
+export type {
+  EventEmitter,
+  ToolDispatcherOptions,
+} from './tool-dispatcher.js';
