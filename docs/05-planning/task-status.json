@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-22T01:40:00.000Z",
+  "last_updated": "2026-07-22T02:00:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -689,7 +689,8 @@
             "3.3"
           ],
           "test_file": null,
-          "notes": "ADR-010 Harness 边界。ToolDispatcher 职责：ToolCall→Zod parse→PermissionEngine→BackendSelector→backend method→normalize ToolResult→RunStep/Artifact→AgentEvent。测试：healthcheck/fallback 顺序正确、语义变化产生 permission request、output 通过 Zod、oversized/unknown output 显式失败或截断（ADR-010 §11）。"
+          "notes": "PR #35: https://github.com/logan-suu/iTestAgent/pull/35 — ToolDispatcher (~490 lines): 16-tool registry, Zod parse chain, PermissionEngine allow/deny/ask gate, BackendSelector integration, output normalization with R5 truncation markers, AbortSignal propagation. 36 unit tests. typecheck 0 / lint 0 / 1197 tests pass.",
+          "last_updated": "2026-07-22T02:00:00.000Z"
         },
         {
           "id": "3.10",
