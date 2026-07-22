@@ -46,6 +46,7 @@ import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-drive
 
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions } from './appium-capabilities.js';
+import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -187,28 +188,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
       if (this.opts.derivedDataPath) simOpts.derivedDataPath = this.opts.derivedDataPath;
       caps = buildSimulatorCapabilities(simOpts) as Record<string, unknown>;
     } else {
-      caps = {
-        platformName: 'iOS',
-        'appium:automationName': 'XCUITest',
-        'appium:udid': this.opts.udid,
-        'appium:usePrebuiltWDA': true,
-        'appium:noReset': true,
-        'appium:newCommandTimeout': 600,
-        'appium:wdaLocalPort': this.opts.wdaLocalPort,
-      };
-
-      if (this.opts.bundleId) {
-        caps['appium:bundleId'] = this.opts.bundleId;
-      }
-      if (this.opts.wdaBundleId) {
-        caps['appium:updatedWDABundleId'] = this.opts.wdaBundleId;
-      }
-      if (this.opts.deviceName) {
-        caps['appium:deviceName'] = this.opts.deviceName;
-      }
-      if (this.opts.platformVersion) {
-        caps['appium:platformVersion'] = this.opts.platformVersion;
-      }
+      caps = buildPhysicalCapabilities({
+        udid: this.opts.udid,
+        wdaLocalPort: this.opts.wdaLocalPort,
+        newCommandTimeout: 600,
+        usePrebuiltWDA: true,
+        bundleId: this.opts.bundleId,
+        wdaBundleId: this.opts.wdaBundleId || undefined,
+        deviceName: this.opts.deviceName || undefined,
+        platformVersion: this.opts.platformVersion || undefined,
+      }) as Record<string, unknown>;
     }
 
     await this.driver.createSession(caps);
