@@ -677,7 +677,7 @@
           "id": "3.9",
           "title": "ToolDispatcher：ToolCall→Zod→Permission→BackendSelector→AgentEvent",
           "story": null,
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
@@ -689,8 +689,8 @@
             "3.3"
           ],
           "test_file": null,
-          "notes": "PR #35: https://github.com/logan-suu/iTestAgent/pull/35 — ToolDispatcher (~490 lines): 16-tool registry, Zod parse chain, PermissionEngine allow/deny/ask gate, BackendSelector integration, output normalization with R5 truncation markers, AbortSignal propagation. 36 unit tests. typecheck 0 / lint 0 / 1197 tests pass.",
-          "last_updated": "2026-07-22T02:00:00.000Z"
+          "notes": "PR #35: https://github.com/logan-suu/iTestAgent/pull/35 — Merged to dev-1.0 (74020c4). ToolDispatcher (~490 lines): 16-tool registry, Zod parse chain, PermissionEngine allow/deny/ask gate with permission.requested/resolved events, BackendSelector integration, output normalization with R5 truncation markers, circular-ref safe serialization, AbortSignal propagation. 36 unit tests. DEF-015 (AbortSignal through DeviceBackend) deferred. typecheck 0 / lint 0 / 1197 tests pass.",
+          "last_updated": "2026-07-22T03:00:00.000Z"
         },
         {
           "id": "3.10",
@@ -712,7 +712,7 @@
           "id": "3.11",
           "title": "BuildDriver XCUITest 路径：xcodebuild test → xcresult",
           "story": "US-7.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -728,7 +728,7 @@
           "id": "3.12",
           "title": "DeviceBackend 探索执行：run steps 记录 + UI 动作",
           "story": "US-8.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
