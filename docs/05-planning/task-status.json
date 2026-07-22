@@ -740,7 +740,7 @@
             "3.9"
           ],
           "test_file": null,
-          "notes": "无测试项目默认路径。点击/输入/滑动/截图/UI tree。探索过程记录为 run steps。"
+          "notes": "PR #38: https://github.com/logan-suu/iTestAgent/pull/38 — Implemented DeviceBackend exploration path (US-8.1). ElementLocator (5-level degradation, AC4), SystemAlertHandler (iOS alerts), RunStepRecorder (structured step recording), DeviceExplorer (orchestrator loop). 7 source files + 5 test files (68 tests) + 7 XML fixtures. DEF-013 fixed: console.error in 7 AppiumDeviceBackend catch blocks. G3 typecheck 0, lint 0, 1321 tests pass. PR created, waiting for human merge."
         },
         {
           "id": "3.13",
