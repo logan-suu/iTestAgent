@@ -729,7 +729,7 @@
           "id": "3.12",
           "title": "DeviceBackend 探索执行：run steps 记录 + UI 动作",
           "story": "US-8.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
