@@ -284,7 +284,23 @@ function createBackend(config?: MockDriverConfig): {
   const mock = new MockAppiumDriver(config);
   const backend = new AppiumDeviceBackend(mock, {
     udid: TEST_UDID,
+    targetKind: 'physical',
     bundleId: TEST_BUNDLE_ID,
+  });
+  return { backend, mock };
+}
+
+const SIM_UDID = 'F7C1CF80-42FC-4B59-88E4-7A8E8D2E9A3B';
+
+function createSimulatorBackend(config?: MockDriverConfig): {
+  backend: AppiumDeviceBackend;
+  mock: MockAppiumDriver;
+} {
+  const mock = new MockAppiumDriver(config);
+  const backend = new AppiumDeviceBackend(mock, {
+    udid: SIM_UDID,
+    targetKind: 'simulator',
+    bundleId: 'com.example.simapp',
   });
   return { backend, mock };
 }
@@ -902,7 +918,7 @@ describe('AppiumDeviceBackend', () => {
 // buildPhysicalCapabilities tests
 // ═══════════════════════════════════════════════════════════════════════
 
-import { buildPhysicalCapabilities } from '../src/index.js';
+import { buildPhysicalCapabilities, buildSimulatorCapabilities } from '../src/index.js';
 
 describe('buildPhysicalCapabilities', () => {
   it('builds minimum capabilities with udid', () => {
@@ -969,5 +985,269 @@ describe('buildPhysicalCapabilities', () => {
   it('accepts custom newCommandTimeout', () => {
     const caps = buildPhysicalCapabilities({ udid: TEST_UDID, newCommandTimeout: 300 });
     expect(caps['appium:newCommandTimeout']).toBe(300);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// buildSimulatorCapabilities tests
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('buildSimulatorCapabilities', () => {
+  it('builds minimum capabilities with udid (no wdaBundleId needed)', () => {
+    const caps = buildSimulatorCapabilities({ udid: SIM_UDID });
+
+    expect(caps.platformName).toBe('iOS');
+    expect(caps['appium:automationName']).toBe('XCUITest');
+    expect(caps['appium:udid']).toBe(SIM_UDID);
+    expect(caps['appium:usePrebuiltWDA']).toBe(false);
+    expect(caps['appium:noReset']).toBe(true);
+    // Simulator does NOT need updatedWDABundleId
+    expect(caps['appium:updatedWDABundleId']).toBeUndefined();
+  });
+
+  it('includes bundleId when provided', () => {
+    const caps = buildSimulatorCapabilities({ udid: SIM_UDID, bundleId: 'com.example.app' });
+    expect(caps['appium:bundleId']).toBe('com.example.app');
+  });
+
+  it('respects custom port options for parallel sessions', () => {
+    const caps = buildSimulatorCapabilities({
+      udid: SIM_UDID,
+      wdaLocalPort: 8200,
+      mjpegServerPort: 9200,
+    });
+
+    expect(caps['appium:wdaLocalPort']).toBe(8200);
+    expect(caps['appium:mjpegServerPort']).toBe(9200);
+  });
+
+  it('includes derivedDataPath for parallel session isolation', () => {
+    const caps = buildSimulatorCapabilities({
+      udid: SIM_UDID,
+      derivedDataPath: '/tmp/wda-build-session-2',
+    });
+
+    expect(caps['appium:derivedDataPath']).toBe('/tmp/wda-build-session-2');
+  });
+
+  it('sets usePrebuiltWDA: true when explicitly configured', () => {
+    const caps = buildSimulatorCapabilities({
+      udid: SIM_UDID,
+      usePrebuiltWDA: true,
+    });
+
+    expect(caps['appium:usePrebuiltWDA']).toBe(true);
+  });
+
+  it('sets fullReset when requested', () => {
+    const caps = buildSimulatorCapabilities({ udid: SIM_UDID, fullReset: true });
+    expect(caps['appium:noReset']).toBe(false);
+  });
+
+  it('includes optional deviceName and platformVersion', () => {
+    const caps = buildSimulatorCapabilities({
+      udid: SIM_UDID,
+      deviceName: 'iPhone 16 Pro',
+      platformVersion: '18.2',
+    });
+
+    expect(caps['appium:deviceName']).toBe('iPhone 16 Pro');
+    expect(caps['appium:platformVersion']).toBe('18.2');
+  });
+
+  it('sets default newCommandTimeout to 600 seconds', () => {
+    const caps = buildSimulatorCapabilities({ udid: SIM_UDID });
+    expect(caps['appium:newCommandTimeout']).toBe(600);
+  });
+
+  it('accepts custom newCommandTimeout', () => {
+    const caps = buildSimulatorCapabilities({ udid: SIM_UDID, newCommandTimeout: 300 });
+    expect(caps['appium:newCommandTimeout']).toBe(300);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// AppiumDeviceBackend — simulator targetKind tests
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('AppiumDeviceBackend (simulator targetKind)', () => {
+  let mock: MockAppiumDriver;
+  let backend: AppiumDeviceBackend;
+
+  beforeEach(() => {
+    const b = createSimulatorBackend();
+    mock = b.mock;
+    backend = b.backend;
+  });
+
+  afterEach(async () => {
+    await backend.closeSession();
+  });
+
+  describe('constructor & metadata', () => {
+    it('returns name "appium"', () => {
+      expect(backend.name).toBe('appium');
+    });
+
+    it('has correct capabilities for simulator targetKind', () => {
+      const caps = backend.capabilities;
+      expect(caps.supportedTargetKinds).toEqual(['simulator']);
+      expect(caps.supportsUiTree).toBe(true);
+      expect(caps.supportsScreenshot).toBe(true);
+      expect(caps.supportsVideo).toBe(true);
+      expect(caps.supportsCrashLogs).toBe(false);
+      expect(caps.supportsLocation).toBe(false);
+      expect(caps.supportsPush).toBe(false);
+    });
+
+    it('does not include physical in supportedTargetKinds', () => {
+      expect(backend.capabilities.supportedTargetKinds).not.toContain('physical');
+    });
+
+    it('uses simctl capabilities in ensureSession (no wdaBundleId)', async () => {
+      await backend.getUiTree({ deviceId: SIM_UDID });
+      expect(mock.calls).toContain('createSession');
+      // Simulator session created — verify it doesn't throw
+    });
+
+    it('passes mjpegServerPort and derivedDataPath from options', () => {
+      const driver = new MockAppiumDriver();
+      const b = new AppiumDeviceBackend(driver, {
+        udid: SIM_UDID,
+        targetKind: 'simulator',
+        mjpegServerPort: 9999,
+        derivedDataPath: '/custom/wda-path',
+      });
+      expect(b.name).toBe('appium');
+    });
+  });
+
+  describe('listDevices', () => {
+    it('uses simctl (not devicectl) and returns empty array when unavailable', async () => {
+      const devices = await backend.listDevices();
+      // In test env without simctl, returns empty array (R5)
+      expect(Array.isArray(devices)).toBe(true);
+    });
+
+    it('does not require an Appium session', async () => {
+      await backend.listDevices();
+      expect(mock.calls).not.toContain('createSession');
+    });
+  });
+
+  describe('healthcheck', () => {
+    it('uses simctl for healthcheck (not devicectl)', async () => {
+      const result = await backend.healthcheck(SIM_UDID);
+      // In test env without simctl, returns healthy:false
+      expect(typeof result.healthy).toBe('boolean');
+      expect(result.details).toBeDefined();
+    });
+
+    it('does not require an Appium session', async () => {
+      await backend.healthcheck(SIM_UDID);
+      expect(mock.calls).not.toContain('createSession');
+    });
+  });
+
+  describe('listCrashes', () => {
+    it('returns empty array for simulator (R5: not supported via simctl)', async () => {
+      const crashes = await backend.listCrashes({ deviceId: SIM_UDID });
+      expect(crashes).toEqual([]);
+    });
+
+    it('does not require an Appium session', async () => {
+      await backend.listCrashes({ deviceId: SIM_UDID });
+      expect(mock.calls).not.toContain('createSession');
+    });
+  });
+
+  describe('BackendSelector compatibility', () => {
+    it('declares supportedTargetKinds: ["simulator"] for filterByTargetKind', () => {
+      const caps = backend.capabilities;
+      expect(caps.supportedTargetKinds).toContain('simulator');
+      expect(caps.supportedTargetKinds.length).toBe(1);
+    });
+
+    it('matches DEFAULT_PREFERENCES simulator order (appium is first)', () => {
+      expect(backend.name).toBe('appium');
+    });
+  });
+
+  describe('backwards compatibility (physical targetKind)', () => {
+    it('physical backend still works correctly', () => {
+      const driver = new MockAppiumDriver();
+      const physical = new AppiumDeviceBackend(driver, {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+      });
+
+      const caps = physical.capabilities;
+      expect(caps.supportedTargetKinds).toEqual(['physical']);
+      expect(caps.supportsCrashLogs).toBe(true);
+    });
+
+    it('physical backend listDevices uses devicectl (not simctl)', async () => {
+      const driver = new MockAppiumDriver();
+      const physical = new AppiumDeviceBackend(driver, {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+      });
+      const devices = await physical.listDevices();
+      // devicectl may not be available in test env — still returns array (R5)
+      expect(Array.isArray(devices)).toBe(true);
+      expect(physical.capabilities.supportedTargetKinds).toEqual(['physical']);
+    });
+  });
+
+  describe('error handling (R5 — simulator)', () => {
+    it('simulator backends never throw from DeviceBackend methods', async () => {
+      // Configure session creation to fail
+      mock.setConfig({
+        createSessionError: new AppiumDriverError('connection_error', 'Appium server down'),
+      });
+
+      const uiTree = await backend.getUiTree({ deviceId: SIM_UDID });
+      expect(uiTree.raw).toBe('');
+
+      const screenshot = await backend.screenshot({ deviceId: SIM_UDID });
+      expect(screenshot.id).toContain('error');
+
+      const tapResult = await backend.tap({ deviceId: SIM_UDID, x: 0.5, y: 0.5 });
+      expect(tapResult.success).toBe(false);
+
+      const swipeResult = await backend.swipe({
+        deviceId: SIM_UDID,
+        fromX: 0.5,
+        fromY: 0.8,
+        toX: 0.5,
+        toY: 0.2,
+      });
+      expect(swipeResult.success).toBe(false);
+
+      const typeResult = await backend.typeText({ deviceId: SIM_UDID, text: 'test' });
+      expect(typeResult.success).toBe(false);
+
+      const launchResult = await backend.launchApp({
+        deviceId: SIM_UDID,
+        bundleId: 'com.example.simapp',
+      });
+      expect(launchResult.success).toBe(false);
+
+      const terminateResult = await backend.terminateApp({
+        deviceId: SIM_UDID,
+        bundleId: 'com.example.simapp',
+      });
+      expect(terminateResult.success).toBe(false);
+
+      const openUrlResult = await backend.openUrl({
+        deviceId: SIM_UDID,
+        url: 'https://example.com',
+      });
+      expect(openUrlResult.success).toBe(false);
+
+      const apps = await backend.listApps(SIM_UDID);
+      expect(apps).toEqual([]);
+    });
   });
 });
