@@ -105,15 +105,16 @@ export class DeviceExplorer {
 
   // ─── Private: Launch ────────────────────────────────────────
 
-  private async executeLaunch(): Promise<void> {
-    const stepId = this.recorder.startStep('launch', this.options.bundleId);
+  private async executeLaunch(bundleIdOverride?: string): Promise<void> {
+    const bundleId = bundleIdOverride ?? this.options.bundleId;
+    const stepId = this.recorder.startStep('launch', bundleId);
 
     const result = await this.toolDispatcher.dispatch({
       id: this.nextCallId(),
       name: 'launch_app',
       arguments: {
         deviceId: this.options.deviceId,
-        bundleId: this.options.bundleId,
+        bundleId,
       },
     });
 
@@ -127,6 +128,8 @@ export class DeviceExplorer {
   // ─── Private: Action Execution ──────────────────────────────
 
   private async executeAction(action: ExplorationAction): Promise<void> {
+    await this.checkForAlerts();
+
     switch (action.action) {
       case 'tap':
         await this.executeTap(action);
@@ -141,10 +144,10 @@ export class DeviceExplorer {
         await this.executeScreenshot(action);
         break;
       case 'wait':
-        await this.sleep(action.waitMs ?? 1000);
+        await this.executeWait(action);
         break;
       case 'launch':
-        // Already launched at start; re-launch if explicitly requested
+        await this.executeLaunch(action.bundleId);
         break;
     }
   }
@@ -169,12 +172,14 @@ export class DeviceExplorer {
 
     // Check for system alerts
     const alertResult = this.alertHandler.detectAndHandle(uiTree);
+    let currentTree = uiTree;
     if (alertResult.detected) {
       await this.handleAlert(alertResult);
+      currentTree = (await this.getUiTree()) ?? uiTree;
     }
 
     // Locate the target element
-    const locatorResult = this.locator.locate(uiTree, action.target);
+    const locatorResult = this.locator.locate(currentTree, action.target);
 
     if (!locatorResult.found && locatorResult.confidence === 'low') {
       // Even coordinate fallback "found" it — but with low confidence
@@ -345,15 +350,16 @@ export class DeviceExplorer {
    * Handle a detected system alert by tapping the dismiss button.
    */
   private async handleAlert(_alert: SystemAlertResult): Promise<void> {
-    // Re-get the UI tree to get current coordinates after alert appeared
+    const stepId = this.recorder.startStep('dismiss_alert', _alert.alertText ?? 'system_alert');
+
     const uiTree = await this.getUiTree();
-    if (!uiTree) return;
+    const dismissCoords = uiTree ? this.alertHandler.getDismissCoordinates(uiTree) : null;
+    if (!dismissCoords) {
+      this.recorder.failStep(stepId, 'Could not compute dismiss coordinates for alert');
+      return;
+    }
 
-    const dismissCoords = this.alertHandler.getDismissCoordinates(uiTree);
-    if (!dismissCoords) return;
-
-    // Tap the dismiss button
-    await this.toolDispatcher.dispatch({
+    const result = await this.toolDispatcher.dispatch({
       id: this.nextCallId(),
       name: 'tap',
       arguments: {
@@ -362,6 +368,36 @@ export class DeviceExplorer {
         y: dismissCoords.y,
       },
     });
+
+    if (result.status === 'ok') {
+      this.recorder.completeStep(stepId, result.output);
+    } else {
+      this.recorder.failStep(stepId, `Alert dismiss failed: ${JSON.stringify(result.output)}`);
+    }
+  }
+
+  /**
+   * Check for and dismiss system alerts before executing an action.
+   * Applies to all action types — any action can encounter a system alert.
+   */
+  private async checkForAlerts(): Promise<void> {
+    const uiTree = await this.getUiTree();
+    if (!uiTree) return;
+
+    const alertResult = this.alertHandler.detectAndHandle(uiTree);
+    if (alertResult.detected) {
+      await this.handleAlert(alertResult);
+    }
+  }
+
+  /**
+   * Execute a timed wait and record it as a RunStep.
+   */
+  private async executeWait(action: ExplorationAction): Promise<void> {
+    const waitMs = action.waitMs ?? 1000;
+    const stepId = this.recorder.startStep('wait', action.target ?? `wait_${waitMs}ms`);
+    await this.sleep(waitMs);
+    this.recorder.completeStep(stepId, { waitMs });
   }
 
   /**

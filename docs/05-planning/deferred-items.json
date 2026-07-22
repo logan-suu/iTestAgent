@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-22T03:00:00.000Z",
+  "last_updated": "2026-07-22T15:50:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -210,8 +210,9 @@
       "item": "Attach error context to fallback return values in AppiumDeviceBackend catch blocks",
       "detail": "7 catch blocks in appium-device-backend.ts capture error messages into errorMsg but never use them: listApps (L349-352 returns []), getUiTree (L407-415 returns empty snapshot), screenshot (L437-446), startRecording (L553-560), stopRecording (L579-587), listCrashes (L635-638 returns []), collectLogs (L660-669). This violates R5 (no silent degradation). The return types (ArtifactRef, UiTreeSnapshot, RecordingHandle) lack an error field. Fix options: (a) console.error(errorMsg) for observability without changing contracts, or (b) extend return types with optional error field. Deferred because changing shared contract types (ArtifactRef, UiTreeSnapshot, RecordingHandle) affects all backend implementations and the engine layer.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "3.12",
+      "resolved_at": "2026-07-22T15:50:00.000Z",
       "created_at": "2026-07-21T18:00:00.000Z"
     },
     {
@@ -245,6 +246,54 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-22T03:00:00.000Z"
+    },
+    {
+      "id": "DEF-016",
+      "source": "CodeRabbit",
+      "pr": 39,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/39",
+      "comment_id": 3631567712,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/39#discussion_r3631567712",
+      "task": "3.12",
+      "severity": "major",
+      "item": "Replace console.error with redacting structured logger in AppiumDeviceBackend catch blocks",
+      "detail": "DEF-013 was partially resolved by adding console.error(errorMsg) to 7 AppiumDeviceBackend catch blocks, but the current implementation logs raw error.message/String(error) directly. This violates R6 (sensitive data such as tokens, OTPs, payment data, and identifiers could appear in Appium driver error messages). Fix: introduce a redacting structured logger that strips PII before emitting, or log only safe operation context and error-class metadata (error name, HTTP status, operation name) rather than the raw error message. Add tests proving tokens, OTPs, payment data, and identifiers are removed from emitted logs. Deferred because: (1) no shared redacting logger infrastructure exists yet, (2) needs cross-cutting infrastructure decision (Phase 4 evidence/report layer), (3) current console.error is a strict improvement over the previous silent degradation.",
+      "target_phase": 4,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-22T15:50:00.000Z"
+    },
+    {
+      "id": "DEF-017",
+      "source": "CodeRabbit",
+      "pr": 39,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/39",
+      "comment_id": null,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/39#discussion_r3631567758",
+      "task": "3.12",
+      "severity": "minor",
+      "item": "XML entity encoding mismatch: findAlertButton/extractAlertButtons fail on labels containing &apos;/&amp;",
+      "detail": "permissionAlertUiTree's deny button is encoded as label=\"Don&apos;t Allow\", but DISMISS_BUTTONS contains the literal \"Don't Allow\". Since the search regex is built from the literal target and matched against un-decoded XML, this branch never matches — meaning a permission dialog offering only \"Don't Allow\" (Allow absent) would be reported as handled: false despite a valid dismiss button existing. extractAlertButtons has the same gap, surfacing encoded text instead of decoded labels. Fix: XML-decode entity references in the alert text before matching labels, and decode in extractAlertButtons so callers receive decoded labels. No current test exercises the deny-only path.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-22T15:50:00.000Z"
+    },
+    {
+      "id": "DEF-018",
+      "source": "CodeRabbit",
+      "pr": 39,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/39",
+      "comment_id": null,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/39#discussion_r3631567759",
+      "task": "3.12",
+      "severity": "minor",
+      "item": "Add negative-path test coverage for device-explorer error branches",
+      "detail": "All 20 tests exercise happy-path/degradation scenarios; none exercise MockToolDispatcher returning status: 'error' for tap/swipe/input/screenshot. The failStep branches at device-explorer.ts Lines 214-216, 248-250, 278-283, 294-296 are entirely untested. Given RunStep failure records feed downstream reports, adding tests that configure the mock to fail and assert the resulting failStep output would increase confidence in this path.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-22T15:50:00.000Z"
     }
   ]
 }
