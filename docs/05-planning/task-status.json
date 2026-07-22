@@ -705,7 +705,7 @@
             "3.7"
           ],
           "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
-          "notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Awaiting merge to dev-1.0. Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl launch/terminate/install, listSimulators via xcrun simctl list, healthcheck for simulator runtime. Builder accepts targetKind and routes to physical/simulator capabilities. 613 insertions(+), 61 deletions(-) across 5 files. typecheck 0 / lint 0 / 1222 tests pass. G5-SIM T1.6 verified.",
+          "notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Awaiting merge to dev-1.0. Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl-based listDevices/healthcheck/listCrashes, dynamic capabilities getter, dual-target ensureSession routing. 5 files, +613/-61 lines, 25 new tests (1222 total pass). G5-SIM verified: simctl listDevices parsing (35 devices/3 runtimes) + healthcheck (booted→healthy, nonexistent→unhealthy). Passes on real CoreSimulator iOS 18.2/17.5/26.5. Appium session test skipped (not installed). Full G5-SIM report: docs/06-verification/g5-sim-spike-report-3.10.md",
           "last_updated": "2026-07-22T04:30:00.000Z"
         },
         {
