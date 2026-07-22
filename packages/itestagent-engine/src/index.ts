@@ -66,3 +66,20 @@ export type {
   EventEmitter,
   ToolDispatcherOptions,
 } from './tool-dispatcher.js';
+
+export {
+  ElementLocator,
+  SystemAlertHandler,
+  RunStepRecorder,
+  DeviceExplorer,
+} from './exploration/index.js';
+
+export type {
+  ExplorerToolDispatcher,
+  ExplorationAction,
+  ExplorationOptions,
+  LocatorConfidence,
+  LocatorResult,
+  LocatorStrategy,
+  SystemAlertResult,
+} from './exploration/index.js';

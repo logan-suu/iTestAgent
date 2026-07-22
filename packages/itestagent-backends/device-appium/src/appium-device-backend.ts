@@ -505,6 +505,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }));
     } catch (error) {
       // R5: return empty array instead of throwing — caller checks context
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AppiumDeviceBackend.listApps] ${errorMsg}`);
       return [];
     }
   }
@@ -563,6 +565,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       // R5: return empty snapshot with error context rather than throwing
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AppiumDeviceBackend.getUiTree] ${errorMsg}`);
       return {
         raw: '',
         format: 'xml',
@@ -594,6 +598,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     } catch (error) {
       // R5: return a "failed" artifact ref rather than throwing
       const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AppiumDeviceBackend.screenshot] ${errorMsg}`);
       return {
         id: `screenshot_error_${Date.now()}`,
         type: 'screenshot',
@@ -710,6 +715,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     } catch (error) {
       // R5: return a "failed" handle — caller should check stopRecording result
       const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AppiumDeviceBackend.startRecording] ${errorMsg}`);
       return {
         handleId: `recording_error_${Date.now()}`,
         startedAt: new Date().toISOString(),
@@ -735,6 +741,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AppiumDeviceBackend.stopRecording] ${errorMsg}`);
       return {
         id: `video_error_${Date.now()}`,
         type: 'video',
@@ -795,7 +802,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
         date: d.date ?? new Date().toISOString(),
         bundleId: d.bundleId,
       }));
-    } catch {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[AppiumDeviceBackend.listCrashes] ${errorMsg}`);
       return [];
     }
   }
@@ -822,6 +831,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     } catch (error) {
       // R5: log collection may not be available (WDA limitation)
       const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[AppiumDeviceBackend.collectLogs] ${errorMsg}`);
       return {
         id: `log_error_${Date.now()}`,
         type: 'log',
