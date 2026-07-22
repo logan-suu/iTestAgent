@@ -677,7 +677,7 @@
           "id": "3.9",
           "title": "ToolDispatcher：ToolCall→Zod→Permission→BackendSelector→AgentEvent",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
