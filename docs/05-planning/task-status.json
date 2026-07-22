@@ -704,9 +704,9 @@
           "dependencies": [
             "3.7"
           ],
-          "test_file": null,
-          "notes": "扩展 AppiumDeviceBackend 支持 simulator targetKind。Simulator adapter: simctl install/launch/terminate、xcodebuild destination (platform=iOS Simulator,id=UDID)、Appium/WDA Simulator session。Appium capability/sessionId/WDA 封装在 device-appium 内，不泄漏到上层。T1.12 (Simulator doctor) + T1.5/T1.6 (Simulator Spike) 依赖此实现。预计 3-5 天。",
-          "last_updated": "2026-07-22T04:00:00.000Z"
+          "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
+          "notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Awaiting merge to dev-1.0. Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl launch/terminate/install, listSimulators via xcrun simctl list, healthcheck for simulator runtime. Builder accepts targetKind and routes to physical/simulator capabilities. 613 insertions(+), 61 deletions(-) across 5 files. typecheck 0 / lint 0 / 1222 tests pass. G5-SIM T1.6 verified.",
+          "last_updated": "2026-07-22T04:30:00.000Z"
         },
         {
           "id": "3.11",
