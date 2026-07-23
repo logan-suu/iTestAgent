@@ -141,7 +141,7 @@ export async function readFlowFile(flowId: string): Promise<unknown> {
   // Strip header comments before parsing YAML
   const yamlOnly = content
     .split('\n')
-    .filter((line) => !line.trimStart().startsWith('#') || line.trimStart() === '#')
+    .filter((line) => !/^\s*#/.test(line))
     .join('\n');
 
   // Use dynamic import to avoid bundling yaml module for read-only use

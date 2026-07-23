@@ -7,7 +7,7 @@
  * Uses the `yaml` package (already a workspace dependency in itestagent-engine).
  * Produces human-readable YAML with header comments for flow context.
  */
-import { stringify } from 'yaml';
+import { stringify, parse as yamlParse } from 'yaml';
 import type { FlowStepV2, FlowV2 } from './schema.js';
 
 // ─── Header Comment Generator ─────────────────────────────────────
@@ -128,6 +128,5 @@ export function serializeFlowYaml(flow: FlowV2): string {
  * @returns Parsed object (unvalidated)
  */
 export function parseFlowYaml(yamlStr: string): unknown {
-  const { parse } = require('yaml');
-  return parse(yamlStr);
+  return yamlParse(yamlStr);
 }
