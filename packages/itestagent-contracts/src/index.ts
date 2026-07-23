@@ -324,3 +324,17 @@ export type {
   PermissionPolicyRef,
   TestPlan,
 } from './test-plan.js';
+
+export {
+  SuggestedActionSchema,
+  RecordingStepSchema,
+  RecordingResultSchema,
+  parseRecordingResult,
+  safeParseRecordingResult,
+} from './recording.js';
+
+export type {
+  SuggestedAction,
+  RecordingStep,
+  RecordingResult,
+} from './recording.js';

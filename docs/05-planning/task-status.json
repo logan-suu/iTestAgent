@@ -747,7 +747,7 @@
           "id": "3.13",
           "title": "交互式录制：Agent 建议下一步 + 用户确认/纠偏",
           "story": "US-8.2",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
