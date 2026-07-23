@@ -404,7 +404,7 @@ export class InteractiveRecorder {
         waitMs: parsed.waitMs,
         bundleId: parsed.bundleId,
         reasoning: parsed.reasoning,
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : Number.NaN,
         suggestedLocator: parsed.suggestedLocator,
       };
     } catch {
@@ -509,7 +509,9 @@ export class InteractiveRecorder {
     this.emitStateChange();
 
     try {
+      const startMs = Date.now();
       const execResult = await this.actionExecutor(action);
+      const duration = Date.now() - startMs;
 
       const step: RecordingStep = {
         step: {
@@ -521,7 +523,7 @@ export class InteractiveRecorder {
           result: execResult.result,
           artifacts: execResult.artifacts,
           startedAt: new Date().toISOString(),
-          durationMs: 0, // Will be set by RunStepRecorder
+          durationMs: duration,
         },
         originalSuggestion: action,
         userModified,
@@ -539,7 +541,10 @@ export class InteractiveRecorder {
       }
     } catch (error) {
       // Record failed step
+      const startMs = Date.now();
       const errorMsg = error instanceof Error ? error.message : String(error);
+      const duration = Date.now() - startMs;
+
       const step: RecordingStep = {
         step: {
           stepId: `error-${this.stepIndex}`,
@@ -550,7 +555,7 @@ export class InteractiveRecorder {
           result: { error: errorMsg },
           artifacts: [],
           startedAt: new Date().toISOString(),
-          durationMs: 0,
+          durationMs: duration,
         },
         originalSuggestion: action,
         userModified,

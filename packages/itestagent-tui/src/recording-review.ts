@@ -117,7 +117,9 @@ export function formatSuggestions(action: unknown): string[] {
   if (a.waitMs) parts.push(`Wait: ${a.waitMs}ms`);
   if (a.bundleId) parts.push(`App: ${a.bundleId}`);
   if (typeof a.confidence === 'number') {
-    parts.push(`Confidence: ${Math.round(a.confidence * 100)}%`);
+    parts.push(
+      `Confidence: ${Number.isNaN(a.confidence) ? 'N/A' : `${Math.round(a.confidence * 100)}%`}`,
+    );
   }
 
   return parts;
