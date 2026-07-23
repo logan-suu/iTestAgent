@@ -795,7 +795,7 @@
           "id": "3.16",
           "title": "测试数据：Agent 生成 + TUI 询问 + Keychain",
           "story": "US-10.1, US-10.2",
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -805,13 +805,13 @@
           ],
           "test_file": null,
           "last_updated": "2026-07-24T00:00:00.000Z",
-          "notes": "PR #43 (https://github.com/logan-suu/iTestAgent/pull/43): feat(engine,tui,contracts) test data generation + credential management. TestDataGenerator (Agent-generated safe data: names/emails/passwords/phones, locale-aware), CredentialManager (dual-store: memory→keychain fallback, sessionOnly flag, remember for Keychain persistence), CredentialPromptPanel (OpenTUI/SolidJS interactive credential form), TuiShell credential_prompt mode with state machine, TestPlanCompiler testData injection, output redaction utilities (R6). 15 files, +2430/-6 lines. G3 typecheck 0/lint 0, G4 1720 tests pass. Awaiting merge."
+          "notes": "Merged to dev-1.0 via PR #43 (0a8b763). feat(engine,tui,contracts): test data generation + credential management. TestDataGenerator (9 safe data types, locale-aware, project-context aware), CredentialManager (memory→keychain→TUI prompt pipeline), CredentialPromptPanel (OpenTUI/SolidJS interactive credential form), TuiShell credential_prompt state machine. 17 files, +2503/-9 lines. G3 typecheck 0/lint 0, G4 1720 tests pass."
         },
         {
           "id": "3.17",
           "title": "Phase 3 集成测试：真机执行核心联调验证",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
