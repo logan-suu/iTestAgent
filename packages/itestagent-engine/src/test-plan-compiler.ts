@@ -87,6 +87,8 @@ export interface CompileOptions {
   projectProfileRef?: string;
   /** Use only confirmed candidate links as features (AC3: user-confirmed only). */
   confirmedOnly?: boolean;
+  /** Override test data policy (defaults: allowAgentGeneratedData=true, askUserInTuiWhenRequired=true). */
+  testData?: Partial<{ allowAgentGeneratedData: boolean; askUserInTuiWhenRequired: boolean }>;
 }
 
 // ─── Private helpers ─────────────────────────────────────────
@@ -153,8 +155,8 @@ function buildExecutionPlan(
     fallback: 'device_backend',
     features,
     testData: {
-      allowAgentGeneratedData: true,
-      askUserInTuiWhenRequired: true,
+      allowAgentGeneratedData: options?.testData?.allowAgentGeneratedData ?? true,
+      askUserInTuiWhenRequired: options?.testData?.askUserInTuiWhenRequired ?? true,
     },
     assertion: resolveAssertionPolicy(intent),
     metrics,
