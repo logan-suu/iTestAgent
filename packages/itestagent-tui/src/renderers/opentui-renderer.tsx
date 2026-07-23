@@ -19,6 +19,7 @@ import {
   type TuiShellState,
   tuiShellReducer,
 } from '../tui-shell.js';
+import { RecordingPanel } from './recording-panel.jsx';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────
 
@@ -404,6 +405,8 @@ function App(props: {
         <PlanReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : state().mode === 'candidate_review' ? (
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
+      ) : state().mode === 'recording_review' ? (
+        <RecordingPanel state={state} dispatch={wrappedDispatch} />
       ) : (
         <>
           <MessageList messages={state().messages} />

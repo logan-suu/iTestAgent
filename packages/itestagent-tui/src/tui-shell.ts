@@ -24,7 +24,7 @@ import { PLAN_SECTIONS, navigatePlanSection } from './plan-review.js';
 
 // ─── State ─────────────────────────────────────────────────────────────
 
-export type TuiShellMode = 'chat' | 'candidate_review' | 'plan_review';
+export type TuiShellMode = 'chat' | 'candidate_review' | 'plan_review' | 'recording_review';
 
 /** 设备连接状态。当前为占位值，后续由 engine/server 驱动。 */
 export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 'busy';
@@ -58,6 +58,18 @@ export interface TuiShellState {
   readonly planModifyMode: boolean;
   readonly planModifyDraft: string;
   readonly planConfirmed: boolean;
+  /** Recording review state (US-8.2: recording_review mode). */
+  readonly recordingState: string; // idle | suggesting | awaiting_confirmation | executing | paused | completed | cancelled
+  readonly recordingFeatureName: string;
+  readonly recordingStepIndex: number;
+  readonly recordingTotalSteps: number; // confirmed + skipped count
+  readonly recordingConfirmedSteps: unknown[]; // RecordingStep[]
+  readonly recordingSuggestedAction: unknown | null; // SuggestedAction | null
+  readonly recordingSuggestionReasoning: string; // Agent's reasoning text
+  readonly recordingModifyMode: boolean;
+  readonly recordingModifyDraft: string;
+  readonly recordingPaused: boolean;
+  readonly recordingCompleted: boolean;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -93,7 +105,22 @@ export type TuiShellEvent =
   | { readonly type: 'plan_start_modify' }
   | { readonly type: 'plan_modify_input'; readonly text: string }
   | { readonly type: 'plan_modify_submit' }
-  | { readonly type: 'plan_modify_cancel' };
+  | { readonly type: 'plan_modify_cancel' }
+  // Recording review events (US-8.2 AC1-AC3)
+  | { readonly type: 'enter_recording'; readonly featureName: string }
+  | { readonly type: 'exit_recording' }
+  | { readonly type: 'recording_suggestion'; readonly action: unknown; readonly reasoning: string }
+  | { readonly type: 'recording_confirm' }
+  | { readonly type: 'recording_modify_start' }
+  | { readonly type: 'recording_modify_input'; readonly text: string }
+  | { readonly type: 'recording_modify_submit' }
+  | { readonly type: 'recording_modify_cancel' }
+  | { readonly type: 'recording_skip' }
+  | { readonly type: 'recording_pause' }
+  | { readonly type: 'recording_resume' }
+  | { readonly type: 'recording_cancel' }
+  | { readonly type: 'recording_state_changed'; readonly state: string }
+  | { readonly type: 'recording_step_recorded' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -119,6 +146,17 @@ export function createInitialState(workspace?: string): TuiShellState {
     planModifyMode: false,
     planModifyDraft: '',
     planConfirmed: false,
+    recordingState: 'idle',
+    recordingFeatureName: '',
+    recordingStepIndex: 0,
+    recordingTotalSteps: 0,
+    recordingConfirmedSteps: [],
+    recordingSuggestedAction: null,
+    recordingSuggestionReasoning: '',
+    recordingModifyMode: false,
+    recordingModifyDraft: '',
+    recordingPaused: false,
+    recordingCompleted: false,
   };
 }
 
@@ -383,6 +421,129 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         ...state,
         planModifyMode: false,
         planModifyDraft: '',
+      };
+
+    // ── Recording review events (US-8.2 AC1-AC3) ────────────
+
+    case 'enter_recording':
+      return {
+        ...state,
+        mode: 'recording_review',
+        recordingState: 'idle',
+        recordingFeatureName: event.featureName,
+        recordingStepIndex: 0,
+        recordingTotalSteps: 0,
+        recordingConfirmedSteps: [],
+        recordingSuggestedAction: null,
+        recordingSuggestionReasoning: '',
+        recordingModifyMode: false,
+        recordingModifyDraft: '',
+        recordingPaused: false,
+        recordingCompleted: false,
+      };
+
+    case 'exit_recording':
+      return {
+        ...state,
+        mode: 'chat',
+        recordingState: 'idle',
+        recordingFeatureName: '',
+        recordingSuggestedAction: null,
+        recordingSuggestionReasoning: '',
+        recordingModifyMode: false,
+        recordingModifyDraft: '',
+      };
+
+    case 'recording_suggestion':
+      return {
+        ...state,
+        recordingState: 'awaiting_confirmation',
+        recordingSuggestedAction: event.action,
+        recordingSuggestionReasoning: event.reasoning,
+      };
+
+    case 'recording_confirm':
+      return {
+        ...state,
+        recordingState: 'executing',
+        recordingSuggestedAction: null,
+        recordingSuggestionReasoning: '',
+      };
+
+    case 'recording_modify_start':
+      return {
+        ...state,
+        recordingModifyMode: true,
+        recordingModifyDraft: '',
+      };
+
+    case 'recording_modify_input':
+      return { ...state, recordingModifyDraft: event.text };
+
+    case 'recording_modify_submit':
+      return {
+        ...state,
+        recordingState: 'executing',
+        recordingSuggestedAction: null,
+        recordingSuggestionReasoning: '',
+        recordingModifyMode: false,
+        recordingModifyDraft: '',
+      };
+
+    case 'recording_modify_cancel':
+      return {
+        ...state,
+        recordingModifyMode: false,
+        recordingModifyDraft: '',
+      };
+
+    case 'recording_skip':
+      return {
+        ...state,
+        recordingState: 'suggesting',
+        recordingSuggestedAction: null,
+        recordingSuggestionReasoning: '',
+        recordingTotalSteps: state.recordingTotalSteps + 1,
+      };
+
+    case 'recording_pause':
+      return {
+        ...state,
+        recordingState: 'paused',
+        recordingPaused: true,
+      };
+
+    case 'recording_resume':
+      return {
+        ...state,
+        recordingState: 'awaiting_confirmation',
+        recordingPaused: false,
+      };
+
+    case 'recording_cancel':
+      return {
+        ...state,
+        mode: 'chat',
+        recordingState: 'cancelled',
+        recordingPaused: false,
+        recordingSuggestedAction: null,
+        recordingSuggestionReasoning: '',
+      };
+
+    case 'recording_state_changed':
+      return {
+        ...state,
+        recordingState: event.state,
+        recordingPaused: event.state === 'paused',
+        recordingCompleted: event.state === 'completed' || event.state === 'cancelled',
+      };
+
+    case 'recording_step_recorded':
+      return {
+        ...state,
+        recordingState: 'suggesting',
+        recordingStepIndex: state.recordingStepIndex + 1,
+        recordingTotalSteps: state.recordingTotalSteps + 1,
       };
   }
 }

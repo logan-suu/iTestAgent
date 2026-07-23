@@ -83,3 +83,16 @@ export type {
   LocatorStrategy,
   SystemAlertResult,
 } from './exploration/index.js';
+
+export { InteractiveRecorder } from './recording/index.js';
+
+export type {
+  RecordingCallbacks,
+  RecordingSessionState,
+  SuggestedAction,
+  UserResponse,
+  RecordingStep,
+  RecordingResult,
+  RecordingSessionConfig,
+  RecordingEvent,
+} from './recording/index.js';
