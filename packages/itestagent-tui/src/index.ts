@@ -41,3 +41,10 @@ export {
   type PlanReviewAction,
   PLAN_SECTIONS,
 } from './plan-review.js';
+
+export {
+  formatCredentialPromptHeader,
+  formatCredentialStatus,
+  maskValue,
+  validateCredentialInput,
+} from './credential-prompt.js';

@@ -795,7 +795,7 @@
           "id": "3.16",
           "title": "测试数据：Agent 生成 + TUI 询问 + Keychain",
           "story": "US-10.1, US-10.2",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -804,7 +804,8 @@
             "3.15"
           ],
           "test_file": null,
-          "notes": "安全数据 Agent 生成；真实账号/OTP 在 TUI 询问，只在内存，不落盘。Keychain 接入依赖 task 1.10。"
+          "last_updated": "2026-07-24T00:00:00.000Z",
+          "notes": "PR #43 (https://github.com/logan-suu/iTestAgent/pull/43): feat(engine,tui,contracts) test data generation + credential management. TestDataGenerator (Agent-generated safe data: names/emails/passwords/phones, locale-aware), CredentialManager (dual-store: memory→keychain fallback, sessionOnly flag, remember for Keychain persistence), CredentialPromptPanel (OpenTUI/SolidJS interactive credential form), TuiShell credential_prompt mode with state machine, TestPlanCompiler testData injection, output redaction utilities (R6). 15 files, +2430/-6 lines. G3 typecheck 0/lint 0, G4 1720 tests pass. Awaiting merge."
         },
         {
           "id": "3.17",

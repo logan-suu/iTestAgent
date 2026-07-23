@@ -1,5 +1,9 @@
-import type { IntentParseResult } from 'itestagent-contracts';
-import type { TestPlan } from 'itestagent-contracts';
+import type {
+  CredentialRequest,
+  CredentialResponse,
+  IntentParseResult,
+  TestPlan,
+} from 'itestagent-contracts';
 /**
  * TuiShell — framework-independent ViewModel, State, Event, and reducer.
  *
@@ -24,7 +28,12 @@ import { PLAN_SECTIONS, navigatePlanSection } from './plan-review.js';
 
 // ─── State ─────────────────────────────────────────────────────────────
 
-export type TuiShellMode = 'chat' | 'candidate_review' | 'plan_review' | 'recording_review';
+export type TuiShellMode =
+  | 'chat'
+  | 'candidate_review'
+  | 'plan_review'
+  | 'recording_review'
+  | 'credential_prompt';
 
 /** 设备连接状态。当前为占位值，后续由 engine/server 驱动。 */
 export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 'busy';
@@ -70,6 +79,13 @@ export interface TuiShellState {
   readonly recordingModifyDraft: string;
   readonly recordingPaused: boolean;
   readonly recordingCompleted: boolean;
+  /** Credential prompt state (US-10.2: credential_prompt mode). */
+  readonly credentialRequests: readonly CredentialRequest[];
+  readonly credentialIndex: number;
+  readonly credentialInputDraft: string;
+  readonly credentialResponses: ReadonlyMap<string, CredentialResponse>;
+  readonly credentialCompleted: boolean;
+  readonly credentialRememberToggled: boolean;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -120,7 +136,15 @@ export type TuiShellEvent =
   | { readonly type: 'recording_resume' }
   | { readonly type: 'recording_cancel' }
   | { readonly type: 'recording_state_changed'; readonly state: string }
-  | { readonly type: 'recording_step_recorded' };
+  | { readonly type: 'recording_step_recorded' }
+  // Credential prompt events (US-10.2 AC1-AC5)
+  | { readonly type: 'enter_credential_prompt'; readonly requests: readonly CredentialRequest[] }
+  | { readonly type: 'exit_credential_prompt' }
+  | { readonly type: 'credential_input'; readonly text: string }
+  | { readonly type: 'credential_submit' }
+  | { readonly type: 'credential_skip' }
+  | { readonly type: 'credential_toggle_remember' }
+  | { readonly type: 'credential_confirm_all' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -157,6 +181,12 @@ export function createInitialState(workspace?: string): TuiShellState {
     recordingModifyDraft: '',
     recordingPaused: false,
     recordingCompleted: false,
+    credentialRequests: [],
+    credentialIndex: 0,
+    credentialInputDraft: '',
+    credentialResponses: new Map(),
+    credentialCompleted: false,
+    credentialRememberToggled: false,
   };
 }
 
@@ -544,6 +574,102 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         recordingState: 'suggesting',
         recordingStepIndex: state.recordingStepIndex + 1,
         recordingTotalSteps: state.recordingTotalSteps + 1,
+      };
+
+    // ── Credential prompt events (US-10.2 AC1-AC5) ────────
+
+    case 'enter_credential_prompt':
+      return {
+        ...state,
+        mode: 'credential_prompt',
+        credentialRequests: event.requests,
+        credentialIndex: 0,
+        credentialInputDraft: '',
+        credentialResponses: new Map(),
+        credentialCompleted: false,
+        credentialRememberToggled: false,
+      };
+
+    case 'exit_credential_prompt':
+      return {
+        ...state,
+        mode: 'chat',
+      };
+
+    case 'credential_input':
+      return { ...state, credentialInputDraft: event.text };
+
+    case 'credential_submit': {
+      const currentReq = state.credentialRequests[state.credentialIndex];
+      if (!currentReq) return state;
+
+      const trimmed = state.credentialInputDraft.trim();
+
+      // Required credential with empty input: stay on current, don't treat as skip
+      if (currentReq.required && trimmed.length === 0) {
+        return { ...state, credentialInputDraft: '' };
+      }
+
+      const response: CredentialResponse = {
+        key: currentReq.key,
+        status: trimmed.length > 0 ? 'provided' : 'skipped',
+        value: trimmed.length > 0 ? trimmed : undefined,
+        remembered: state.credentialRememberToggled,
+      };
+
+      const nextResponses = new Map(state.credentialResponses);
+      nextResponses.set(currentReq.key, response);
+
+      const nextIndex = state.credentialIndex + 1;
+      const completed = nextIndex >= state.credentialRequests.length;
+
+      return {
+        ...state,
+        credentialResponses: nextResponses,
+        credentialInputDraft: '',
+        credentialIndex: nextIndex,
+        credentialCompleted: completed,
+        credentialRememberToggled: false,
+      };
+    }
+
+    case 'credential_skip': {
+      const currentReq = state.credentialRequests[state.credentialIndex];
+      if (!currentReq) return state;
+
+      const response: CredentialResponse = {
+        key: currentReq.key,
+        status: 'skipped',
+        remembered: false,
+      };
+
+      const nextResponses = new Map(state.credentialResponses);
+      nextResponses.set(currentReq.key, response);
+
+      const nextIndex = state.credentialIndex + 1;
+      const completed = nextIndex >= state.credentialRequests.length;
+
+      return {
+        ...state,
+        credentialResponses: nextResponses,
+        credentialInputDraft: '',
+        credentialIndex: nextIndex,
+        credentialCompleted: completed,
+        credentialRememberToggled: false,
+      };
+    }
+
+    case 'credential_toggle_remember':
+      return {
+        ...state,
+        credentialRememberToggled: !state.credentialRememberToggled,
+      };
+
+    case 'credential_confirm_all':
+      return {
+        ...state,
+        mode: 'chat',
+        credentialCompleted: true,
       };
   }
 }

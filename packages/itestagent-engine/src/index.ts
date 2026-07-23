@@ -98,3 +98,9 @@ export type {
 } from './recording/index.js';
 
 export { AssertionEvaluator } from './assertion/index.js';
+
+export { TestDataGenerator } from './test-data/test-data-generator.js';
+
+export { CredentialManager } from './test-data/credential-manager.js';
+
+export type { PromptCallback } from './test-data/credential-manager.js';

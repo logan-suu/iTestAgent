@@ -358,3 +358,33 @@ export type {
   RecordingStep,
   RecordingResult,
 } from './recording.js';
+
+export {
+  TestDataItemTypeSchema,
+  TestDataItemSchema,
+  GeneratedTestDataSchema,
+  TestDataContextSchema,
+  CredentialKindSchema,
+  CredentialRequestSchema,
+  CredentialResponseSchema,
+  CredentialEntrySchema,
+  CredentialResolveStatusSchema,
+  CredentialResolveResultSchema,
+  parseGeneratedTestData,
+  parseCredentialRequest,
+  parseCredentialResponse,
+} from './test-data.js';
+
+export type {
+  TestDataItemType,
+  TestDataItem,
+  GeneratedTestData,
+  TestDataContext,
+  CredentialKind,
+  CredentialRequest,
+  CredentialResponse,
+  CredentialEntry,
+  CredentialResolveStatus,
+  CredentialResolveResult,
+  CredentialManager,
+} from './test-data.js';

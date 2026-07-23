@@ -19,6 +19,7 @@ import {
   type TuiShellState,
   tuiShellReducer,
 } from '../tui-shell.js';
+import { CredentialPromptPanel } from './credential-prompt-panel.jsx';
 import { RecordingPanel } from './recording-panel.jsx';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────
@@ -407,6 +408,8 @@ function App(props: {
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : state().mode === 'recording_review' ? (
         <RecordingPanel state={state} dispatch={wrappedDispatch} />
+      ) : state().mode === 'credential_prompt' ? (
+        <CredentialPromptPanel state={state} dispatch={wrappedDispatch} />
       ) : (
         <>
           <MessageList messages={state().messages} />
