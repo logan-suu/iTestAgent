@@ -4,14 +4,14 @@ import { z } from 'zod';
  * Assertion schemas — US-11.1 assertion strategy types.
  *
  * AGENTS.md §6:
- *   用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索
- *   无断言不判 passed(explored/inconclusive/needs_assertion)
+ *   User-specified conditions > Profile targets > Agent suggestions (need confirmation) > exploration only
+ *   Without an assertion, cannot judge passed (explored / inconclusive / needs_assertion)
  *
  * Data Flow Specification §10 S7:
  *   cases: [{id, status, durationMs}]
  *
  * Data Flow Specification §16:
- *   探索不可判定 → case.status=explored/inconclusive/needs_assertion
+ *   Exploration undecidable → case.status = explored / inconclusive / needs_assertion
  */
 
 // ─── Assertion Condition Types ─────────────────────────────────
@@ -42,8 +42,8 @@ export type AssertionConditionType = z.infer<typeof AssertionConditionTypeSchema
 /**
  * A single assertion condition with its evaluation result.
  *
- * AC2: 有明确断言时可判 passed
- * AC3: 无明确断言时不能判 passed
+ * AC2: Can judge passed when explicit assertions exist
+ * AC3: Cannot judge passed without assertions
  *
  * A condition is `satisfied` when evidence confirms the expectation,
  * `unsatisfied` when evidence contradicts it, and `unchecked` when
@@ -71,11 +71,11 @@ export type AssertionCondition = z.infer<typeof AssertionConditionSchema>;
 /**
  * Priority tier of an assertion's origin (AC1).
  *
- * user           — 用户明确成功条件（最高优先级，AC1 tier 1）
- * profile        — Project Profile 推断目标（AC1 tier 2）
- * agent          — Agent 建议（待用户确认，AC1 tier 3）
- * agent_confirmed — Agent 建议并经用户确认（AC1 tier 3 confirmed）
- * explore_only   — 仅探索不判定（AC1 tier 4）
+ * user            — User-specified success conditions (highest priority, AC1 tier 1)
+ * profile         — Project Profile inferred targets (AC1 tier 2)
+ * agent           — Agent suggestion (awaiting user confirmation, AC1 tier 3 unconfirmed)
+ * agent_confirmed — Agent suggestion confirmed by user (AC1 tier 3 confirmed)
+ * explore_only    — Exploration only, no pass/fail judgment (AC1 tier 4)
  */
 export const AssertionSourceSchema = z.enum([
   'user',

@@ -21,8 +21,8 @@ type EvaluateInput = z.input<typeof AssertionEvaluateInputSchema>;
  * AC3: No assertions → explored / inconclusive / needs_assertion only
  *
  * AGENTS.md §6:
- *   用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索；
- *   无断言不判 passed(explored/inconclusive/needs_assertion)
+ *   User-specified conditions > Profile targets > Agent suggestions (need confirmation) > exploration only;
+ *   Without an assertion, cannot judge passed (explored / inconclusive / needs_assertion)
  */
 export class AssertionEvaluator {
   /**
