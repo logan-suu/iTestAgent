@@ -25,8 +25,9 @@ agent: build
      - ⚠️ 这些条目已被确认无法在当前 PR 修复（外部依赖/跨 Phase 协调/风险过大）。
      - 输出提醒并确认已记录（不阻塞 commit）。
    - ⚠️ **自行检查**：如果在实现过程中发现了与文档/架构的偏离或设计权衡：
-     - **默认优先在当前 PR 修复**。仅当修复确实不可行（外部依赖、跨 Phase 协调、改动过大）时，才延期留档。
-     - 延期项必须在 commit 前**立即写入** `deferred-items.json`（`source: "Sisyphus (self-review)"`，AGENTS.md §8.1.5 R14）。
+     - **先判断是否必须延期**（外部依赖、跨 Phase 协调、改动过大）。
+     - 不必延期的 → 立即在当前 PR 修复；必须延期的 → 写入 `deferred-items.json`。
+     - 延期项必须在 commit 前**立即写入**（`source: "Sisyphus (self-review)"`，AGENTS.md §8.1.5 R14）。
      - 不得留到 `pr-review-itest` 时才记录。
    - **如果当前任务刚完成 `pr-review-itest` 且审查报告或自行检查中有延期项**尚未写入 deferred-items.json：
      - ❌ **阻断 commit** — 必须先通过 `pr-review-itest` 第五步之半写入 deferred-items.json。
