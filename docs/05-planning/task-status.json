@@ -747,7 +747,8 @@
           "id": "3.13",
           "title": "交互式录制：Agent 建议下一步 + 用户确认/纠偏",
           "story": "US-8.2",
-          "status": "in_progress",
+          "status": "done",
+          "last_updated": "2026-07-23T14:00:00.000Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -756,7 +757,7 @@
             "3.12"
           ],
           "test_file": null,
-          "notes": "PR #40: https://github.com/logan-suu/iTestAgent/pull/40 — feat(engine,tui) Interactive recording with human-in-the-loop confirmation. RecordingSession/RunStep/AgentSuggestion schemas in contracts. InteractiveRecorder + PromptBuilder in engine. RecordingReviewPanel (SolidJS/OpenTUI) + TuiShell recording state machine in tui. 63 new tests. Raw recording JSON output; Flow YAML compilation deferred to task 3.15."
+          "notes": "PR #40: https://github.com/logan-suu/iTestAgent/pull/40 — feat(engine,tui) Interactive recording with human-in-the-loop confirmation. RecordingSession/RunStep/AgentSuggestion schemas in contracts. InteractiveRecorder + PromptBuilder in engine. RecordingReviewPanel (SolidJS/OpenTUI) + TuiShell recording state machine in tui. 1502 tests pass. Raw recording JSON output; Flow YAML compilation deferred to task 3.15. PR merged to dev-1.0 2026-07-23."
         },
         {
           "id": "3.14",
