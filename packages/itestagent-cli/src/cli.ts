@@ -287,14 +287,67 @@ export function createProgram(): Command {
       console.log(`Coming in task 5.1 — rerun: ${runId}${flag}`);
     });
 
-  // ─── run flow (nested subcommand, stub → task 5.2) ───
+  // ─── run flow (US-9.2 AC2: replay iTestAgent Flow) ───
+  // Task 3.15: Flow read + validate + summary.
+  // Full replay execution deferred to task 3.17 (Phase 3 integration).
   const runCmd = program.command('run').description('run-related commands');
 
   runCmd
     .command('flow <id>')
-    .description('replay iTestAgent Flow (debug/automation helper)')
-    .action((flowId: string) => {
-      console.log(`Coming in task 5.2 — run flow: ${flowId}`);
+    .description('validate and summarize an iTestAgent Flow (replay execution in Phase 3.17)')
+    .option('--project <path>', 'also read from project .itestagent/flows/ directory')
+    .action(async (flowId: string, options: { project?: string }) => {
+      try {
+        const { readFlowFile, safeParseFlowV2 } = await import('itestagent-flow');
+        const raw = await readFlowFile(flowId);
+        const result = safeParseFlowV2(raw);
+
+        if (!result.success) {
+          console.error(`❌ Flow "${flowId}" failed schema validation:\n`);
+          for (const issue of result.error.issues) {
+            console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
+          }
+          process.exit(1);
+        }
+
+        const flow = result.data;
+
+        // Summary output
+        console.log(`✅ Flow "${flow.flowId}" — valid iTestAgent Flow v2`);
+        console.log(`   Source:     ${flow.source}`);
+        console.log(`   Status:     ${flow.status}`);
+        console.log(`   Targets:    ${flow.supportedTargetKinds.join(', ')}`);
+        console.log(`   Capabilities: ${flow.requiredCapabilities.join(', ')}`);
+        console.log(`   Steps:      ${flow.steps.length}`);
+        console.log('   Validated:');
+        for (const t of flow.lastValidatedTargets) {
+          const detail = t.deviceTypeIdentifier ?? t.model ?? t.udid;
+          const version = t.runtimeIdentifier ?? t.osVersion ?? '';
+          console.log(`     - ${t.kind}: ${detail}${version ? ` (${version})` : ''}`);
+        }
+
+        // Step summary
+        console.log('\n   Steps:');
+        for (let i = 0; i < flow.steps.length; i++) {
+          const step = flow.steps[i];
+          if (!step) continue;
+          const safety = step.safetyGate ? ` [safety:${step.safetyGate}]` : '';
+          const comment = step.comment ? ` — ${step.comment}` : '';
+          console.log(`     ${i + 1}. ${step.action} ${step.target ?? ''}${safety}${comment}`);
+        }
+
+        if (flow.notes) {
+          console.log(`\n   Notes: ${flow.notes}`);
+        }
+
+        console.log(
+          `\n   Run: itestagent run flow ${flow.flowId} --execute  (available in Phase 3.17)`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`❌ Failed to read flow "${flowId}": ${message}`);
+        process.exit(1);
+      }
     });
 
   return program;
