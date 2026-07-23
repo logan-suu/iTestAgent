@@ -314,8 +314,8 @@ test('safeParseRecordingResult returns error for invalid action type', () => {
 // Confidence Out of Range
 // ═══════════════════════════════════════════════════════════════════
 
-test('parseRecordingResult throws on confidence < 0', () => {
-  const data = {
+test('confidence accepts any number value (NaN handled at display layer)', () => {
+  const negative = {
     ...VALID_RECORDING_RESULT,
     steps: [
       {
@@ -331,12 +331,7 @@ test('parseRecordingResult throws on confidence < 0', () => {
       },
     ],
   };
-
-  expect(() => parseRecordingResult(data)).toThrow();
-});
-
-test('parseRecordingResult throws on confidence > 1', () => {
-  const data = {
+  const over1 = {
     ...VALID_RECORDING_RESULT,
     steps: [
       {
@@ -353,7 +348,9 @@ test('parseRecordingResult throws on confidence > 1', () => {
     ],
   };
 
-  expect(() => parseRecordingResult(data)).toThrow();
+  // Schema accepts any number; invalid confidence is rendered as N/A by the TUI layer (R5)
+  expect(() => parseRecordingResult(negative)).not.toThrow();
+  expect(() => parseRecordingResult(over1)).not.toThrow();
 });
 
 test('confidence of exactly 0 passes validation', () => {

@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod';
+import { RunStepSchema } from './data-contracts.js';
 
 // ─── Suggested Action ─────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ export const SuggestedActionSchema = z.object({
   waitMs: z.number().int().positive().optional(),
   bundleId: z.string().optional(),
   reasoning: z.string().min(1, 'Agent must provide reasoning for its suggestion'),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number(),
   suggestedLocator: z
     .object({
       strategy: z.string(),
@@ -45,7 +46,7 @@ export type SuggestedAction = z.infer<typeof SuggestedActionSchema>;
  */
 export const RecordingStepSchema = z.object({
   /** The underlying RunStep (null when skipped — no execution occurred) */
-  step: z.unknown().nullable(),
+  step: RunStepSchema.nullable(),
   /** The Agent's original suggestion before any user modification */
   originalSuggestion: SuggestedActionSchema,
   /** Whether the user modified the original suggestion before execution */
