@@ -87,7 +87,7 @@ export class CredentialManager implements CredentialManagerInterface {
         this.trackSessionKey(key);
         return {
           status: 'found',
-          entry: this.makeEntry(key, keychainValue, kind, label, true),
+          entry: this.makeEntry(key, keychainValue, kind, label, false),
         };
       }
     }
@@ -103,7 +103,14 @@ export class CredentialManager implements CredentialManagerInterface {
         };
       }
 
-      const value = response.value ?? '';
+      if (response.value === undefined || response.value === null) {
+        return {
+          status: 'not_found',
+          reason: `Credential callback returned "provided" but no value for "${key}"`,
+        };
+      }
+
+      const value = response.value;
       const remembered = response.remembered ?? false;
 
       // Step 3a: Store to session memory
@@ -155,10 +162,12 @@ export class CredentialManager implements CredentialManagerInterface {
    * Only clears entries that were stored through this CredentialManager
    * (tracked session keys). Persisted Keychain entries are NOT affected.
    */
-  clearSession(): void {
+  async clearSession(): Promise<void> {
+    const deletions: Promise<void>[] = [];
     for (const key of this.sessionKeys) {
-      void this.memoryStore.delete(key);
+      deletions.push(this.memoryStore.delete(key));
     }
+    await Promise.all(deletions);
     this.sessionKeys.clear();
   }
 

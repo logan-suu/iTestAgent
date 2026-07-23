@@ -604,6 +604,12 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       if (!currentReq) return state;
 
       const trimmed = state.credentialInputDraft.trim();
+
+      // Required credential with empty input: stay on current, don't treat as skip
+      if (currentReq.required && trimmed.length === 0) {
+        return { ...state, credentialInputDraft: '' };
+      }
+
       const response: CredentialResponse = {
         key: currentReq.key,
         status: trimmed.length > 0 ? 'provided' : 'skipped',

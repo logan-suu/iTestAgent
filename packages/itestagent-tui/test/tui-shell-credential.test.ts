@@ -157,9 +157,10 @@ describe('credential_skip event', () => {
     const requests = makeRequests();
     const entered = enterCredentialPrompt(state, requests);
     // Navigate to index 2 (api_token, required=false)
-    const atIndex2 = tuiShellReducer(tuiShellReducer(entered, { type: 'credential_submit' }), {
-      type: 'credential_submit',
-    });
+    const typed1 = tuiShellReducer(entered, { type: 'credential_input', text: 'user' });
+    const submitted1 = tuiShellReducer(typed1, { type: 'credential_submit' });
+    const typed2 = tuiShellReducer(submitted1, { type: 'credential_input', text: 'pass' });
+    const atIndex2 = tuiShellReducer(typed2, { type: 'credential_submit' });
     const skipped = tuiShellReducer(atIndex2, { type: 'credential_skip' });
     const resp = skipped.credentialResponses.get('api_token');
     expect(resp).toBeDefined();

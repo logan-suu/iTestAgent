@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-23T16:00:00.000Z",
+  "last_updated": "2026-07-24T00:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -310,6 +310,54 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-23T16:00:00.000Z"
+    },
+    {
+      "id": "DEF-020",
+      "source": "CodeRabbit",
+      "pr": 43,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/43",
+      "comment_id": 3639692393,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/43#discussion_r3639692393",
+      "task": "3.16",
+      "severity": "major",
+      "item": "Keychain persistence in CredentialManager bypasses PermissionEngine (R7)",
+      "detail": "CredentialManager stores remembered credentials directly to keychainStore (line 114-116) without going through PermissionEngine. test-plan-compiler.ts lists 'store_credential' in safety.highRiskActions, and AGENTS.md R7 requires secondary confirmation for high-risk operations. Fix: add PermissionEngine dependency to CredentialManager constructor, call permissionEngine.check({ action: 'store_credential', resource: key }) before keychainStore.set(). Deferred to Phase 3 integration (3.17) where PermissionEngine will be wired into the full harness. The TUI-level 'remembered' toggle provides user intent but does not satisfy the R7 architectural gate.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "id": "DEF-021",
+      "source": "CodeRabbit",
+      "pr": 43,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/43",
+      "comment_id": null,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/43#discussion_r3639692405",
+      "task": "3.16",
+      "severity": "minor",
+      "item": "generateSearchKeyword category lookup uses feature names that don't match SEARCH_KEYWORDS keys",
+      "detail": "context.features (e.g. 'login', 'search', 'profile') are used as keys into SEARCH_KEYWORDS (keyed by 'product', 'user_name', 'location', 'default'), so the lookup almost always falls back to 'default'. The returned TestDataItem.category retains the raw (unmatched) feature name, weakening the US-10.1 AC2 'project-aware generation' guarantee. Fix: add a feature→searchCategory mapping (e.g. { login: 'user_name', search: 'product' }) and resolve category before calling recordGet. Deferred because: needs cross-cutting feature vocabulary alignment with ProjectProfile feature names (Phase 2 definitions).",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "id": "DEF-022",
+      "source": "CodeRabbit",
+      "pr": 43,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/43",
+      "comment_id": null,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/43#discussion_r3639692401",
+      "task": "3.16",
+      "severity": "minor",
+      "item": "CredentialResolveResultSchema should use discriminated union for entry requiredness by status",
+      "detail": "CredentialResolveResultSchema keeps entry as z.optional() regardless of status, even though it's only meaningful for 'found'/'prompted' statuses. Switching to z.discriminatedUnion('status', [...]) would require entry for those variants at the type level, preventing downstream code from having to guess when entry is present. The file already uses discriminatedUnion for TestDataItemSchema. Deferred because: schema change affects all CredentialResolveResult consumers (credential-manager.ts, test files, TUI components) and should be batch-refactored in 3.17 alongside DEF-020.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-24T00:00:00.000Z"
     }
   ]
 }

@@ -333,7 +333,7 @@ export interface CredentialManager {
    * Clear all session-only credentials from memory.
    * Persisted Keychain entries are NOT affected.
    */
-  clearSession(): void;
+  clearSession(): Promise<void>;
 }
 
 // ─── Parse Helpers ────────────────────────────────────────────

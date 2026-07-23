@@ -99,7 +99,9 @@ describe('CredentialManager — US-10.2', () => {
       expect(result.entry?.value).toBe('sk-test-token-12345');
       expect(result.entry?.kind).toBe('token');
       expect(result.entry?.sessionOnly).toBe(true);
-      expect(typeof result.entry?.storedAt === 'string' && isIso8601(result.entry.storedAt)).toBe(true);
+      expect(typeof result.entry?.storedAt === 'string' && isIso8601(result.entry.storedAt)).toBe(
+        true,
+      );
     });
   });
 
@@ -318,7 +320,7 @@ describe('CredentialManager — US-10.2', () => {
 
       await manager.resolveCredential(makeRequest({ key: 'stay_key', label: 'Stay' }));
 
-      manager.clearSession();
+      await manager.clearSession();
 
       const keychainVal = await keychainStore.get('stay_key');
       expect(keychainVal).toBe('stay_val');
@@ -335,7 +337,7 @@ describe('CredentialManager — US-10.2', () => {
       const r1 = await manager.resolveCredential(makeRequest({ key: 'k_key' }));
       expect(r1.status).toBe('found');
 
-      manager.clearSession();
+      await manager.clearSession();
 
       // After clear: memory gone, must re-fetch from keychain
       const r2 = await manager.resolveCredential(makeRequest({ key: 'k_key' }));
@@ -352,7 +354,7 @@ describe('CredentialManager — US-10.2', () => {
       );
 
       await manager.resolveCredential(makeRequest({ key: 'clear_test', label: 'Clear Test' }));
-      manager.clearSession();
+      await manager.clearSession();
 
       expect(memStore.size).toBe(0);
     });

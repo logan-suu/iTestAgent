@@ -44,8 +44,12 @@ export function CredentialPromptPanel(props: {
 
     switch (key) {
       case 'enter':
-        dispatch({ type: 'credential_submit' });
-        setLocalDraft('');
+        if (isCompleted()) {
+          dispatch({ type: 'credential_confirm_all' });
+        } else {
+          dispatch({ type: 'credential_submit' });
+          setLocalDraft('');
+        }
         break;
       case 'tab':
         dispatch({ type: 'credential_skip' });
