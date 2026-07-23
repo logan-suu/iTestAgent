@@ -96,3 +96,5 @@ export type {
   RecordingSessionConfig,
   RecordingEvent,
 } from './recording/index.js';
+
+export { AssertionEvaluator } from './assertion/index.js';

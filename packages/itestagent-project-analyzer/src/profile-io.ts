@@ -32,6 +32,10 @@ const CandidateLinkSchema = z.object({
   confirmed: z.boolean().default(false),
   /** User-controlled display ordering; lower = higher priority. Default 0 (insertion order). */
   displayOrder: z.number().int().nonnegative().default(0),
+  /** Profile-inferred expected outcomes for this feature (US-11.1 AC1 tier 2).
+   *  Each string describes an expected result, e.g. "home screen should appear".
+   *  Used by AssertionEvaluator as tier-2 assertions when no user assertions exist. */
+  expectedOutcomes: z.array(z.string()).optional(),
 });
 
 const ProjectProfileSchema = z.object({
