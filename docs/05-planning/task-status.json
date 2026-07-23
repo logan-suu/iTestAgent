@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-23T17:00:00.000Z",
+  "last_updated": "2026-07-23T18:30:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -773,13 +773,14 @@
           ],
           "test_file": "packages/itestagent-contracts/test/assertion-schema.test.ts, packages/itestagent-engine/test/assertion-evaluator.test.ts",
           "notes": "PR #41 merged to dev-1.0 (2026-07-23). AssertionEvaluator (4-tier priority AC1-AC3), AssertionCondition/UserAssertion schemas, CandidateLink.expectedOutcomes for tier-2. 53 new tests (1555 total). AC4 TUI confirmation panel deferred to 3.17 (DEF-019).",
-          "last_updated": "2026-07-23T17:00:00.000Z"
+  "last_updated": "2026-07-23T18:00:00.000Z"
         },
         {
           "id": "3.15",
           "title": "Flow 固化：录制→可重放 iTestAgent Flow YAML",
           "story": "US-9.1, US-9.2",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-23T18:30:00.000Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -788,7 +789,7 @@
             "3.13"
           ],
           "test_file": null,
-          "notes": "将 T3.13 录制的 raw recording 编译为可重放 Flow YAML：(1) 归一化元素定位（不保存 Appium-specific locator）；(2) capture requiredCapabilities 和 supportedTargetKinds；(3) record lastValidatedTargets；(4) Flow schema 校验；(5) 不可逆操作添加 safetyGate；(6) 不支持的目标标记为 blocked。"
+          "notes": "PR #42: https://github.com/logan-suu/iTestAgent/pull/42 — feat(flow) FlowV2 compiler/schema/YAML writer/CLI integration. RecordingResult→FlowV2 pipeline: action normalization (16→6 canonical), locator normalization (no Appium-specific), safetyGate for irreversible ops, supportedTargetKinds/requiredCapabilities/lastValidatedTargets (ADR-011 §8). CLI `itestagent run flow <id>` with list/run. 4 source + 4 test files (924 lines). G3 typecheck 0, lint 0, G4 1631 pass. Schema v2 per ADR-011. DEF-001~019 deferred to 3.17."
         },
         {
           "id": "3.16",
