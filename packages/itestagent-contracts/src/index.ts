@@ -326,6 +326,26 @@ export type {
 } from './test-plan.js';
 
 export {
+  AssertionConditionTypeSchema,
+  AssertionConditionSchema,
+  AssertionSourceSchema,
+  UserAssertionSchema,
+  AssertionEvaluationResultSchema,
+  AssertionEvaluateInputSchema,
+  AssertionEvaluateOutputSchema,
+} from './assertion.js';
+
+export type {
+  AssertionConditionType,
+  AssertionCondition,
+  AssertionSource,
+  UserAssertion,
+  AssertionEvaluationResult,
+  AssertionEvaluateInput,
+  AssertionEvaluateOutput,
+} from './assertion.js';
+
+export {
   SuggestedActionSchema,
   RecordingStepSchema,
   RecordingResultSchema,

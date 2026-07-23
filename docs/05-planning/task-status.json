@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-23T12:00:00.000Z",
+  "last_updated": "2026-07-23T16:30:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -763,7 +763,7 @@
           "id": "3.14",
           "title": "断言策略：分层，无断言不判 passed",
           "story": "US-11.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -771,14 +771,15 @@
           "dependencies": [
             "3.12"
           ],
-          "test_file": null,
-          "notes": "优先级：用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索。无断言只能 explored/inconclusive/needs_assertion。"
+          "test_file": "packages/itestagent-contracts/test/assertion-schema.test.ts, packages/itestagent-engine/test/assertion-evaluator.test.ts",
+          "notes": "PR #41: https://github.com/logan-suu/iTestAgent/pull/41 — feat(engine,contracts) AssertionEvaluator (4-tier priority AC1-AC3), AssertionCondition/UserAssertion schemas, CandidateLink.expectedOutcomes for tier-2. 53 new tests (1555 total). AC4 TUI confirmation panel deferred to 3.17 (DEF-019).",
+          "last_updated": "2026-07-23T16:30:00.000Z"
         },
         {
           "id": "3.15",
           "title": "Flow 固化：录制→可重放 iTestAgent Flow YAML",
           "story": "US-9.1, US-9.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
