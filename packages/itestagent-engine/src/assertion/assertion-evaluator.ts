@@ -129,48 +129,74 @@ export class AssertionEvaluator {
     source: AssertionSource,
     observations: Record<string, Record<string, unknown>>,
   ): AssertionEvaluateOutput {
-    const caseEvaluations: AssertionEvaluationResult[] = [];
+    const allEvaluations: AssertionEvaluationResult[] = [];
     let overallPassed = true;
     let anyFailed = false;
     let anyInconclusive = false;
 
     for (const assertion of assertions) {
       const evaluation = this.evaluateSingleAssertion(assertion, observations);
-      caseEvaluations.push(evaluation);
-
-      const isCasePassed =
-        evaluation.unsatisfiedCount === 0 &&
-        evaluation.uncheckedCount === 0 &&
-        evaluation.satisfiedCount > 0;
-
-      const isCaseInconclusive = evaluation.uncheckedCount > 0;
-
-      if (!isCasePassed) {
-        overallPassed = false;
-      }
-
-      if (evaluation.unsatisfiedCount > 0) {
-        anyFailed = true;
-      }
-
-      if (isCaseInconclusive) {
-        anyInconclusive = true;
-      }
+      allEvaluations.push(evaluation);
     }
 
-    const cases = caseEvaluations.map((ev) => ({
-      caseId: ev.caseId,
-      status: this.caseStatus(ev, source) as AssertionEvaluateOutput['cases'][number]['status'],
-      resolvedBy: source,
-      evaluations: [ev],
-    }));
+    // Group evaluations by caseId to produce one entry per case
+    const groupedByCase = new Map<string, AssertionEvaluationResult[]>();
+    for (const ev of allEvaluations) {
+      const existing = groupedByCase.get(ev.caseId) ?? [];
+      existing.push(ev);
+      groupedByCase.set(ev.caseId, existing);
+    }
+
+    const cases: AssertionEvaluateOutput['cases'] = [];
+    for (const [caseId, evs] of groupedByCase) {
+      // Aggregate: sum counts across all evaluations for this caseId
+      let satisfied = 0;
+      let unsatisfied = 0;
+      let unchecked = 0;
+      const allConditions: AssertionEvaluationResult['conditions'] = [];
+
+      for (const ev of evs) {
+        satisfied += ev.satisfiedCount;
+        unsatisfied += ev.unsatisfiedCount;
+        unchecked += ev.uncheckedCount;
+        allConditions.push(...ev.conditions);
+      }
+
+      const merged: AssertionEvaluationResult = {
+        assertionId: evs[0]?.assertionId ?? '',
+        caseId,
+        source,
+        satisfiedCount: satisfied,
+        unsatisfiedCount: unsatisfied,
+        uncheckedCount: unchecked,
+        totalCount: satisfied + unsatisfied + unchecked,
+        conditions: allConditions,
+      };
+
+      const caseOk = unsatisfied === 0 && unchecked === 0 && satisfied > 0;
+      const caseInconclusive = unchecked > 0;
+
+      if (!caseOk) overallPassed = false;
+      if (unsatisfied > 0) anyFailed = true;
+      if (caseInconclusive) anyInconclusive = true;
+
+      cases.push({
+        caseId,
+        status: this.caseStatus(
+          merged,
+          source,
+        ) as AssertionEvaluateOutput['cases'][number]['status'],
+        resolvedBy: source,
+        evaluations: evs,
+      });
+    }
 
     const status = this.aggregateStatus(overallPassed, anyFailed, anyInconclusive);
 
     return {
       status,
       cases,
-      summary: this.buildSummary(status, source, assertions.length, caseEvaluations),
+      summary: this.buildSummary(status, source, cases.length, allEvaluations),
     };
   }
 
