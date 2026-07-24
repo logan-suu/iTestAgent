@@ -287,14 +287,24 @@ export const CredentialResolveStatusSchema = z.enum(['found', 'prompted', 'skipp
 
 export type CredentialResolveStatus = z.infer<typeof CredentialResolveStatusSchema>;
 
-export const CredentialResolveResultSchema = z.object({
-  /** Resolution status */
-  status: CredentialResolveStatusSchema,
-  /** The resolved CredentialEntry (only when status is "found" or "prompted") */
-  entry: CredentialEntrySchema.optional(),
-  /** Reason for skip / not_found */
-  reason: z.string().optional(),
-});
+export const CredentialResolveResultSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('found'),
+    entry: CredentialEntrySchema,
+  }),
+  z.object({
+    status: z.literal('prompted'),
+    entry: CredentialEntrySchema,
+  }),
+  z.object({
+    status: z.literal('skipped'),
+    reason: z.string().optional(),
+  }),
+  z.object({
+    status: z.literal('not_found'),
+    reason: z.string().optional(),
+  }),
+]);
 
 export type CredentialResolveResult = z.infer<typeof CredentialResolveResultSchema>;
 

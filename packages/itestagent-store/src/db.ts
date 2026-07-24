@@ -8,8 +8,8 @@ import * as schema from './schema.js';
  * @param dbPath - Path to the SQLite file
  * @returns Drizzle ORM instance with schema
  */
-export function createDb(dbPath: string) {
-  const sqlite = new Database(dbPath);
+export function createDb(dbPath: string, existingConnection?: Database) {
+  const sqlite = existingConnection ?? new Database(dbPath);
   // Enable WAL mode for better concurrent read performance
   sqlite.run('PRAGMA journal_mode = WAL');
   sqlite.run('PRAGMA foreign_keys = ON');

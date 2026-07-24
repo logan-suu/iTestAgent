@@ -30,6 +30,8 @@ export interface WdaBuildOptions {
   deploymentTarget?: string;
   /** Custom derived data path for xcodebuild. */
   derivedDataPath?: string;
+  /** AbortSignal for cancelling the build subprocess. */
+  signal?: AbortSignal;
 }
 
 export interface WdaInstallOptions {
@@ -37,6 +39,8 @@ export interface WdaInstallOptions {
   deviceId: string;
   /** Path to built WDA Runner .app. */
   appPath: string;
+  /** AbortSignal for cancelling the install subprocess. */
+  signal?: AbortSignal;
 }
 
 export interface WdaLaunchOptions {
@@ -50,6 +54,8 @@ export interface WdaLaunchOptions {
   wdaPort?: number;
   /** Minimum iOS deployment target. */
   deploymentTarget?: string;
+  /** AbortSignal for cancelling the WDA launch subprocess. */
+  signal?: AbortSignal;
 }
 
 export interface WdaLaunchResult {

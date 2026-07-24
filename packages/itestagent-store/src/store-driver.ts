@@ -41,10 +41,12 @@ const MIGRATIONS: [string, string][] = [
  * @param dbPath - Path to the SQLite database file
  * @returns StoreDriver implementation
  */
-export function createStoreDriver(dbPath: string): StoreDriver {
-  const sqlite = new Database(dbPath);
-  sqlite.run('PRAGMA journal_mode = WAL');
-  sqlite.run('PRAGMA foreign_keys = ON');
+export function createStoreDriver(dbPath: string, existingConnection?: Database): StoreDriver {
+  const sqlite = existingConnection ?? new Database(dbPath);
+  if (!existingConnection) {
+    sqlite.run('PRAGMA journal_mode = WAL');
+    sqlite.run('PRAGMA foreign_keys = ON');
+  }
 
   return {
     async migrate(): Promise<void> {

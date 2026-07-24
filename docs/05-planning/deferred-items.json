@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-25T14:00:00.000Z",
+  "last_updated": "2026-07-25T15:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -15,10 +15,11 @@
       "item": "Unify db.ts + store-driver.ts SQLite connections into single factory",
       "detail": "createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Fix: consolidate into a single connection factory or add connection pooling.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-18T14:19:51.110Z",
-      "notes": " Task 3.17 disposition: deferred: requires DB connection refactor (Phase 4 store unification)"
+      "notes": " Task 3.17 disposition: deferred: requires DB connection refactor (Phase 4 store unification)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-002",
@@ -153,10 +154,11 @@
       "item": "Intent.features uses required empty-array instead of optional per data flow doc",
       "detail": "Data Flow Specification §4 defines Intent fields as { goal, targetHint, targetKind?, deviceHint, features?, metricsHint?, scope }. Current IntentSchema declares features as z.array(z.string()) (required, defaults to []) rather than z.array(z.string()).optional(). Rationale: an empty array semantically means 'no features matched' which is equivalent to 'not specified' and simplifies parser logic. Revisit in Phase 3 when the Intent schema is integrated with LLM-based parsing (task 3.8) — the optional form may be more appropriate for LLM tool-calling marshalling.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-19T23:50:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: schema alignment with LLM integration (Phase 3 runtime)"
+      "notes": " Task 3.17 disposition: deferred: schema alignment with LLM integration (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-010",
@@ -170,10 +172,11 @@
       "item": "Intent uses metricsRequested (boolean) instead of metricsHint? (string) per data flow doc",
       "detail": "Data Flow Specification §4 defines metricsHint? as an optional string field. Current implementation uses metricsRequested: z.boolean(). Rationale: boolean is simpler for the rule-based parser — it only needs to know yes/no whether metrics were requested. A hint string would be more appropriate for LLM-based parsing (task 3.8) where the LLM could produce richer signals like 'fps+hitches' vs 'memory only'. Revisit in Phase 3 to either rename to metricsHint or add both fields.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-19T23:50:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: schema alignment with LLM integration (Phase 3 runtime)"
+      "notes": " Task 3.17 disposition: deferred: schema alignment with LLM integration (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-011",
@@ -187,10 +190,11 @@
       "item": "BackendPreferences.allowCrossTargetFallback is a no-op — field is exported and documented but never wired into select()/filterByTargetKind()/autoPick()",
       "detail": "BackendPreferences.allowCrossTargetFallback is exported and documented, but select()/filterByTargetKind()/autoPick() never read it. Rule 6 still always returns blocked.target_unsupported, so setting allowCrossTargetFallback: true has no effect. Either wire the fallback branch or mark the field/docstring as not implemented yet. Cross-target fallback (physical↔simulator) is an edge case relevant when a targetKind has no registered backends at all — this needs healthcheckGate integration (Phase 3.3/3.5) before wiring makes sense.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-20T15:30:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: cross-target fallback wiring (backend capability G5)"
+      "notes": " Task 3.17 disposition: deferred: cross-target fallback wiring (backend capability G5)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-012",
@@ -238,10 +242,11 @@
       "item": "Add AbortSignal propagation to WdaManager (WdaBuildOptions, WdaInstallOptions, WdaLaunchOptions)",
       "detail": "Architecture §4 requires abort to propagate through backend → child process via AbortSignal/Bun.spawn. WdaManager build/install/launch methods spawn subprocesses (xcodebuild, devicectl) but WdaBuildOptions/WdaInstallOptions/WdaLaunchOptions lack signal?: AbortSignal. Fix: add signal? to all 3 options interfaces, pass through to Bun.spawn calls. Deferred because: (1) needs coordination with SubprocessController (Task 1.15) for consistent signal handling, (2) requires AppiumDeviceBackend constructor to accept and forward AbortSignal to WdaManager, (3) best addressed when AgentRuntime (3.8) and ToolDispatcher (3.9) implement the full abort chain.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-21T18:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: requires full AbortSignal chain implementation"
+      "notes": " Task 3.17 disposition: deferred: requires full AbortSignal chain implementation",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-015",
@@ -375,10 +380,11 @@
       "item": "CredentialResolveResultSchema should use discriminated union for entry requiredness by status",
       "detail": "CredentialResolveResultSchema keeps entry as z.optional() regardless of status, even though it's only meaningful for 'found'/'prompted' statuses. Switching to z.discriminatedUnion('status', [...]) would require entry for those variants at the type level, preventing downstream code from having to guess when entry is present. The file already uses discriminatedUnion for TestDataItemSchema. Deferred because: schema change affects all CredentialResolveResult consumers (credential-manager.ts, test files, TUI components) and should be batch-refactored in 3.17 alongside DEF-020.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-24T00:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: schema discriminated union (Phase 3 runtime)"
+      "notes": " Task 3.17 disposition: deferred: schema discriminated union (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-023",
@@ -395,7 +401,7 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: G5 report clarification (documentation fix, non-blocking)"
+      "notes": "Task 3.17: Documented in phase3-exit-report.md §5 Known Gaps. Report itself left unchanged as historical record."
     },
     {
       "id": "DEF-024",
@@ -412,7 +418,7 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: task scope documentation (US-7.1 Phase 3→4 handoff)"
+      "notes": "Task 3.17: Handoff documented in phase3-exit-report.md — Phase 3 delivers xcodebuild test execution, Phase 4 delivers xcresult parsing. Cross-phase integration test verifies XCUITest path executes successfully."
     },
     {
       "id": "DEF-025",
@@ -463,7 +469,7 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: documentation clarification (US-11.1 P0 vs P1)"
+      "notes": "Task 3.17: Clarified in phase3-exit-report.md — AssertionEvaluator exists (3.14), full closed-loop assert (LLM→confirm→evaluate) is Phase 3 harness wiring scope. explored/inconclusive/needs_assertion are valid Phase 3 outputs."
     }
   ]
 }

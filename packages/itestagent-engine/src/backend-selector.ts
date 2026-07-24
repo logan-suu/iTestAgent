@@ -156,6 +156,23 @@ export class BackendSelector {
       const candidates = this.autoPick(filtered, targetKind, prefs);
 
       if (candidates.length === 0) {
+        // Cross-target fallback: try other targetKind if allowed
+        if (prefs.allowCrossTargetFallback) {
+          const otherKind = targetKind === 'physical' ? 'simulator' : ('physical' as TargetKind);
+          const fallbackCandidates = this.autoPick(this.filterByTargetKind(otherKind), otherKind, prefs);
+          if (fallbackCandidates.length > 0) {
+            const fb = fallbackCandidates[0];
+            if (fb) {
+              return {
+                success: true,
+                backend: fb,
+                fallbackChain: [preferredBackend, ...fallbackCandidates.map((b) => b.name)],
+                healthcheckNotImplemented: true,
+              };
+            }
+          }
+        }
+
         return {
           success: false,
           error: `No backend supports targetKind: ${targetKind}`,
@@ -179,6 +196,24 @@ export class BackendSelector {
     const filtered = this.filterByTargetKind(targetKind);
 
     if (filtered.length === 0) {
+      // Cross-target fallback: try other targetKind if allowed
+      if (prefs.allowCrossTargetFallback) {
+        const otherKind = targetKind === 'physical' ? 'simulator' : ('physical' as TargetKind);
+        const fallbackFiltered = this.filterByTargetKind(otherKind);
+        if (fallbackFiltered.length > 0) {
+          const fbCandidates = this.autoPick(fallbackFiltered, otherKind, prefs);
+          const fb = fbCandidates[0];
+          if (fb) {
+            return {
+              success: true,
+              backend: fb,
+              fallbackChain: fbCandidates.map((b) => b.name),
+              healthcheckNotImplemented: true,
+            };
+          }
+        }
+      }
+
       return {
         success: false,
         error: `No backend supports targetKind: ${targetKind}`,

@@ -52,10 +52,12 @@ export const IntentSchema = z.object({
   targetKind: TargetKindSchema.optional(),
   /** Device hint from user input */
   deviceHint: z.string().optional(),
-  /** Matched features from ProjectProfile */
-  features: z.array(z.string()),
+  /** Matched features from ProjectProfile (optional — empty = no features matched) */
+  features: z.array(z.string()).optional().default([]),
   /** Whether performance metrics were requested */
   metricsRequested: z.boolean(),
+  /** Detailed metrics hint from user input (e.g. 'fps+hitches' vs 'memory only') */
+  metricsHint: z.string().optional(),
   /** Test scope */
   scope: ScopeSchema,
   /** Original user input (immutable audit trail) */
