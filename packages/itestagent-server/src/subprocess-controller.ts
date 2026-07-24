@@ -35,6 +35,8 @@ export interface ExitInfo {
   signal?: string;
   /** Whether the process was killed by the grace-period SIGKILL fallback. */
   killedByGrace?: boolean;
+  /** What triggered the kill: 'timeout' | 'abort_signal' | 'manual_kill'. */
+  trigger?: string;
 }
 
 /** Options for spawn(). */
@@ -150,6 +152,7 @@ export function spawn(
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   let _pid: number | undefined;
+  const _exitInfo: ExitInfo = { exitCode: null };
 
   // ─── Spawn the child process ────────────────────────────
 
@@ -193,6 +196,7 @@ export function spawn(
   const doKill = (trigger: string, forceSignal?: SignalName): void => {
     if (killed) return; // Idempotent.
     killed = true;
+    _exitInfo.trigger = trigger;
 
     clearTimeoutTimer();
 
@@ -221,6 +225,7 @@ export function spawn(
       try {
         // Only send SIGKILL if process is still alive after grace period.
         if (proc && !proc.killed) {
+          _exitInfo.killedByGrace = true;
           proc.kill('SIGKILL');
         }
       } catch {
@@ -257,19 +262,16 @@ export function spawn(
       clearTimeoutTimer();
 
       if (rawCode >= 128 || rawCode === null) {
-        return {
-          exitCode: null,
-          signal: rawCode !== null ? String(rawCode - 128) : undefined,
-        };
+        _exitInfo.exitCode = null;
+        _exitInfo.signal = rawCode !== null ? String(rawCode - 128) : undefined;
+      } else {
+        _exitInfo.exitCode = rawCode;
       }
-      return {
-        exitCode: rawCode,
-        signal: undefined,
-      };
+      return _exitInfo;
     });
   } else {
     // Should never reach here — spawn failure is handled above.
-    exited = Promise.resolve({ exitCode: null });
+    exited = Promise.resolve(_exitInfo);
   }
 
   // ─── Timeout ────────────────────────────────────────────

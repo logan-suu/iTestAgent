@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-25T12:00:00.000Z",
+  "last_updated": "2026-07-25T14:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -49,10 +49,11 @@
       "item": "Populate killedByGrace field in ExitInfo when process is killed via grace-period SIGTERM→SIGKILL chain",
       "detail": "ExitInfo interface defines killedByGrace?: boolean but the field is never set. The doKill() flow sends SIGTERM first then SIGKILL after graceMs, but Exited promise always returns killedByGrace: undefined. Fix: track whether SIGKILL was sent after grace period expiry and expose it in ExitInfo. This becomes important in Phase 3 when downstream error classification (L1-L4) needs to distinguish between direct kills and grace-period timeouts for proper diagnostic messages.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-19T01:50:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: subprocess metadata enhancement (Phase 3 abort chain)"
+      "notes": " Task 3.17 disposition: deferred: subprocess metadata enhancement (Phase 3 abort chain)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-004",
@@ -66,10 +67,11 @@
       "item": "Preserve doKill trigger source in ExitInfo for diagnostic and logging purposes",
       "detail": "doKill(trigger: string, forceSignal?: SignalName) receives trigger values ('timeout', 'abort_signal', 'manual_kill') but never stores or propagates them to ExitInfo. When Phase 3 implements real backend subprocess orchestration, the trigger source is needed for proper L1-L4 error classification and user-facing abort reason messages (e.g. 'killed by timeout' vs 'killed by user abort'). Fix: add trigger field to ExitInfo and populate it from doKill calls.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-19T01:50:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: subprocess metadata enhancement (Phase 3 abort chain)"
+      "notes": " Task 3.17 disposition: deferred: subprocess metadata enhancement (Phase 3 abort chain)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-005",
@@ -286,10 +288,11 @@
       "item": "XML entity encoding mismatch: findAlertButton/extractAlertButtons fail on labels containing &apos;/&amp;",
       "detail": "permissionAlertUiTree's deny button is encoded as label=\"Don&apos;t Allow\", but DISMISS_BUTTONS contains the literal \"Don't Allow\". Since the search regex is built from the literal target and matched against un-decoded XML, this branch never matches — meaning a permission dialog offering only \"Don't Allow\" (Allow absent) would be reported as handled: false despite a valid dismiss button existing. extractAlertButtons has the same gap, surfacing encoded text instead of decoded labels. Fix: XML-decode entity references in the alert text before matching labels, and decode in extractAlertButtons so callers receive decoded labels. No current test exercises the deny-only path.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-22T15:50:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: minor encoding fix (can be addressed in maintenance)"
+      "notes": " Task 3.17 disposition: deferred: minor encoding fix (can be addressed in maintenance)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-018",
@@ -354,10 +357,11 @@
       "item": "generateSearchKeyword category lookup uses feature names that don't match SEARCH_KEYWORDS keys",
       "detail": "context.features (e.g. 'login', 'search', 'profile') are used as keys into SEARCH_KEYWORDS (keyed by 'product', 'user_name', 'location', 'default'), so the lookup almost always falls back to 'default'. The returned TestDataItem.category retains the raw (unmatched) feature name, weakening the US-10.1 AC2 'project-aware generation' guarantee. Fix: add a feature→searchCategory mapping (e.g. { login: 'user_name', search: 'product' }) and resolve category before calling recordGet. Deferred because: needs cross-cutting feature vocabulary alignment with ProjectProfile feature names (Phase 2 definitions).",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
       "created_at": "2026-07-24T00:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: feature vocabulary alignment (Phase 3 runtime)"
+      "notes": " Task 3.17 disposition: deferred: feature vocabulary alignment (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-022",
@@ -442,7 +446,7 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: minor harness cleanups (Phase 4 polish)"
+      "notes": "Task 3.17 disposition: Partially resolved — (2) AI SDK empty toolCallId fixed (crypto.randomUUID() fallback, commit 78cf280); (4) DeviceExplorer backend hardcode fixed (ExplorationOptions.backendName, commit 78cf280). Remaining items (1) ID unification, (3) tool.progress producer — deferred to Phase 4 polish."
     },
     {
       "id": "DEF-027",

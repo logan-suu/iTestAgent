@@ -67,6 +67,29 @@ const SEARCH_KEYWORDS: Record<string, readonly string[]> = {
   default: ['test search', 'sample query', 'demo keyword'],
 } as const;
 
+/** Map feature names to search keyword categories for project-aware generation. */
+const FEATURE_TO_SEARCH_CATEGORY: Record<string, string> = {
+  login: 'user_name',
+  signin: 'user_name',
+  auth: 'user_name',
+  account: 'user_name',
+  register: 'user_name',
+  signup: 'user_name',
+  profile: 'user_name',
+  user: 'user_name',
+  search: 'product',
+  browse: 'product',
+  catalog: 'product',
+  product: 'product',
+  shop: 'product',
+  store: 'product',
+  map: 'location',
+  location: 'location',
+  nearby: 'location',
+  address: 'location',
+  geo: 'location',
+} as const;
+
 /** Form field input templates by field type. */
 const FORM_INPUTS: Record<string, readonly string[]> = {
   email: ['test@example.com', 'demo@example.com', 'qa@test.org'],
@@ -223,7 +246,8 @@ export class TestDataGenerator {
 
   private generateSearchKeyword(context: TestDataContext): TestDataItem {
     const features = context.features ?? [];
-    const category = features.length > 0 ? pick(features) : 'default';
+    const rawCategory = features.length > 0 ? pick(features) : 'default';
+    const category = FEATURE_TO_SEARCH_CATEGORY[rawCategory] ?? rawCategory;
     const pool = recordGet(SEARCH_KEYWORDS, category, 'default');
     const value = `${pick(pool)} ${uniqueSuffix()}`.trim();
 
