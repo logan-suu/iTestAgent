@@ -16,6 +16,17 @@
 
 import type { SystemAlertResult } from './types.js';
 
+// ─── XML Entity Decoding ─────────────────────────────────────────
+
+function decodeXmlEntities(text: string): string {
+  return text
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 // ─── Alert Detection Patterns ───────────────────────────────────
 
 /**
@@ -37,7 +48,7 @@ function findAlertButton(
   const alertMatch = xml.match(/<XCUIElementTypeAlert[\s\S]*?<\/XCUIElementTypeAlert>/);
   if (!alertMatch) return null;
 
-  const alertBlock = alertMatch[0];
+  const alertBlock = decodeXmlEntities(alertMatch[0]);
 
   for (const label of labels) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -88,7 +99,7 @@ function extractAlertButtons(xml: string): string[] {
   let match = buttonRegex.exec(alertText);
   while (match !== null) {
     const btnLabel = match[1];
-    if (btnLabel) buttons.push(btnLabel);
+    if (btnLabel) buttons.push(decodeXmlEntities(btnLabel));
     match = buttonRegex.exec(alertText);
   }
   return buttons;
@@ -99,7 +110,7 @@ function extractAlertButtons(xml: string): string[] {
  */
 function extractAlertText(xml: string): string | undefined {
   const alertMatch = xml.match(/<XCUIElementTypeAlert[^>]*\slabel="([^"]*)"[^>]*>/);
-  return alertMatch?.[1]?.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  return alertMatch?.[1] ? decodeXmlEntities(alertMatch[1]) : undefined;
 }
 
 // ─── Dismiss Button Priority ────────────────────────────────────

@@ -13,6 +13,19 @@
  */
 import type { Subprocess } from 'bun';
 
+async function spawnAsync(
+  cmd: string[],
+  signal?: AbortSignal,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', signal });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  await proc.exited;
+  return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 export interface WdaBuildOptions {
@@ -30,6 +43,14 @@ export interface WdaBuildOptions {
   deploymentTarget?: string;
   /** Custom derived data path for xcodebuild. */
   derivedDataPath?: string;
+  /**
+   * Override WDA bundle ID for free-account workaround.
+   * Example: "L4CX67KLT5.WebDriverAgentRunner"
+   * (scheme automatically appends .xctrunner suffix).
+   */
+  productBundleIdentifier?: string;
+  /** AbortSignal for cancelling the build subprocess. */
+  signal?: AbortSignal;
 }
 
 export interface WdaInstallOptions {
@@ -37,6 +58,8 @@ export interface WdaInstallOptions {
   deviceId: string;
   /** Path to built WDA Runner .app. */
   appPath: string;
+  /** AbortSignal for cancelling the install subprocess. */
+  signal?: AbortSignal;
 }
 
 export interface WdaLaunchOptions {
@@ -50,6 +73,8 @@ export interface WdaLaunchOptions {
   wdaPort?: number;
   /** Minimum iOS deployment target. */
   deploymentTarget?: string;
+  /** AbortSignal for cancelling the WDA launch subprocess. */
+  signal?: AbortSignal;
 }
 
 export interface WdaLaunchResult {
@@ -107,10 +132,14 @@ export class WdaManager {
     if (options.derivedDataPath) {
       args.push('-derivedDataPath', options.derivedDataPath);
     }
+    if (options.productBundleIdentifier) {
+      args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+    }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',
       stderr: 'pipe',
+      signal: options.signal,
     });
 
     const [stdout, stderr] = await Promise.all([
@@ -127,7 +156,7 @@ export class WdaManager {
     // Find the built .app from derived data
     // xcodebuild prints the derived data path in stdout
     const appPath = this.extractAppPath(stdout);
-    const bundleId = this.extractBundleId(stdout, appPath);
+    const bundleId = await this.extractBundleId(stdout, appPath);
 
     return { appPath, bundleId };
   }
@@ -136,8 +165,8 @@ export class WdaManager {
    * Install pre-built WDA on a physical device via devicectl.
    */
   async install(options: WdaInstallOptions): Promise<WdaInstallResult> {
-    const proc = Bun.spawnSync({
-      cmd: [
+    const { stdout, stderr, exitCode } = await spawnAsync(
+      [
         'xcrun',
         'devicectl',
         'device',
@@ -147,16 +176,13 @@ export class WdaManager {
         options.deviceId,
         options.appPath,
       ],
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
+      options.signal,
+    );
 
-    if (proc.exitCode !== 0) {
-      const stderr = proc.stderr.toString();
+    if (exitCode !== 0) {
       throw new Error(`WDA install failed: ${stderr.slice(-500)}`);
     }
 
-    const stdout = proc.stdout.toString();
     const bundleId = this.extractInstalledBundleId(stdout);
 
     return { bundleId };
@@ -189,6 +215,7 @@ export class WdaManager {
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',
       stderr: 'pipe',
+      signal: options.signal,
     });
 
     this.runningProcess = proc;
@@ -244,25 +271,20 @@ export class WdaManager {
   }
 
   /** Extract bundle ID from the built .app. */
-  private extractBundleId(_stdout: string, _appPath: string): string {
-    // Parse from Info.plist in the .app bundle
+  private async extractBundleId(_stdout: string, _appPath: string): Promise<string> {
     try {
-      const infoProc = Bun.spawnSync({
-        cmd: [
-          'plutil',
-          '-extract',
-          'CFBundleIdentifier',
-          'raw',
-          '-o',
-          '-',
-          `${_appPath}/Info.plist`,
-        ],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout, exitCode } = await spawnAsync([
+        'plutil',
+        '-extract',
+        'CFBundleIdentifier',
+        'raw',
+        '-o',
+        '-',
+        `${_appPath}/Info.plist`,
+      ]);
 
-      if (infoProc.exitCode === 0) {
-        return infoProc.stdout.toString().trim();
+      if (exitCode === 0) {
+        return stdout.trim();
       }
     } catch {
       // Fall through to default

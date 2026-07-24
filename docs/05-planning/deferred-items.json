@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-25T10:00:00.000Z",
+  "last_updated": "2026-07-25T17:45:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -17,7 +17,9 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-18T14:19:51.110Z"
+      "created_at": "2026-07-18T14:19:51.110Z",
+      "notes": "Task 3.17 disposition: deferred: requires DB connection refactor (Phase 4 store unification)",
+      "resolved_at": null
     },
     {
       "id": "DEF-002",
@@ -33,7 +35,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-18T14:19:51.110Z"
+      "created_at": "2026-07-18T14:19:51.110Z",
+      "notes": " Task 3.17 disposition: deferred: depends on DEF-001 connection unification"
     },
     {
       "id": "DEF-003",
@@ -47,9 +50,11 @@
       "item": "Populate killedByGrace field in ExitInfo when process is killed via grace-period SIGTERM→SIGKILL chain",
       "detail": "ExitInfo interface defines killedByGrace?: boolean but the field is never set. The doKill() flow sends SIGTERM first then SIGKILL after graceMs, but Exited promise always returns killedByGrace: undefined. Fix: track whether SIGKILL was sent after grace period expiry and expose it in ExitInfo. This becomes important in Phase 3 when downstream error classification (L1-L4) needs to distinguish between direct kills and grace-period timeouts for proper diagnostic messages.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-19T01:50:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-19T01:50:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: subprocess metadata enhancement (Phase 3 abort chain)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-004",
@@ -63,9 +68,11 @@
       "item": "Preserve doKill trigger source in ExitInfo for diagnostic and logging purposes",
       "detail": "doKill(trigger: string, forceSignal?: SignalName) receives trigger values ('timeout', 'abort_signal', 'manual_kill') but never stores or propagates them to ExitInfo. When Phase 3 implements real backend subprocess orchestration, the trigger source is needed for proper L1-L4 error classification and user-facing abort reason messages (e.g. 'killed by timeout' vs 'killed by user abort'). Fix: add trigger field to ExitInfo and populate it from doKill calls.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-19T01:50:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-19T01:50:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: subprocess metadata enhancement (Phase 3 abort chain)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-005",
@@ -132,7 +139,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-19T23:30:00.000Z"
+      "created_at": "2026-07-19T23:30:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: OpenTUI SolidJS reactivity (covered by DEF-025)"
     },
     {
       "id": "DEF-009",
@@ -146,9 +154,11 @@
       "item": "Intent.features uses required empty-array instead of optional per data flow doc",
       "detail": "Data Flow Specification §4 defines Intent fields as { goal, targetHint, targetKind?, deviceHint, features?, metricsHint?, scope }. Current IntentSchema declares features as z.array(z.string()) (required, defaults to []) rather than z.array(z.string()).optional(). Rationale: an empty array semantically means 'no features matched' which is equivalent to 'not specified' and simplifies parser logic. Revisit in Phase 3 when the Intent schema is integrated with LLM-based parsing (task 3.8) — the optional form may be more appropriate for LLM tool-calling marshalling.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-19T23:50:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-19T23:50:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: schema alignment with LLM integration (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-010",
@@ -162,9 +172,11 @@
       "item": "Intent uses metricsRequested (boolean) instead of metricsHint? (string) per data flow doc",
       "detail": "Data Flow Specification §4 defines metricsHint? as an optional string field. Current implementation uses metricsRequested: z.boolean(). Rationale: boolean is simpler for the rule-based parser — it only needs to know yes/no whether metrics were requested. A hint string would be more appropriate for LLM-based parsing (task 3.8) where the LLM could produce richer signals like 'fps+hitches' vs 'memory only'. Revisit in Phase 3 to either rename to metricsHint or add both fields.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-19T23:50:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-19T23:50:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: schema alignment with LLM integration (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-011",
@@ -178,9 +190,11 @@
       "item": "BackendPreferences.allowCrossTargetFallback is a no-op — field is exported and documented but never wired into select()/filterByTargetKind()/autoPick()",
       "detail": "BackendPreferences.allowCrossTargetFallback is exported and documented, but select()/filterByTargetKind()/autoPick() never read it. Rule 6 still always returns blocked.target_unsupported, so setting allowCrossTargetFallback: true has no effect. Either wire the fallback branch or mark the field/docstring as not implemented yet. Cross-target fallback (physical↔simulator) is an edge case relevant when a targetKind has no registered backends at all — this needs healthcheckGate integration (Phase 3.3/3.5) before wiring makes sense.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-20T15:30:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-20T15:30:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: cross-target fallback wiring (backend capability G5)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-012",
@@ -194,9 +208,11 @@
       "item": "Replace blocking Bun.spawnSync with async Bun.spawn in AppiumDeviceBackend and WdaManager",
       "detail": "AppiumDeviceBackend listDevices (L237), healthcheck (L295), listCrashes (L596) and WdaManager install (L133) use Bun.spawnSync in async methods, blocking the Bun event loop. This violates the architecture principle of 'different devices can be parallel' (§4). Fix: convert all 4 sites to Bun.spawn + await proc.exited, preserving existing stdout/stderr capture and exit-code handling. Requires G5 re-verify after change since devicectl calls are part of the physical device flow. Deferred because: (1) touches 4 functions across 2 files, (2) needs coordinated change to not break existing behavior, (3) G5 re-verification required.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-21T18:00:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17) + G5 verified",
+      "created_at": "2026-07-21T18:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: requires G5 re-verify after async conversion (major)",
+      "resolved_at": "2026-07-25T17:45:00.000Z"
     },
     {
       "id": "DEF-013",
@@ -227,9 +243,11 @@
       "item": "Add AbortSignal propagation to WdaManager (WdaBuildOptions, WdaInstallOptions, WdaLaunchOptions)",
       "detail": "Architecture §4 requires abort to propagate through backend → child process via AbortSignal/Bun.spawn. WdaManager build/install/launch methods spawn subprocesses (xcodebuild, devicectl) but WdaBuildOptions/WdaInstallOptions/WdaLaunchOptions lack signal?: AbortSignal. Fix: add signal? to all 3 options interfaces, pass through to Bun.spawn calls. Deferred because: (1) needs coordination with SubprocessController (Task 1.15) for consistent signal handling, (2) requires AppiumDeviceBackend constructor to accept and forward AbortSignal to WdaManager, (3) best addressed when AgentRuntime (3.8) and ToolDispatcher (3.9) implement the full abort chain.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-21T18:00:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-21T18:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: requires full AbortSignal chain implementation",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-015",
@@ -245,7 +263,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-22T03:00:00.000Z"
+      "created_at": "2026-07-22T03:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: requires DeviceBackend contract change (major)"
     },
     {
       "id": "DEF-016",
@@ -275,9 +294,11 @@
       "item": "XML entity encoding mismatch: findAlertButton/extractAlertButtons fail on labels containing &apos;/&amp;",
       "detail": "permissionAlertUiTree's deny button is encoded as label=\"Don&apos;t Allow\", but DISMISS_BUTTONS contains the literal \"Don't Allow\". Since the search regex is built from the literal target and matched against un-decoded XML, this branch never matches — meaning a permission dialog offering only \"Don't Allow\" (Allow absent) would be reported as handled: false despite a valid dismiss button existing. extractAlertButtons has the same gap, surfacing encoded text instead of decoded labels. Fix: XML-decode entity references in the alert text before matching labels, and decode in extractAlertButtons so callers receive decoded labels. No current test exercises the deny-only path.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-22T15:50:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-22T15:50:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: minor encoding fix (can be addressed in maintenance)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-018",
@@ -293,7 +314,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-22T15:50:00.000Z"
+      "created_at": "2026-07-22T15:50:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: test coverage enhancement (Phase 4 hardening)"
     },
     {
       "id": "DEF-019",
@@ -309,7 +331,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-23T16:00:00.000Z"
+      "created_at": "2026-07-23T16:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: TUI assertion confirmation panel (Phase 3 harness wiring)"
     },
     {
       "id": "DEF-020",
@@ -340,9 +363,11 @@
       "item": "generateSearchKeyword category lookup uses feature names that don't match SEARCH_KEYWORDS keys",
       "detail": "context.features (e.g. 'login', 'search', 'profile') are used as keys into SEARCH_KEYWORDS (keyed by 'product', 'user_name', 'location', 'default'), so the lookup almost always falls back to 'default'. The returned TestDataItem.category retains the raw (unmatched) feature name, weakening the US-10.1 AC2 'project-aware generation' guarantee. Fix: add a feature→searchCategory mapping (e.g. { login: 'user_name', search: 'product' }) and resolve category before calling recordGet. Deferred because: needs cross-cutting feature vocabulary alignment with ProjectProfile feature names (Phase 2 definitions).",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-24T00:00:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: feature vocabulary alignment (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T14:00:00.000Z"
     },
     {
       "id": "DEF-022",
@@ -356,9 +381,11 @@
       "item": "CredentialResolveResultSchema should use discriminated union for entry requiredness by status",
       "detail": "CredentialResolveResultSchema keeps entry as z.optional() regardless of status, even though it's only meaningful for 'found'/'prompted' statuses. Switching to z.discriminatedUnion('status', [...]) would require entry for those variants at the type level, preventing downstream code from having to guess when entry is present. The file already uses discriminatedUnion for TestDataItemSchema. Deferred because: schema change affects all CredentialResolveResult consumers (credential-manager.ts, test files, TUI components) and should be batch-refactored in 3.17 alongside DEF-020.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-24T00:00:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: schema discriminated union (Phase 3 runtime)",
+      "resolved_at": "2026-07-25T15:00:00.000Z"
     },
     {
       "id": "DEF-023",
@@ -374,7 +401,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-25T10:00:00.000Z"
+      "created_at": "2026-07-25T10:00:00.000Z",
+      "notes": "Task 3.17: Documented in phase3-exit-report.md §5 Known Gaps. Report itself left unchanged as historical record."
     },
     {
       "id": "DEF-024",
@@ -390,7 +418,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-25T10:00:00.000Z"
+      "created_at": "2026-07-25T10:00:00.000Z",
+      "notes": "Task 3.17: Handoff documented in phase3-exit-report.md — Phase 3 delivers xcodebuild test execution, Phase 4 delivers xcresult parsing. Cross-phase integration test verifies XCUITest path executes successfully."
     },
     {
       "id": "DEF-025",
@@ -406,7 +435,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-25T10:00:00.000Z"
+      "created_at": "2026-07-25T10:00:00.000Z",
+      "notes": " Task 3.17 disposition: deferred: OpenTUI third-party dependency (monitor upstream fixes)"
     },
     {
       "id": "DEF-026",
@@ -422,7 +452,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-25T10:00:00.000Z"
+      "created_at": "2026-07-25T10:00:00.000Z",
+      "notes": "Task 3.17 disposition: Partially resolved — (2) AI SDK empty toolCallId fixed (crypto.randomUUID() fallback, commit 78cf280); (4) DeviceExplorer backend hardcode fixed (ExplorationOptions.backendName, commit 78cf280). Remaining items (1) ID unification, (3) tool.progress producer — deferred to Phase 4 polish."
     },
     {
       "id": "DEF-027",
@@ -438,7 +469,8 @@
       "target_phase": 3,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-07-25T10:00:00.000Z"
+      "created_at": "2026-07-25T10:00:00.000Z",
+      "notes": "Task 3.17: Clarified in phase3-exit-report.md — AssertionEvaluator exists (3.14), full closed-loop assert (LLM→confirm→evaluate) is Phase 3 harness wiring scope. explored/inconclusive/needs_assertion are valid Phase 3 outputs."
     }
   ]
 }

@@ -810,11 +810,11 @@
           "id": "3.17",
           "title": "Phase 3 集成测试：真机执行核心联调验证",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "验证 BuildDriver→DeviceBackend→AgentRuntime(3.8)→PermissionEngine(3.3)→ToolDispatcher(3.9)→ContextBuilder(3.4)→XCUITest→探索→Flow 全 Harness 联调。Mock backend 保障 CI。出口：全部通过后 Phase 3 done。新增 T3.10 Simulator adapter + T3.13/b 录制/Flow 拆分。T3.6 (MobileMcpBackend) 因付费账号阻塞已排除，待解除后作为可选增强接入。",
+          "notes": "PR #44: https://github.com/logan-suu/iTestAgent/pull/44 — Phase 3 integration tests: 6 suites, 56 tests verifying full harness chain (ToolDispatcher→PermissionEngine→BackendSelector→MockDeviceBackend, DeviceExplorer→Flow YAML, ContextBuilder, AssertionEvaluator, TestDataGenerator+CredentialManager). Exit report: docs/06-verification/phase3-exit-report.md. 21 DEF items dispositioned. 1810 tests pass. G1-G4 PASS, G5/G5-SIM pending hardware. G7 CONDITIONAL PASS (DEF-016 deferred).",
           "dependencies": [
             "3.1",
             "3.5",
@@ -832,7 +832,8 @@
             "3.16",
             "3.14"
           ],
-          "test_file": null
+          "test_file": null,
+          "last_updated": "2026-07-25T13:00:00.000Z"
         }
       ]
     },

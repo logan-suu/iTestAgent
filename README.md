@@ -198,6 +198,7 @@ iTestAgent/
     │   ├── 开发计划安排文档.md
     │   └── task-status.json
     ├── 06-verification/    # Spike 验证与 G5/G5-SIM 报告
+    ├── 07-troubleshooting/ # 阻塞问题根因分析与解决方案记录
     │   ├── phase-0-cross-evaluation-report.md
     │   ├── g5-sim-spike-report-1.3b.md
     │   └── g5-sim-spike-report-1.3c.md

@@ -26,6 +26,7 @@
 | **开发避坑手册** | `docs/03-implementation/开发避坑与关键注意点手册.md` | 陷阱、防御性检查清单 |
 | **AI Native 开发** | `docs/04-ai-native/AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、质量门禁 G1-G7+G5-SIM、反模式 |
 | **验证与 Spike** | `docs/06-verification/` | Phase 0 横评报告、G5/G5-SIM Spike 验证报告 |
+| **疑难杂症** | `docs/07-troubleshooting/` | 开发过程中遇到的阻塞问题根因分析与解决方案记录 |
 | **开发计划** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线及排期 |
 | **任务状态** | `docs/05-planning/task-status.json` | 每个任务的执行状态、依赖关系 |
 | **重大决策** | `docs/decisions/` | ADR 格式的架构决策与需求变更记录 |
@@ -61,6 +62,7 @@
 | **实现安全/脱敏** | `docs/03-implementation/开发避坑与关键注意点手册.md` | §10 安全与隐私 |
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §15 敏感数据流 |
 | **调试/避坑** | `docs/03-implementation/开发避坑与关键注意点手册.md` | 按问题类型查找 |
+| **疑难杂症（阻塞问题）** | `docs/07-troubleshooting/` | 已记录的阻塞问题根因分析与解决方案 |
 | **技术选型决策** | `docs/02-architecture/技术选型文档.md` | 对应章节 |
 | **查阅开发计划/任务** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线 |
 | | `docs/05-planning/task-status.json` | 当前任务状态、依赖关系 |
@@ -506,6 +508,7 @@ docs/01-spec/                  (规格与需求)
 docs/02-architecture/          (架构设计与技术选型)
 docs/03-implementation/        (避坑手册)
 docs/06-verification/          (Spike 验证与 G5/G5-SIM 报告)
+docs/07-troubleshooting/        (开发过程中遇到的阻塞问题根因分析与解决方案记录)
 docs/04-ai-native/             (AI Native 开发手册)
 docs/05-planning/              (开发计划与任务追踪)
 docs/decisions/                (ADR 架构决策记录)
