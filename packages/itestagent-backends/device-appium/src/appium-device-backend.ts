@@ -53,6 +53,20 @@ import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
 import type { WdaManager } from './wda-manager.js';
 
+// ─── Subprocess helper ─────────────────────────────────────────
+
+async function spawnAsync(
+  cmd: string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe' });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  await proc.exited;
+  return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 /** Options for AppiumDeviceBackend construction. */
@@ -349,18 +363,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listPhysicalDevices(): Promise<DeviceInfo[]> {
     try {
-      const proc = Bun.spawnSync({
-        cmd: ['xcrun', 'devicectl', 'list', 'devices', '--json'],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout: raw, exitCode } = await spawnAsync(['xcrun', 'devicectl', 'list', 'devices', '--json']);
 
-      if (proc.exitCode !== 0) {
+      if (exitCode !== 0 || !raw.trim()) {
         return [];
       }
-
-      const raw = proc.stdout.toString().trim();
-      if (!raw) return [];
 
       const parsed = JSON.parse(raw) as {
         result?: {
@@ -405,18 +412,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listSimulatorDevices(): Promise<DeviceInfo[]> {
     try {
-      const proc = Bun.spawnSync({
-        cmd: ['xcrun', 'simctl', 'list', 'devices', '--json'],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout: raw, exitCode } = await spawnAsync(['xcrun', 'simctl', 'list', 'devices', '--json']);
 
-      if (proc.exitCode !== 0) {
+      if (exitCode !== 0 || !raw.trim()) {
         return [];
       }
-
-      const raw = proc.stdout.toString().trim();
-      if (!raw) return [];
 
       const parsed = JSON.parse(raw) as {
         devices?: Record<string, Array<Record<string, unknown>>>;
@@ -468,21 +468,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   private async physicalHealthcheck(deviceId: string): Promise<HealthCheckResult> {
     try {
-      const proc = Bun.spawnSync({
-        cmd: ['xcrun', 'devicectl', 'list', 'devices', '--json'],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout, exitCode } = await spawnAsync(['xcrun', 'devicectl', 'list', 'devices', '--json']);
 
-      if (proc.exitCode !== 0) {
+      if (exitCode !== 0) {
         return {
           healthy: false,
           details: 'devicectl unavailable — ensure Xcode CLI tools are installed',
         };
       }
 
-      const raw = proc.stdout.toString().trim();
-      const parsed = JSON.parse(raw) as {
+      const parsed = JSON.parse(stdout) as {
         result?: {
           devices?: Array<{
             hardwareProperties?: { udid?: string };
@@ -510,21 +505,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   private async simulatorHealthcheck(deviceId: string): Promise<HealthCheckResult> {
     try {
-      const proc = Bun.spawnSync({
-        cmd: ['xcrun', 'simctl', 'list', 'devices', '--json'],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout: raw, exitCode } = await spawnAsync(['xcrun', 'simctl', 'list', 'devices', '--json']);
 
-      if (proc.exitCode !== 0) {
+      if (exitCode !== 0) {
         return {
           healthy: false,
           details: 'simctl unavailable — ensure Xcode CLI tools are installed',
         };
       }
 
-      const raw = proc.stdout.toString().trim();
-      if (!raw) {
+      if (!raw.trim()) {
         return {
           healthy: false,
           details: 'No simulator devices found — simctl returned empty output',
@@ -832,27 +822,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
     }
 
     try {
-      const proc = Bun.spawnSync({
-        cmd: [
-          'xcrun',
-          'devicectl',
-          'device',
-          'info',
-          'diagnostics',
-          '--device',
-          this.opts.udid,
-          '--json',
-        ],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout: raw, exitCode } = await spawnAsync([
+        'xcrun', 'devicectl', 'device', 'info', 'diagnostics',
+        '--device', this.opts.udid, '--json',
+      ]);
 
-      if (proc.exitCode !== 0) {
+      if (exitCode !== 0 || !raw.trim()) {
         return [];
       }
-
-      const raw = proc.stdout.toString().trim();
-      if (!raw) return [];
 
       const parsed = JSON.parse(raw) as {
         result?: {

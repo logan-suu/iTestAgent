@@ -13,6 +13,18 @@
  */
 import type { Subprocess } from 'bun';
 
+async function spawnAsync(
+  cmd: string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe' });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  await proc.exited;
+  return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 export interface WdaBuildOptions {
@@ -133,7 +145,7 @@ export class WdaManager {
     // Find the built .app from derived data
     // xcodebuild prints the derived data path in stdout
     const appPath = this.extractAppPath(stdout);
-    const bundleId = this.extractBundleId(stdout, appPath);
+    const bundleId = await this.extractBundleId(stdout, appPath);
 
     return { appPath, bundleId };
   }
@@ -142,27 +154,15 @@ export class WdaManager {
    * Install pre-built WDA on a physical device via devicectl.
    */
   async install(options: WdaInstallOptions): Promise<WdaInstallResult> {
-    const proc = Bun.spawnSync({
-      cmd: [
-        'xcrun',
-        'devicectl',
-        'device',
-        'install',
-        'app',
-        '--device',
-        options.deviceId,
-        options.appPath,
-      ],
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
+    const { stdout, stderr, exitCode } = await spawnAsync([
+      'xcrun', 'devicectl', 'device', 'install', 'app',
+      '--device', options.deviceId, options.appPath,
+    ]);
 
-    if (proc.exitCode !== 0) {
-      const stderr = proc.stderr.toString();
+    if (exitCode !== 0) {
       throw new Error(`WDA install failed: ${stderr.slice(-500)}`);
     }
 
-    const stdout = proc.stdout.toString();
     const bundleId = this.extractInstalledBundleId(stdout);
 
     return { bundleId };
@@ -250,25 +250,14 @@ export class WdaManager {
   }
 
   /** Extract bundle ID from the built .app. */
-  private extractBundleId(_stdout: string, _appPath: string): string {
-    // Parse from Info.plist in the .app bundle
+  private async extractBundleId(_stdout: string, _appPath: string): Promise<string> {
     try {
-      const infoProc = Bun.spawnSync({
-        cmd: [
-          'plutil',
-          '-extract',
-          'CFBundleIdentifier',
-          'raw',
-          '-o',
-          '-',
-          `${_appPath}/Info.plist`,
-        ],
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const { stdout, exitCode } = await spawnAsync([
+        'plutil', '-extract', 'CFBundleIdentifier', 'raw', '-o', '-', `${_appPath}/Info.plist`,
+      ]);
 
-      if (infoProc.exitCode === 0) {
-        return infoProc.stdout.toString().trim();
+      if (exitCode === 0) {
+        return stdout.trim();
       }
     } catch {
       // Fall through to default
