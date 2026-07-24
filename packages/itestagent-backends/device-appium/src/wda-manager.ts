@@ -42,6 +42,12 @@ export interface WdaBuildOptions {
   deploymentTarget?: string;
   /** Custom derived data path for xcodebuild. */
   derivedDataPath?: string;
+  /**
+   * Override WDA bundle ID for free-account workaround.
+   * Example: "L4CX67KLT5.WebDriverAgentRunner"
+   * (scheme automatically appends .xctrunner suffix).
+   */
+  productBundleIdentifier?: string;
   /** AbortSignal for cancelling the build subprocess. */
   signal?: AbortSignal;
 }
@@ -124,6 +130,9 @@ export class WdaManager {
 
     if (options.derivedDataPath) {
       args.push('-derivedDataPath', options.derivedDataPath);
+    }
+    if (options.productBundleIdentifier) {
+      args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
     }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
