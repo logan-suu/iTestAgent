@@ -10,6 +10,7 @@ import {
 const UDID = '00008110-001A2C3434A0801E';
 
 function setup(pe?: PermissionEngine) {
+  // biome-ignore lint/suspicious/noExplicitAny: integration test — mock backend passed through registry
   const mock = new MockDeviceBackend() as any;
   const registry = new BackendRegistry();
   registry.register('mock', mock);
@@ -68,6 +69,7 @@ describe('Phase 3 Harness E2E', () => {
     expect(r.status).toBe('error');
   });
   it('invalid tap args → error', async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: intentionally invalid args for error-path test
     const r = await setup().dispatch({ id: 'c7', name: 'tap', arguments: { x: 'bad' } as any });
     expect(r.status).toBe('error');
   });

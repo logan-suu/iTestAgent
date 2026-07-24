@@ -98,7 +98,9 @@ describe('Phase 3 CredentialManager integration', () => {
 
     expect(CredentialResolveResultSchema.safeParse(result).success).toBe(true);
     expect(result.status).toBe('found');
-    expect((result as any).entry).toBeDefined();
+    if (result.status === 'found' || result.status === 'prompted') {
+      expect(result.entry).toBeDefined();
+    }
   });
 
   it('returns not_found when no store has credential and no prompt', async () => {
@@ -129,7 +131,9 @@ describe('Phase 3 CredentialManager integration', () => {
 
     expect(promptCalled).toBe(true);
     expect(result.status).toBe('prompted');
-    expect((result as any).entry).toBeDefined();
+    if (result.status === 'found' || result.status === 'prompted') {
+      expect(result.entry).toBeDefined();
+    }
   });
 
   it('stores credential to keychain when remembered', async () => {

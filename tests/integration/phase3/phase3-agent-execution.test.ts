@@ -24,6 +24,7 @@ import {
 const UDID = '00008110-001A2C3434A0801E';
 
 function setupDispatcher(targetKind: 'physical' | 'simulator' = 'physical'): ToolDispatcher {
+  // biome-ignore lint/suspicious/noExplicitAny: integration test — mock backend passed through registry
   const mock = new MockDeviceBackend() as any;
   const registry = new BackendRegistry();
   registry.register('mock', mock);
@@ -112,6 +113,7 @@ describe('Phase 3 Agent Execution', () => {
     const pe = new PermissionEngine();
     pe.addRule({ action: 'tap', resource: '*', effect: 'deny' });
 
+    // biome-ignore lint/suspicious/noExplicitAny: integration test — mock backend passed through registry
     const mock = new MockDeviceBackend() as any;
     const registry = new BackendRegistry();
     registry.register('mock', mock);
@@ -160,6 +162,7 @@ describe('Phase 3 Agent Execution', () => {
     const result = await dispatcher.dispatch({
       id: 'c_invalid',
       name: 'tap',
+      // biome-ignore lint/suspicious/noExplicitAny: intentionally invalid args for error-path test
       arguments: { x: 'not_a_number' } as any,
     });
 
@@ -179,6 +182,7 @@ describe('Phase 3 Agent Execution', () => {
         suggestedSmoke: [],
       },
       runState: 'executing',
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildSystemPromptInput for ContextBuilder
     } as any);
 
     const turnInput: AgentTurnInput = {

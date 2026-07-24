@@ -15,11 +15,11 @@
       "item": "Unify db.ts + store-driver.ts SQLite connections into single factory",
       "detail": "createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Fix: consolidate into a single connection factory or add connection pooling.",
       "target_phase": 3,
-      "status": "resolved",
-      "resolved_by": "post-review fix (Sisyphus session, Task 3.17)",
+      "status": "open",
+      "resolved_by": null,
       "created_at": "2026-07-18T14:19:51.110Z",
-      "notes": " Task 3.17 disposition: deferred: requires DB connection refactor (Phase 4 store unification)",
-      "resolved_at": "2026-07-25T15:00:00.000Z"
+      "notes": "Task 3.17 disposition: deferred: requires DB connection refactor (Phase 4 store unification)",
+      "resolved_at": null
     },
     {
       "id": "DEF-002",

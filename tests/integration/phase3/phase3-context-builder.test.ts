@@ -62,6 +62,7 @@ describe('Phase 3 ContextBuilder integration', () => {
       projectProfile: profile,
       intent,
       runState: 'executing',
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildSystemPromptInput for ContextBuilder
     } as any);
 
     expect(systemPrompt).toContain('TestApp');
@@ -74,6 +75,7 @@ describe('Phase 3 ContextBuilder integration', () => {
     const systemPrompt = builder.buildSystemPrompt({
       projectProfile: profile,
       runState: 'created',
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildSystemPromptInput for ContextBuilder
     } as any);
 
     expect(systemPrompt).toContain('TestApp');
@@ -86,6 +88,7 @@ describe('Phase 3 ContextBuilder integration', () => {
       projectProfile: profile,
       runState: 'executing',
       previousSteps: [],
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildTurnInput for ContextBuilder
     } as any);
 
     expect(turn.messages).toBeDefined();
@@ -115,6 +118,7 @@ describe('Phase 3 ContextBuilder integration', () => {
       projectProfile: profile,
       runState: 'executing',
       previousSteps,
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildTurnInput for ContextBuilder
     } as any);
 
     const sysMsg = turn.messages[0] as { content: string };
@@ -152,6 +156,7 @@ describe('Phase 3 ContextBuilder integration', () => {
       projectProfile: profile,
       runState: 'executing',
       previousSteps,
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildSystemPromptInput for ContextBuilder
     } as any);
 
     expect(systemPrompt).toContain('step-1');
@@ -198,6 +203,7 @@ describe('Phase 3 ContextBuilder integration', () => {
     const turn = builder.buildTurn({
       projectProfile: profile,
       runState: 'executing',
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — partial BuildTurnInput for ContextBuilder
     } as any);
 
     const parsed = AgentTurnInputSchema.safeParse(turn);

@@ -159,7 +159,11 @@ export class BackendSelector {
         // Cross-target fallback: try other targetKind if allowed
         if (prefs.allowCrossTargetFallback) {
           const otherKind = targetKind === 'physical' ? 'simulator' : ('physical' as TargetKind);
-          const fallbackCandidates = this.autoPick(this.filterByTargetKind(otherKind), otherKind, prefs);
+          const fallbackCandidates = this.autoPick(
+            this.filterByTargetKind(otherKind),
+            otherKind,
+            prefs,
+          );
           if (fallbackCandidates.length > 0) {
             const fb = fallbackCandidates[0];
             if (fb) {

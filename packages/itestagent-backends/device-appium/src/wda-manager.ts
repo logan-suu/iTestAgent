@@ -15,8 +15,9 @@ import type { Subprocess } from 'bun';
 
 async function spawnAsync(
   cmd: string[],
+  signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', signal });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -138,6 +139,7 @@ export class WdaManager {
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',
       stderr: 'pipe',
+      signal: options.signal,
     });
 
     const [stdout, stderr] = await Promise.all([
@@ -163,10 +165,19 @@ export class WdaManager {
    * Install pre-built WDA on a physical device via devicectl.
    */
   async install(options: WdaInstallOptions): Promise<WdaInstallResult> {
-    const { stdout, stderr, exitCode } = await spawnAsync([
-      'xcrun', 'devicectl', 'device', 'install', 'app',
-      '--device', options.deviceId, options.appPath,
-    ]);
+    const { stdout, stderr, exitCode } = await spawnAsync(
+      [
+        'xcrun',
+        'devicectl',
+        'device',
+        'install',
+        'app',
+        '--device',
+        options.deviceId,
+        options.appPath,
+      ],
+      options.signal,
+    );
 
     if (exitCode !== 0) {
       throw new Error(`WDA install failed: ${stderr.slice(-500)}`);
@@ -204,6 +215,7 @@ export class WdaManager {
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',
       stderr: 'pipe',
+      signal: options.signal,
     });
 
     this.runningProcess = proc;
@@ -262,7 +274,13 @@ export class WdaManager {
   private async extractBundleId(_stdout: string, _appPath: string): Promise<string> {
     try {
       const { stdout, exitCode } = await spawnAsync([
-        'plutil', '-extract', 'CFBundleIdentifier', 'raw', '-o', '-', `${_appPath}/Info.plist`,
+        'plutil',
+        '-extract',
+        'CFBundleIdentifier',
+        'raw',
+        '-o',
+        '-',
+        `${_appPath}/Info.plist`,
       ]);
 
       if (exitCode === 0) {

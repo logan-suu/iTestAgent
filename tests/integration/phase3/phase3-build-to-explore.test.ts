@@ -11,12 +11,13 @@ import {
   RunStepRecorder,
   ToolDispatcher,
 } from 'itestagent-engine';
-import { serializeFlowYaml } from 'itestagent-flow';
+import { parseFlowYaml, serializeFlowYaml } from 'itestagent-flow';
 
 const SIM_UDID = 'F7C1CF80-9B8A-4E5C-A123-4567890ABCDE';
 
 describe('Phase 3 Build-to-Explore', () => {
   it('DeviceExplorer.explore runs through mock backend', async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: integration test — mock backend passed through registry
     const mock = new MockDeviceBackend() as any;
     const registry = new BackendRegistry();
     registry.register('mock', mock);
@@ -34,6 +35,7 @@ describe('Phase 3 Build-to-Explore', () => {
       backendName: 'mock',
     });
 
+    // biome-ignore lint/suspicious/noExplicitAny: integration test — explore step fixture structure
     const steps = await explorer.explore([{ action: 'tap' as const, target: 'Login' } as any]);
 
     expect(steps.length).toBeGreaterThan(0);
@@ -59,11 +61,16 @@ describe('Phase 3 Build-to-Explore', () => {
         { action: 'tap', target: 'Login', locator: { strategy: 'label', value: 'Login' } },
       ],
       notes: null,
+      // biome-ignore lint/suspicious/noExplicitAny: integration test — FlowV2 test fixture with optional fields
     } as any;
 
     const yaml = serializeFlowYaml(flow);
     expect(yaml).toContain('phase3-flow');
     expect(yaml).toContain('itestagent.flow.v2');
     expect(yaml).toContain('action: launchApp');
+    const parsed = parseFlowYaml(yaml) as Record<string, unknown>;
+    expect(parsed.flowId).toBe('phase3-flow');
+    const steps = (parsed as Record<string, unknown>).steps as Array<Record<string, unknown>>;
+    expect(steps[0]?.action).toBe('launchApp');
   });
 });

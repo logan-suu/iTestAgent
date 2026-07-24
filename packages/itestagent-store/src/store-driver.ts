@@ -45,8 +45,8 @@ export function createStoreDriver(dbPath: string, existingConnection?: Database)
   const sqlite = existingConnection ?? new Database(dbPath);
   if (!existingConnection) {
     sqlite.run('PRAGMA journal_mode = WAL');
-    sqlite.run('PRAGMA foreign_keys = ON');
   }
+  sqlite.run('PRAGMA foreign_keys = ON');
 
   return {
     async migrate(): Promise<void> {

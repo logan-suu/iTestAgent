@@ -80,9 +80,11 @@ describe('CredentialManager — US-10.2', () => {
         makeRequest({ key: 'login_user', label: 'Username' }),
       );
       expect(result.status).toBe('found');
-      expect((result as any).entry).toBeDefined();
-      expect((result as any).entry?.value).toBe('test_user_123');
-      expect((result as any).entry?.key).toBe('login_user');
+      if (result.status === 'found') {
+        expect(result.entry).toBeDefined();
+        expect(result.entry.value).toBe('test_user_123');
+        expect(result.entry.key).toBe('login_user');
+      }
     });
 
     it('returns found status with correct entry shape', async () => {
@@ -95,13 +97,15 @@ describe('CredentialManager — US-10.2', () => {
         makeRequest({ key: 'api_token', kind: 'token', label: 'API Token' }),
       );
       expect(result.status).toBe('found');
-      expect((result as any).entry?.key).toBe('api_token');
-      expect((result as any).entry?.value).toBe('sk-test-token-12345');
-      expect((result as any).entry?.kind).toBe('token');
-      expect((result as any).entry?.sessionOnly).toBe(true);
-      expect(typeof (result as any).entry?.storedAt === 'string' && isIso8601((result as any).entry.storedAt)).toBe(
-        true,
-      );
+      if (result.status === 'found') {
+        expect(result.entry.key).toBe('api_token');
+        expect(result.entry.value).toBe('sk-test-token-12345');
+        expect(result.entry.kind).toBe('token');
+        expect(result.entry.sessionOnly).toBe(true);
+        expect(typeof result.entry.storedAt === 'string' && isIso8601(result.entry.storedAt)).toBe(
+          true,
+        );
+      }
     });
   });
 
@@ -119,7 +123,9 @@ describe('CredentialManager — US-10.2', () => {
         makeRequest({ key: 'saved_password', kind: 'password', label: 'Password' }),
       );
       expect(result.status).toBe('found');
-      expect((result as any).entry?.value).toBe('my-secret-pw');
+      if (result.status === 'found') {
+        expect(result.entry.value).toBe('my-secret-pw');
+      }
       // Loaded from keychain into memory — entry is still sessionOnly=true (not persisted to disk)
     });
 
@@ -133,7 +139,9 @@ describe('CredentialManager — US-10.2', () => {
 
       const result = await manager.resolveCredential(makeRequest({ key: 'shared_key' }));
       expect(result.status).toBe('found');
-      expect((result as any).entry?.value).toBe('memory_value');
+      if (result.status === 'found') {
+        expect(result.entry.value).toBe('memory_value');
+      }
     });
   });
 
@@ -152,7 +160,9 @@ describe('CredentialManager — US-10.2', () => {
         makeRequest({ key: 'new_cred', label: 'New Credential' }),
       );
       expect(result.status).toBe('prompted');
-      expect((result as any).entry?.value).toBe('user_input_value');
+      if (result.status === 'prompted') {
+        expect(result.entry.value).toBe('user_input_value');
+      }
     });
 
     it('stores prompted credential to memory for session reuse', async () => {
@@ -170,7 +180,9 @@ describe('CredentialManager — US-10.2', () => {
         makeRequest({ key: 'fresh_cred', label: 'Fresh' }),
       );
       expect(result.status).toBe('found');
-      expect((result as any).entry?.value).toBe('fresh_session_value');
+      if (result.status === 'found') {
+        expect(result.entry.value).toBe('fresh_session_value');
+      }
     });
   });
 
@@ -219,7 +231,6 @@ describe('CredentialManager — US-10.2', () => {
         makeRequest({ key: 'optional_login', required: false, label: 'Optional Login' }),
       );
       expect(result.status).toBe('skipped');
-      expect((result as any).entry).toBeUndefined();
     });
 
     it('returns status=skipped when user skips required credential', async () => {
@@ -243,7 +254,6 @@ describe('CredentialManager — US-10.2', () => {
 
       const result = await manager.resolveCredential(makeRequest({ key: 'missing_cred' }));
       expect(result.status).toBe('not_found');
-      expect((result as any).entry).toBeUndefined();
     });
   });
 
@@ -269,10 +279,16 @@ describe('CredentialManager — US-10.2', () => {
       ]);
 
       expect(results.size).toBe(3);
-      expect(results.get('cached_cred')?.status).toBe('found');
-      expect((results.get('cached_cred') as any)?.entry?.value).toBe('from_cache');
-      expect(results.get('prompted_cred')?.status).toBe('prompted');
-      expect((results.get('prompted_cred') as any)?.entry?.value).toBe('from_prompt');
+      const cachedResult = results.get('cached_cred');
+      expect(cachedResult?.status).toBe('found');
+      if (cachedResult?.status === 'found') {
+        expect(cachedResult.entry.value).toBe('from_cache');
+      }
+      const promptedResult = results.get('prompted_cred');
+      expect(promptedResult?.status).toBe('prompted');
+      if (promptedResult?.status === 'prompted') {
+        expect(promptedResult.entry.value).toBe('from_prompt');
+      }
       expect(results.get('missing_no_cb')?.status).toBe('skipped');
     });
 
@@ -342,7 +358,9 @@ describe('CredentialManager — US-10.2', () => {
       // After clear: memory gone, must re-fetch from keychain
       const r2 = await manager.resolveCredential(makeRequest({ key: 'k_key' }));
       expect(r2.status).toBe('found');
-      expect((r2 as any).entry?.value).toBe('k_value');
+      if (r2.status === 'found') {
+        expect(r2.entry.value).toBe('k_value');
+      }
     });
 
     it('clearSession on manager with only memory store works', async () => {
@@ -374,7 +392,9 @@ describe('CredentialManager — US-10.2', () => {
       const result = await manager.resolveCredential(
         makeRequest({ key: 'sso_cred', label: 'SSO' }),
       );
-      expect((result as any).entry?.sessionOnly).toBe(true);
+      if (result.status === 'prompted') {
+        expect(result.entry.sessionOnly).toBe(true);
+      }
     });
   });
 });

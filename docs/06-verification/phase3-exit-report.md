@@ -15,19 +15,22 @@
 | G5 (Real Device) | ⚠️ PENDING | RealAppiumDriver created (280 lines) but production G5 end-to-end spike not yet performed |
 | G5-SIM (Simulator) | ⚠️ PENDING | Same as G5 — mock backend chain works, real Appium session untested on Simulator |
 | G6 (Evidence) | ⚠️ IMPROVED | G5 report contradiction documented (DEF-023); integration test evidence below |
-| G7 (Security) | ✅ PASS | 6 security defects fixed: get-secret confirmation, path traversal, env whitelist, CredentialManager PermissionEngine, open_url high-risk mapping, RealAppiumDriver error sanitization |
+| G7 (Security) | ⚠️ CONDITIONAL PASS | DEF-020 resolved; DEF-016 (raw error logging) deferred to Phase 4 |
 
 ## 2. Integration Test Coverage
 
-3 new integration test files in `tests/integration/phase3/`:
+6 integration test suites in `tests/integration/phase3/` (56 tests):
 
 | File | Tests | Verified Chain |
 |---|---|---|
 | `phase3-harness-e2e.test.ts` | 7 | ToolDispatcher → PermissionEngine → BackendSelector → MockDeviceBackend |
-| `phase3-agent-execution.test.ts` | 1 | MockAgentRuntime → abort lifecycle |
+| `phase3-agent-execution.test.ts` | 11 | MockAgentRuntime → abort lifecycle + ToolDispatcher tool matrix |
 | `phase3-build-to-explore.test.ts` | 3 | DeviceExplorer → ToolDispatcher → MockDeviceBackend + Flow YAML round-trip |
+| `phase3-context-builder.test.ts` | 10 | ContextBuilder → Profile + Intent + RunState → sanitized LLM context |
+| `phase3-assertion-eval.test.ts` | 13 | AssertionEvaluator → 4-tier strategy → contracts schema |
+| `phase3-test-data-gen.test.ts` | 12 | TestDataGenerator + CredentialManager → US-10.1/US-10.2 |
 
-**Total**: 11 integration tests, all pass.
+**Total**: 56 integration tests, all pass.
 
 ## 3. Defect Remediation (Pre-3.17)
 

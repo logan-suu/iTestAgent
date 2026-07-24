@@ -363,7 +363,13 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listPhysicalDevices(): Promise<DeviceInfo[]> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync(['xcrun', 'devicectl', 'list', 'devices', '--json']);
+      const { stdout: raw, exitCode } = await spawnAsync([
+        'xcrun',
+        'devicectl',
+        'list',
+        'devices',
+        '--json',
+      ]);
 
       if (exitCode !== 0 || !raw.trim()) {
         return [];
@@ -412,7 +418,13 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listSimulatorDevices(): Promise<DeviceInfo[]> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync(['xcrun', 'simctl', 'list', 'devices', '--json']);
+      const { stdout: raw, exitCode } = await spawnAsync([
+        'xcrun',
+        'simctl',
+        'list',
+        'devices',
+        '--json',
+      ]);
 
       if (exitCode !== 0 || !raw.trim()) {
         return [];
@@ -468,7 +480,13 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   private async physicalHealthcheck(deviceId: string): Promise<HealthCheckResult> {
     try {
-      const { stdout, exitCode } = await spawnAsync(['xcrun', 'devicectl', 'list', 'devices', '--json']);
+      const { stdout, exitCode } = await spawnAsync([
+        'xcrun',
+        'devicectl',
+        'list',
+        'devices',
+        '--json',
+      ]);
 
       if (exitCode !== 0) {
         return {
@@ -505,7 +523,13 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   private async simulatorHealthcheck(deviceId: string): Promise<HealthCheckResult> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync(['xcrun', 'simctl', 'list', 'devices', '--json']);
+      const { stdout: raw, exitCode } = await spawnAsync([
+        'xcrun',
+        'simctl',
+        'list',
+        'devices',
+        '--json',
+      ]);
 
       if (exitCode !== 0) {
         return {
@@ -823,8 +847,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
     try {
       const { stdout: raw, exitCode } = await spawnAsync([
-        'xcrun', 'devicectl', 'device', 'info', 'diagnostics',
-        '--device', this.opts.udid, '--json',
+        'xcrun',
+        'devicectl',
+        'device',
+        'info',
+        'diagnostics',
+        '--device',
+        this.opts.udid,
+        '--json',
       ]);
 
       if (exitCode !== 0 || !raw.trim()) {
