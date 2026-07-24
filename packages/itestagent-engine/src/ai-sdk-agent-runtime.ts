@@ -233,7 +233,7 @@ export class AiSdkAgentRuntime implements AgentRuntime {
       case 'tool-call':
         return {
           type: 'tool.requested',
-          callId: String(p.toolCallId ?? ''),
+          callId: p.toolCallId ? String(p.toolCallId) : crypto.randomUUID(),
           name: String(p.toolName ?? ''),
           arguments: (p.input as Record<string, unknown>) ?? {},
         } satisfies AgentEvent;
@@ -241,9 +241,9 @@ export class AiSdkAgentRuntime implements AgentRuntime {
       case 'tool-result':
         return {
           type: 'tool.completed',
-          callId: String(p.toolCallId ?? ''),
+          callId: p.toolCallId ? String(p.toolCallId) : crypto.randomUUID(),
           result: {
-            callId: String(p.toolCallId ?? ''),
+            callId: p.toolCallId ? String(p.toolCallId) : crypto.randomUUID(),
             status: 'ok' as const,
             output: p.output,
           },
@@ -252,7 +252,7 @@ export class AiSdkAgentRuntime implements AgentRuntime {
       case 'tool-error':
         return {
           type: 'tool.failed',
-          callId: String(p.toolCallId ?? ''),
+          callId: p.toolCallId ? String(p.toolCallId) : crypto.randomUUID(),
           error: {
             code: 'backend.error',
             message:

@@ -59,11 +59,12 @@ export class DeviceExplorer {
     this.options = {
       settleMs: 500,
       maxLocatorRetries: 1,
+      backendName: 'appium',
       ...options,
     };
     this.locator = new ElementLocator();
     this.alertHandler = new SystemAlertHandler();
-    this.recorder = new RunStepRecorder('appium');
+    this.recorder = new RunStepRecorder(this.options.backendName);
   }
 
   // ─── Public API ─────────────────────────────────────────────

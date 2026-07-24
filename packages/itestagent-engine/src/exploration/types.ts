@@ -119,6 +119,8 @@ export interface ExplorationOptions {
   bundleId: string;
   /** Target kind (physical or simulator) per ADR-011 */
   targetKind: 'physical' | 'simulator';
+  /** Backend name to record in RunStep metadata (e.g. 'appium', 'mock') */
+  backendName?: string;
   /** Milliseconds to wait after each action for UI to settle */
   settleMs?: number;
   /** Maximum retries for element location before falling back to degradation */
