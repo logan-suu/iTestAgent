@@ -98,4 +98,30 @@ describe('readFlowFile error handling', () => {
   it('throws for nonexistent flow ID', async () => {
     await expect(readFlowFile('completely-nonexistent-flow-id-99999')).rejects.toThrow('not found');
   });
+
+  it('rejects path traversal via ../ in flowId', async () => {
+    await expect(readFlowFile('../../../etc/passwd')).rejects.toThrow('Invalid flowId');
+  });
+
+  it('rejects absolute path as flowId', async () => {
+    await expect(readFlowFile('/etc/passwd')).rejects.toThrow('Invalid flowId');
+  });
+
+  it('rejects flowId with special characters', async () => {
+    await expect(readFlowFile('flow;rm -rf /')).rejects.toThrow('Invalid flowId');
+  });
+
+  it('rejects empty flowId', async () => {
+    await expect(readFlowFile('')).rejects.toThrow('Invalid flowId');
+  });
+
+  it('rejects flowId longer than 128 characters', async () => {
+    const longId = 'a'.repeat(129);
+    await expect(readFlowFile(longId)).rejects.toThrow('Invalid flowId');
+  });
+
+  it('accepts valid flowId with hyphens and underscores', async () => {
+    // Should NOT throw on validation — will throw "not found" because file doesn't exist
+    await expect(readFlowFile('my-flow_v2')).rejects.toThrow('not found');
+  });
 });

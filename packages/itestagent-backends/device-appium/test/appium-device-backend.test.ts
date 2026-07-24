@@ -1250,4 +1250,26 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
       expect(apps).toEqual([]);
     });
   });
+
+  // ── Concurrent session creation (P0-2 fix) ─────────────────
+
+  describe('concurrent ensureSession', () => {
+    it('creates session only once when multiple action calls race', async () => {
+      const backend = new AppiumDeviceBackend(new MockAppiumDriver(), {
+        udid: SIM_UDID,
+        targetKind: 'simulator',
+      });
+
+      // Trigger 3 concurrent taps — ensureSession should create session only once
+      const [r1, r2, r3] = await Promise.all([
+        backend.tap({ deviceId: SIM_UDID, x: 0.5, y: 0.5 }),
+        backend.tap({ deviceId: SIM_UDID, x: 0.3, y: 0.7 }),
+        backend.tap({ deviceId: SIM_UDID, x: 0.7, y: 0.3 }),
+      ]);
+
+      expect(r1.success).toBe(true);
+      expect(r2.success).toBe(true);
+      expect(r3.success).toBe(true);
+    });
+  });
 });

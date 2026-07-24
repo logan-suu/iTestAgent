@@ -303,3 +303,46 @@ describe('concurrent processes', () => {
     await p2.exited;
   });
 });
+
+// ─── spawn: env whitelisting (R6) ────────────────────────────
+
+describe('env whitelisting', () => {
+  test('does NOT pass arbitrary env vars to child processes by default', async () => {
+    // Set a fake secret in process.env — the child should NOT see it
+    process.env.FAKE_API_KEY = 'test-secret-value';
+
+    // Verify the child does NOT have the fake secret
+    // Using printenv to dump env; exit code 1 means the variable is not set
+    const proc = spawn('sh', ['-c', 'printenv FAKE_API_KEY || exit 1']);
+
+    const result = await proc.exited;
+    expect(result.exitCode).toBe(1); // printenv exits 1 when var not found
+
+    // Clean up
+    process.env.FAKE_API_KEY = undefined;
+  });
+
+  test('passes whitelisted HOME to child processes', async () => {
+    const proc = spawn('sh', ['-c', 'printenv HOME']);
+    const result = await proc.exited;
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('passes whitelisted PATH to child processes', async () => {
+    const proc = spawn('sh', ['-c', 'printenv PATH']);
+    const result = await proc.exited;
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('caller can override env explicitly', async () => {
+    const proc = spawn('sh', ['-c', 'printenv CUSTOM_VAR'], {
+      env: {
+        CUSTOM_VAR: 'hello',
+        HOME: process.env.HOME || '/tmp',
+        PATH: process.env.PATH || '/usr/bin',
+      },
+    });
+    const result = await proc.exited;
+    expect(result.exitCode).toBe(0);
+  });
+});

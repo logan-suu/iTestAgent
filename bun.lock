@@ -36,6 +36,9 @@
     "packages/itestagent-backends/device-appium": {
       "name": "itestagent-backends-device-appium",
       "version": "0.0.1",
+      "dependencies": {
+        "webdriverio": "9.29.1",
+      },
     },
     "packages/itestagent-backends/device-iphone-use": {
       "name": "itestagent-backends-device-iphone-use",
@@ -91,6 +94,10 @@
     "packages/itestagent-flow": {
       "name": "itestagent-flow",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+        "yaml": "^2.7.0",
+      },
     },
     "packages/itestagent-project-analyzer": {
       "name": "itestagent-project-analyzer",

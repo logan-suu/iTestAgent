@@ -81,6 +81,46 @@ export interface SubprocessHandle {
 /** Default grace period: 5 seconds. */
 const DEFAULT_GRACE_MS = 5000;
 
+/**
+ * Environment variables that are safe to pass to child processes.
+ * Only whitelisted vars are inherited from process.env by default.
+ *
+ * R6: secrets (API keys, tokens, credentials) must NOT be passed
+ * to child processes unless explicitly requested by the caller.
+ */
+const SAFE_ENV_KEYS = new Set([
+  'HOME',
+  'PATH',
+  'USER',
+  'SHELL',
+  'TMPDIR',
+  'DEVELOPER_DIR', // Xcode toolchain
+  'LANG',
+  'LC_ALL',
+  'LOGNAME',
+  'SSH_AUTH_SOCK',
+]);
+
+/**
+ * Build a minimal environment for child processes.
+ * Only whitelisted keys from process.env are inherited.
+ * Callers that need full env (e.g., Appium server) must pass explicit `env` option.
+ */
+function defaultEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of SAFE_ENV_KEYS) {
+    const val = process.env[key];
+    if (val !== undefined) {
+      env[key] = val;
+    }
+  }
+  // Pass ITESTAGENT_DEBUG for diagnostics (no secret risk)
+  if (process.env.ITESTAGENT_DEBUG) {
+    env.ITESTAGENT_DEBUG = process.env.ITESTAGENT_DEBUG;
+  }
+  return env;
+}
+
 // ─── Implementation ─────────────────────────────────────────
 
 /**
@@ -116,7 +156,7 @@ export function spawn(
   try {
     subprocess = Bun.spawn([command, ...resolvedArgs], {
       cwd: options?.cwd ?? process.cwd(),
-      env: options?.env ?? process.env,
+      env: options?.env ?? defaultEnv(),
       // stdin is not connected — subprocess cannot read from parent.
       stdin: null,
       // Capture stdout/stderr for backend output (caller can pipe if needed).

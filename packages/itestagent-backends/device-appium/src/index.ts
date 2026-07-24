@@ -24,6 +24,7 @@ export type {
   AppiumAppEntry,
   AppiumCrashEntry,
   AppiumDriver,
+  AppiumElementRef,
   AppiumLogOptions,
   AppiumPoint,
   AppiumRecordingOptions,
@@ -35,6 +36,8 @@ export type {
   AppiumW3CCapabilities,
   AppiumDriverErrorCode,
 } from './appium-driver.js';
+
+export { RealAppiumDriver } from './real-appium-driver.js';
 
 export { buildPhysicalCapabilities, buildSimulatorCapabilities } from './appium-capabilities.js';
 export type {

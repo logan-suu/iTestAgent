@@ -219,17 +219,29 @@ export function createProgram(): Command {
     });
 
   // config get-secret — retrieve credential from Keychain (US-18.2 AC3)
+  // R6 + R7: credentials require explicit user confirmation before display
   configCmd
     .command('get-secret <key>')
-    .description('retrieve a stored credential from macOS Keychain')
+    .description('retrieve a stored credential from macOS Keychain (requires confirmation)')
     .action(async (key: string) => {
+      const confirmed = await confirmAction({
+        action: 'Read credential',
+        details: `Display the credential for "${key}" in terminal output (visible on screen and in shell history).`,
+      });
+      if (confirmed !== 'yes') {
+        console.error('Aborted.');
+        process.exit(1);
+      }
+
       const secretStore = createSecretStore();
       const value = await secretStore.get(key);
       if (value === null) {
         console.error(`Credential "${key}" not found.`);
         process.exit(1);
       }
-      console.log(value);
+      // R6: credential is output after explicit confirmation only.
+      // The caller is responsible for pipe security — prefer TUI for sensitive display.
+      process.stdout.write(`${value}\n`);
     });
 
   // config delete-secret — remove credential from Keychain

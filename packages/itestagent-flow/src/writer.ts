@@ -14,6 +14,24 @@ import { join } from 'node:path';
 import type { FlowV2 } from './schema.js';
 import { serializeFlowYaml } from './yaml.js';
 
+// ─── Flow ID validation ────────────────────────────────────────────
+
+/** flowId must match alphanumeric + hyphens/underscores, no path separators. */
+const FLOW_ID_PATTERN = /^[a-zA-Z0-9][-a-zA-Z0-9_]{0,127}$/;
+
+/**
+ * Validate that a flowId is safe to use as a filename component.
+ * Rejects path traversal attempts (../), absolute paths, and other
+ * unsafe characters that could escape the flow directory.
+ */
+function validateFlowId(flowId: string): void {
+  if (!FLOW_ID_PATTERN.test(flowId)) {
+    throw new Error(
+      `Invalid flowId "${flowId}". Flow ID must be 1-128 alphanumeric characters (hyphens and underscores allowed), no path separators or special characters.`,
+    );
+  }
+}
+
 // ─── Path Helpers ─────────────────────────────────────────────────
 
 /**
@@ -77,6 +95,8 @@ export async function saveFlow(
   flow: FlowV2,
   options: SaveFlowOptions = {},
 ): Promise<SaveFlowResult> {
+  validateFlowId(flow.flowId);
+
   const yamlContent = serializeFlowYaml(flow);
   const filename = `${flow.flowId}.yaml`;
 
@@ -127,6 +147,8 @@ export async function saveFlow(
  * @throws If the flow file does not exist or cannot be read
  */
 export async function readFlowFile(flowId: string): Promise<unknown> {
+  validateFlowId(flowId);
+
   const { readFile } = await import('node:fs/promises');
   const flowPath = join(getDefaultFlowDir(), `${flowId}.yaml`);
 

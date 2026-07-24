@@ -48,6 +48,7 @@ import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
+import type { WdaManager } from './wda-manager.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -80,6 +81,12 @@ export interface AppiumDeviceBackendOptions {
    * Required for parallel simulator sessions (G5-SIM T1.6 finding #5).
    */
   derivedDataPath?: string;
+  /**
+   * WdaManager instance for managing WDA lifecycle (ADR-012).
+   * When provided, WDA is launched before Appium session creation
+   * and stopped on closeSession. Optional for mock/testing.
+   */
+  wdaManager?: WdaManager;
 }
 
 // ─── Default capabilities ────────────────────────────────────────────────
@@ -135,18 +142,21 @@ export class AppiumDeviceBackend implements DeviceBackend {
   readonly name = 'appium';
 
   private readonly opts: Required<
-    Omit<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath'>
+    Omit<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath' | 'wdaManager'>
   > &
     Pick<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath'>;
 
   private readonly targetKind: TargetKind;
   private driver: AppiumDriver;
+  private readonly wdaManager: WdaManager | undefined;
   private sessionActive = false;
+  private sessionMutex: Promise<void> | null = null;
   private screenSize: AppiumScreenSize | null = null;
 
   constructor(driver: AppiumDriver, options: AppiumDeviceBackendOptions) {
     this.driver = driver;
     this.targetKind = options.targetKind;
+    this.wdaManager = options.wdaManager;
     this.opts = {
       udid: options.udid,
       targetKind: options.targetKind,
@@ -168,10 +178,40 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   /**
    * Ensure an Appium session is active, creating one if necessary.
-   * Idempotent — safe to call before any Appium-dependent method.
+   *
+   * Thread-safe: uses a mutex (sessionMutex) to prevent concurrent
+   * session creation. Multiple callers awaiting ensureSession() will
+   * all wait on the same creation promise — only one Appium session
+   * is ever created.
+   *
+   * ADR-012: If a WdaManager is configured, WDA is launched before
+   * the Appium session is established.
    */
   private async ensureSession(): Promise<void> {
     if (this.sessionActive) return;
+    if (this.sessionMutex) {
+      await this.sessionMutex;
+      return;
+    }
+
+    this.sessionMutex = this.doCreateSession();
+
+    try {
+      await this.sessionMutex;
+    } finally {
+      this.sessionMutex = null;
+    }
+  }
+
+  private async doCreateSession(): Promise<void> {
+    // ADR-012: launch WDA before Appium session if WdaManager is configured
+    if (this.wdaManager && !this.wdaManager.isRunning()) {
+      await this.wdaManager.launch({
+        projectPath: '', // WDA project path is configured per-deployment
+        udid: this.opts.udid,
+        wdaPort: this.opts.wdaLocalPort,
+      });
+    }
 
     let caps: Record<string, unknown>;
 
@@ -209,9 +249,22 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   /**
    * Close the current Appium session and release resources.
+   *
+   * ADR-012: If a WdaManager is configured, the WDA process is
+   * stopped after the Appium session is deleted.
+   *
    * Idempotent — safe to call even if no session is active.
    */
   async closeSession(): Promise<void> {
+    // Wait for any in-flight session creation to complete
+    if (this.sessionMutex) {
+      try {
+        await this.sessionMutex;
+      } catch {
+        /* session creation failed */
+      }
+    }
+
     if (!this.sessionActive) return;
 
     try {
@@ -222,6 +275,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
     this.sessionActive = false;
     this.screenSize = null;
+
+    // ADR-012: stop WDA after Appium session is torn down
+    if (this.wdaManager) {
+      try {
+        await this.wdaManager.stop();
+      } catch {
+        // Best-effort WDA cleanup
+      }
+    }
   }
 
   // ── Coordinate conversion ──────────────────────────────────────────
