@@ -44,6 +44,9 @@ import type {
 
 import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
 
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
@@ -643,17 +646,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
     try {
       await this.ensureSession();
 
-      // takeScreenshot returns base64 PNG — we store it as an artifact
-      const _base64 = await this.driver.takeScreenshot();
-
-      // In production, this would write the base64 data to the artifact store.
-      // For now (Task 3.7), return an artifact reference with metadata.
-      // ArtifactStore integration is done in Task 3.12/4.1.
+      const base64 = await this.driver.takeScreenshot();
       const id = `screenshot_${Date.now()}`;
+      const dir = join(tmpdir(), 'itestagent', 'artifacts');
+      mkdirSync(dir, { recursive: true });
+      const destPath = join(dir, `${id}.png`);
+      writeFileSync(destPath, Buffer.from(base64, 'base64'));
+
       return {
         id,
         type: 'screenshot',
-        path: `artifacts/${id}.png`,
+        path: destPath,
         mimeType: 'image/png',
         redactionStatus: 'safe',
       };
@@ -791,13 +794,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
     try {
       await this.ensureSession();
 
-      const _base64 = await this.driver.stopRecording(input.handleId);
-
+      const base64 = await this.driver.stopRecording(input.handleId);
       const id = `video_${Date.now()}`;
+      const dir = join(tmpdir(), 'itestagent', 'artifacts');
+      mkdirSync(dir, { recursive: true });
+      const destPath = join(dir, `${id}.mp4`);
+      writeFileSync(destPath, Buffer.from(base64, 'base64'));
+
       return {
         id,
         type: 'video',
-        path: `artifacts/${id}.mp4`,
+        path: destPath,
         mimeType: 'video/mp4',
         redactionStatus: 'raw-local-only',
       };

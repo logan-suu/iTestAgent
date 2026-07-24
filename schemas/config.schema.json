@@ -76,6 +76,11 @@
         }
       },
       "additionalProperties": false
+    },
+    "allowCrossTargetFallback": {
+      "type": "boolean",
+      "description": "Allow cross-target fallback (e.g. physical→simulator when no physical device available). Default: false (ADR-011).",
+      "default": false
     }
   },
   "additionalProperties": false

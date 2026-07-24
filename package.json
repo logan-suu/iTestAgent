@@ -2,7 +2,7 @@
   "name": "itestagent",
   "private": true,
   "version": "0.0.1",
-  "description": "iPhone 真机全自动化测试 TUI Agent — Local-first, TUI-first, Agent-native, Project-aware, Real-device only.",
+  "description": "iPhone 真机与 iOS Simulator 同级支持的全自动化测试 TUI Agent — Local-first, TUI-first, Agent-native, Project-aware, Target-explicit.",
   "license": "MIT",
   "type": "module",
   "workspaces": ["packages/*", "packages/itestagent-backends/*"],

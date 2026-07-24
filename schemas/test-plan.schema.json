@@ -180,7 +180,7 @@
           }
         }
       },
-      "required": ["prefer", "fallback", "features", "testData", "assertion", "metrics"]
+      "required": ["prefer", "fallback", "features", "testData", "assertion"]
     },
     "ArtifactPolicy": {
       "type": "object",

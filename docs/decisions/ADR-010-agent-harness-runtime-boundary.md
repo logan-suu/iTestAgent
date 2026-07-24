@@ -1,6 +1,6 @@
 # ADR-010: Agent Harness Runtime 边界——自研编排/权限/生命周期，复用 AI SDK + MCP
 
-**状态**: Proposed
+**状态**: Accepted
 **日期**: 2026-07-16
 **决策人**: AI Agent（基于 Harness Runtime 架构与实施报告）
 **关联**: ADR-001（去风险 MVP）、ADR-005（可插拔 Backend 架构）、AGENTS.md §4 架构与命名
