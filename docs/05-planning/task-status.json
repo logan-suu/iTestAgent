@@ -810,7 +810,7 @@
           "id": "3.17",
           "title": "Phase 3 集成测试：真机执行核心联调验证",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
@@ -832,7 +832,8 @@
             "3.16",
             "3.14"
           ],
-          "test_file": null
+          "test_file": null,
+          "last_updated": "2026-07-25T12:00:00.000Z"
         }
       ]
     },
