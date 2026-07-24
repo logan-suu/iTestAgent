@@ -2,9 +2,16 @@
  * Phase 3 integration — Build to Explore: DeviceExplorer → MockDeviceBackend → RunStepRecorder → Flow YAML
  */
 import { describe, expect, it } from 'bun:test';
-import { BackendRegistry, BackendSelector, DeviceExplorer, PermissionEngine, RunStepRecorder, ToolDispatcher } from 'itestagent-engine';
-import { serializeFlowYaml } from 'itestagent-flow';
 import { MockDeviceBackend } from 'itestagent-device-mock';
+import {
+  BackendRegistry,
+  BackendSelector,
+  DeviceExplorer,
+  PermissionEngine,
+  RunStepRecorder,
+  ToolDispatcher,
+} from 'itestagent-engine';
+import { serializeFlowYaml } from 'itestagent-flow';
 
 const SIM_UDID = 'F7C1CF80-9B8A-4E5C-A123-4567890ABCDE';
 
@@ -27,9 +34,7 @@ describe('Phase 3 Build-to-Explore', () => {
       backendName: 'mock',
     });
 
-    const steps = await explorer.explore([
-      { action: 'tap' as const, target: 'Login' } as any,
-    ]);
+    const steps = await explorer.explore([{ action: 'tap' as const, target: 'Login' } as any]);
 
     expect(steps.length).toBeGreaterThan(0);
   });
