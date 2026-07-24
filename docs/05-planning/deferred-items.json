@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-25T15:00:00.000Z",
+  "last_updated": "2026-07-25T17:45:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -208,10 +208,11 @@
       "item": "Replace blocking Bun.spawnSync with async Bun.spawn in AppiumDeviceBackend and WdaManager",
       "detail": "AppiumDeviceBackend listDevices (L237), healthcheck (L295), listCrashes (L596) and WdaManager install (L133) use Bun.spawnSync in async methods, blocking the Bun event loop. This violates the architecture principle of 'different devices can be parallel' (§4). Fix: convert all 4 sites to Bun.spawn + await proc.exited, preserving existing stdout/stderr capture and exit-code handling. Requires G5 re-verify after change since devicectl calls are part of the physical device flow. Deferred because: (1) touches 4 functions across 2 files, (2) needs coordinated change to not break existing behavior, (3) G5 re-verification required.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session, Task 3.17) + G5 verified",
       "created_at": "2026-07-21T18:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: requires G5 re-verify after async conversion (major)"
+      "notes": " Task 3.17 disposition: deferred: requires G5 re-verify after async conversion (major)",
+      "resolved_at": "2026-07-25T17:45:00.000Z"
     },
     {
       "id": "DEF-013",
