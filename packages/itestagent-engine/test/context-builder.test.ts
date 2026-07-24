@@ -61,7 +61,7 @@ const MOCK_INTENT: Intent = {
 };
 
 const MOCK_TEST_PLAN: TestPlan = {
-  schemaVersion: 'itestagent.test-plan.v1' as const,
+  schemaVersion: 'itestagent.test-plan.v2' as const,
   runId: 'run-001',
   projectProfileRef: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   target: { type: 'current_workspace' },

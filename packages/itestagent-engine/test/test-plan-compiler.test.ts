@@ -90,7 +90,7 @@ describe('compileTestPlan', () => {
   describe('AC1: unified TestPlan from Intent + Profile', () => {
     it('compiles a valid TestPlan from physical intent + profile', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.schemaVersion).toBe('itestagent.test-plan.v1');
+      expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
       expect(plan.runId).toMatch(/^run_\d{8}_\d{6}_[a-z0-9]{4}$/);
       expect(plan.device.kind).toBe('physical');
       expect(plan.device.physical?.selector).toBe('local_connected');
@@ -188,7 +188,7 @@ describe('compileTestPlan', () => {
 
     it('includes schemaVersion for audit trail', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.schemaVersion).toBe('itestagent.test-plan.v1');
+      expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
     });
 
     it('same input produces equivalent plan (different runId only)', () => {

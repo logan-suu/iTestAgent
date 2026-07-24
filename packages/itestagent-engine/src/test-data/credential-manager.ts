@@ -6,6 +6,8 @@ import type {
   SecretStore,
 } from 'itestagent-contracts';
 
+import type { PermissionEngine } from '../permission-engine.js';
+
 // ─── Types ─────────────────────────────────────────────────
 
 /**
@@ -32,11 +34,12 @@ export type PromptCallback = (
  *   1. Check MemorySecretStore (session memory)
  *   2. Check KeychainSecretStore (persisted)
  *   3. Prompt user via callback (TUI integration)
- *   4. If remembered=true, store to KeychainSecretStore
+ *   4. If remembered=true AND PermissionEngine allows, store to KeychainSecretStore
  */
 export class CredentialManager implements CredentialManagerInterface {
   private readonly memoryStore: SecretStore;
   private readonly keychainStore: SecretStore | undefined;
+  private readonly permissionEngine: PermissionEngine | undefined;
   private readonly promptCallback: PromptCallback | undefined;
   private sessionKeys: Set<string> = new Set();
 
@@ -44,14 +47,17 @@ export class CredentialManager implements CredentialManagerInterface {
    * @param memoryStore Session-scoped in-memory store (required).
    * @param keychainStore Persistent Keychain store (optional, macOS-only).
    * @param promptCallback User prompt callback for TUI integration (optional).
+   * @param permissionEngine PermissionEngine for gating Keychain writes (ADR-010 §4).
    */
   constructor(
     memoryStore: SecretStore,
     keychainStore?: SecretStore,
     promptCallback?: PromptCallback,
+    permissionEngine?: PermissionEngine,
   ) {
     this.memoryStore = memoryStore;
     this.keychainStore = keychainStore;
+    this.permissionEngine = permissionEngine;
     this.promptCallback = promptCallback;
   }
 
@@ -117,9 +123,16 @@ export class CredentialManager implements CredentialManagerInterface {
       await this.memoryStore.set(key, value);
       this.trackSessionKey(key);
 
-      // Step 3b: Store to Keychain if remembered (AC3)
+      // Step 3b: Store to Keychain if remembered AND permission allows (R7/ADR-010)
       if (remembered && this.keychainStore) {
-        await this.keychainStore.set(key, value);
+        if (this.permissionEngine) {
+          const gate = this.permissionEngine.check('credential_store', key);
+          if (gate === 'allow') {
+            await this.keychainStore.set(key, value);
+          }
+        } else {
+          await this.keychainStore.set(key, value);
+        }
       }
 
       return {

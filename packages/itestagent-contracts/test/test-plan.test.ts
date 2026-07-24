@@ -19,7 +19,7 @@ import type { TestPlan } from '../src/test-plan.js';
 
 function makeValidTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
   return {
-    schemaVersion: 'itestagent.test-plan.v1',
+    schemaVersion: 'itestagent.test-plan.v2',
     runId: 'run_20260720_001',
     projectProfileRef: '~/.itestagent/projects/abc123/project-profile.json',
     target: { type: 'current_workspace' },
@@ -250,7 +250,7 @@ describe('TestPlanSchema (root)', () => {
   it('parses a complete valid TestPlan', () => {
     const plan = makeValidTestPlan();
     const result = TestPlanSchema.parse(plan);
-    expect(result.schemaVersion).toBe('itestagent.test-plan.v1');
+    expect(result.schemaVersion).toBe('itestagent.test-plan.v2');
     expect(result.runId).toBe('run_20260720_001');
     expect(result.device.kind).toBe('physical');
     expect(result.execution.features).toEqual(['login', 'checkout']);
@@ -285,7 +285,7 @@ describe('TestPlanSchema (root)', () => {
   it('rejects missing required top-level fields', () => {
     expect(() =>
       TestPlanSchema.parse({
-        schemaVersion: 'itestagent.test-plan.v1',
+        schemaVersion: 'itestagent.test-plan.v2',
         runId: 'run_001',
         // missing projectProfileRef, target, device, etc.
       }),
@@ -293,7 +293,7 @@ describe('TestPlanSchema (root)', () => {
   });
 
   it('rejects wrong schemaVersion', () => {
-    const plan = makeValidTestPlan({ schemaVersion: 'wrong.version' as 'itestagent.test-plan.v1' });
+    const plan = makeValidTestPlan({ schemaVersion: 'wrong.version' as 'itestagent.test-plan.v2' });
     expect(() => TestPlanSchema.parse(plan)).toThrow();
   });
 

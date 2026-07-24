@@ -17,7 +17,7 @@ import {
 
 function makeTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
   return {
-    schemaVersion: 'itestagent.test-plan.v1' as const,
+    schemaVersion: 'itestagent.test-plan.v2' as const,
     runId: 'run-001',
     projectProfileRef: '~/.itestagent/projects/abc123/project-profile.json',
     target: { type: 'current_workspace' },

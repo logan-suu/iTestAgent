@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-23T18:30:00.000Z",
+  "last_updated": "2026-07-25T10:00:00.000Z",
   "current_phase": 3,
   "phases": [
     {
@@ -627,7 +627,7 @@
           "id": "3.6",
           "title": "MobileMcpBackend 实现",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -670,8 +670,7 @@
             "3.2"
           ],
           "test_file": null,
-          "notes": "PR #34: https://github.com/logan-suu/iTestAgent/pull/34 — Merged to dev-1.0 (2026-07-22). AiSdkAgentRuntime (~210 lines): streamTurn/executeToolCall/abort wrapping Vercel AI SDK streamText. toolExecutor callback delegates to ToolDispatcher (3.9). 14 tests. typecheck 0 / lint 0 / 1151 tests pass. AgentTurnInput extended with optional system field.",
-          "last_updated": "2026-07-22T12:00:00.000Z"
+          "notes": "PR #34: https://github.com/logan-suu/iTestAgent/pull/34 — Merged to dev-1.0 (2026-07-22). AiSdkAgentRuntime (~210 lines): streamTurn/executeToolCall/abort wrapping Vercel AI SDK streamText. toolExecutor callback delegates to ToolDispatcher (3.9). 14 tests. typecheck 0 / lint 0 / 1151 tests pass. AgentTurnInput extended with optional system field."
         },
         {
           "id": "3.9",
@@ -696,7 +695,7 @@
           "id": "3.10",
           "title": "AppiumDeviceBackend — simulator adapter extension: simctl + Appium/WDA",
           "story": null,
-"status": "done",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/decisions/ADR-011-ios-simulator-first-class-support.md"
@@ -705,8 +704,8 @@
             "3.7"
           ],
           "test_file": "packages/itestagent-backends/device-appium/test/appium-device-backend.test.ts",
-"notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Merged to dev-1.0 (2026-07-22). Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl-based listDevices/healthcheck/listCrashes, dynamic capabilities getter, dual-target ensureSession routing using buildPhysicalCapabilities()/buildSimulatorCapabilities(). 7 files, +910/-63 lines, 25 new tests (1222 total pass). G5-SIM: 6/6 PASS — simctl listDevices parsing (35 devices/3 runtimes), healthcheck (booted→healthy), Appium session end-to-end (buildSimulatorCapabilities() → session → page source 38K/159 elements → screenshot → tap/swipe/launchApp). Verified on iPhone 16 Pro (iOS 18.2 Simulator, headless), Appium 3.5.2 + XCUITest 11.17.7. G5-SIM report: docs/06-verification/g5-sim-spike-report-3.10.md.",
-      "last_updated": "2026-07-22T14:00:00.000Z"
+          "notes": "PR #36: https://github.com/logan-suu/iTestAgent/pull/36 — Merged to dev-1.0 (2026-07-22). Extended AppiumDeviceBackend with simulator adapter: buildSimulatorCapabilities() (no code signing, auto-build WDA), simctl-based listDevices/healthcheck/listCrashes, dynamic capabilities getter, dual-target ensureSession routing using buildPhysicalCapabilities()/buildSimulatorCapabilities(). 7 files, +910/-63 lines, 25 new tests (1222 total pass). G5-SIM: 6/6 PASS — simctl listDevices parsing (35 devices/3 runtimes), healthcheck (booted→healthy), Appium session end-to-end (buildSimulatorCapabilities() → session → page source 38K/159 elements → screenshot → tap/swipe/launchApp). Verified on iPhone 16 Pro (iOS 18.2 Simulator, headless), Appium 3.5.2 + XCUITest 11.17.7. G5-SIM report: docs/06-verification/g5-sim-spike-report-3.10.md.",
+          "last_updated": "2026-07-22T14:00:00.000Z"
         },
         {
           "id": "3.11",
@@ -773,7 +772,7 @@
           ],
           "test_file": "packages/itestagent-contracts/test/assertion-schema.test.ts, packages/itestagent-engine/test/assertion-evaluator.test.ts",
           "notes": "PR #41 merged to dev-1.0 (2026-07-23). AssertionEvaluator (4-tier priority AC1-AC3), AssertionCondition/UserAssertion schemas, CandidateLink.expectedOutcomes for tier-2. 53 new tests (1555 total). AC4 TUI confirmation panel deferred to 3.17 (DEF-019).",
-  "last_updated": "2026-07-23T18:00:00.000Z"
+          "last_updated": "2026-07-23T18:00:00.000Z"
         },
         {
           "id": "3.15",
@@ -999,7 +998,7 @@
           "id": "5.1",
           "title": "质量门禁 G1-G7 落地到 CI",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
@@ -1098,7 +1097,7 @@
           "id": "6.1",
           "title": "团队扩展：remote backend / Mac worker pool / 共享设备池 / PR Bot",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/02-architecture/架构设计文档.md"
           ],
@@ -1138,7 +1137,7 @@
           "id": "6.4",
           "title": "核心链路推断增强（历史 Flow + 证据学习）",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],

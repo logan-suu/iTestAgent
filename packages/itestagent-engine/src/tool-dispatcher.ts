@@ -46,8 +46,8 @@ interface ToolMapping {
   /** Zod parse function: args → typed input */
   // biome-ignore lint/suspicious/noExplicitAny: dynamic param schemas
   parseParams: (args: Record<string, unknown>) => any;
-  /** Permission action name */
-  action: string;
+  /** Permission action name, or a resolver that computes it from parsed args */
+  action: string | ((parsedArgs: Record<string, unknown>) => string);
 }
 
 /** Maximum output size in chars before truncation (R5: not silent). */
@@ -104,7 +104,10 @@ const TOOL_REGISTRY: Record<string, ToolMapping> = {
   open_url: {
     method: 'openUrl',
     parseParams: (args) => OpenUrlInputSchema.parse(args),
-    action: 'open_url',
+    action: (parsedArgs: Record<string, unknown>) => {
+      const url = typeof parsedArgs.url === 'string' ? parsedArgs.url : '';
+      return /^https?:/i.test(url) ? 'open_url' : 'open_non_http_url';
+    },
   },
   list_devices: {
     method: 'listDevices',
@@ -318,9 +321,11 @@ export class ToolDispatcher {
     }
 
     // 4. Permission gate
-    const resource = deriveResource(mapping.action, parsedCall.arguments);
+    const resolvedAction =
+      typeof mapping.action === 'function' ? mapping.action(parsedCall.arguments) : mapping.action;
+    const resource = deriveResource(resolvedAction, parsedCall.arguments);
 
-    const permissionResult = await this.checkPermission(callId, mapping.action, resource);
+    const permissionResult = await this.checkPermission(callId, resolvedAction, resource);
     if (permissionResult.denied) {
       return this.errorResult(
         callId,

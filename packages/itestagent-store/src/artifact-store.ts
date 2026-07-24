@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, extname, join } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import type { ArtifactInput, ArtifactRef, ArtifactStore } from 'itestagent-contracts';
 
 type InternalArtifactRef = ArtifactRef & { _id: string };
@@ -78,7 +78,7 @@ export function createArtifactStore(artifactsRoot: string): ArtifactStore {
       const ref: ArtifactRef = {
         id,
         type: input.type,
-        path: destPath,
+        path: relative(artifactsRoot, destPath),
         mimeType,
         relatedStep: input.relatedStep,
         redactionStatus: 'raw-local-only',

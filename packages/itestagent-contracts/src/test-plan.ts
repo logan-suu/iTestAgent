@@ -185,7 +185,7 @@ export type PermissionPolicyRef = z.infer<typeof PermissionPolicyRefSchema>;
 export const TestPlanSchema = z
   .object({
     /** Schema version for forward-compat migrations (G2) */
-    schemaVersion: z.literal('itestagent.test-plan.v1'),
+    schemaVersion: z.literal('itestagent.test-plan.v2'),
     /** Unique run identifier */
     runId: z.string().min(1),
     /** Reference path to the source Project Profile */

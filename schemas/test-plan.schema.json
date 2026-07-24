@@ -9,7 +9,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "itestagent.test-plan.v1"
+      "const": "itestagent.test-plan.v2"
     },
     "runId": {
       "type": "string",

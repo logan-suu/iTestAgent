@@ -38,10 +38,11 @@ describe('ArtifactStore', () => {
       expect(ref.id).toBeDefined();
       expect(ref.type).toBe('screenshot');
       expect(ref.mimeType).toBe('image/png');
-      expect(ref.path).toStartWith(join(testRoot, 'artifacts'));
-      expect(existsSync(ref.path)).toBe(true);
+      // ref.path is relative to artifactsRoot per data contract
+      expect(ref.path).not.toStartWith('/');
+      expect(existsSync(join(testRoot, 'artifacts', ref.path))).toBe(true);
 
-      const stored = readFileSync(ref.path);
+      const stored = readFileSync(join(testRoot, 'artifacts', ref.path));
       expect(stored.equals(data)).toBe(true);
     });
 
@@ -58,9 +59,10 @@ describe('ArtifactStore', () => {
 
       expect(ref.id).toBeDefined();
       expect(ref.type).toBe('log');
-      expect(ref.path).toStartWith(join(testRoot, 'artifacts'));
-      expect(existsSync(ref.path)).toBe(true);
-      expect(readFileSync(ref.path).equals(content)).toBe(true);
+      // ref.path is relative to artifactsRoot per data contract
+      expect(ref.path).not.toStartWith('/');
+      expect(existsSync(join(testRoot, 'artifacts', ref.path))).toBe(true);
+      expect(readFileSync(join(testRoot, 'artifacts', ref.path)).equals(content)).toBe(true);
     });
 
     it('generates unique IDs for each artifact', async () => {
@@ -122,9 +124,12 @@ describe('ArtifactStore', () => {
       });
 
       // ref.path always inside artifactsRoot after put()
-      expect(ref.path).toStartWith(join(testRoot, 'artifacts'));
-      expect(existsSync(ref.path)).toBe(true);
-      expect(readFileSync(ref.path).equals(Buffer.from('hello'))).toBe(true);
+      // ref.path is relative to artifactsRoot per data contract
+      expect(ref.path).not.toStartWith('/');
+      expect(existsSync(join(testRoot, 'artifacts', ref.path))).toBe(true);
+      expect(readFileSync(join(testRoot, 'artifacts', ref.path)).equals(Buffer.from('hello'))).toBe(
+        true,
+      );
     });
   });
 });

@@ -53,7 +53,7 @@ export function compileTestPlan(
   };
 
   const plan: TestPlan = {
-    schemaVersion: 'itestagent.test-plan.v1',
+    schemaVersion: 'itestagent.test-plan.v2',
     runId,
     projectProfileRef,
     target: { type: 'current_workspace' },

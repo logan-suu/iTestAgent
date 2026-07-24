@@ -58,8 +58,9 @@ describe('Phase 1 Integration: Artifact Store (Store ← filesystem ← Contract
     expect(ref.type).toBe('screenshot');
     expect(ref.mimeType).toBe('image/png');
     expect(ref.redactionStatus).toBe('raw-local-only');
-    expect(ref.path).toContain(artifactsRoot);
-    expect(existsSync(ref.path)).toBe(true);
+    // ref.path is relative to artifactsRoot per data contract
+    expect(ref.path).not.toContain('/');
+    expect(existsSync(join(artifactsRoot, ref.path))).toBe(true);
   });
 
   // ─── 2. put() from file path — copies data ────────────
@@ -80,10 +81,10 @@ describe('Phase 1 Integration: Artifact Store (Store ← filesystem ← Contract
 
     expect(ref.type).toBe('log');
     expect(ref.relatedStep).toBe('step_1');
-    expect(existsSync(ref.path)).toBe(true);
+    expect(existsSync(join(artifactsRoot, ref.path))).toBe(true);
 
     // Content was copied
-    const content = readFileSync(ref.path, 'utf-8');
+    const content = readFileSync(join(artifactsRoot, ref.path), 'utf-8');
     expect(content).toBe('log line 1\nlog line 2\n');
 
     rmSync(srcDir, { recursive: true, force: true });
@@ -189,7 +190,7 @@ describe('Phase 1 Integration: Artifact Store (Store ← filesystem ← Contract
     for (const type of types) {
       const ref = await store.put({ type, data: Buffer.from('data') });
       expect(ref.type).toBe(type);
-      expect(existsSync(ref.path)).toBe(true);
+      expect(existsSync(join(artifactsRoot, ref.path))).toBe(true);
     }
   });
 
