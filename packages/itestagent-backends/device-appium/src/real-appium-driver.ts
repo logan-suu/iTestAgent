@@ -69,15 +69,13 @@ export class RealAppiumDriver implements AppiumDriver {
     }
 
     try {
-      const wdioCaps = {
-        ...caps,
+      this.client = await remoteFn({
         hostname: new URL(this.serverUrl).hostname,
         port: Number(new URL(this.serverUrl).port) || 4723,
         path: '/',
         logLevel: 'warn',
-      };
-
-      this.client = await remoteFn(wdioCaps);
+        capabilities: caps,
+      });
       this.sessionId = this.client.sessionId;
       this.active = true;
 
