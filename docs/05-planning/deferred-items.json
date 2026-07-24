@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-24T00:00:00.000Z",
+  "last_updated": "2026-07-25T10:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -323,9 +323,10 @@
       "item": "Keychain persistence in CredentialManager bypasses PermissionEngine (R7)",
       "detail": "CredentialManager stores remembered credentials directly to keychainStore (line 114-116) without going through PermissionEngine. test-plan-compiler.ts lists 'store_credential' in safety.highRiskActions, and AGENTS.md R7 requires secondary confirmation for high-risk operations. Fix: add PermissionEngine dependency to CredentialManager constructor, call permissionEngine.check({ action: 'store_credential', resource: key }) before keychainStore.set(). Deferred to Phase 3 integration (3.17) where PermissionEngine will be wired into the full harness. The TUI-level 'remembered' toggle provides user intent but does not satisfy the R7 architectural gate.",
       "target_phase": 3,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-07-24T00:00:00.000Z"
+      "status": "resolved",
+      "resolved_by": "post-review fix (Sisyphus session)",
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "resolved_at": "2026-07-25T10:00:00.000Z"
     },
     {
       "id": "DEF-021",
@@ -358,6 +359,86 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "id": "DEF-023",
+      "source": "Internal audit report (iTestAgent dev-1.0)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": null,
+      "severity": "major",
+      "item": "G5 spike report 3.7 contradiction: §3d (Appium Session Creation) marked BLOCKED but overall status claims 7/7 PASS",
+      "detail": "g5-spike-report-3.7.md line 84 marks Appium session creation as BLOCKED (free account limitation, Appium does not pass -allowProvisioningUpdates), but line 7 and 157 declare overall status as 7/7 PASS. The 7th verification target (Appium session creation) was satisfied via WDA direct xcodebuild bypass, not through the Appium adapter. The report should clarify this distinction: Appium-mediated session is blocked, but the direct WDA path works. Fix: update report to reflect tiered results (WDA-direct: PASS, Appium-mediated: BLOCKED) with clear rationale.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-25T10:00:00.000Z"
+    },
+    {
+      "id": "DEF-024",
+      "source": "Internal audit report (iTestAgent dev-1.0)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": null,
+      "severity": "minor",
+      "item": "US-7.1 (XCUITest path) ownership conflict between task 3.11 (BuildDriver) and task 4.1 (xcresult parser)",
+      "detail": "US-7.1 xcodebuild test + xcresult is implemented in task 3.11 (build driver level), but xcresult parsing is assigned to task 4.1 (Phase 4 evidence/report). The split means Phase 3 cannot fully verify the XCUITest path end-to-end because result parsing is deferred. Resolution: either extend 3.11 to include basic xcresult parsing (test counts, pass/fail), or explicitly mark the XCUITest→xcresult→report chain as a Phase 3→Phase 4 handoff in task 3.17 exit criteria.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-25T10:00:00.000Z"
+    },
+    {
+      "id": "DEF-025",
+      "source": "Internal audit report (iTestAgent dev-1.0)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": null,
+      "severity": "minor",
+      "item": "OpenTUI renderer issues reported: nested <text> crash on native renderer, input focus not set, onSubmit not bound to keyboard events",
+      "detail": "The report identifies specific OpenTUI renderer integration issues (packages/itestagent-tui/src/renderers/opentui-renderer.tsx). These are likely OpenTUI framework maturity issues rather than iTestAgent defects. The renderer tests also reportedly mock the real component tree, masking these issues. If OpenTUI cannot resolve these, the Ink fallback (ADR-008) should be activated. Resolution path: (a) investigate and fix if in our code, (b) report upstream if OpenTUI bug, (c) switch to Ink fallback if unresolvable.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-25T10:00:00.000Z"
+    },
+    {
+      "id": "DEF-026",
+      "source": "Internal audit report (iTestAgent dev-1.0)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": null,
+      "severity": "minor",
+      "item": "Agent Harness internal inconsistencies: runtime/session/tool ID disunity, AI SDK wrapper empty tool call ID, tool.progress has no producer, BackendSelector healthcheck placeholder",
+      "detail": "The report identifies several minor internal inconsistencies in the Agent Harness components (AiSdkAgentRuntime, ToolDispatcher, BackendSelector). These are not blocking defects but reduce internal coherence. Items: (1) ID generation not unified across runtime/session/tool layers, (2) AiSdkAgentRuntime may pass empty tool call IDs to AI SDK, (3) tool.progress AgentEvent type exists but no code produces it, (4) BackendSelector healthcheckGate may be a placeholder without real healthcheck integration. These should be systematically reviewed during task 3.17 integration testing when the full harness (Runtime→Dispatcher→Selector→Backend) is wired together.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-25T10:00:00.000Z"
+    },
+    {
+      "id": "DEF-027",
+      "source": "Internal audit report (iTestAgent dev-1.0)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": null,
+      "severity": "minor",
+      "item": "US-11.1 assertion strategy conflict: P0 in task 3.14 AC1-AC3 but MVP summary lists P1 for assertion-based pass/fail",
+      "detail": "The report notes a priority conflict: US-11.1 assertion strategy is listed as P0 in the task definition (3.14), suggesting assertions are critical for execution correctness, but the MVP completion standard (item 11) lists assertion-based pass/fail as P1 (explored/inconclusive/needs_assertion are acceptable outputs). Resolution: clarify in task 3.17 exit criteria that while the AssertionEvaluator exists (3.14), the full agent-suggested→confirmed→evaluated closed loop (including TUI confirmation panel per DEF-019) is Phase 3 integration scope, not individual task scope.",
+      "target_phase": 3,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-07-25T10:00:00.000Z"
     }
   ]
 }
