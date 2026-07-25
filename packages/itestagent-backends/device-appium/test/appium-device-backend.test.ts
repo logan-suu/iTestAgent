@@ -14,6 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { AppiumDeviceBackend, AppiumDriverError } from '../src/index.js';
+import type { WdaManager } from '../src/wda-manager.js';
 
 import type {
   AppiumActionResult,
@@ -71,7 +72,7 @@ interface MockDriverConfig {
 
 const DEFAULT_SESSION: AppiumSession = {
   sessionId: 'mock-session-001',
-  wdaBundleId: 'TEAMID.WebDriverAgentRunner.xctrunner',
+  wdaBundleId: 'TEAMID.WebDriverAgentRunner',
 };
 
 const DEFAULT_SCREEN: AppiumScreenSize = { width: 428, height: 926 };
@@ -921,13 +922,14 @@ describe('AppiumDeviceBackend', () => {
 import { buildPhysicalCapabilities, buildSimulatorCapabilities } from '../src/index.js';
 
 describe('buildPhysicalCapabilities', () => {
-  it('builds minimum capabilities with udid', () => {
+  it('builds minimum capabilities with udid (default preinstalled mode)', () => {
     const caps = buildPhysicalCapabilities({ udid: TEST_UDID });
 
     expect(caps.platformName).toBe('iOS');
     expect(caps['appium:automationName']).toBe('XCUITest');
     expect(caps['appium:udid']).toBe(TEST_UDID);
-    expect(caps['appium:usePrebuiltWDA']).toBe(true);
+    expect(caps['appium:usePreinstalledWDA']).toBe(true);
+    expect(caps['appium:usePrebuiltWDA']).toBeUndefined();
     expect(caps['appium:noReset']).toBe(true);
   });
 
@@ -937,13 +939,22 @@ describe('buildPhysicalCapabilities', () => {
     expect(caps['appium:bundleId']).toBe('com.example.app');
   });
 
-  it('includes wdaBundleId for free-account workaround', () => {
+  it('includes base wdaBundleId without .xctrunner suffix', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
-      wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner.xctrunner',
+      wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner',
     });
 
-    expect(caps['appium:updatedWDABundleId']).toBe('UJ876FXT32.WebDriverAgentRunner.xctrunner');
+    expect(caps['appium:updatedWDABundleId']).toBe('UJ876FXT32.WebDriverAgentRunner');
+  });
+
+  it('rejects wdaBundleId with .xctrunner suffix (double-suffix guard)', () => {
+    expect(() =>
+      buildPhysicalCapabilities({
+        udid: TEST_UDID,
+        wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner.xctrunner',
+      }),
+    ).toThrow(/without .xctrunner suffix/);
   });
 
   it('respects custom port options', () => {
@@ -1271,5 +1282,217 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
       expect(r2.success).toBe(true);
       expect(r3.success).toBe(true);
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// MockWdaManager — for lifecycle tests
+// ═══════════════════════════════════════════════════════════════════════
+
+interface MockWdaConfig {
+  isRunningResult?: boolean;
+  stopThrows?: boolean;
+  waitForReadyThrows?: boolean;
+  waitForReadyResult?: { ready: boolean; waitedMs: number };
+}
+
+class MockWdaManager {
+  private config: MockWdaConfig;
+  readonly calls: string[] = [];
+  stopCallCount = 0;
+  private _isRunning: boolean;
+
+  constructor(config?: MockWdaConfig) {
+    this.config = config ?? {};
+    this._isRunning = this.config.isRunningResult ?? false;
+  }
+
+  setConfig(config: MockWdaConfig): void {
+    this.config = { ...this.config, ...config };
+  }
+
+  isRunning(): boolean {
+    return this._isRunning;
+  }
+
+  setRunning(running: boolean): void {
+    this._isRunning = running;
+  }
+
+  async stop(): Promise<void> {
+    // Record call for test observability (even if no-op)
+    this.calls.push('stop');
+    // Idempotent — matching real WdaManager: only does real work when running
+    if (!this._isRunning) return;
+    this.stopCallCount++;
+    this._isRunning = false;
+    if (this.config.stopThrows) {
+      throw new Error('WDA stop failed');
+    }
+  }
+
+  async waitForReady(
+    _port: number,
+    _timeoutMs?: number,
+  ): Promise<{ ready: boolean; waitedMs: number }> {
+    this.calls.push('waitForReady');
+    if (this.config.waitForReadyThrows) {
+      throw new Error('WDA /status timeout');
+    }
+    return this.config.waitForReadyResult ?? { ready: true, waitedMs: 500 };
+  }
+
+  async verifyPreinstalledWDA(
+    _udid: string,
+    _expectedBundleId: string,
+  ): Promise<{ ready: boolean; reason?: string; actualBundleId?: string }> {
+    this.calls.push('verifyPreinstalledWDA');
+    return { ready: true, actualBundleId: `${_expectedBundleId}.xctrunner` };
+  }
+
+  async preparePreinstalledWDA(): Promise<{ ready: boolean; reason?: string }> {
+    this.calls.push('preparePreinstalledWDA');
+    return { ready: true };
+  }
+
+  async launch(): Promise<{ port: number; url: string }> {
+    this.calls.push('launch');
+    this._isRunning = true;
+    return { port: 8100, url: 'http://127.0.0.1:8100' };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Lifecycle tests — WDA cleanup, /status timeout, double close
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
+  it('WDA cleanup runs even when session was never created (closeSession with sessionActive=false)', async () => {
+    const wdaManager = new MockWdaManager({ isRunningResult: true });
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+
+    // Session was NEVER created — sessionActive is false
+    expect(driver.isSessionActive()).toBe(false);
+
+    // closeSession should STILL call wdaManager.stop()
+    await backend.closeSession();
+
+    expect(wdaManager.calls).toContain('stop');
+    expect(wdaManager.stopCallCount).toBe(1);
+    // No deleteSession call since session was never active
+    expect(driver.calls).not.toContain('deleteSession');
+  });
+
+  it('WDA cleanup runs when session creation fails', async () => {
+    const wdaManager = new MockWdaManager({ isRunningResult: true });
+    const driver = new MockAppiumDriver({
+      createSessionError: new AppiumDriverError(
+        'session_create_failed',
+        'Appium server unreachable',
+      ),
+    });
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      wdaStartupMode: 'external-url',
+      webDriverAgentUrl: 'http://127.0.0.1:8100',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+
+    // Attempt an action that triggers session creation — it will fail
+    const result = await backend.launchApp({ deviceId: TEST_UDID, bundleId: TEST_BUNDLE_ID });
+    expect(result.success).toBe(false);
+
+    // closeSession should still call wdaManager.stop()
+    await backend.closeSession();
+    expect(wdaManager.calls).toContain('stop');
+  });
+
+  it('/status timeout returns structured error (WDA not ready)', async () => {
+    const wdaManager = new MockWdaManager({
+      waitForReadyThrows: true,
+      isRunningResult: true,
+    });
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      wdaStartupMode: 'external-url',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+
+    // Trigger session creation — it should fail because waitForReady throws
+    const result = await backend.getUiTree({ deviceId: TEST_UDID });
+
+    // Should return empty UiTreeSnapshot (not throw)
+    expect(result.raw).toBe('');
+  });
+
+  it('double closeSession is idempotent (calls stop only once)', async () => {
+    const wdaManager = new MockWdaManager({ isRunningResult: true });
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+
+    // Close twice
+    await backend.closeSession();
+    await backend.closeSession();
+
+    // wdaManager.stop() should be called only once (idempotent)
+    expect(wdaManager.stopCallCount).toBe(1);
+  });
+
+  it('closeSession releases resources even when wdaManager.stop() throws', async () => {
+    const wdaManager = new MockWdaManager({
+      isRunningResult: true,
+      stopThrows: true,
+    });
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+
+    // Create a session first
+    await backend.getUiTree({ deviceId: TEST_UDID });
+    expect(driver.isSessionActive()).toBe(true);
+
+    // closeSession should not throw even if wdaManager.stop throws
+    await backend.closeSession();
+
+    // Appium session should still be cleaned up
+    expect(driver.isSessionActive()).toBe(false);
+    expect(driver.calls).toContain('deleteSession');
+  });
+
+  it('wdaManager is not called for simulator targetKind', async () => {
+    const wdaManager = new MockWdaManager();
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: SIM_UDID,
+      targetKind: 'simulator',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+
+    // Simulator path does not use WdaManager — Appium auto-builds WDA
+    await backend.getUiTree({ deviceId: SIM_UDID });
+    expect(driver.calls).toContain('createSession');
+
+    // No WDA lifecycle calls for simulator
+    expect(wdaManager.calls).not.toContain('launch');
+    expect(wdaManager.calls).not.toContain('waitForReady');
+
+    await backend.closeSession();
+    // Simulator still calls stop on WdaManager if present
+    expect(wdaManager.calls).toContain('stop');
   });
 });

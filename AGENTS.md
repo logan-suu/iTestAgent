@@ -45,7 +45,7 @@
 | **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §4 核心流程、§3 组件职责 |
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
 | | `docs/decisions/ADR-010-agent-harness-runtime-boundary.md` | Harness 边界：自研/复用/禁止 |
-| | `docs/decisions/ADR-012-wda-lifecycle-separation.md` | WDA 生命周期分离：iTestAgent 自管 WDA，Appium 仅 WebDriver |
+| | `docs/decisions/ADR-012-wda-lifecycle-separation.md` | WDA 生命周期分离：iTestAgent 自管 WDA（Route C: WdaManager 构建+安装；Appium 管理启动+WebDriver 会话） |
 | **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
 | **实现 Project Analyzer / ProjectAnalyzerBackend** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer、§5.4 ProjectAnalyzerBackend |

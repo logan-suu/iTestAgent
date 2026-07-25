@@ -7,9 +7,15 @@
 
 ---
 
+> **状态更新（2026-07-25）**：✅ 已通过 Route C 解决。
+> 本文 §1-§6 记录了问题背景与尝试过程（历史记录），§8 记录最终解决方案与 G5 验证结果。
+> **有效路径**：`managed-xcodebuild` + `allowProvisioningDeviceRegistration: true`（Appium 3.5.2 + XCUITest Driver 11.17.7）。
+
+---
+
 ## 1. 问题描述
 
-iTestAgent 的设备探索路径（DeviceBackend）依赖 Appium/WebDriverAgent 在真机上创建 session。免费 Apple Developer 账号无法通过 Appium 完成 WDA 的启动，导致所有真机探索操作不可用。
+iTestAgent 的设备探索路径（DeviceBackend）依赖 Appium/WebDriverAgent 在真机上创建 session。免费 Apple Developer 账号无法通过 Appium 完成 WDA 的启动，导致所有真机探索操作不可用（历史记录：Route C 已解决，见 §8）。
 
 **错误现象**：
 
@@ -170,7 +176,7 @@ xcodebuild test-without-building \
 |---|---|---|
 | Simulator 设备探索 | ✅ 正常 | Simulator WDA 无需签名 |
 | 真机 XCUITest（有测试） | ✅ 正常 | `xcodebuild test` 直连，不经过 Appium |
-| 真机 DeviceBackend 探索 | ❌ 阻塞 | Appium 无法启动 WDA |
+| 真机 DeviceBackend 探索 | ❌ 阻塞（历史记录：Route C 已解决） | Appium 无法启动 WDA |
 | `itestagent doctor` | ✅ 正常 | 检测环境 |
 | `itestagent devices` | ✅ 正常 | 通过 devicectl 发现设备 |
 
@@ -189,8 +195,8 @@ xcodebuild test-without-building \
 | **P0（已实施）** | `itestagent doctor` 检测并提示 | Doctor 命令已检测 Appium/WDA 就绪状态，免费账号用户会收到引导提示 |
 | **P1（短期）** | Simulator 优先策略 | MVP 阶段推荐免费用户使用 Simulator（G5-SIM 已验证通过） |
 | **P2（中期）** | XCUITest 路径 | 引导有 XCUITest 的项目走 xcodebuild test 直连路径 |
-| **P3（长期）** | Appium 上游修复 | 等待 Appium XCUITest 驱动支持免费账号的 `-allowProvisioningUpdates` |
-| **P4（长期）** | MobileMcpBackend | Task 3.6（因付费账号阻塞），MCP-native 方案可能绕过此问题 |
+| **P3（长期）** | Appium 上游修复 | 等待 Appium XCUITest 驱动支持免费账号的 `-allowProvisioningUpdates`（已废弃：Route C 提供更简单的方案） |
+| **P4（长期）** | MobileMcpBackend | Task 3.6（因付费账号阻塞），MCP-native 方案可能绕过此问题（已废弃：Route C 提供更简单的方案） |
 
 ---
 
@@ -255,10 +261,88 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 
 ## 7. 建议的后续行动
 
-1. **短期（Phase 3 出口）**：在 `itestagent doctor` 中添加免费账号检测和引导提示
-2. **中期（Phase 4）**：在 `iTestAgent TUI` 启动时，如果检测到免费账号 + 真机探索路径，推荐 XCUITest 路径或 Simulator 回退
-3. **长期（Phase 5+）**：监控 Appium GitHub issues 中关于 free account + `-allowProvisioningUpdates` 的修复进展
-4. **备用方案**：如果 Appium 长期不修复，考虑 MobileMcpBackend（Task 3.6）或直接 WDA HTTP 协议（绕过 Appium 的 build 阶段）
+> 以下建议已过时。当前推荐：Route C（managed-xcodebuild + allowProvisioningDeviceRegistration: true）。
+
+1. **短期（Phase 3 出口）**：在 `itestagent doctor` 中添加免费账号检测和引导提示（已实现）
+2. **中期（Phase 4）**：在 `iTestAgent TUI` 启动时，如果检测到免费账号 + 真机探索路径，推荐 Route C（已实现）
+3. **长期（Phase 5+）**：监控 Appium GitHub issues 中关于 free account + `-allowProvisioningUpdates` 的修复进展（已废弃：Route C 已解决）
+4. **备用方案**：如果 Appium 长期不修复，考虑 MobileMcpBackend（Task 3.6）或直接 WDA HTTP 协议（已废弃：Route C 已解决）
+
+---
+
+## 8. 解决方案实施与 G5 验证结果（2026-07-25 / Updated 2026-07-26）
+
+### 8.1 G5 验证总结
+
+G5 真机验证于 2026-07-25 在 **iPhone 14 Plus (iOS 18.2.1)** 上执行，Appium 3.5.2 + XCUITest Driver 11.17.7 + WDA 15.1.6 + free Personal Team `UJ876FXT32`。三条路线结果如下：
+
+| Route | 策略 | 结果 | 说明 |
+|---|---|---|---|
+| **Route C** | `managed-xcodebuild` + `allowProvisioningDeviceRegistration: true` | ✅ **G5 VERIFIED** | Session → screenshot (306KB) → UI tree (27682 chars) → tap → close。Appium 通过此 capability 传递 `-allowProvisioningUpdates` 给 xcodebuild |
+| **Route A** | `usePreinstalledWDA` | ❌ **G5 TIMEOUT** | Appium 内部 `preinstalledWDA` RemoteXPC 启动超时 60s |
+| **Route B** | `webDriverAgentUrl` | ⏸️ **NOT TESTED** | 需要 iproxy for USB port forwarding（未安装） |
+
+**Route C 是当前 MVP 下免费 Apple Developer 账号真机路径的唯一可用方式。**
+
+### 8.2 Route C 详情：`managed-xcodebuild` + `allowProvisioningDeviceRegistration` ✅
+
+**Capabilities**：
+```json
+{
+  "platformName": "iOS",
+  "appium:automationName": "XCUITest",
+  "appium:udid": "<device UDID>",
+  "appium:xcodeOrgId": "UJ876FXT32",
+  "appium:xcodeSigningId": "Apple Development",
+  "appium:updatedWDABundleId": "UJ876FXT32.WebDriverAgentRunner",
+  "appium:allowProvisioningDeviceRegistration": true
+}
+```
+
+**关键点**：
+- `updatedWDABundleId` 使用 base ID（不加 `.xctrunner` 后缀），XCUITest scheme 自动追加
+- `allowProvisioningDeviceRegistration: true` 使 Appium 在其 xcodebuild 命令中传递 `-allowProvisioningUpdates`
+- 开发者证书必须在设备上手动信任（首次/每次证书变更）
+- Appium 3.5.2 / XCUITest 11.17.7 原生支持此 capability
+
+**G5 证据**：
+- Screenshot: `packages/itestagent-backends/device-appium/spike-evidence/g5-routec/screenshot.png` (306KB)
+- UI tree: `packages/itestagent-backends/device-appium/spike-evidence/g5-routec/pagesource.xml` (27682 chars)
+- Commit: `e3fbdd7` on branch `feat/appium-free-account-unblock`
+
+### 8.3 Route A 详情：`usePreinstalledWDA` ❌
+
+`usePreinstalledWDA` ≠ `usePrebuiltWDA`。前者完全跳过 Appium 的所有 xcodebuild，直接使用设备上已预安装的 WDA Runner。
+
+**G5 结果**：超时。Appium 使用 `preinstalledWDA` 策略时，虽然跳过了 xcodebuild，但通过 RemoteXPC 启动设备上的 WDA 进程时，要求在 60s 内完成连接。免费账号下签名后的 WDA Runner 在设备端的启动时间不定，导致超时。
+
+**架构变更（已实现，供参考）**：
+- `appium-capabilities.ts`：新增 `WdaStartupMode`（三种互斥模式：`preinstalled` / `external-url` / `managed-xcodebuild`）
+- `appium-device-backend.ts`：`ensureSession()` 按模式路由生命周期；`closeSession()` WDA 清理不再被 `sessionActive` 锁定
+- `wda-manager.ts`：新增 `waitForReady()`（`/status` 轮询）、`verifyPreinstalledWDA()`、`preparePreinstalledWDA()`
+- `composition-root.ts`：生产工厂函数 `createAppiumDeviceBackend()`
+- `redactor.ts`：PII 脱敏（错误消息中去除 UDID/Team ID/用户路径）
+
+**新增 Doctor 检查**：
+- `check-signing-identity`：交叉验证 Team ID（xcodebuild/cert/profile）
+- `check-wda-preinstalled`：验证 WDA Runner 已安装且 Profile 未过期
+- `check-wda-readiness`：轮询 `/status` 确认 WDA 就绪
+
+**提交**：`b96ec89`（核心代码）、`584fd65`（Doctor+测试）
+**G3 验证**：typecheck 0 / lint 0 / 1845 tests pass
+
+### 8.4 Route B 详情：`webDriverAgentUrl` ⏸️
+
+iTestAgent 完全管理 WDA 生命周期（WdaManager build → install → launch），Appium 通过 USB 端口转发连接到已运行的 WDA。
+
+**G5 状态**：未测试。WdaManager 的 build（22s）、install（devicectl）已验证通过，但 `webDriverAgentUrl` 要求 USB 端口转发（iproxy），当前环境未安装。
+
+### 8.5 关键注意事项
+
+- **证书信任**：首次在设备上使用新的免费开发者证书时，必须在设备上手动信任（Settings → General → VPN & Device Management）
+- **Profile 过期**：免费账号 provisioning profile 7 天过期，需重建
+- **3-app 上限**：免费账号最多 3 个 app（WDA Runner = 1 个）
+- **设备端启动延迟**：免费签名后的 app 在设备端首次启动较慢（需在线验证），这导致了 Route A 的超时
 
 ---
 

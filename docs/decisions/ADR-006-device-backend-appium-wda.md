@@ -76,6 +76,42 @@ Phase 6+ fallback = iphone-use（视觉 fallback）
 - mobile-mcp 独特能力（WebView/FS/Crash/Remote）暂时无法使用
 - 3-app 上限约束（WDA + 用户 app + 测试目标 app = 3）
 
+## Post-G5 Update (2026-07-25)
+
+G5 真机验证发现免费 Apple Developer 账号下有三种 Appium/WDA 启动路由，实际测试结果如下：
+
+### Route C (G5 VERIFIED): `managed-xcodebuild` + `allowProvisioningDeviceRegistration`
+
+这是当前唯一在免费账号下可用的 Appium 真机路径。
+
+**Capabilities**：
+```json
+{
+  "appium:xcodeOrgId": "UJ876FXT32",
+  "appium:xcodeSigningId": "Apple Development",
+  "appium:updatedWDABundleId": "UJ876FXT32.WebDriverAgentRunner",
+  "appium:allowProvisioningDeviceRegistration": true
+}
+```
+
+**关键点**：
+- `updatedWDABundleId` 使用 base ID（不加 `.xctrunner`），XCUITest scheme 自动追加
+- `allowProvisioningDeviceRegistration: true` 使 Appium 3.5.2 在其 xcodebuild 中传递 `-allowProvisioningUpdates`
+- 开发者证书必须手动在设备上信任
+- G5 证据：screenshot 306KB、UI tree 27682 chars，iPhone 14 Plus iOS 18.2.1，commit `e3fbdd7`
+
+### Route A (G5 FAILED): `usePreinstalledWDA`
+
+Appium 在 `preinstalledWDA` 策略下通过 RemoteXPC 启动设备端 WDA 进程时，内部 60s 超时。免费签名后的 WDA Runner 在设备端启动较慢（在线验证），无法在 60s 内完成 RemoteXPC 连接。这是 Appium 上游问题。
+
+### Route B (NOT TESTED): `webDriverAgentUrl`
+
+要求 iproxy 做 USB 端口转发（`iproxy <localPort> 8100 <UDID>`），当前环境未安装。
+
+### 对 ADR-006 原 decision 的影响
+
+原 ADR-006 中的免费账号 workaround（`usePrebuiltWDA: true` + manual xcodebuild + `-allowProvisioningUpdates`）已被 Route C 简化。`usePrebuiltWDA` 不再推荐——它跳过 `build-for-testing` 但不跳过 `test-without-building`，后者仍无 `-allowProvisioningUpdates`。Route C 的 `allowProvisioningDeviceRegistration` 从 capabilities 层面解决了此问题。
+
 ## 参考
 
 - `docs/02-architecture/架构设计文档.md` §5.1 — DeviceBackend 接口与候选
@@ -83,3 +119,5 @@ Phase 6+ fallback = iphone-use（视觉 fallback）
 - `~/Desktop/横评/T0.2 Device backend 横评.md` — 公司电脑横评
 - `~/Desktop/横评/T0.2b mobile-mcp 横评补充.md` — 个人电脑横评 + Appium/WDA 免费账号验证
 - `docs/decisions/ADR-005` — 可插拔 Backend 架构
+- `docs/decisions/ADR-012` — WDA 生命周期分离
+- `docs/07-troubleshooting/appium-free-account/blocker.md` — 免费账号阻塞根因分析

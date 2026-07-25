@@ -81,13 +81,13 @@ ServerURLHere->http://192.168.1.3:8100<-ServerURLHere
 
 ✅ **Pass** — WDA launches and listens on port 8100 on the device. Test runner active.
 
-### 3d. Appium Session Creation ⚠️ BLOCKED
+### 3d. Appium Session Creation ✅ RESOLVED via Route C (see Post-Script §3f)
 
 Appium's `real-device-xcodebuild` strategy runs its own `xcodebuild build-for-testing test-without-building`, which fails because:
 1. Appium passes `DEVELOPMENT_TEAM=L4CX67KLT5 CODE_SIGN_IDENTITY=Apple Development` to xcodebuild
 2. `WebDriverAgentLib` target hardcodes `CODE_SIGN_IDENTITY = "iOS Development"` — conflicts with `Apple Development`
 3. `No Account for Team "L4CX67KLT5"` — Xcode account session/token may need refresh
-4. `-allowProvisioningUpdates` capability is NOT passed to xcodebuild by Appium (Appium 3.5.2 + xcuitest 11.17.7 limitation)
+4. `-allowProvisioningUpdates` flag is NOT passed to xcodebuild by Appium 3.5.2 + xcuitest 11.17.7 by default. Resolution: `allowProvisioningDeviceRegistration: true` (XCUITest Driver 11.17.7+) passes `-allowProvisioningUpdates` to Appium's xcodebuild.
 
 **Verification**:
 - Appium server starts → finds device through tunnel → identifies WDA path → runs xcodebuild → xcodebuild exits code 65 ("No signing certificate iOS Development found")
@@ -112,7 +112,7 @@ While Appium can't complete its xcodebuild cycle, WDA responds correctly when la
 
 ### 4. Unit Test Coverage (bypass validation) ✅
 
-While the physical Appium session is blocked, the `AppiumDeviceBackend` logic is fully verified via 66 unit tests with `MockAppiumDriver`:
+While the physical Appium session is now verified via Route C (managed-xcodebuild + allowProvisioningDeviceRegistration), the `AppiumDeviceBackend` logic is also fully verified via 66 unit tests with `MockAppiumDriver`:
 
 | Test Area | Tests | Status |
 |---|---|---|
@@ -179,11 +179,37 @@ The breakthrough was using `xcodebuild test-without-building -xctestrun <path>` 
 ### Architecture Validated: ADR-012
 
 The G5 spike validates the ADR-012 architecture:
+
+**Current approach (Route C, verified 2026-07-25)**:
+```
+iTestAgent WdaManager → build+install WDA (one-time)
+                                                         ↓
+Appium → managed-xcodebuild + allowProvisioningDeviceRegistration → WDA launch + WebDriver session
+```
+
+**Historical approach (original ADR-012, usePrebuiltWDA workaround)**:
 ```
 iTestAgent WdaManager → xcodebuild -xctestrun → WDA on device (port 8100)
                                                          ↓
 Appium → usePrebuiltWDA + useNewWDA → WebDriver session (no xcodebuild)
 ```
+
+### 3f. Post-Script: Route C Resolution (2026-07-26)
+
+As of 2026-07-26, the physical Appium session creation is G5-verified via Route C.
+
+Capabilities that work on free accounts:
+```json
+{
+  "appium:xcodeOrgId": "<TEAM_ID>",
+  "appium:xcodeSigningId": "Apple Development",
+  "appium:updatedWDABundleId": "<TEAM_ID>.WebDriverAgentRunner",
+  "appium:allowProvisioningDeviceRegistration": true
+}
+```
+
+Evidence: iPhone 14 Plus (iOS 18.2.1), Appium 3.5.2, XCUITest Driver 11.17.7, WDA 15.1.6
+Commit: e3fbdd7 (branch feat/appium-free-account-unblock)
 
 ### Code Quality
 
