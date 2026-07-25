@@ -75,6 +75,8 @@ export class RealAppiumDriver implements AppiumDriver {
         path: '/',
         logLevel: 'warn',
         capabilities: caps,
+        connectionRetryTimeout: 180_000, // 3min: Appium xcodebuild + WDA startup needs headroom
+        connectionRetryCount: 0, // no retries: xcodebuild is expensive, let caller decide
       });
       this.sessionId = this.client.sessionId;
       this.active = true;
