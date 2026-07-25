@@ -120,4 +120,4 @@ Appium 在 `preinstalledWDA` 策略下通过 RemoteXPC 启动设备端 WDA 进�
 - `~/Desktop/横评/T0.2b mobile-mcp 横评补充.md` — 个人电脑横评 + Appium/WDA 免费账号验证
 - `docs/decisions/ADR-005` — 可插拔 Backend 架构
 - `docs/decisions/ADR-012` — WDA 生命周期分离
-- `docs/07-troubleshooting/appium-free-account-real-device-blocker.md` — 免费账号阻塞根因分析
+- `docs/07-troubleshooting/appium-free-account/blocker.md` — 免费账号阻塞根因分析

@@ -333,7 +333,7 @@ export interface PhysicalCapabilitiesOptions {
 
 ## Phase 8: Documentation & State Updates
 
-- Update `docs/07-troubleshooting/appium-free-account-real-device-blocker.md` — mark resolved or update with new findings
+- Update `docs/07-troubleshooting/appium-free-account/blocker.md` — mark resolved or update with new findings
 - Update `task-status.json` — create new task (e.g., `3.7b`) or update 3.7 notes
 - Update `docs/decisions/ADR-012` if WdaManager scope changes
 - Close DEF-023 if G5 evidence supersedes old report contradiction
@@ -358,7 +358,7 @@ export interface PhysicalCapabilitiesOptions {
 | `itestagent-cli/src/doctor/checks/check-wda-preinstalled.ts` | 4 | **New** |
 | `itestagent-cli/src/doctor/checks/check-wda-readiness.ts` | 4 | **New** |
 | `docs/06-verification/g5-spike-report-appium-unblock.md` | 7 | **New** — G5 evidence |
-| `docs/07-troubleshooting/appium-free-account-real-device-blocker.md` | 8 | Update |
+| `docs/07-troubleshooting/appium-free-account/blocker.md` | 8 | Update |
 | `docs/05-planning/task-status.json` | 8 | Update |
 | `docs/05-planning/deferred-items.json` | 8 | Update DEF-023 |
 
@@ -453,7 +453,7 @@ Phases 4-5-6 can run in parallel after Phase 3 completes. Phase 7 requires all p
 
 ### Updated Documentation
 
-- `docs/07-troubleshooting/appium-free-account-real-device-blocker.md` §8 — Route status updated
+- `docs/07-troubleshooting/appium-free-account/blocker.md` §8 — Route status updated
 - `docs/decisions/ADR-006-device-backend-appium-wda.md` — Post-G5 Update section added
 - `docs/decisions/ADR-012-wda-lifecycle-separation.md` — G5 Update section added
 - `docs/05-planning/task-status.json` — Task 3.7 notes updated with G5 Route C results
