@@ -14,6 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { AppiumDeviceBackend, AppiumDriverError } from '../src/index.js';
+import type { WdaManager } from '../src/wda-manager.js';
 
 import type {
   AppiumActionResult,
@@ -1372,9 +1373,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
-      wdaManager: wdaManager as unknown as Parameters<
-        typeof AppiumDeviceBackend.constructor
-      >[1]['wdaManager'],
+      wdaManager: wdaManager as unknown as WdaManager,
     });
 
     // Session was NEVER created — sessionActive is false
@@ -1402,9 +1401,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
       targetKind: 'physical',
       wdaStartupMode: 'external-url',
       webDriverAgentUrl: 'http://127.0.0.1:8100',
-      wdaManager: wdaManager as unknown as Parameters<
-        typeof AppiumDeviceBackend.constructor
-      >[1]['wdaManager'],
+      wdaManager: wdaManager as unknown as WdaManager,
     });
 
     // Attempt an action that triggers session creation — it will fail
@@ -1426,9 +1423,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
       udid: TEST_UDID,
       targetKind: 'physical',
       wdaStartupMode: 'external-url',
-      wdaManager: wdaManager as unknown as Parameters<
-        typeof AppiumDeviceBackend.constructor
-      >[1]['wdaManager'],
+      wdaManager: wdaManager as unknown as WdaManager,
     });
 
     // Trigger session creation — it should fail because waitForReady throws
@@ -1444,9 +1439,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
-      wdaManager: wdaManager as unknown as Parameters<
-        typeof AppiumDeviceBackend.constructor
-      >[1]['wdaManager'],
+      wdaManager: wdaManager as unknown as WdaManager,
     });
 
     // Close twice
@@ -1466,9 +1459,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
-      wdaManager: wdaManager as unknown as Parameters<
-        typeof AppiumDeviceBackend.constructor
-      >[1]['wdaManager'],
+      wdaManager: wdaManager as unknown as WdaManager,
     });
 
     // Create a session first
@@ -1489,9 +1480,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: SIM_UDID,
       targetKind: 'simulator',
-      wdaManager: wdaManager as unknown as Parameters<
-        typeof AppiumDeviceBackend.constructor
-      >[1]['wdaManager'],
+      wdaManager: wdaManager as unknown as WdaManager,
     });
 
     // Simulator path does not use WdaManager — Appium auto-builds WDA

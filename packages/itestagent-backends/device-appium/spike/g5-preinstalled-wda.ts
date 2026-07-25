@@ -119,7 +119,7 @@ async function testRouteB_ExternalUrl(): Promise<boolean> {
     }
 
     // Create Appium session with webDriverAgentUrl
-    const realDriver = new RealAppiumDriver(APPIUM_PORT);
+    const realDriver = new RealAppiumDriver(`http://127.0.0.1:${APPIUM_PORT}`);
     const backend = new AppiumDeviceBackend(realDriver, {
       udid: UDID,
       targetKind: 'physical',
@@ -130,19 +130,19 @@ async function testRouteB_ExternalUrl(): Promise<boolean> {
 
     // Test screenshot
     log('RouteB', 'Taking screenshot...');
-    const screenshot = await backend.screenshot({});
+    const screenshot = await backend.screenshot({ deviceId: UDID });
     log('RouteB', `Screenshot: ${screenshot.path} (id=${screenshot.id})`);
 
     // Test UI tree
     log('RouteB', 'Getting UI tree...');
-    const uiTree = await backend.getUiTree({ udid: UDID, targetKind: 'physical' });
+    const uiTree = await backend.getUiTree({ deviceId: UDID });
     const treeLen = uiTree.raw?.length ?? 0;
     log('RouteB', `UI tree: ${treeLen} chars`);
     saveEvidence('routeb-ui-tree.xml', uiTree.raw ?? '');
 
     // Test tap (center of screen)
     log('RouteB', 'Tapping center of screen...');
-    const tapResult = await backend.tap({ x: 0.5, y: 0.5 });
+    const tapResult = await backend.tap({ deviceId: UDID, x: 0.5, y: 0.5 });
     log('RouteB', `Tap: ${tapResult.success} ${tapResult.error ?? ''}`);
 
     // Cleanup
@@ -181,7 +181,7 @@ async function testRouteA_Preinstalled(): Promise<boolean> {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
   try {
-    const realDriver = new RealAppiumDriver(APPIUM_PORT);
+    const realDriver = new RealAppiumDriver(`http://127.0.0.1:${APPIUM_PORT}`);
     const backend = new AppiumDeviceBackend(realDriver, {
       udid: UDID,
       targetKind: 'physical',
@@ -192,24 +192,25 @@ async function testRouteA_Preinstalled(): Promise<boolean> {
 
     // Test screenshot
     log('RouteA', 'Taking screenshot (this triggers session creation)...');
-    const screenshot = await backend.screenshot({});
+    const screenshot = await backend.screenshot({ deviceId: UDID });
     log('RouteA', `Screenshot: ${screenshot.path} (id=${screenshot.id})`);
 
     // Test UI tree
     log('RouteA', 'Getting UI tree...');
-    const uiTree = await backend.getUiTree({ udid: UDID, targetKind: 'physical' });
+    const uiTree = await backend.getUiTree({ deviceId: UDID });
     const treeLen = uiTree.raw?.length ?? 0;
     log('RouteA', `UI tree: ${treeLen} chars`);
     saveEvidence('routea-ui-tree.xml', uiTree.raw ?? '');
 
     // Test tap
     log('RouteA', 'Tapping center of screen...');
-    const tapResult = await backend.tap({ x: 0.5, y: 0.5 });
+    const tapResult = await backend.tap({ deviceId: UDID, x: 0.5, y: 0.5 });
     log('RouteA', `Tap: ${tapResult.success} ${tapResult.error ?? ''}`);
 
     // Test swipe
     log('RouteA', 'Swiping...');
     const swipeResult = await backend.swipe({
+      deviceId: UDID,
       fromX: 0.5,
       fromY: 0.7,
       toX: 0.5,

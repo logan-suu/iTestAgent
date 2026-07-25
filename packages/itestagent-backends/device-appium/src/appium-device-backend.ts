@@ -52,6 +52,7 @@ import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions, WdaStartupMode } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
+import { redactError } from './redactor.js';
 import type { WdaManager } from './wda-manager.js';
 
 // ─── Subprocess helper ─────────────────────────────────────────
@@ -732,7 +733,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }));
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[AppiumDeviceBackend.listApps] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.listApps] ${errorMsg}`));
       return [];
     }
   }
@@ -790,7 +791,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[AppiumDeviceBackend.getUiTree] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.getUiTree] ${errorMsg}`));
       return {
         raw: '',
         format: 'xml',
@@ -821,7 +822,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[AppiumDeviceBackend.screenshot] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.screenshot] ${errorMsg}`));
       return {
         id: `screenshot_error_${Date.now()}`,
         type: 'screenshot',
@@ -936,7 +937,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[AppiumDeviceBackend.startRecording] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.startRecording] ${errorMsg}`));
       return {
         handleId: `recording_error_${Date.now()}`,
         startedAt: new Date().toISOString(),
@@ -966,7 +967,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[AppiumDeviceBackend.stopRecording] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.stopRecording] ${errorMsg}`));
       return {
         id: `video_error_${Date.now()}`,
         type: 'video',
@@ -1018,7 +1019,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[AppiumDeviceBackend.listCrashes] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.listCrashes] ${errorMsg}`));
       return [];
     }
   }
@@ -1044,7 +1045,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[AppiumDeviceBackend.collectLogs] ${errorMsg}`);
+      console.error(redactError(`[AppiumDeviceBackend.collectLogs] ${errorMsg}`));
       return {
         id: `log_error_${Date.now()}`,
         type: 'log',
