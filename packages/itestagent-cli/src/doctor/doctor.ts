@@ -1,12 +1,15 @@
 import { checkAppium } from './checks/check-appium.js';
 import { checkCommandLineTools } from './checks/check-clt.js';
 import { checkPhysicalDevice } from './checks/check-device-physical.js';
+import { checkSigningIdentity } from './checks/check-signing-identity.js';
 import { checkSigning } from './checks/check-signing.js';
 import { checkSimctl } from './checks/check-simctl.js';
 import { checkSimulatorAppiumWda } from './checks/check-simulator-appium-wda.js';
 import { checkSimulatorDevice } from './checks/check-simulator-device.js';
 import { checkSimulatorRuntime } from './checks/check-simulator-runtime.js';
 import { checkSimulatorSdk } from './checks/check-simulator-sdk.js';
+import { checkWdaPreinstalled } from './checks/check-wda-preinstalled.js';
+import { checkWdaReadiness } from './checks/check-wda-readiness.js';
 import { checkWda } from './checks/check-wda.js';
 import { checkXcode } from './checks/check-xcode.js';
 /**
@@ -34,6 +37,9 @@ const PHYSICAL_CHECKS: CheckFn[] = [
   checkAppium,
   checkWda,
   checkSigning,
+  checkSigningIdentity,
+  checkWdaPreinstalled,
+  checkWdaReadiness,
   checkPhysicalDevice,
 ];
 
