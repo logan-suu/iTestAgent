@@ -12,6 +12,8 @@
 
 The current AppiumBackend uses `usePrebuiltWDA: true` which skips `build-for-testing` but still runs Appium's hardcoded `test-without-building` — this fails on free accounts because Appium does not pass `-allowProvisioningUpdates`.
 
+⚠️ **注意**：G5 验证后 Route C 成为主路径，Route A 因 Appium preinstalledWDA 超时已降级为备选。
+
 The solution is **Route A (`usePreinstalledWDA`)** as the primary strategy: iTestAgent builds, signs, and installs WDA once (via existing WdaManager), then tells Appium to use the pre-installed WDA without running ANY xcodebuild. This is a different Appium capability — `usePreinstalledWDA` ≠ `usePrebuiltWDA`.
 
 **Route B (`webDriverAgentUrl`)** is kept as a controlled fallback — iTestAgent manages WDA completely, Appium connects to it via URL.
@@ -95,6 +97,8 @@ The solution is **Route A (`usePreinstalledWDA`)** as the primary strategy: iTes
 ---
 
 ## Phase 3: Gate 4 — Remodel Code Boundaries
+
+> **G5 更新（2026-07-25）**：Route C（managed-xcodebuild）已被 G5 验证为有效路径。以下 Phase 3 设计保持 Route A/B 作为备选方案。
 
 This is the largest phase — introducing three mutually exclusive startup modes.
 
@@ -392,6 +396,7 @@ Phases 4-5-6 can run in parallel after Phase 3 completes. Phase 7 requires all p
 
 ## Acceptance Criteria (DoD)
 
+- [x] Route C: managed-xcodebuild + allowProvisioningDeviceRegistration G5 验证通过
 - [ ] Three WDA startup modes defined, mutually exclusive, validated
 - [ ] `usePreinstalledWDA` capability generated for Route A (no `usePrebuiltWDA`)
 - [ ] `webDriverAgentUrl` capability generated for Route B

@@ -138,6 +138,8 @@ WdaManager 的构建和安装能力已验证通过：
 
 WdaManager 在 Route C 中的角色：仅用于 WDA 构建和安装（一次性操作），不参与每次 session 的 WDA 启动。
 
+Route C partially reverses this ADR's original premise: Appium now manages WDA startup (xcodebuild with -allowProvisioningUpdates), while WdaManager is reduced to build+install only for the physical path.
+
 ### Route B (Full WdaManager lifecycle) — Pending
 
 Route B 要求 WdaManager 全权管理 WDA 生命周期（build → install → launch → /status → stop），Appium 仅通过 `webDriverAgentUrl` 连接。此路由需要 iproxy for USB port forwarding (`iproxy <localPort> 8100 <UDID>`)，当前环境未安装。在 iproxy 就绪后可作为未来优化路径（减少 xcodebuild 调用频率）。

@@ -1,3 +1,8 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { AppiumDeviceBackend } from '../src/appium-device-backend.js';
+import type { AppiumW3CCapabilities } from '../src/appium-driver.js';
+import { RealAppiumDriver } from '../src/real-appium-driver.js';
 /**
  * G5 Spike: Route A (usePreinstalledWDA) + Route B (webDriverAgentUrl) verification.
  *
@@ -9,11 +14,6 @@
  * Usage: bun run packages/itestagent-backends/device-appium/spike/g5-preinstalled-wda.ts
  */
 import { WdaManager } from '../src/wda-manager.js';
-import { AppiumDeviceBackend } from '../src/appium-device-backend.js';
-import { RealAppiumDriver } from '../src/real-appium-driver.js';
-import type { AppiumW3CCapabilities } from '../src/appium-driver.js';
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -27,7 +27,13 @@ const WDA_PORT = 8100;
 const APPIUM_PORT = 4723;
 const TEST_BUNDLE_ID = 'com.apple.Preferences'; // Settings app
 
-const EVIDENCE_DIR = join(import.meta.dirname ?? '.', '..', '..', 'spike-evidence', `g5-${Date.now()}`);
+const EVIDENCE_DIR = join(
+  import.meta.dirname ?? '.',
+  '..',
+  '..',
+  'spike-evidence',
+  `g5-${Date.now()}`,
+);
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -67,7 +73,7 @@ async function prepareWda(): Promise<{ installed: boolean; bundleId: string }> {
   });
   log('WDA', `Install SUCCESS. Bundle ID: ${installResult.bundleId}`);
 
-  log('WDA', `Verifying preinstalled WDA...`);
+  log('WDA', 'Verifying preinstalled WDA...');
   const verify = await wdaManager.verifyPreinstalledWDA(UDID, buildResult.bundleId);
   log('WDA', `Verification: ready=${verify.ready} ${verify.reason ? `(${verify.reason})` : ''}`);
 
@@ -203,7 +209,13 @@ async function testRouteA_Preinstalled(): Promise<boolean> {
 
     // Test swipe
     log('RouteA', 'Swiping...');
-    const swipeResult = await backend.swipe({ fromX: 0.5, fromY: 0.7, toX: 0.5, toY: 0.3, durationMs: 300 });
+    const swipeResult = await backend.swipe({
+      fromX: 0.5,
+      fromY: 0.7,
+      toX: 0.5,
+      toY: 0.3,
+      durationMs: 300,
+    });
     log('RouteA', `Swipe: ${swipeResult.success} ${swipeResult.error ?? ''}`);
 
     // Cleanup

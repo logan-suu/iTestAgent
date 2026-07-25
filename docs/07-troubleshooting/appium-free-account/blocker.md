@@ -7,9 +7,15 @@
 
 ---
 
+> **状态更新（2026-07-25）**：✅ 已通过 Route C 解决。
+> 本文 §1-§6 记录了问题背景与尝试过程（历史记录），§8 记录最终解决方案与 G5 验证结果。
+> **有效路径**：`managed-xcodebuild` + `allowProvisioningDeviceRegistration: true`（Appium 3.5.2 + XCUITest Driver 11.17.7）。
+
+---
+
 ## 1. 问题描述
 
-iTestAgent 的设备探索路径（DeviceBackend）依赖 Appium/WebDriverAgent 在真机上创建 session。免费 Apple Developer 账号无法通过 Appium 完成 WDA 的启动，导致所有真机探索操作不可用。
+iTestAgent 的设备探索路径（DeviceBackend）依赖 Appium/WebDriverAgent 在真机上创建 session。免费 Apple Developer 账号无法通过 Appium 完成 WDA 的启动，导致所有真机探索操作不可用（历史记录：Route C 已解决，见 §8）。
 
 **错误现象**：
 
@@ -170,7 +176,7 @@ xcodebuild test-without-building \
 |---|---|---|
 | Simulator 设备探索 | ✅ 正常 | Simulator WDA 无需签名 |
 | 真机 XCUITest（有测试） | ✅ 正常 | `xcodebuild test` 直连，不经过 Appium |
-| 真机 DeviceBackend 探索 | ❌ 阻塞 | Appium 无法启动 WDA |
+| 真机 DeviceBackend 探索 | ❌ 阻塞（历史记录：Route C 已解决） | Appium 无法启动 WDA |
 | `itestagent doctor` | ✅ 正常 | 检测环境 |
 | `itestagent devices` | ✅ 正常 | 通过 devicectl 发现设备 |
 
@@ -189,8 +195,8 @@ xcodebuild test-without-building \
 | **P0（已实施）** | `itestagent doctor` 检测并提示 | Doctor 命令已检测 Appium/WDA 就绪状态，免费账号用户会收到引导提示 |
 | **P1（短期）** | Simulator 优先策略 | MVP 阶段推荐免费用户使用 Simulator（G5-SIM 已验证通过） |
 | **P2（中期）** | XCUITest 路径 | 引导有 XCUITest 的项目走 xcodebuild test 直连路径 |
-| **P3（长期）** | Appium 上游修复 | 等待 Appium XCUITest 驱动支持免费账号的 `-allowProvisioningUpdates` |
-| **P4（长期）** | MobileMcpBackend | Task 3.6（因付费账号阻塞），MCP-native 方案可能绕过此问题 |
+| **P3（长期）** | Appium 上游修复 | 等待 Appium XCUITest 驱动支持免费账号的 `-allowProvisioningUpdates`（已废弃：Route C 提供更简单的方案） |
+| **P4（长期）** | MobileMcpBackend | Task 3.6（因付费账号阻塞），MCP-native 方案可能绕过此问题（已废弃：Route C 提供更简单的方案） |
 
 ---
 
@@ -255,10 +261,12 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 
 ## 7. 建议的后续行动
 
-1. **短期（Phase 3 出口）**：在 `itestagent doctor` 中添加免费账号检测和引导提示
-2. **中期（Phase 4）**：在 `iTestAgent TUI` 启动时，如果检测到免费账号 + 真机探索路径，推荐 XCUITest 路径或 Simulator 回退
-3. **长期（Phase 5+）**：监控 Appium GitHub issues 中关于 free account + `-allowProvisioningUpdates` 的修复进展
-4. **备用方案**：如果 Appium 长期不修复，考虑 MobileMcpBackend（Task 3.6）或直接 WDA HTTP 协议（绕过 Appium 的 build 阶段）
+> 以下建议已过时。当前推荐：Route C（managed-xcodebuild + allowProvisioningDeviceRegistration: true）。
+
+1. **短期（Phase 3 出口）**：在 `itestagent doctor` 中添加免费账号检测和引导提示（已实现）
+2. **中期（Phase 4）**：在 `iTestAgent TUI` 启动时，如果检测到免费账号 + 真机探索路径，推荐 Route C（已实现）
+3. **长期（Phase 5+）**：监控 Appium GitHub issues 中关于 free account + `-allowProvisioningUpdates` 的修复进展（已废弃：Route C 已解决）
+4. **备用方案**：如果 Appium 长期不修复，考虑 MobileMcpBackend（Task 3.6）或直接 WDA HTTP 协议（已废弃：Route C 已解决）
 
 ---
 

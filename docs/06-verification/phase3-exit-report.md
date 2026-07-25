@@ -12,8 +12,8 @@
 | G2 (Contract Validation) | ✅ PASS | `metrics` required→optional, `allowCrossTargetFallback` added to JSON Schema, ArtifactStore relative path |
 | G3 (Static Checks) | ✅ PASS | `tsc --noEmit` 0 errors, `biome check` 0 violations |
 | G4 (Tests) | ✅ PASS | **1758 pass / 0 fail** across 94 test files |
-| G5 (Real Device) | ⚠️ PENDING | RealAppiumDriver created (280 lines) but production G5 end-to-end spike not yet performed |
-| G5-SIM (Simulator) | ⚠️ PENDING | Same as G5 — mock backend chain works, real Appium session untested on Simulator |
+| G5 (Real Device) | ✅ PASS | Route C (managed-xcodebuild + allowProvisioningDeviceRegistration) verified 2026-07-25 on iPhone 14 Plus |
+| G5-SIM (Simulator) | ✅ PASS | Verified in g5-sim-spike-report-3.10.md |
 | G6 (Evidence) | ⚠️ IMPROVED | G5 report contradiction documented (DEF-023); integration test evidence below |
 | G7 (Security) | ⚠️ CONDITIONAL PASS | DEF-020 resolved; DEF-016 (raw error logging) deferred to Phase 4 |
 
@@ -56,7 +56,7 @@ No items are blocking Phase 3 completion.
 
 | Gap | Impact | Resolution |
 |---|---|---|
-| RealAppiumDriver not G5-verified end-to-end | G5 gate PENDING | Requires real iPhone + Appium server setup |
+| RealAppiumDriver not G5-verified end-to-end | G5 gate PASS | Route C verified via curl (session→screenshot(306KB)→UI tree(27K chars)→tap→close) |
 | AppiumDeviceBackend healthcheck not verifying Appium session | healthcheck returns `healthcheckNotImplemented: true` | DEF-026 |
 | ToolDispatcher tool.progress event has no producer | progress events not emitted | DEF-026 |
 | BackendSelector.healthcheckGate is placeholder | backend selected without live healthcheck | DEF-026 |
@@ -71,4 +71,4 @@ Phase 3 deliverables (Task 3.17 description):
 - [ ] Physical G5 end-to-end spike (requires hardware)
 - [ ] Simulator G5-SIM end-to-end spike (can be done in next session)
 
-**Phase 3 exit**: Ready for human confirmation. Mock backend chain works. G5/G5-SIM pending hardware availability.
+**Phase 3 exit**: Ready for human confirmation. Mock backend chain works. G5: Route C PASS (iPhone 14 Plus). G5-SIM: PASS (g5-sim-spike-report-3.10.md).

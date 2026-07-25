@@ -93,6 +93,8 @@ WDA 默认 bundle ID `com.facebook.WebDriverAgentRunner.xctrunner` 已被 Facebo
 
 **影响**: 降低 iTestAgent 使用门槛——不需要 $99/年付费开发者账号。
 
+> 注（2026-07-25）：Appium/WDA 免费账号路由已通过 Route C（managed-xcodebuild + allowProvisioningDeviceRegistration）G5 验证，验证了 Phase 0 选址的正确性。
+
 ### 4.2 mobile-mcp 免费账号不可用
 
 mobilecli 下载预编译 IPA + 手动重签，需通配符 profile。免费账号无法创建通配符 profile → Catch-22。mobilecli 硬编码 agent bundle ID，不可覆盖。
