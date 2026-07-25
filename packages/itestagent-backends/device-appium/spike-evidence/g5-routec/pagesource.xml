@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Settings" label="Settings" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="" processId="19882" bundleId="com.apple.Preferences">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                    <XCUIElementTypeNavigationBar type="XCUIElementTypeNavigationBar" name="Software Update" enabled="true" visible="true" accessible="false" x="0" y="47" width="428" height="44" index="0" traits="">
+                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="Back" label="Back" enabled="true" visible="true" accessible="true" x="0" y="47" width="75" height="44" index="0" traits="Button"/>
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Software Update" name="Software Update" label="Software Update" enabled="true" visible="true" accessible="true" x="142" y="58" width="144" height="21" index="1" traits="Header"/>
+                    </XCUIElementTypeNavigationBar>
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="1" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                              <XCUIElementTypeTable type="XCUIElementTypeTable" enabled="true" visible="true" accessible="false" x="0" y="0" width="428" height="926" index="0" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="91" width="428" height="18" index="0" traits=""/>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" name="SUAutomaticUpdateButton" enabled="true" visible="true" accessible="false" x="20" y="108" width="388" height="45" index="1" traits="Button">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="108" width="388" height="45" index="0" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="108" width="388" height="45" index="0" traits=""/>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="152" width="388" height="1" index="1" traits=""/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Automatic Updates" name="Automatic Updates" label="Automatic Updates" enabled="true" visible="true" accessible="true" x="40" y="120" width="153" height="21" index="2" traits="StaticText"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Off" name="Off" label="Off" enabled="true" visible="true" accessible="true" x="335" y="120" width="27" height="21" index="3" traits="StaticText"/>
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="chevron" label="chevron" enabled="false" visible="true" accessible="false" x="377" y="123" width="11" height="15" index="4" traits="NotEnabled, Button"/>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" name="SUGetBetaUpdatesButton" enabled="true" visible="true" accessible="false" x="20" y="152" width="388" height="46" index="2" traits="Button">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="152" width="388" height="46" index="0" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="152" width="388" height="46" index="0" traits=""/>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="20" y="196" width="388" height="2" index="1" traits=""/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Beta Updates" name="Beta Updates" label="Beta Updates" enabled="true" visible="true" accessible="true" x="40" y="164" width="108" height="22" index="2" traits="StaticText"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Off" name="Off" label="Off" enabled="true" visible="true" accessible="true" x="335" y="164" width="27" height="22" index="3" traits="StaticText"/>
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="chevron" label="chevron" enabled="false" visible="true" accessible="false" x="377" y="167" width="11" height="16" index="4" traits="NotEnabled, Button"/>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="197" width="428" height="1" index="3" traits=""/>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="197" width="428" height="18" index="4" traits=""/>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" value="7.99 GB" name="SUTitleCell" enabled="true" visible="true" accessible="true" x="20" y="214" width="388" height="464" index="5" traits="">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="SUSSoftwareUpdateTitleCellLearnMore" label="Learn more…" enabled="true" visible="true" accessible="true" x="36" y="648" width="100" height="20" index="0" traits="StaticText, Button"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="7.99 GB" name="SUSSoftwareUpdateTitleCellUpdateStatus" label="7.99 GB" enabled="true" visible="true" accessible="true" x="109" y="255" width="287" height="16" index="1" traits="StaticText"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" visible="false" accessible="false" x="20" y="214" width="0" height="1" index="2" traits="StaticText"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="214" width="388" height="464" index="3" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="214" width="388" height="464" index="0" traits=""/>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="iOS 26.5.2" name="SUSSoftwareUpdateTitleCellUpdateName" label="iOS 26.5.2" enabled="true" visible="true" accessible="true" x="109" y="231" width="287" height="22" index="4" traits="StaticText"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="SUSSoftwareUpdateTitleCellReleaseNotesSummary" enabled="true" visible="true" accessible="false" x="28" y="295" width="372" height="344" index="5" traits="">
+                                    <XCUIElementTypeWebView type="XCUIElementTypeWebView" enabled="true" visible="true" accessible="false" x="28" y="295" width="372" height="344" index="0" traits="">
+                                      <XCUIElementTypeWebView type="XCUIElementTypeWebView" enabled="true" visible="true" accessible="false" x="28" y="295" width="372" height="344" index="0" traits="">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="28" y="295" width="372" height="466" index="0" traits="">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="28" y="296" width="372" height="465" index="0" traits="">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="36" y="304" width="356" height="88" index="0" traits="">
+                                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="This update introduces Playlist Playground and Concerts in Apple Music, and 8 new emoji, along with other features, bug fixes, and security updates for your iPhone" name="This update introduces Playlist Playground and Concerts in Apple Music, and 8 new emoji, along with other features, bug fixes, and security updates for your iPhone" label="This update introduces Playlist Playground and Concerts in Apple Music, and 8 new emoji, along with other features, bug fixes, and security updates for your iPhone" enabled="true" visible="true" accessible="true" x="36" y="304" width="339" height="88" index="0" traits="StaticText"/>
+                                            </XCUIElementTypeOther>
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="36" y="412" width="356" height="44" index="1" traits="">
+                                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="For information on the security content of Apple software updates, please visit:" name="For information on the security content of Apple software updates, please visit:" label="For information on the security content of Apple software updates, please visit:" enabled="true" visible="true" accessible="true" x="36" y="412" width="330" height="44" index="0" traits="StaticText"/>
+                                            </XCUIElementTypeOther>
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="36" y="456" width="356" height="22" index="2" traits="">
+                                              <XCUIElementTypeLink type="XCUIElementTypeLink" name="https://support.apple.com/100100" label="https://support.apple.com/100100" enabled="true" visible="true" accessible="false" x="36" y="456" width="273" height="22" index="0" traits="Link">
+                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="https://support.apple.com/100100" name="https://support.apple.com/100100" label="https://support.apple.com/100100" enabled="true" visible="true" accessible="true" x="36" y="456" width="273" height="22" index="0" traits="Link, StaticText"/>
+                                              </XCUIElementTypeLink>
+                                            </XCUIElementTypeOther>
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="36" y="498" width="356" height="66" index="3" traits="">
+                                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Some features may not be available in all regions or on all iPhone models. To learn more, please visit:" name="Some features may not be available in all regions or on all iPhone models. To learn more, please visit:" label="Some features may not be available in all regions or on all iPhone models. To learn more, please visit:" enabled="true" visible="true" accessible="true" x="36" y="498" width="322" height="66" index="0" traits="StaticText"/>
+                                            </XCUIElementTypeOther>
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="36" y="564" width="356" height="44" index="4" traits="">
+                                              <XCUIElementTypeLink type="XCUIElementTypeLink" name="https://www.apple.com/ios/feature-availability/" label="https://www.apple.com/ios/feature-availability/" enabled="true" visible="true" accessible="false" x="36" y="564" width="283" height="44" index="0" traits="Link">
+                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="https://www.apple.com/ios/feature-availability/" name="https://www.apple.com/ios/feature-availability/" label="https://www.apple.com/ios/feature-availability/" enabled="true" visible="true" accessible="true" x="36" y="564" width="283" height="44" index="0" traits="Link, StaticText"/>
+                                              </XCUIElementTypeLink>
+                                            </XCUIElementTypeOther>
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="36" y="628" width="356" height="88" index="5" traits="">
+                                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Software updates, like this one, add new features and improvements that may affect performance and/or battery life. To learn more, please visit:" name="Software updates, like this one, add new features and improvements that may affect performance and/or battery life. To learn more, please visit:" label="Software updates, like this one, add new features and improvements that may affect performance and/or battery life. To learn more, please visit:" enabled="true" visible="true" accessible="true" x="36" y="628" width="343" height="88" index="0" traits="StaticText"/>
+                                            </XCUIElementTypeOther>
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="36" y="716" width="356" height="22" index="6" traits="">
+                                              <XCUIElementTypeLink type="XCUIElementTypeLink" name="https://support.apple.com/125039" label="https://support.apple.com/125039" enabled="true" visible="false" accessible="false" x="36" y="716" width="275" height="22" index="0" traits="Link">
+                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="https://support.apple.com/125039" name="https://support.apple.com/125039" label="https://support.apple.com/125039" enabled="true" visible="false" accessible="true" x="36" y="716" width="275" height="22" index="0" traits="Link, StaticText"/>
+                                              </XCUIElementTypeLink>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" visible="true" accessible="false" x="367" y="295" width="30" height="344" index="1" traits="Adjustable">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="394" y="298" width="3" height="249" index="0" traits=""/>
+                                        </XCUIElementTypeOther>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="true" accessible="false" x="28" y="605" width="372" height="31" index="2" traits="Adjustable">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="31" y="632" width="363" height="4" index="0" traits=""/>
+                                        </XCUIElementTypeOther>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" visible="true" accessible="false" x="367" y="295" width="30" height="344" index="3" traits="Adjustable">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="394" y="298" width="3" height="249" index="0" traits=""/>
+                                        </XCUIElementTypeOther>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="true" accessible="false" x="28" y="605" width="372" height="31" index="4" traits="Adjustable">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="31" y="632" width="363" height="4" index="0" traits=""/>
+                                        </XCUIElementTypeOther>
+                                      </XCUIElementTypeWebView>
+                                    </XCUIElementTypeWebView>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="677" width="388" height="1" index="6" traits=""/>
+                                  <XCUIElementTypeImage type="XCUIElementTypeImage" name="SUSSoftwareUpdateTitleCellIcon" enabled="true" visible="true" accessible="true" x="37" y="231" width="60" height="61" index="7" traits="Image"/>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" name="SUSpecifierUpdateOptionsCell" enabled="true" visible="true" accessible="true" x="20" y="677" width="388" height="104" index="6" traits="">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="SUSpecifierUpdateOptionsCellSecondaryButton" label="Update Tonight" enabled="true" visible="true" accessible="true" x="37" y="734" width="354" height="35" index="0" traits="Button">
+                                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Update Tonight" name="Update Tonight" label="Update Tonight" enabled="true" visible="true" accessible="false" x="152" y="741" width="123" height="21" index="0" traits="StaticText"/>
+                                  </XCUIElementTypeButton>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" visible="false" accessible="false" x="20" y="677" width="0" height="1" index="1" traits="StaticText"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="677" width="388" height="104" index="2" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="677" width="388" height="104" index="0" traits=""/>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="20" y="780" width="388" height="1" index="3" traits=""/>
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="SUSpecifierUpdateOptionsCellPrimaryButton" label="Update Now" enabled="true" visible="true" accessible="true" x="37" y="689" width="354" height="36" index="4" traits="Button">
+                                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Update Now" name="Update Now" label="Update Now" enabled="true" visible="true" accessible="false" x="165" y="696" width="98" height="22" index="0" traits="StaticText"/>
+                                  </XCUIElementTypeButton>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" name="If you select Update Tonight, iPhone will try to update when the device is locked and the battery has enough charge." enabled="true" visible="true" accessible="false" x="0" y="780" width="428" height="63" index="7" traits="">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="If you select Update Tonight, iPhone will try to update when the device is locked and the battery has enough charge." label="If you select Update Tonight, iPhone will try to update when the device is locked and the battery has enough charge." enabled="true" visible="true" accessible="true" x="0" y="780" width="428" height="63" index="0" traits=""/>
+                                </XCUIElementTypeOther>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" name="ALSO AVAILABLE" enabled="true" visible="true" accessible="false" x="0" y="842" width="428" height="47" index="8" traits="">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="ALSO AVAILABLE" label="ALSO AVAILABLE" enabled="true" visible="true" accessible="true" x="0" y="842" width="428" height="47" index="0" traits="Header"/>
+                                </XCUIElementTypeOther>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" name="SUAlternateUpdateButton" enabled="true" visible="true" accessible="false" x="20" y="888" width="388" height="52" index="9" traits="Button">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="888" width="388" height="52" index="0" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="888" width="388" height="52" index="0" traits=""/>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="20" y="939" width="388" height="1" index="1" traits=""/>
+                                  <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="true" accessible="false" x="40" y="899" width="29" height="30" index="2" traits="Image"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="iOS 18.7.8" name="iOS 18.7.8" label="iOS 18.7.8" enabled="true" visible="true" accessible="true" x="85" y="903" width="79" height="22" index="3" traits="StaticText"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" visible="false" accessible="false" x="361" y="903" width="0" height="1" index="4" traits="StaticText"/>
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="chevron" label="chevron" enabled="false" visible="true" accessible="false" x="377" y="906" width="11" height="16" index="5" traits="NotEnabled, Button"/>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="888" width="428" height="31" index="10" traits="">
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Your iPhone is running iOS 18.2.1" name="Your iPhone is running iOS 18.2.1" label="Your iPhone is running iOS 18.2.1" enabled="true" visible="false" accessible="true" x="0" y="888" width="428" height="31" index="0" traits="StaticText"/>
+                                </XCUIElementTypeOther>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" visible="false" accessible="false" x="395" y="91" width="30" height="787" index="11" traits="Adjustable">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="422" y="94" width="3" height="781" index="0" traits=""/>
+                                </XCUIElementTypeOther>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="47" y="893" width="334" height="30" index="12" traits="Adjustable">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="50" y="920" width="328" height="3" index="0" traits=""/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeTable>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>
