@@ -262,13 +262,53 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 
 ---
 
-## 8. 解决方案实施（2026-07-25）
+## 8. 解决方案实施与 G5 验证结果（2026-07-25 / Updated 2026-07-26）
 
-### 8.1 Route A: `usePreinstalledWDA`（已实现）
+### 8.1 G5 验证总结
+
+G5 真机验证于 2026-07-25 在 **iPhone 14 Plus (iOS 18.2.1)** 上执行，Appium 3.5.2 + XCUITest Driver 11.17.7 + WDA 15.1.6 + free Personal Team `UJ876FXT32`。三条路线结果如下：
+
+| Route | 策略 | 结果 | 说明 |
+|---|---|---|---|
+| **Route C** | `managed-xcodebuild` + `allowProvisioningDeviceRegistration: true` | ✅ **G5 VERIFIED** | Session → screenshot (306KB) → UI tree (27682 chars) → tap → close。Appium 通过此 capability 传递 `-allowProvisioningUpdates` 给 xcodebuild |
+| **Route A** | `usePreinstalledWDA` | ❌ **G5 TIMEOUT** | Appium 内部 `preinstalledWDA` RemoteXPC 启动超时 60s |
+| **Route B** | `webDriverAgentUrl` | ⏸️ **NOT TESTED** | 需要 iproxy for USB port forwarding（未安装） |
+
+**Route C 是当前 MVP 下免费 Apple Developer 账号真机路径的唯一可用方式。**
+
+### 8.2 Route C 详情：`managed-xcodebuild` + `allowProvisioningDeviceRegistration` ✅
+
+**Capabilities**：
+```json
+{
+  "platformName": "iOS",
+  "appium:automationName": "XCUITest",
+  "appium:udid": "<device UDID>",
+  "appium:xcodeOrgId": "UJ876FXT32",
+  "appium:xcodeSigningId": "Apple Development",
+  "appium:updatedWDABundleId": "UJ876FXT32.WebDriverAgentRunner",
+  "appium:allowProvisioningDeviceRegistration": true
+}
+```
+
+**关键点**：
+- `updatedWDABundleId` 使用 base ID（不加 `.xctrunner` 后缀），XCUITest scheme 自动追加
+- `allowProvisioningDeviceRegistration: true` 使 Appium 在其 xcodebuild 命令中传递 `-allowProvisioningUpdates`
+- 开发者证书必须在设备上手动信任（首次/每次证书变更）
+- Appium 3.5.2 / XCUITest 11.17.7 原生支持此 capability
+
+**G5 证据**：
+- Screenshot: `packages/itestagent-backends/device-appium/spike-evidence/g5-routec/screenshot.png` (306KB)
+- UI tree: `packages/itestagent-backends/device-appium/spike-evidence/g5-routec/pagesource.xml` (27682 chars)
+- Commit: `e3fbdd7` on branch `feat/appium-free-account-unblock`
+
+### 8.3 Route A 详情：`usePreinstalledWDA` ❌
 
 `usePreinstalledWDA` ≠ `usePrebuiltWDA`。前者完全跳过 Appium 的所有 xcodebuild，直接使用设备上已预安装的 WDA Runner。
 
-**架构变更**：
+**G5 结果**：超时。Appium 使用 `preinstalledWDA` 策略时，虽然跳过了 xcodebuild，但通过 RemoteXPC 启动设备上的 WDA 进程时，要求在 60s 内完成连接。免费账号下签名后的 WDA Runner 在设备端的启动时间不定，导致超时。
+
+**架构变更（已实现，供参考）**：
 - `appium-capabilities.ts`：新增 `WdaStartupMode`（三种互斥模式：`preinstalled` / `external-url` / `managed-xcodebuild`）
 - `appium-device-backend.ts`：`ensureSession()` 按模式路由生命周期；`closeSession()` WDA 清理不再被 `sessionActive` 锁定
 - `wda-manager.ts`：新增 `waitForReady()`（`/status` 轮询）、`verifyPreinstalledWDA()`、`preparePreinstalledWDA()`
@@ -280,18 +320,21 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 - `check-wda-preinstalled`：验证 WDA Runner 已安装且 Profile 未过期
 - `check-wda-readiness`：轮询 `/status` 确认 WDA 就绪
 
-**分支**：`feat/appium-free-account-unblock`
 **提交**：`b96ec89`（核心代码）、`584fd65`（Doctor+测试）
 **G3 验证**：typecheck 0 / lint 0 / 1845 tests pass
 
-### 8.2 待验证（G5）
+### 8.4 Route B 详情：`webDriverAgentUrl` ⏸️
 
-Route A 链路需在真实 iPhone 上完成 G5 验证（`usePreinstalledWDA` capability → session 创建 → 截图 → UI tree → tap → 清理）。验证矩阵见 `docs/05-planning/appium-free-account-unblock-plan.md` §Phase 7。
+iTestAgent 完全管理 WDA 生命周期（WdaManager build → install → launch），Appium 通过 USB 端口转发连接到已运行的 WDA。
 
-### 8.3 备用路线
+**G5 状态**：未测试。WdaManager 的 build（22s）、install（devicectl）已验证通过，但 `webDriverAgentUrl` 要求 USB 端口转发（iproxy），当前环境未安装。
 
-- **Route B**（`webDriverAgentUrl`）：iTestAgent 完全管理 WDA 生命周期，Appium 仅 WebDriver 连接
-- **Route C**（`allowProvisioningDeviceRegistration`）：Appium 管理 xcodebuild 但传递 `-allowProvisioningUpdates`
+### 8.5 关键注意事项
+
+- **证书信任**：首次在设备上使用新的免费开发者证书时，必须在设备上手动信任（Settings → General → VPN & Device Management）
+- **Profile 过期**：免费账号 provisioning profile 7 天过期，需重建
+- **3-app 上限**：免费账号最多 3 个 app（WDA Runner = 1 个）
+- **设备端启动延迟**：免费签名后的 app 在设备端首次启动较慢（需在线验证），这导致了 Route A 的超时
 
 ---
 

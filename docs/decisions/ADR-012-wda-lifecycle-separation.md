@@ -120,3 +120,34 @@ When using WdaManager:
 - ADR-010: Agent Harness Runtime Boundary
 - ADR-011: iOS Simulator First-Class Support
 - G5 Spike Report 3.7: `docs/06-verification/g5-spike-report-3.7.md`
+
+## G5 Update (2026-07-25)
+
+G5 真机验证于 iPhone 14 Plus (iOS 18.2.1) 上执行，测试了 WdaManager 的三种路由策略。
+
+### WdaManager Build/Install — Verified
+
+WdaManager 的构建和安装能力已验证通过：
+- `WdaManager.build()` ✅ — 22s，`xcodebuild build-for-testing` + `-allowProvisioningUpdates`
+- `WdaManager.install()` ✅ — `devicectl device install app` 成功
+- `WdaManager.launch()` ✅ — `xcodebuild test-without-building` direct launch，WDA PID on device
+
+### Route C (Appium-managed xcodebuild) — G5 VERIFIED
+
+这是目前唯一可用的免费账号 Appium 真机路径。Appium 通过 `allowProvisioningDeviceRegistration: true` capability 传递 `-allowProvisioningUpdates` 给其内部 xcodebuild，无需 WdaManager 介入 launch 阶段。Session → screenshot → UI tree → tap → close 全链路通过。
+
+WdaManager 在 Route C 中的角色：仅用于 WDA 构建和安装（一次性操作），不参与每次 session 的 WDA 启动。
+
+### Route B (Full WdaManager lifecycle) — Pending
+
+Route B 要求 WdaManager 全权管理 WDA 生命周期（build → install → launch → /status → stop），Appium 仅通过 `webDriverAgentUrl` 连接。此路由需要 iproxy for USB port forwarding (`iproxy <localPort> 8100 <UDID>`)，当前环境未安装。在 iproxy 就绪后可作为未来优化路径（减少 xcodebuild 调用频率）。
+
+### Free-account Blocker Resolution
+
+原 ADR-012 描述的免费账号阻塞问题（Appium 不传 `-allowProvisioningUpdates`）已通过 `allowProvisioningDeviceRegistration: true` capability 解决。Appium 3.5.2 原生支持此 capability，无需修改 Appium 源码。此为 Route C 的核心突破。
+
+### Updated Architecture Notes
+
+WdaManager 仍保留其完整生命周期管理能力（build/install/launch/connect/stop），但在 MVP 阶段：
+- **Route C（默认）**：WdaManager 仅用于 build + install；Appium 通过 `managed-xcodebuild` + `allowProvisioningDeviceRegistration` 管理每次 session 的 WDA 启动
+- **Route B（未来）**：WdaManager 管理完整 WDA 生命周期，Appium 仅 WebDriver session

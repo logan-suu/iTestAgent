@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-25T18:00:00.000Z",
+  "last_updated": "2026-07-26T00:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -399,10 +399,11 @@
       "item": "G5 spike report 3.7 contradiction: §3d (Appium Session Creation) marked BLOCKED but overall status claims 7/7 PASS",
       "detail": "g5-spike-report-3.7.md line 84 marks Appium session creation as BLOCKED (free account limitation, Appium does not pass -allowProvisioningUpdates), but line 7 and 157 declare overall status as 7/7 PASS. The 7th verification target (Appium session creation) was satisfied via WDA direct xcodebuild bypass, not through the Appium adapter. The report should clarify this distinction: Appium-mediated session is blocked, but the direct WDA path works. Fix: update report to reflect tiered results (WDA-direct: PASS, Appium-mediated: BLOCKED) with clear rationale.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "G5 Route C verification (2026-07-25, e3fbdd7)",
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": "Task 3.17: Documented in phase3-exit-report.md §5 Known Gaps. Report itself left unchanged as historical record."
+      "notes": "G5 verified: Route C (managed-xcodebuild + allowProvisioningDeviceRegistration) works on iPhone 14 Plus (iOS 18.2.1) with free Personal Team. Appium 3.5.2 passes -allowProvisioningUpdates via allowProvisioningDeviceRegistration capability. Route A (usePreinstalledWDA) timed out — deferred as Appium upstream issue. Original G5 report 7/7 contradiction is now explained: WDA-direct path (xcodebuild test-without-building) was verified, but Appium-mediated session was blocked at the time. Route C bridges this gap.",
+      "resolved_at": "2026-07-25T16:40:00.000Z"
     },
     {
       "id": "DEF-024",

@@ -407,3 +407,54 @@ Phases 4-5-6 can run in parallel after Phase 3 completes. Phase 7 requires all p
 - [ ] Evidence redacted, artifacts archived, G5 report published
 - [ ] `typecheck 0`, `lint 0`, all existing 1810+ tests still pass
 - [ ] Documentation updated, task status updated, DEF-023 resolved
+
+---
+
+## G5 Results (2026-07-25)
+
+**Environment**: iPhone 14 Plus (iOS 18.2.1), Appium 3.5.2, XCUITest Driver 11.17.7, WDA 15.1.6, Xcode 26.5, free Personal Team UJ876FXT32.
+
+### What Was Tested
+
+| Route | Strategy | Outcome | Details |
+|---|---|---|---|
+| **Route C** | `managed-xcodebuild` + `allowProvisioningDeviceRegistration: true` | ✅ **PASS** | Session created, screenshot captured (306KB), UI tree fetched (27682 chars), tap executed, session closed |
+| **Route A** | `usePreinstalledWDA` | ❌ **TIMEOUT** | Appium RemoteXPC launch timeout at 60s. Free-signed WDA Runner starts too slowly on device |
+| **Route B** | `webDriverAgentUrl` | ⏸️ **SKIPPED** | Requires iproxy for USB port forwarding — not installed in current environment |
+
+### Route C Verified Capabilities
+
+```json
+{
+  "platformName": "iOS",
+  "appium:automationName": "XCUITest",
+  "appium:udid": "<device UDID>",
+  "appium:xcodeOrgId": "UJ876FXT32",
+  "appium:xcodeSigningId": "Apple Development",
+  "appium:updatedWDABundleId": "UJ876FXT32.WebDriverAgentRunner",
+  "appium:allowProvisioningDeviceRegistration": true
+}
+```
+
+### Key Findings
+
+1. **Route C is the MVP physical device path** for free Apple Developer accounts. Appium 3.5.2 passes `-allowProvisioningUpdates` through `allowProvisioningDeviceRegistration: true`.
+2. **Route A is blocked by Appium upstream** — the RemoteXPC timeout for free-signed bundles is a known limitation. Deferred as Appium upstream issue.
+3. **Route B is architecturally valid but requires iproxy** — WdaManager build/install/launch all work; only USB port forwarding is missing.
+4. **Developer certificate must be manually trusted** on the device each time a new certificate is used (Settings → General → VPN & Device Management).
+5. **`updatedWDABundleId` must use base ID** (no `.xctrunner` suffix) — XCUITest scheme auto-appends it.
+6. **The free-account blocker (DEF-023) is now resolved** via Route C.
+
+### Evidence
+
+- Screenshot: `packages/itestagent-backends/device-appium/spike-evidence/g5-routec/screenshot.png`
+- UI tree: `packages/itestagent-backends/device-appium/spike-evidence/g5-routec/pagesource.xml`
+- Commit: `e3fbdd7` (branch `feat/appium-free-account-unblock`)
+
+### Updated Documentation
+
+- `docs/07-troubleshooting/appium-free-account-real-device-blocker.md` §8 — Route status updated
+- `docs/decisions/ADR-006-device-backend-appium-wda.md` — Post-G5 Update section added
+- `docs/decisions/ADR-012-wda-lifecycle-separation.md` — G5 Update section added
+- `docs/05-planning/task-status.json` — Task 3.7 notes updated with G5 Route C results
+- `docs/05-planning/deferred-items.json` — DEF-023 resolved
