@@ -262,6 +262,39 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 
 ---
 
+## 8. 解决方案实施（2026-07-25）
+
+### 8.1 Route A: `usePreinstalledWDA`（已实现）
+
+`usePreinstalledWDA` ≠ `usePrebuiltWDA`。前者完全跳过 Appium 的所有 xcodebuild，直接使用设备上已预安装的 WDA Runner。
+
+**架构变更**：
+- `appium-capabilities.ts`：新增 `WdaStartupMode`（三种互斥模式：`preinstalled` / `external-url` / `managed-xcodebuild`）
+- `appium-device-backend.ts`：`ensureSession()` 按模式路由生命周期；`closeSession()` WDA 清理不再被 `sessionActive` 锁定
+- `wda-manager.ts`：新增 `waitForReady()`（`/status` 轮询）、`verifyPreinstalledWDA()`、`preparePreinstalledWDA()`
+- `composition-root.ts`：生产工厂函数 `createAppiumDeviceBackend()`
+- `redactor.ts`：PII 脱敏（错误消息中去除 UDID/Team ID/用户路径）
+
+**新增 Doctor 检查**：
+- `check-signing-identity`：交叉验证 Team ID（xcodebuild/cert/profile）
+- `check-wda-preinstalled`：验证 WDA Runner 已安装且 Profile 未过期
+- `check-wda-readiness`：轮询 `/status` 确认 WDA 就绪
+
+**分支**：`feat/appium-free-account-unblock`
+**提交**：`b96ec89`（核心代码）、`584fd65`（Doctor+测试）
+**G3 验证**：typecheck 0 / lint 0 / 1845 tests pass
+
+### 8.2 待验证（G5）
+
+Route A 链路需在真实 iPhone 上完成 G5 验证（`usePreinstalledWDA` capability → session 创建 → 截图 → UI tree → tap → 清理）。验证矩阵见 `docs/05-planning/appium-free-account-unblock-plan.md` §Phase 7。
+
+### 8.3 备用路线
+
+- **Route B**（`webDriverAgentUrl`）：iTestAgent 完全管理 WDA 生命周期，Appium 仅 WebDriver 连接
+- **Route C**（`allowProvisioningDeviceRegistration`）：Appium 管理 xcodebuild 但传递 `-allowProvisioningUpdates`
+
+---
+
 ## 附录：验证命令参考
 
 ```bash
