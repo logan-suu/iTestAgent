@@ -71,7 +71,7 @@ interface MockDriverConfig {
 
 const DEFAULT_SESSION: AppiumSession = {
   sessionId: 'mock-session-001',
-  wdaBundleId: 'TEAMID.WebDriverAgentRunner.xctrunner',
+  wdaBundleId: 'TEAMID.WebDriverAgentRunner',
 };
 
 const DEFAULT_SCREEN: AppiumScreenSize = { width: 428, height: 926 };
@@ -921,13 +921,14 @@ describe('AppiumDeviceBackend', () => {
 import { buildPhysicalCapabilities, buildSimulatorCapabilities } from '../src/index.js';
 
 describe('buildPhysicalCapabilities', () => {
-  it('builds minimum capabilities with udid', () => {
+  it('builds minimum capabilities with udid (default preinstalled mode)', () => {
     const caps = buildPhysicalCapabilities({ udid: TEST_UDID });
 
     expect(caps.platformName).toBe('iOS');
     expect(caps['appium:automationName']).toBe('XCUITest');
     expect(caps['appium:udid']).toBe(TEST_UDID);
-    expect(caps['appium:usePrebuiltWDA']).toBe(true);
+    expect(caps['appium:usePreinstalledWDA']).toBe(true);
+    expect(caps['appium:usePrebuiltWDA']).toBeUndefined();
     expect(caps['appium:noReset']).toBe(true);
   });
 
@@ -937,13 +938,22 @@ describe('buildPhysicalCapabilities', () => {
     expect(caps['appium:bundleId']).toBe('com.example.app');
   });
 
-  it('includes wdaBundleId for free-account workaround', () => {
+  it('includes base wdaBundleId without .xctrunner suffix', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
-      wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner.xctrunner',
+      wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner',
     });
 
-    expect(caps['appium:updatedWDABundleId']).toBe('UJ876FXT32.WebDriverAgentRunner.xctrunner');
+    expect(caps['appium:updatedWDABundleId']).toBe('UJ876FXT32.WebDriverAgentRunner');
+  });
+
+  it('rejects wdaBundleId with .xctrunner suffix (double-suffix guard)', () => {
+    expect(() =>
+      buildPhysicalCapabilities({
+        udid: TEST_UDID,
+        wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner.xctrunner',
+      }),
+    ).toThrow(/without .xctrunner suffix/);
   });
 
   it('respects custom port options', () => {

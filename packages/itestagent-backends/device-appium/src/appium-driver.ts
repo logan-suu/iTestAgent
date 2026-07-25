@@ -63,7 +63,11 @@ export interface AppiumW3CCapabilities {
   'appium:udid': string;
   'appium:bundleId'?: string;
   'appium:usePrebuiltWDA'?: boolean;
+  /** Skips ALL Appium xcodebuild — WDA is already installed on the device (Route A). iOS 17+. */
+  'appium:usePreinstalledWDA'?: boolean;
   'appium:updatedWDABundleId'?: string;
+  /** External WDA URL for Route B (webDriverAgentUrl mode). Appium connects to it without xcodebuild. */
+  'appium:webDriverAgentUrl'?: string;
   'appium:wdaLocalPort'?: number;
   'appium:mjpegServerPort'?: number;
   'appium:derivedDataPath'?: string;
@@ -72,6 +76,12 @@ export interface AppiumW3CCapabilities {
   'appium:newCommandTimeout'?: number;
   'appium:deviceName'?: string;
   'appium:platformVersion'?: string;
+  /** Team ID for Appium-managed xcodebuild (managed-xcodebuild mode). */
+  'appium:xcodeOrgId'?: string;
+  /** Signing identity for Appium-managed xcodebuild (default: Apple Development). */
+  'appium:xcodeSigningId'?: string;
+  /** Allow provisioning updates in Appium-managed xcodebuild. */
+  'appium:allowProvisioningDeviceRegistration'?: boolean;
   [key: string]: unknown;
 }
 

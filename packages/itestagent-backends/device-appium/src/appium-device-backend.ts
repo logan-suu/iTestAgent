@@ -10,6 +10,7 @@
  *   - Lazy session creation: session is established on first action requiring Appium
  *   - Coordinate conversion: normalized [0,1] ↔ Appium pixel coordinates
  *   - Error handling: all AppiumDriverError caught and converted to ActionResult (R5)
+ *   - WdaStartupMode routing: preinstalled / external-url / managed-xcodebuild (Phase 3)
  *
  * R2: Uses Appium/WDA (mature open-source), does not re-implement device control.
  * R5: All errors are explicit — never silently degrade. Unsupported operations
@@ -48,7 +49,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
-import type { SimulatorCapabilitiesOptions } from './appium-capabilities.js';
+import type { SimulatorCapabilitiesOptions, WdaStartupMode } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
 import type { WdaManager } from './wda-manager.js';
@@ -78,10 +79,21 @@ export interface AppiumDeviceBackendOptions {
   /** App bundle ID to test. */
   bundleId?: string;
   /**
-   * WDA bundle ID override for free-account workaround (physical only).
-   * Example: "UJ876FXT32.WebDriverAgentRunner.xctrunner"
+   * WDA base bundle ID for free-account workaround (physical only).
+   * MUST be base ID WITHOUT .xctrunner suffix (e.g. "TEAMID.WebDriverAgentRunner").
    */
   wdaBundleId?: string;
+  /**
+   * WDA startup mode (physical only). Mutually exclusive — only ONE mode per session.
+   * Default: 'preinstalled' (Route A — primary strategy for free accounts).
+   * Ignored for simulator targetKind.
+   */
+  wdaStartupMode?: WdaStartupMode;
+  /**
+   * WDA URL for external-url mode (physical only).
+   * Required when wdaStartupMode is 'external-url'.
+   */
+  webDriverAgentUrl?: string;
   /** WDA local port for WebDriverAgent communication (default: 8100). */
   wdaLocalPort?: number;
   /** MJPEG server port for video streaming (default: 9100). Required for parallel simulator sessions. */
@@ -100,8 +112,8 @@ export interface AppiumDeviceBackendOptions {
   derivedDataPath?: string;
   /**
    * WdaManager instance for managing WDA lifecycle (ADR-012).
-   * When provided, WDA is launched before Appium session creation
-   * and stopped on closeSession. Optional for mock/testing.
+   * When provided, WDA lifecycle is managed according to wdaStartupMode.
+   * Optional for mock/testing.
    */
   wdaManager?: WdaManager;
 }
@@ -159,11 +171,18 @@ export class AppiumDeviceBackend implements DeviceBackend {
   readonly name = 'appium';
 
   private readonly opts: Required<
-    Omit<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath' | 'wdaManager'>
+    Omit<
+      AppiumDeviceBackendOptions,
+      'bundleId' | 'wdaBundleId' | 'derivedDataPath' | 'wdaManager' | 'webDriverAgentUrl'
+    >
   > &
-    Pick<AppiumDeviceBackendOptions, 'bundleId' | 'wdaBundleId' | 'derivedDataPath'>;
+    Pick<
+      AppiumDeviceBackendOptions,
+      'bundleId' | 'wdaBundleId' | 'derivedDataPath' | 'webDriverAgentUrl'
+    >;
 
   private readonly targetKind: TargetKind;
+  private readonly wdaStartupMode: WdaStartupMode;
   private driver: AppiumDriver;
   private readonly wdaManager: WdaManager | undefined;
   private sessionActive = false;
@@ -174,16 +193,19 @@ export class AppiumDeviceBackend implements DeviceBackend {
     this.driver = driver;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
+    this.wdaStartupMode = options.wdaStartupMode ?? 'preinstalled';
     this.opts = {
       udid: options.udid,
       targetKind: options.targetKind,
       bundleId: options.bundleId,
       wdaBundleId: options.wdaBundleId,
+      wdaStartupMode: this.wdaStartupMode,
       wdaLocalPort: options.wdaLocalPort ?? 8100,
       mjpegServerPort: options.mjpegServerPort ?? 9100,
       deviceName: options.deviceName ?? '',
       platformVersion: options.platformVersion ?? '',
       derivedDataPath: options.derivedDataPath,
+      webDriverAgentUrl: options.webDriverAgentUrl,
     };
   }
 
@@ -201,8 +223,10 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * all wait on the same creation promise — only one Appium session
    * is ever created.
    *
-   * ADR-012: If a WdaManager is configured, WDA is launched before
-   * the Appium session is established.
+   * ADR-012 / Phase 3: WDA lifecycle varies by WdaStartupMode.
+   *   - preinstalled: verify WDA on device, do NOT call wdaManager.launch()
+   *   - external-url: launch WDA via wdaManager → waitForReady → pass webDriverAgentUrl
+   *   - managed-xcodebuild: Appium manages WDA internally
    */
   private async ensureSession(): Promise<void> {
     if (this.sessionActive) return;
@@ -220,55 +244,178 @@ export class AppiumDeviceBackend implements DeviceBackend {
     }
   }
 
+  /**
+   * Create an Appium session with the appropriate WDA startup mode.
+   *
+   * Phase 3: Now uses finally block to ensure cleanup on failure.
+   */
   private async doCreateSession(): Promise<void> {
-    // ADR-012: launch WDA before Appium session if WdaManager is configured
-    if (this.wdaManager && !this.wdaManager.isRunning()) {
+    try {
+      let caps: Record<string, unknown>;
+
+      if (this.targetKind === 'simulator') {
+        caps = this.buildSimulatorCaps();
+      } else {
+        caps = await this.buildPhysicalCaps();
+      }
+
+      await this.driver.createSession(caps);
+      this.sessionActive = true;
+
+      this.screenSize = await this.driver.getScreenSize();
+    } catch (error) {
+      // Clean up WDA if it was started during this attempt (external-url mode)
+      if (this.wdaManager && this.targetKind === 'physical') {
+        if (this.wdaStartupMode === 'external-url' && this.wdaManager.isRunning()) {
+          try {
+            await this.wdaManager.stop();
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Build simulator capabilities — unchanged (G5-SIM verified).
+   */
+  private buildSimulatorCaps(): Record<string, unknown> {
+    const simOpts: SimulatorCapabilitiesOptions = {
+      udid: this.opts.udid,
+      wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
+      newCommandTimeout: 600,
+    };
+    if (this.opts.bundleId) simOpts.bundleId = this.opts.bundleId;
+    if (this.opts.deviceName) simOpts.deviceName = this.opts.deviceName;
+    if (this.opts.platformVersion) simOpts.platformVersion = this.opts.platformVersion;
+    if (this.opts.derivedDataPath) simOpts.derivedDataPath = this.opts.derivedDataPath;
+    return buildSimulatorCapabilities(simOpts) as Record<string, unknown>;
+  }
+
+  /**
+   * Build physical capabilities with mode-specific WDA handling.
+   */
+  private async buildPhysicalCaps(): Promise<Record<string, unknown>> {
+    const mode = this.wdaStartupMode;
+
+    if (mode === 'preinstalled') {
+      return this.buildPreinstalledCaps();
+    }
+
+    if (mode === 'external-url') {
+      return this.buildExternalUrlCaps();
+    }
+
+    // managed-xcodebuild: Appium manages WDA internally
+    return this.buildManagedXcodebuildCaps();
+  }
+
+  /**
+   * Route A (preinstalled): WDA already on device — skip ALL Appium xcodebuild.
+   *
+   * Verifies preinstalled WDA exists before session creation.
+   * Does NOT call wdaManager.launch().
+   */
+  private async buildPreinstalledCaps(): Promise<Record<string, unknown>> {
+    // Verify preinstalled WDA if WdaManager is available
+    if (this.wdaManager && this.opts.wdaBundleId) {
+      const result = await this.wdaManager.verifyPreinstalledWDA(
+        this.opts.udid,
+        this.opts.wdaBundleId,
+      );
+      if (!result.ready) {
+        throw new Error(
+          `Preinstalled WDA not ready: ${result.reason ?? 'unknown'}. Run WdaManager.preparePreinstalledWDA() first.`,
+        );
+      }
+    }
+
+    return buildPhysicalCapabilities({
+      udid: this.opts.udid,
+      wdaLocalPort: this.opts.wdaLocalPort,
+      newCommandTimeout: 600,
+      wdaStartupMode: 'preinstalled',
+      bundleId: this.opts.bundleId,
+      wdaBundleId: this.opts.wdaBundleId || undefined,
+      deviceName: this.opts.deviceName || undefined,
+      platformVersion: this.opts.platformVersion || undefined,
+    }) as Record<string, unknown>;
+  }
+
+  /**
+   * Route B (external-url): iTestAgent manages WDA, Appium connects via URL.
+   *
+   * Launches WDA → waits for /status ready → passes webDriverAgentUrl.
+   */
+  private async buildExternalUrlCaps(): Promise<Record<string, unknown>> {
+    if (!this.wdaManager) {
+      throw new Error(
+        'wdaManager is required for external-url mode. Provide a WdaManager instance.',
+      );
+    }
+
+    // Launch WDA
+    if (!this.wdaManager.isRunning()) {
       await this.wdaManager.launch({
-        projectPath: '', // WDA project path is configured per-deployment
+        projectPath: '', // Configured per-deployment via WdaManager
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
       });
     }
 
-    let caps: Record<string, unknown>;
+    // Wait for WDA to be ready
+    await this.wdaManager.waitForReady(this.opts.wdaLocalPort);
 
-    if (this.targetKind === 'simulator') {
-      const simOpts: SimulatorCapabilitiesOptions = {
+    const wdaUrl = this.opts.webDriverAgentUrl ?? `http://127.0.0.1:${this.opts.wdaLocalPort}`;
+
+    return buildPhysicalCapabilities({
+      udid: this.opts.udid,
+      wdaLocalPort: this.opts.wdaLocalPort,
+      newCommandTimeout: 600,
+      wdaStartupMode: 'external-url',
+      webDriverAgentUrl: wdaUrl,
+      bundleId: this.opts.bundleId,
+      deviceName: this.opts.deviceName || undefined,
+      platformVersion: this.opts.platformVersion || undefined,
+    }) as Record<string, unknown>;
+  }
+
+  /**
+   * Route C (managed-xcodebuild): Appium manages WDA internally.
+   *
+   * If WdaManager is configured, launches WDA before Appium session.
+   * Uses usePrebuiltWDA to skip build-for-testing only.
+   */
+  private async buildManagedXcodebuildCaps(): Promise<Record<string, unknown>> {
+    if (this.wdaManager && !this.wdaManager.isRunning()) {
+      await this.wdaManager.launch({
+        projectPath: '',
         udid: this.opts.udid,
-        wdaLocalPort: this.opts.wdaLocalPort,
-        mjpegServerPort: this.opts.mjpegServerPort,
-        newCommandTimeout: 600,
-      };
-      if (this.opts.bundleId) simOpts.bundleId = this.opts.bundleId;
-      if (this.opts.deviceName) simOpts.deviceName = this.opts.deviceName;
-      if (this.opts.platformVersion) simOpts.platformVersion = this.opts.platformVersion;
-      if (this.opts.derivedDataPath) simOpts.derivedDataPath = this.opts.derivedDataPath;
-      caps = buildSimulatorCapabilities(simOpts) as Record<string, unknown>;
-    } else {
-      caps = buildPhysicalCapabilities({
-        udid: this.opts.udid,
-        wdaLocalPort: this.opts.wdaLocalPort,
-        newCommandTimeout: 600,
-        usePrebuiltWDA: true,
-        bundleId: this.opts.bundleId,
-        wdaBundleId: this.opts.wdaBundleId || undefined,
-        deviceName: this.opts.deviceName || undefined,
-        platformVersion: this.opts.platformVersion || undefined,
-      }) as Record<string, unknown>;
+        wdaPort: this.opts.wdaLocalPort,
+      });
     }
 
-    await this.driver.createSession(caps);
-    this.sessionActive = true;
-
-    // Cache screen size for coordinate conversion
-    this.screenSize = await this.driver.getScreenSize();
+    return buildPhysicalCapabilities({
+      udid: this.opts.udid,
+      wdaLocalPort: this.opts.wdaLocalPort,
+      newCommandTimeout: 600,
+      wdaStartupMode: 'managed-xcodebuild',
+      usePrebuiltWDA: true,
+      bundleId: this.opts.bundleId,
+      wdaBundleId: this.opts.wdaBundleId || undefined,
+      deviceName: this.opts.deviceName || undefined,
+      platformVersion: this.opts.platformVersion || undefined,
+    }) as Record<string, unknown>;
   }
 
   /**
    * Close the current Appium session and release resources.
    *
-   * ADR-012: If a WdaManager is configured, the WDA process is
-   * stopped after the Appium session is deleted.
+   * ADR-012 / Phase 3 fix: WDA cleanup always runs regardless of sessionActive state.
+   * Previously, returning early when sessionActive=false leaked WDA processes and ports.
    *
    * Idempotent — safe to call even if no session is active.
    */
@@ -278,22 +425,23 @@ export class AppiumDeviceBackend implements DeviceBackend {
       try {
         await this.sessionMutex;
       } catch {
-        /* session creation failed */
+        /* session creation failed — proceed to cleanup */
       }
     }
 
-    if (!this.sessionActive) return;
-
-    try {
-      await this.driver.deleteSession();
-    } catch {
-      // Best-effort cleanup — don't throw on delete failure
+    // Delete Appium session if active
+    if (this.sessionActive) {
+      try {
+        await this.driver.deleteSession();
+      } catch {
+        // Best-effort cleanup — don't throw on delete failure
+      }
+      this.sessionActive = false;
+      this.screenSize = null;
     }
 
-    this.sessionActive = false;
-    this.screenSize = null;
-
-    // ADR-012: stop WDA after Appium session is torn down
+    // ADR-012: stop WDA regardless of sessionActive state
+    // (was previously gated by sessionActive, causing leaks)
     if (this.wdaManager) {
       try {
         await this.wdaManager.stop();
@@ -583,7 +731,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         buildNumber: app.buildNumber,
       }));
     } catch (error) {
-      // R5: return empty array instead of throwing — caller checks context
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[AppiumDeviceBackend.listApps] ${errorMsg}`);
       return [];
@@ -596,7 +743,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
     try {
       await this.ensureSession();
 
-      // Use Appium mobile: launchApp (handles install+launch)
       const result = await this.driver.launchApp(input.bundleId);
       if (result.success) {
         await this.driver.activateApp(input.bundleId);
@@ -643,7 +789,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         capturedAt: new Date().toISOString(),
       };
     } catch (error) {
-      // R5: return empty snapshot with error context rather than throwing
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[AppiumDeviceBackend.getUiTree] ${errorMsg}`);
       return {
@@ -675,7 +820,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         redactionStatus: 'safe',
       };
     } catch (error) {
-      // R5: return a "failed" artifact ref rather than throwing
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[AppiumDeviceBackend.screenshot] ${errorMsg}`);
       return {
@@ -754,7 +898,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         error: result.error,
       };
     } catch (error) {
-      // R5: pressButton may not be supported (WDA limitation with some iOS versions)
       return {
         success: false,
         error: `pressButton(${input.button}): not supported — Appium mobile: pressButton requires iOS 17+`,
@@ -792,7 +935,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         startedAt: new Date().toISOString(),
       };
     } catch (error) {
-      // R5: return a "failed" handle — caller should check stopRecording result
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[AppiumDeviceBackend.startRecording] ${errorMsg}`);
       return {
@@ -838,10 +980,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async listCrashes(_input: DeviceTarget): Promise<CrashSummary[]> {
     if (this.targetKind === 'simulator') {
-      // R5: Simulator crash log listing is not supported via simctl.
-      // Crash diagnostics for simulator apps live in ~/Library/Logs/DiagnosticReports/
-      // and are not queryable through a standard CLI. Return empty — caller must
-      // interpret this as "not available for this target kind."
       return [];
     }
 
@@ -905,7 +1043,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
         redactionStatus: 'raw-local-only',
       };
     } catch (error) {
-      // R5: log collection may not be available (WDA limitation)
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[AppiumDeviceBackend.collectLogs] ${errorMsg}`);
       return {

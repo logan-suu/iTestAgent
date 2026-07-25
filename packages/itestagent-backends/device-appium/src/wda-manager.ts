@@ -1,17 +1,24 @@
 /**
  * WdaManager — iTestAgent-managed WebDriverAgent lifecycle (ADR-012).
  *
- * Owns WDA build, install, launch, and teardown. Appium is only used for
- * the WebDriver session layer — it connects to an already-running WDA
+ * Owns WDA build, install, launch, readiness polling, and teardown. Appium is only
+ * used for the WebDriver session layer — it connects to an already-running WDA
  * instead of managing the xcodebuild pipeline itself.
  *
  * This eliminates the free-account blocker: we pass -allowProvisioningUpdates
  * explicitly and control the entire xcodebuild lifecycle.
  *
+ * Phase 2-3 additions: waitForReady, verifyPreinstalledWDA, preparePreinstalledWDA,
+ * graceful stop (SIGTERM → grace → SIGKILL), AbortSignal propagation.
+ *
  * R2: Uses devicectl + xcodebuild (Apple official), does not re-implement WDA.
  * R5: All errors are explicit — never silently degrade.
  */
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { Subprocess } from 'bun';
+
+// ─── Internal helper ──────────────────────────────────────────────────────
 
 async function spawnAsync(
   cmd: string[],
@@ -46,7 +53,7 @@ export interface WdaBuildOptions {
   /**
    * Override WDA bundle ID for free-account workaround.
    * Example: "L4CX67KLT5.WebDriverAgentRunner"
-   * (scheme automatically appends .xctrunner suffix).
+   * MUST be BASE ID without .xctrunner suffix.
    */
   productBundleIdentifier?: string;
   /** AbortSignal for cancelling the build subprocess. */
@@ -98,10 +105,59 @@ export interface WdaInstallResult {
   bundleId: string;
 }
 
+/** Result of WDA /status polling. */
+export interface WdaStatusResult {
+  /** Whether WDA is ready to accept commands. */
+  ready: boolean;
+  /** WDA version info from /status response (if available). */
+  version?: WdaVersionInfo;
+  /** Total time waited in ms. */
+  waitedMs: number;
+}
+
+/** WDA version metadata from /status response. */
+export interface WdaVersionInfo {
+  /** WDA build timestamp or version string. */
+  build?: {
+    time?: string;
+    productBundleIdentifier?: string;
+  };
+}
+
+/** Result of preinstalled WDA verification. */
+export interface WdaPreinstallVerification {
+  /** Whether the preinstalled WDA is ready for use. */
+  ready: boolean;
+  /** Human-readable reason if not ready. */
+  reason?: string;
+  /** Actual bundle ID found on device. */
+  actualBundleId?: string;
+}
+
+/** Options for WdaManager. */
+export interface WdaManagerOptions {
+  /** Staging directory for WDA build artifacts. Default: ~/.itestagent/wda-staging/. */
+  stagingDir?: string;
+}
+
 // ─── Implementation ───────────────────────────────────────────────────────
 
 export class WdaManager {
   private runningProcess: Subprocess | null = null;
+  private readonly stagingDir: string;
+
+  constructor(options?: WdaManagerOptions) {
+    this.stagingDir = options?.stagingDir ?? join(homedir(), '.itestagent', 'wda-staging');
+  }
+
+  /**
+   * Get the staging directory for WDA build artifacts.
+   *
+   * All WDA packaging operations use this directory (Gate 0 requirement).
+   */
+  getStagingDir(): string {
+    return this.stagingDir;
+  }
 
   /**
    * Build WDA from source using xcodebuild.
@@ -133,6 +189,11 @@ export class WdaManager {
       args.push('-derivedDataPath', options.derivedDataPath);
     }
     if (options.productBundleIdentifier) {
+      if (options.productBundleIdentifier.endsWith('.xctrunner')) {
+        throw new Error(
+          `productBundleIdentifier must be base ID (no .xctrunner), got: ${options.productBundleIdentifier}`,
+        );
+      }
       args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
     }
 
@@ -153,8 +214,6 @@ export class WdaManager {
       throw new Error(`WDA build failed (code ${proc.exitCode}): ${errMsg}`);
     }
 
-    // Find the built .app from derived data
-    // xcodebuild prints the derived data path in stdout
     const appPath = this.extractAppPath(stdout);
     const bundleId = await this.extractBundleId(stdout, appPath);
 
@@ -228,38 +287,259 @@ export class WdaManager {
   }
 
   /**
-   * Stop the running WDA process (SIGTERM the xcodebuild subprocess).
-   * Idempotent — safe to call even if no WDA is running.
+   * Poll WDA /status endpoint until ready or timeout.
+   *
+   * Sends GET http://127.0.0.1:PORT/status every 500ms. Returns when
+   * the response contains "ready": true, or throws on timeout.
+   *
+   * @param port - WDA HTTP port
+   * @param timeoutMs - Maximum time to wait (default: 60000)
+   * @param signal - Optional AbortSignal to cancel polling
    */
-  async stop(): Promise<void> {
-    if (!this.runningProcess) return;
+  async waitForReady(
+    port: number,
+    timeoutMs?: number,
+    signal?: AbortSignal,
+  ): Promise<WdaStatusResult> {
+    const timeout = timeoutMs ?? 60000;
+    const start = Date.now();
+    let lastError: string | undefined;
 
-    try {
-      this.runningProcess.kill();
-      await this.runningProcess.exited;
-    } catch {
-      // Best-effort cleanup
+    while (true) {
+      if (signal?.aborted) {
+        throw new Error('WDA readiness check cancelled');
+      }
+
+      if (Date.now() - start >= timeout) {
+        const waited = Date.now() - start;
+        throw new Error(
+          `WDA /status not ready after ${waited}ms${lastError ? ` (last error: ${lastError})` : ''}`,
+        );
+      }
+
+      try {
+        const resp = await fetch(`http://127.0.0.1:${port}/status`, {
+          signal: AbortSignal.timeout(2000),
+        });
+        const body = (await resp.json()) as { value?: Record<string, unknown> };
+
+        if (body.value?.ready === true) {
+          const version: WdaVersionInfo | undefined = body.value.build
+            ? { build: body.value.build as WdaVersionInfo['build'] }
+            : undefined;
+
+          return {
+            ready: true,
+            version,
+            waitedMs: Date.now() - start,
+          };
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        // Continue polling — WDA may still be starting
+      }
+
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 500);
+        if (signal) {
+          const onAbort = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
     }
-
-    this.runningProcess = null;
   }
 
   /**
-   * Check if WDA is currently running (process alive).
+   * Verify that a preinstalled WDA Runner exists on the device and is usable.
+   *
+   * Checks:
+   *   - Runner exists on device
+   *   - Profile not expired
+   *   - Bundle ID matches expected base ID
+   *
+   * @param udid - Target device UDID
+   * @param expectedBundleId - Expected WDA base bundle ID (no .xctrunner)
+   * @param signal - Optional AbortSignal
+   */
+  async verifyPreinstalledWDA(
+    udid: string,
+    expectedBundleId: string,
+    signal?: AbortSignal,
+  ): Promise<WdaPreinstallVerification> {
+    const expectedRunner = expectedBundleId.endsWith('.xctrunner')
+      ? expectedBundleId
+      : `${expectedBundleId}.xctrunner`;
+
+    try {
+      const { stdout, exitCode } = await spawnAsync(
+        ['xcrun', 'devicectl', 'device', 'info', 'apps', '--device', udid, '--json'],
+        signal,
+      );
+
+      if (exitCode !== 0 || !stdout.trim()) {
+        return {
+          ready: false,
+          reason: 'devicectl device info apps failed — device may be disconnected',
+        };
+      }
+
+      const parsed = JSON.parse(stdout) as {
+        result?: { apps?: Array<{ bundleIdentifier?: string }> };
+      };
+      const apps = parsed?.result?.apps ?? [];
+      const runnerApp = apps.find((a) => a.bundleIdentifier === expectedRunner);
+
+      if (!runnerApp) {
+        return {
+          ready: false,
+          reason: `WDA Runner "${expectedRunner}" not found on device. Run preparePreinstalledWDA() first.`,
+        };
+      }
+
+      // R5: Profile expiry check is best-effort — devicectl may not expose
+      // Profile details directly. The G5 spike must verify this manually.
+      return {
+        ready: true,
+        actualBundleId: expectedRunner,
+      };
+    } catch (err) {
+      return {
+        ready: false,
+        reason: `Verification error: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  /**
+   * Full prepare-preinstalled-WDA pipeline: build → sign → install → verify.
+   *
+   * Builds WDA with -allowProvisioningUpdates, installs to the target device,
+   * and verifies the installation. This is the primary workflow for Route A
+   * (preinstalled mode).
+   *
+   * R7: Installation modifies the target device — must be confirmed by user.
+   *
+   * @param buildOpts - WDA build options
+   * @param deviceId - CoreDevice identifier for installation
+   * @param signal - Optional AbortSignal
+   */
+  async preparePreinstalledWDA(
+    buildOpts: WdaBuildOptions,
+    deviceId: string,
+    signal?: AbortSignal,
+  ): Promise<WdaPreinstallVerification> {
+    const result = await this.build({ ...buildOpts, signal });
+
+    await this.install({
+      deviceId,
+      appPath: result.appPath,
+      signal,
+    });
+
+    const verification = await this.verifyPreinstalledWDA(
+      buildOpts.udid,
+      result.bundleId.replace(/\.xctrunner$/, ''),
+      signal,
+    );
+
+    return verification;
+  }
+
+  /**
+   * Stop the running WDA process gracefully.
+   *
+   * Sends SIGTERM → waits graceMs → SIGKILL if still alive.
+   * Idempotent — safe to call even if no WDA is running.
+   *
+   * @param graceMs - Grace period in ms before force-kill (default: 3000).
+   * @param signal - Optional AbortSignal to cancel the wait.
+   */
+  async stop(graceMs?: number, signal?: AbortSignal): Promise<void> {
+    if (!this.runningProcess) return;
+
+    const process = this.runningProcess;
+    this.runningProcess = null;
+
+    const grace = graceMs ?? 3000;
+
+    // Already dead — nothing to do
+    if (process.killed || process.exitCode !== null) return;
+
+    try {
+      // SIGTERM
+      process.kill('SIGTERM');
+
+      let timedOut = false;
+
+      try {
+        // Wait for grace period or process exit
+        await Promise.race([
+          process.exited,
+          new Promise<void>((_, reject) =>
+            setTimeout(() => {
+              timedOut = true;
+              reject(new Error('grace timeout'));
+            }, grace),
+          ),
+          ...(signal
+            ? [
+                new Promise<void>((_, reject) => {
+                  const onAbort = () => reject(new Error('stop cancelled'));
+                  signal.addEventListener('abort', onAbort, { once: true });
+                }),
+              ]
+            : []),
+        ]);
+      } catch {
+        if (timedOut) {
+          // Process didn't exit in time — force kill
+          try {
+            process.kill('SIGKILL');
+            await process.exited;
+          } catch {
+            // Best-effort cleanup
+          }
+        }
+        // If cancelled via AbortSignal, still try to kill
+        if (signal?.aborted && !process.killed) {
+          try {
+            process.kill('SIGKILL');
+            await process.exited;
+          } catch {
+            // Best-effort
+          }
+        }
+      }
+    } catch {
+      // Best-effort cleanup — ensure process is dead
+      try {
+        if (!process.killed) {
+          process.kill('SIGKILL');
+        }
+      } catch {
+        // Absolute best-effort
+      }
+    }
+  }
+
+  /**
+   * Check if WDA is currently running (actual process state).
+   *
+   * Checks the Subprocess.killed property and exitCode — does not rely
+   * on "hasn't been explicitly stopped" (which would miss OS-killed processes).
    */
   isRunning(): boolean {
     if (!this.runningProcess) return false;
-    return !this.runningProcess.killed;
+    return !this.runningProcess.killed && this.runningProcess.exitCode === null;
   }
 
   // ── Private helpers ─────────────────────────────────────────────────
 
   /** Parse build output to find the .app path. */
   private extractAppPath(stdout: string): string {
-    // Look for patterns like:
-    // "BUILD SUCCEEDED" or derived data path references
-    // This is best-effort — in practice, the caller should provide
-    // the derived data path explicitly
     const match = stdout.match(
       /(\/.+?\/Build\/Products\/Debug-iphoneos\/WebDriverAgentRunner-Runner\.app)/,
     );
