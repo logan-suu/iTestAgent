@@ -10,7 +10,7 @@
  * @see AGENTS.md R12: All code/comments in English.
  */
 
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as pathJoin } from 'node:path';
 
@@ -62,16 +62,26 @@ function parseJUnitXml(xml: string): {
   tests: ParsedJUnitTest[];
   summary: JUnitSummary;
 } {
-  // Extract testsuite attributes
-  const suiteMatch = xml.match(/<testsuite\s+([^>]+)>/);
-  const suiteAttrs = suiteMatch?.[1] ?? '';
+  // Iterate all <testsuite> elements to aggregate metadata across multiple suites
+  const suiteRegex = /<testsuite\s+([^>]+)>/g;
+  let totalTime = 0;
+  let timestamp: string | undefined;
+  let testsCount = 0;
+  let failuresCount = 0;
+  let errorsCount = 0;
+  let skippedCount = 0;
 
-  const testsCount = Number.parseInt(attrValue(suiteAttrs, 'tests') ?? '0', 10);
-  const failuresCount = Number.parseInt(attrValue(suiteAttrs, 'failures') ?? '0', 10);
-  const errorsCount = Number.parseInt(attrValue(suiteAttrs, 'errors') ?? '0', 10);
-  const totalTime = Number.parseFloat(attrValue(suiteAttrs, 'time') ?? '0');
-  const timestamp = attrValue(suiteAttrs, 'timestamp');
-  const skippedCount = Number.parseInt(attrValue(suiteAttrs, 'skipped') ?? '0', 10);
+  for (let sm = suiteRegex.exec(xml); sm !== null; sm = suiteRegex.exec(xml)) {
+    const attrs = sm[1] ?? '';
+    totalTime += Number.parseFloat(attrValue(attrs, 'time') ?? '0');
+    // Use last suite's timestamp (most recent)
+    const ts = attrValue(attrs, 'timestamp');
+    if (ts) timestamp = ts;
+    testsCount += Number.parseInt(attrValue(attrs, 'tests') ?? '0', 10);
+    failuresCount += Number.parseInt(attrValue(attrs, 'failures') ?? '0', 10);
+    errorsCount += Number.parseInt(attrValue(attrs, 'errors') ?? '0', 10);
+    skippedCount += Number.parseInt(attrValue(attrs, 'skipped') ?? '0', 10);
+  }
 
   // Extract testcase elements
   const testcaseRegex = /<testcase\s+([^>]*?)>([\s\S]*?)<\/testcase>/g;
@@ -255,6 +265,12 @@ export function createXcresultParser(deps: XcresultParserDeps) {
         // R5: xcparse failure is non-fatal; attachments remains empty
       } catch {
         // R5: File system errors are non-fatal
+      } finally {
+        try {
+          rmSync(tempDir, { recursive: true, force: true });
+        } catch {
+          /* best-effort cleanup */
+        }
       }
     }
 

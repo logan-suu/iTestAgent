@@ -84,6 +84,10 @@ export function normalizeTestCases(parsedTests: ParsedJUnitTest[]): TestCaseResu
 /**
  * Build execution summary from JUnit summary and target names.
  *
+ * R5: endTime is set to the parse-time wall clock because JUnit XML only
+ * provides a single timestamp (testsuite start). The actual test end time
+ * is not extractable from the CLI output.
+ *
  * @param summary - JUnit test suite summary.
  * @param targetNames - Target names extracted from --target-info.
  * @returns Execution summary object.

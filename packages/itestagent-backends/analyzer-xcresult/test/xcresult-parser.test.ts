@@ -57,8 +57,8 @@ function createParser(mockSpawn: SpawnAsyncFn) {
   return createXcresultParser(deps);
 }
 
-/** Valid xcresult path that passes existsSync check (uses an actual existing path). */
-const validXcresultPath = pathJoin(FIXTURES_DIR, 'junit-pass.xml');
+/** Empty directory that simulates an .xcresult bundle (which is a directory, not a file). */
+const validXcresultPath = pathJoin(FIXTURES_DIR, 'mock.xcresult');
 
 // ─── parse: passing tests ─────────────────────────────────────
 
