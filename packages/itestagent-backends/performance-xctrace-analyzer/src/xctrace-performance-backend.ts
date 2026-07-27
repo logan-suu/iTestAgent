@@ -76,6 +76,38 @@ const defaultSpawnSync: SpawnSyncFn = (cmd, args, cwd) => {
   };
 };
 
+/** Default subprocess spawn that wraps Bun.spawn to match SubprocessSpawnFn signature. */
+function createDefaultSubprocessSpawn(): SubprocessSpawnFn {
+  return (command, args, options) => {
+    const subprocess = Bun.spawn([command, ...(args ?? [])], {
+      cwd: options?.cwd ?? process.cwd(),
+      env: options?.env as Record<string, string> | undefined,
+      stdin: null,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    let killed = false;
+
+    return {
+      get pid() {
+        return subprocess.pid;
+      },
+      exited: subprocess.exited.then((exitCode) => ({
+        exitCode: exitCode === null || exitCode >= 128 ? null : exitCode,
+        signal: exitCode !== null && exitCode >= 128 ? String(exitCode - 128) : undefined,
+      })),
+      kill(signal?: string) {
+        if (killed || subprocess.killed) return;
+        killed = true;
+        subprocess.kill(signal as number | undefined);
+      },
+      isAlive() {
+        return !subprocess.killed && !killed;
+      },
+    };
+  };
+}
+
 /**
  * Create an XctracePerformanceBackend instance.
  *
@@ -89,8 +121,7 @@ export function createXctracePerformanceBackend(
   deps?: Partial<XctracePerformanceBackendDeps>,
 ): PerformanceBackend {
   const spawnSync = deps?.spawnSync ?? defaultSpawnSync;
-  const subprocessSpawn =
-    deps?.subprocessSpawn ?? (defaultSpawnSync as unknown as SubprocessSpawnFn);
+  const subprocessSpawn = deps?.subprocessSpawn ?? createDefaultSubprocessSpawn();
   const workDir = deps?.workDir ?? tmpdir();
   const isSimulator = deps?.isSimulator ?? false;
 
@@ -128,8 +159,10 @@ export function createXctracePerformanceBackend(
         timeLimitSeconds: input.durationSeconds,
       });
 
-      // Recording is managed externally — we just return the artifact reference.
-      // The subprocess handle is available via recording.subprocess for lifecycle management.
+      // TODO(task 4.4): wire subprocess handle into session lifecycle
+      //   - store handle so caller can stopRecording(artifactRef.id)
+      //   - await exited before exportTrace/summarizeTrace
+      //   - handle abort/timeout via AbortSignal chain
       void recording.subprocess.exited.catch(() => {
         // Subprocess exit is handled by caller via abort/timelimit.
       });
