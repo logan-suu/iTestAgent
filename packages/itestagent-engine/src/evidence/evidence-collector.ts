@@ -3,9 +3,9 @@
  *
  * Task 4.1: US-13.1 automatic evidence collection.
  *
- * AC1: 失败时自动采集 screenshot / video / syslog / crashlog / xcresult / trace
- * AC2: 证据关联到具体 run step / case
- * AC3: crashlog 支持符号化
+ * AC1: auto-collect screenshot / video / syslog / crashlog / xcresult / trace on failure
+ * AC2: link evidence to specific run step / case
+ * AC3: crashlog symbolication via xctrace symbolicate / LLVM crashlog tools
  *
  * Architecture:
  *   - Simulator targets → simctl-based evidence (simctl-evidence.ts)

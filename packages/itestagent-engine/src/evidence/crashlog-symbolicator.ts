@@ -1,7 +1,7 @@
 /**
  * CrashlogSymbolicator — symbolication of iOS crashlogs.
  *
- * Task 4.1 AC3: crashlog 支持符号化（借助 xctrace symbolicate / LLVM crashlog 工具）
+ * Task 4.1 AC3: crashlog symbolication via xctrace symbolicate / LLVM crashlog tools
  *
  * Strategies (tried in order):
  *   1. xcrun symbolicatecrash — Apple's bundled crashlog symbolication script
@@ -18,9 +18,9 @@
  */
 
 import { execSync, spawnSync } from 'node:child_process';
-import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { spawnAsync } from './spawn-async.js';
 
 // ─── Symbolication Result ───────────────────────────────────────
 
@@ -85,40 +85,6 @@ function findDsym(appName: string, dsymPath?: string): string | null {
   return null;
 }
 
-// ─── Spawn Helper ───────────────────────────────────────────────
-
-async function spawnCommand(
-  cmd: string,
-  args: string[],
-  signal?: AbortSignal,
-  timeoutMs = 15000,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, {
-      timeout: timeoutMs,
-      signal,
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout?.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    proc.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
-    });
-
-    proc.on('error', (err) => {
-      reject(err);
-    });
-  });
-}
-
 // ─── Strategy 1: symbolicatecrash ───────────────────────────────
 
 async function trySymbolicateCrash(
@@ -129,7 +95,7 @@ async function trySymbolicateCrash(
 ): Promise<SymbolicationResult | null> {
   try {
     // xcrun symbolicatecrash <crashlog> --dsym <dsymPath> -o <output>
-    const { exitCode, stderr } = await spawnCommand(
+    const { exitCode, stderr } = await spawnAsync(
       'xcrun',
       ['symbolicatecrash', crashlogPath, '--dsym', dsymPath, '-o', outputPath],
       signal,
@@ -189,7 +155,7 @@ async function tryAtos(
 
   // atos can batch-process: -o <dsymBinary> <addr1> <addr2> ...
   try {
-    const { stdout, exitCode } = await spawnCommand(
+    const { stdout, exitCode } = await spawnAsync(
       'xcrun',
       ['atos', '-o', dsymBinary, ...uniqueAddresses.slice(0, 500)],
       signal,
@@ -232,7 +198,7 @@ async function tryLlvmSymbolizer(
 ): Promise<SymbolicationResult | null> {
   try {
     // llvm-symbolizer is not guaranteed to be installed
-    const { exitCode } = await spawnCommand('which', ['llvm-symbolizer'], signal, 3000);
+    const { exitCode } = await spawnAsync('which', ['llvm-symbolizer'], signal, 3000);
     if (exitCode !== 0) {
       return null;
     }

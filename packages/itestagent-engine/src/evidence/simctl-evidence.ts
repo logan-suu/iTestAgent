@@ -2,35 +2,7 @@ import { spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { ArtifactRef } from 'itestagent-contracts';
-
-async function spawnCommand(
-  cmd: string,
-  args: string[],
-  signal?: AbortSignal,
-  timeoutMs?: number,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { timeout: timeoutMs ?? 15000, signal });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout?.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    proc.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
-    });
-
-    proc.on('error', (err) => {
-      reject(err);
-    });
-  });
-}
+import { spawnAsync } from './spawn-async.js';
 
 function makeScreenshotRef(path: string): ArtifactRef {
   const stat = statSync(path);
@@ -54,7 +26,7 @@ export async function simctlScreenshot(
   mkdirSync(dir, { recursive: true });
 
   try {
-    const res = await spawnCommand(
+    const res = await spawnAsync(
       'xcrun',
       ['simctl', 'io', udid, 'screenshot', outputPath],
       signal,
@@ -181,7 +153,7 @@ export async function simctlCollectSyslog(
   }
 
   try {
-    const res = await spawnCommand('xcrun', args, signal, 15000);
+    const res = await spawnAsync('xcrun', args, signal, 15000);
 
     if (res.exitCode === 0 && res.stdout.trim()) {
       writeFileSync(outputPath, res.stdout, 'utf-8');

@@ -1,5 +1,6 @@
 export { EvidenceCollector } from './evidence-collector.js';
 export { symbolicateCrashlog } from './crashlog-symbolicator.js';
+export { spawnAsync } from './spawn-async.js';
 export {
   simctlScreenshot,
   simctlStartRecording,
