@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<trace-export>
+  <!--
+    Fixture: crash-sample.xml
+    Purpose: Test data for metrics-parser — crash detection patterns.
+    Modeled after xcrun xctrace export output with crash-related entries.
+  -->
+  <schema name="com.apple.xctrace.crash">
+    <row>
+      <crash-type>EXC_CRASH (SIGABRT)</crash-type>
+      <crash-reason>uncaught exception: -[__NSCFConstantString objectForKey:]: unrecognized selector sent to instance</crash-reason>
+      <crash-thread>0</crash-thread>
+      <crash-time>1704067200.000000</crash-time>
+    </row>
+  </schema>
+  <schema name="com.apple.xctrace.hitches_summary">
+    <row>
+      <hitches-count>3</hitches-count>
+      <hitches-duration-ms>45</hitches-duration-ms>
+      <hitch-ratio>1.2</hitch-ratio>
+      <total-duration-ms>12000</total-duration-ms>
+    </row>
+  </schema>
+  <schema name="com.apple.xctrace.memory">
+    <row>
+      <peak-memory-MB>512.0</peak-memory-MB>
+      <average-memory-MB>380.0</average-memory-MB>
+    </row>
+  </schema>
+  <schema name="com.apple.xctrace.launch">
+    <row>
+      <launch-duration-ms>2850</launch-duration-ms>
+    </row>
+  </schema>
+</trace-export>
