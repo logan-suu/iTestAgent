@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="MyAppTests" tests="2" failures="0" errors="0" time="0.456" timestamp="2025-01-15T10:30:00Z">
+    <testcase classname="MyAppTests.LoginTests" name="testLoginSuccess" time="0.200">
+    </testcase>
+    <testcase classname="MyAppTests.SignupTests" name="testSignupFlow" time="0.256">
+    </testcase>
+  </testsuite>
+</testsuites>
