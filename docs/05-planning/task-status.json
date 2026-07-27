@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-25T18:00:00.000Z",
+  "last_updated": "2026-07-27T12:00:00.000Z",
   "current_phase": 4,
   "phases": [
     {
@@ -857,7 +857,8 @@
             "3.12"
           ],
           "test_file": null,
-          "notes": "失败时自动采集。证据关联到具体 run step（含 targetKind）。crashlog 支持符号化。Simulator 证据（simctl screenshot/recordVideo + Appium 截图/录屏）与真机证据统一经 ArtifactStore 管理（ADR-011）。"
+          "last_updated": "2026-07-27T12:00:00.000Z",
+          "notes": "PR #46: https://github.com/logan-suu/iTestAgent/pull/46 — feat(engine) EvidenceCollector for failure evidence. 6 evidence types (screenshot/video/syslog/crashlog/xcresult/trace), TargetKind-aware (simctl for simulator, Appium for physical), CrashlogSymbolicator, SimctlEvidence. Integrated into DeviceExplorer for auto-collection on step failure (AC1). ArtifactStore.registerMultiple() for batch persistence. 11 tests (1875 total). G3 typecheck 0/lint 0, G4 1875 pass. G5/G5-SIM pending (physical Appium session required)."
         },
         {
           "id": "4.2",
