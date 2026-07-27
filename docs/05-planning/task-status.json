@@ -864,7 +864,7 @@
           "id": "4.2",
           "title": "xcresult 解析：xcresultparser/xcparse",
           "story": "US-7.1",
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -873,8 +873,8 @@
             "3.11"
           ],
           "test_file": "packages/itestagent-backends/analyzer-xcresult/test/xcresult-parser.test.ts",
-          "last_updated": "2026-07-27T15:00:00.000Z",
-          "notes": "PR #47: https://github.com/logan-suu/iTestAgent/pull/47 — feat(backends): xcresult analyzer backend. Package: packages/itestagent-backends/analyzer-xcresult/. Core adapter (createXcresultParser) wraps xcresultparser CLI (JUnit XML → TestCaseResult[]) + xcparse CLI (screenshots → ArtifactRef[]). Regex-based JUnit parsing, no external XML deps. 14 tests covering pass/fail/skip/empty/CLI failure/abort/target names. G1-G4 all green: typecheck 0, lint 0, 1889 total tests pass. Awaiting PR merge."
+          "last_updated": "2026-07-27T16:00:00.000Z",
+          "notes": "PR #47: https://github.com/logan-suu/iTestAgent/pull/47 — Merged to dev-1.0 (squash: 8542a9f). feat(backends): xcresult analyzer backend. Package: packages/itestagent-backends/analyzer-xcresult/. Core adapter (createXcresultParser) wraps xcresultparser CLI (JUnit XML → TestCaseResult[]) + xcparse CLI (screenshots → ArtifactRef[]). Regex-based JUnit parsing, no external XML deps. 14 tests covering pass/fail/skip/empty/CLI failure/abort/target names. G1-G4 all green: typecheck 0, lint 0, 1889 total tests pass. PR review: 4 warnings fixed (temp cleanup, multi-suite JUnit, mock fixture, R5 doc)."
         },
         {
           "id": "4.3",
