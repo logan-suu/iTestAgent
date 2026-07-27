@@ -880,8 +880,8 @@
           "id": "4.3",
           "title": "PerformanceBackend: launch/memory/crash/duration/hitches 采集",
           "story": "US-12.1",
-          "status": "in_progress",
-          "last_updated": "2026-07-27T18:30:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-27T19:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -891,13 +891,13 @@
             "3.12"
           ],
           "test_file": "packages/itestagent-backends/performance-xctrace-analyzer/test/",
-          "notes": "PR #48: https://github.com/logan-suu/iTestAgent/pull/48 — feat(backends): xctrace performance backend with metrics parser. XctraceCli (xcrun xctrace export wrapper), MetricsParser (hitches/memory/crash/launch/hang XML parsing with R5 approximate flags), XctracePerformanceBackend (full PerformanceBackend interface: record/export/summarize/symbolicate/compareBaseline). Injectable test doubles via SpawnSyncFn. 38 unit tests. G1-G4 green: typecheck 0, lint 0, 1941 total pass. G5/G5-SIM pending (4.9). Hitches summary / memory peak / crash detection / launch duration / hang count implemented. FPS marked approximate. xctrace TOC export encapsulation pending (4.4)."
+          "notes": "PR #48: https://github.com/logan-suu/iTestAgent/pull/48 — feat(backends): xctrace performance backend with metrics parser. Merged to dev-1.0 (squash: f5ec8f5). XctraceCli (xcrun xctrace export wrapper), MetricsParser (hitches/memory/crash/launch/hang XML parsing with R5 approximate flags), XctracePerformanceBackend (full PerformanceBackend interface: record/export/summarize/symbolicate/compareBaseline). Injectable test doubles via SpawnSyncFn. 38 unit tests. G1-G4 green: typecheck 0, lint 0, 1941 total pass. G5/G5-SIM pending (4.9). Hitches summary / memory peak / crash detection / launch duration / hang count implemented. FPS marked approximate. xctrace TOC export encapsulation pending (4.4)."
         },
         {
           "id": "4.4",
           "title": "PerformanceBackend: xctrace export 封装（TOC/XPath）+ 版本容错",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -912,7 +912,7 @@
           "id": "4.5",
           "title": "PerformanceBackend: FPS 近似（标 approximate）",
           "story": "US-12.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -926,7 +926,7 @@
           "id": "4.6",
           "title": "本地 baseline 建立与趋势对比",
           "story": "US-12.2",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
