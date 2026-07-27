@@ -848,7 +848,7 @@
           "id": "4.1",
           "title": "证据采集：截图/视频/syslog/crashlog/xcresult/trace",
           "story": "US-13.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],

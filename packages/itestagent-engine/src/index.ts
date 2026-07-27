@@ -104,3 +104,22 @@ export { TestDataGenerator } from './test-data/test-data-generator.js';
 export { CredentialManager } from './test-data/credential-manager.js';
 
 export type { PromptCallback } from './test-data/credential-manager.js';
+
+export { EvidenceCollector, symbolicateCrashlog } from './evidence/index.js';
+
+export {
+  simctlScreenshot,
+  simctlStartRecording,
+  simctlCollectSyslog,
+  simctlCollectCrashLogs,
+} from './evidence/index.js';
+
+export type {
+  SimctlRecordingHandle,
+  EvidenceType,
+  EvidenceOptions,
+  EvidenceResult,
+  EvidenceCollectorConfig,
+  EvidenceCollectionSummary,
+  SymbolicationResult,
+} from './evidence/index.js';

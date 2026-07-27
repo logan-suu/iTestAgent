@@ -125,4 +125,14 @@ export interface ExplorationOptions {
   settleMs?: number;
   /** Maximum retries for element location before falling back to degradation */
   maxLocatorRetries?: number;
+  /** Run directory for evidence artifacts (~/.itestagent/runs/<runId>/) */
+  runDir?: string;
+  /** xcresult bundle path for evidence collection on failure */
+  xcresultPath?: string;
+  /** trace file path for evidence collection on failure */
+  tracePath?: string;
+  /** Whether video recording is active (enables video evidence collection on failure) */
+  recordingActive?: boolean;
+  /** dSYM path for crashlog symbolication */
+  dsymPath?: string;
 }

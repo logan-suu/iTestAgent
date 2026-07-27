@@ -14,7 +14,8 @@
  * DeviceBackend interface via ToolDispatcher — no direct device control.
  */
 
-import type { ArtifactRef, RunStep } from 'itestagent-contracts';
+import type { ArtifactRef, ArtifactStore, RunStep } from 'itestagent-contracts';
+import { EvidenceCollector } from '../evidence/evidence-collector.js';
 import { ElementLocator } from './element-locator.js';
 import { RunStepRecorder } from './run-step-recorder.js';
 import { SystemAlertHandler } from './system-alert-handler.js';
@@ -52,19 +53,28 @@ export class DeviceExplorer {
   private readonly locator: ElementLocator;
   private readonly alertHandler: SystemAlertHandler;
   private readonly recorder: RunStepRecorder;
+  private readonly evidenceCollector: EvidenceCollector;
+  private readonly artifactStore?: ArtifactStore;
   private callCounter = 0;
 
-  constructor(toolDispatcher: ExplorerToolDispatcher, options: ExplorationOptions) {
+  constructor(
+    toolDispatcher: ExplorerToolDispatcher,
+    options: ExplorationOptions,
+    artifactStore?: ArtifactStore,
+  ) {
     this.toolDispatcher = toolDispatcher;
     this.options = {
       settleMs: 500,
       maxLocatorRetries: 1,
       backendName: 'appium',
+      runDir: '',
       ...options,
-    };
+    } as Required<ExplorationOptions>;
     this.locator = new ElementLocator();
     this.alertHandler = new SystemAlertHandler();
     this.recorder = new RunStepRecorder(this.options.backendName);
+    this.evidenceCollector = new EvidenceCollector();
+    this.artifactStore = artifactStore;
   }
 
   // ─── Public API ─────────────────────────────────────────────
@@ -122,7 +132,7 @@ export class DeviceExplorer {
     if (result.status === 'ok') {
       this.recorder.completeStep(stepId, result.output);
     } else {
-      this.recorder.failStep(stepId, `Launch failed: ${JSON.stringify(result.output)}`);
+      await this.failStepWithEvidence(stepId, `Launch failed: ${JSON.stringify(result.output)}`);
     }
   }
 
@@ -159,7 +169,7 @@ export class DeviceExplorer {
     if (!action.target) {
       // No target specified — skip with degradation
       const stepId = this.recorder.startStep('tap', '(no target)');
-      this.recorder.failStep(stepId, 'No target specified for tap action');
+      await this.failStepWithEvidence(stepId, 'No target specified for tap action');
       return;
     }
 
@@ -167,7 +177,7 @@ export class DeviceExplorer {
     const uiTree = await this.getUiTree();
     if (!uiTree) {
       const stepId = this.recorder.startStep('tap', action.target);
-      this.recorder.failStep(stepId, 'Failed to get UI tree — cannot locate element');
+      await this.failStepWithEvidence(stepId, 'Failed to get UI tree — cannot locate element');
       return;
     }
 
@@ -186,13 +196,16 @@ export class DeviceExplorer {
       // Even coordinate fallback "found" it — but with low confidence
       // For explicit not-found, we degrade
       const stepId = this.recorder.startStep('tap', action.target, locatorResult);
-      this.recorder.failStep(stepId, locatorResult.degradation ?? 'Element not found in UI tree');
+      await this.failStepWithEvidence(
+        stepId,
+        locatorResult.degradation ?? 'Element not found in UI tree',
+      );
       return;
     }
 
     if (!locatorResult.element) {
       const stepId = this.recorder.startStep('tap', action.target, locatorResult);
-      this.recorder.failStep(stepId, 'Locator returned no element coordinates');
+      await this.failStepWithEvidence(stepId, 'Locator returned no element coordinates');
       return;
     }
 
@@ -218,7 +231,7 @@ export class DeviceExplorer {
       }
       this.recorder.completeStep(stepId, result.output, artifacts);
     } else {
-      this.recorder.failStep(stepId, `Tap failed: ${JSON.stringify(result.output)}`);
+      await this.failStepWithEvidence(stepId, `Tap failed: ${JSON.stringify(result.output)}`);
     }
   }
 
@@ -252,7 +265,10 @@ export class DeviceExplorer {
         result: result.output,
       });
     } else {
-      this.recorder.failStep(stepId, `Swipe ${direction} failed: ${JSON.stringify(result.output)}`);
+      await this.failStepWithEvidence(
+        stepId,
+        `Swipe ${direction} failed: ${JSON.stringify(result.output)}`,
+      );
     }
   }
 
@@ -261,7 +277,7 @@ export class DeviceExplorer {
   private async executeInput(action: ExplorationAction): Promise<void> {
     if (!action.text) {
       const stepId = this.recorder.startStep('input', action.target ?? '(no text)');
-      this.recorder.failStep(stepId, 'No text specified for input action');
+      await this.failStepWithEvidence(stepId, 'No text specified for input action');
       return;
     }
 
@@ -282,7 +298,7 @@ export class DeviceExplorer {
         result: result.output,
       });
     } else {
-      this.recorder.failStep(
+      await this.failStepWithEvidence(
         stepId,
         `Input "${action.text}" failed: ${JSON.stringify(result.output)}`,
       );
@@ -298,7 +314,7 @@ export class DeviceExplorer {
     if (artifact) {
       this.recorder.completeStep(stepId, { artifactId: artifact.id }, [artifact.id]);
     } else {
-      this.recorder.failStep(stepId, 'Screenshot failed — backend returned no artifact');
+      await this.failStepWithEvidence(stepId, 'Screenshot failed — backend returned no artifact');
     }
   }
 
@@ -348,6 +364,43 @@ export class DeviceExplorer {
   }
 
   /**
+   * Collect evidence on step failure and record it.
+   *
+   * Task 4.1 AC1-AC2: Automatic evidence collection on failure,
+   * linked to the specific run step.
+   *
+   * @param stepId - The failing step ID.
+   * @param error - Error message.
+   */
+  private async failStepWithEvidence(stepId: string, error: string): Promise<void> {
+    this.recorder.failStep(stepId, error);
+
+    if (!this.artifactStore || !this.options.runDir) return;
+
+    try {
+      const summary = await this.evidenceCollector.collectOnFailure(this.artifactStore, {
+        deviceId: this.options.deviceId,
+        targetKind: this.options.targetKind,
+        stepId,
+        runDir: this.options.runDir,
+        backendName: this.options.backendName,
+        bundleId: this.options.bundleId,
+        xcresultPath: this.options.xcresultPath,
+        tracePath: this.options.tracePath,
+        recordingActive: this.options.recordingActive,
+        dsymPath: this.options.dsymPath,
+      });
+
+      for (const artifact of summary.artifacts) {
+        this.recorder.addArtifact(stepId, artifact.id);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[DeviceExplorer] Evidence collection failed for step ${stepId}: ${msg}`);
+    }
+  }
+
+  /**
    * Handle a detected system alert by tapping the dismiss button.
    */
   private async handleAlert(_alert: SystemAlertResult): Promise<void> {
@@ -356,7 +409,7 @@ export class DeviceExplorer {
     const uiTree = await this.getUiTree();
     const dismissCoords = uiTree ? this.alertHandler.getDismissCoordinates(uiTree) : null;
     if (!dismissCoords) {
-      this.recorder.failStep(stepId, 'Could not compute dismiss coordinates for alert');
+      await this.failStepWithEvidence(stepId, 'Could not compute dismiss coordinates for alert');
       return;
     }
 
@@ -373,7 +426,10 @@ export class DeviceExplorer {
     if (result.status === 'ok') {
       this.recorder.completeStep(stepId, result.output);
     } else {
-      this.recorder.failStep(stepId, `Alert dismiss failed: ${JSON.stringify(result.output)}`);
+      await this.failStepWithEvidence(
+        stepId,
+        `Alert dismiss failed: ${JSON.stringify(result.output)}`,
+      );
     }
   }
 
