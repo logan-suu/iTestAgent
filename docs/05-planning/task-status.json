@@ -857,7 +857,7 @@
             "3.12"
           ],
           "test_file": null,
-          "last_updated": "2026-07-27T12:00:00.000Z",
+  "last_updated": "2026-07-27T18:30:00.000Z",
           "notes": "PR #46: https://github.com/logan-suu/iTestAgent/pull/46 — feat(engine) EvidenceCollector for failure evidence. 6 evidence types (screenshot/video/syslog/crashlog/xcresult/trace), TargetKind-aware (simctl for simulator, Appium for physical), CrashlogSymbolicator, SimctlEvidence. Integrated into DeviceExplorer for auto-collection on step failure (AC1). ArtifactStore.registerMultiple() for batch persistence. 11 tests (1875 total). G3 typecheck 0/lint 0, G4 1875 pass. Merged to dev-1.0 (squash: 3a6b2ae). G5/G5-SIM pending (4.9)."
         },
         {
@@ -880,7 +880,8 @@
           "id": "4.3",
           "title": "PerformanceBackend: launch/memory/crash/duration/hitches 采集",
           "story": "US-12.1",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-27T18:30:00.000Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -889,8 +890,8 @@
             "3.11",
             "3.12"
           ],
-          "test_file": null,
-          "notes": "主推 hitches/hangs/launch/memory/crash/duration。memory 标注近似值。Simulator 性能数据必须标注 representativeOfPhysicalDevice=false（ADR-011）。physical 和 simulator 性能数据分域采集。"
+          "test_file": "packages/itestagent-backends/performance-xctrace-analyzer/test/",
+          "notes": "PR #48: https://github.com/logan-suu/iTestAgent/pull/48 — feat(backends): xctrace performance backend with metrics parser. XctraceCli (xcrun xctrace export wrapper), MetricsParser (hitches/memory/crash/launch/hang XML parsing with R5 approximate flags), XctracePerformanceBackend (full PerformanceBackend interface: record/export/summarize/symbolicate/compareBaseline). Injectable test doubles via SpawnSyncFn. 38 unit tests. G1-G4 green: typecheck 0, lint 0, 1941 total pass. G5/G5-SIM pending (4.9). Hitches summary / memory peak / crash detection / launch duration / hang count implemented. FPS marked approximate. xctrace TOC export encapsulation pending (4.4)."
         },
         {
           "id": "4.4",

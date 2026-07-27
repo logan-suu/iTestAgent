@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<trace-export>
+  <!--
+    Fixture: hitches-summary.xml
+    Purpose: Test data for metrics-parser — hitches/hangs/memory/launch metrics.
+    Source: Modeled after xcrun xctrace export output (com.apple.xctrace.hitches_summary schema).
+    AGENTS.md R5: this is fixture data; real xctrace data varies across Xcode versions.
+  -->
+  <schema name="com.apple.xctrace.hitches_summary">
+    <row>
+      <hitches-count>15</hitches-count>
+      <hitches-duration-ms>320</hitches-duration-ms>
+      <hitch-ratio>12.5</hitch-ratio>
+      <hitches-per-second>3.2</hitches-per-second>
+      <total-duration-ms>45000</total-duration-ms>
+    </row>
+  </schema>
+  <schema name="com.apple.xctrace.hang">
+    <row><hang-duration-ms>520</hang-duration-ms><process>MyApp</process></row>
+    <row><hang-duration-ms>180</hang-duration-ms><process>MyApp</process></row>
+    <row><hang-duration-ms>340</hang-duration-ms><process>MyApp</process></row>
+  </schema>
+  <schema name="com.apple.xctrace.memory">
+    <row>
+      <peak-memory-MB>418.5</peak-memory-MB>
+      <average-memory-MB>256.0</average-memory-MB>
+      <physical-footprint-MB>418.5</physical-footprint-MB>
+    </row>
+  </schema>
+  <schema name="com.apple.xctrace.launch">
+    <row>
+      <launch-duration-ms>1320</launch-duration-ms>
+      <pre-main-ms>420</pre-main-ms>
+      <post-main-ms>900</post-main-ms>
+    </row>
+  </schema>
+</trace-export>
