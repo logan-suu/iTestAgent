@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="MyAppTests" tests="4" failures="1" errors="0" time="1.234" timestamp="2025-01-15T10:30:00Z">
+    <testcase classname="MyAppTests.LoginTests" name="testLoginSuccess" time="0.200">
+    </testcase>
+    <testcase classname="MyAppTests.LoginTests" name="testLoginFailure" time="0.350">
+      <failure message="Expected true but got false">Assertion failed at LoginTests.swift:42</failure>
+    </testcase>
+    <testcase classname="MyAppTests.SignupTests" name="testSignupFlow" time="0.456">
+    </testcase>
+    <testcase classname="MyAppTests.ProfileTests" name="testProfileView" time="0.000">
+      <skipped/>
+    </testcase>
+  </testsuite>
+</testsuites>
