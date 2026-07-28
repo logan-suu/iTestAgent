@@ -33,8 +33,8 @@ import type {
 
 import {
   checkXctraceAvailable,
-  exportTraceFile,
-  listTraceSchemas,
+  exportXctraceSelective,
+  extractXcodeVersion,
   startRecording,
   symbolicateCrash,
 } from './xctrace-cli.js';
@@ -179,54 +179,53 @@ export function createXctracePerformanceBackend(
     /**
      * Export a recorded trace to XML/JSON data.
      *
-     * Lists available schemas via --toc, then exports the full trace.
-     * The export is synchronous (xctrace export is fast for reasonable traces).
+     * Uses TOC-driven selective XPath export (Task 4.4):
+     *   1. List TOC → parse available schemas
+     *   2. Find exportable metrics via findMetricsInToc
+     *   3. For each exportable metric, export via `xctrace export --xpath`
+     *   4. Mark missing schemas as not_exportable per R5
+     *
+     * 避坑手册 §6: Simulator 行为与 physical 不同（部分 schema 不可用），
+     * 走容错分支不崩溃。
      *
      * AC4 (US-12.1): uses xcrun xctrace export for data extraction.
      */
     async exportTrace(input: TraceExportInput): Promise<TraceExportStatus> {
-      // First check what schemas are available
-      const tocResult = listTraceSchemas(cliDeps, input.tracePath);
+      const format = input.format ?? 'xml';
+      const result = exportXctraceSelective(cliDeps, input.tracePath, format);
 
-      if (!tocResult.success) {
+      if (!result.success && Object.keys(result.exported).length === 0) {
         return {
           status: 'failed',
-          error: tocResult.error ?? 'Failed to list trace schemas',
+          error: result.warnings.join('; ') || 'Failed to export trace',
         };
       }
 
-      // Export the full trace
-      const exportResult = exportTraceFile(cliDeps, {
-        tracePath: input.tracePath,
-        format: input.format ?? 'xml',
-      });
-
-      if (!exportResult.success) {
-        return {
-          status: 'failed',
-          error: exportResult.error ?? 'Failed to export trace',
-        };
-      }
-
-      // Write exported data to a timestamped file
+      // Write each exported schema to individual files
+      const exportedFiles: string[] = [];
       const exportId = randomUUID();
-      const exportPath = pathJoin(
-        workDir,
-        `itestagent-export-${exportId}.${input.format ?? 'xml'}`,
-      );
 
-      try {
-        Bun.write(exportPath, exportResult.data);
-      } catch (err) {
-        return {
-          status: 'failed',
-          error: err instanceof Error ? err.message : 'Failed to write export file',
-        };
+      for (const [schemaName, data] of Object.entries(result.exported)) {
+        const ext = format === 'json' ? 'json' : 'xml';
+        const exportPath = pathJoin(workDir, `itestagent-export-${exportId}-${schemaName}.${ext}`);
+
+        try {
+          Bun.write(exportPath, data);
+          exportedFiles.push(exportPath);
+        } catch (err) {
+          result.warnings.push(
+            `Failed to write ${schemaName} export: ${err instanceof Error ? err.message : 'unknown error'}`,
+          );
+        }
       }
 
       return {
-        status: 'completed',
-        exportedFiles: [exportPath],
+        status: exportedFiles.length > 0 ? 'completed' : 'failed',
+        exportedFiles: exportedFiles.length > 0 ? exportedFiles : undefined,
+        error:
+          exportedFiles.length === 0
+            ? result.warnings.join('; ') || 'No schemas exported'
+            : undefined,
       };
     },
 

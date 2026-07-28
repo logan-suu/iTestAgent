@@ -11,6 +11,11 @@ import type { spawn as scSpawn } from 'itestagent-server';
 import type { SubprocessHandle } from 'itestagent-server';
 import type { SignalName } from 'itestagent-server';
 
+import { findMetricsInToc, generateExportXPaths, parseTocOutput } from './xctrace-toc-parser.js';
+import type { ExportPlan, TocTable } from './xctrace-toc-parser.js';
+import { detectXcodeVersion } from './xctrace-version-compat.js';
+import type { XcodeVersion } from './xctrace-version-compat.js';
+
 // ─── Types ────────────────────────────────────────────────────────
 
 /** Result of a synchronous spawn call. */
@@ -242,4 +247,167 @@ export function symbolicateCrash(
     success: true,
     data: result.stdout,
   };
+}
+
+// ─── Task 4.4: Enhanced TOC / XPath / Version-aware functions ──────
+
+/**
+ * Extract Xcode version from the xctrace CLI.
+ *
+ * Runs `xcrun xctrace --version` and parses the version string.
+ *
+ * @param spawnSync - Spawn function
+ * @returns Parsed XcodeVersion or null if unavailable
+ */
+export function extractXcodeVersion(spawnSync: SpawnSyncFn): XcodeVersion | null {
+  const result = spawnSync('xcrun', ['xctrace', '--version']);
+  if (result.exitCode !== 0) return null;
+  return detectXcodeVersion(result.stdout);
+}
+
+/**
+ * List available schemas in a trace file via --toc, returning parsed TocTable[].
+ *
+ * 避坑手册 §6: 底层用 xctrace export --toc 探测 + --xpath 抽取，schema 名称/列做容错。
+ *
+ * @param deps - CLI dependencies
+ * @param tracePath - Path to the .trace directory
+ * @returns Parsed TOC result with tables or error
+ */
+export function listTraceSchemasParsed(
+  deps: XctraceCliDeps,
+  tracePath: string,
+): {
+  success: boolean;
+  tables: TocTable[];
+  warnings: string[];
+  error?: string;
+} {
+  const result = listTraceSchemas(deps, tracePath);
+  if (!result.success) {
+    return { success: false, tables: [], warnings: [], error: result.error };
+  }
+
+  const parsed = parseTocOutput(result.data);
+  return { success: true, tables: parsed.tables, warnings: parsed.warnings };
+}
+
+/**
+ * Result from selective trace export across multiple schemas.
+ */
+export interface SelectiveExportResult {
+  /** Overall success (partial export is still success if some schemas exported). */
+  success: boolean;
+  /** Map of schema name → exported XML/JSON data. */
+  exported: Record<string, string>;
+  /** Metrics that could not be exported with reasons. */
+  notExportable: Array<{ metric: string; reason: string }>;
+  /** Any warnings during export. */
+  warnings: string[];
+}
+
+/**
+ * Selectively export a trace file using TOC-guided XPath expressions.
+ *
+ * 避坑手册 §6:
+ *   - 底层用 xctrace export --xpath 抽取，schema 名称/列做容错
+ *   - 不可导出显式标 not_exportable
+ *   - 未知 schema 走容错分支不崩溃
+ *
+ * Flow:
+ *   1. List TOC → parse into TocTable[]
+ *   2. Find exportable metrics via findMetricsInToc
+ *   3. For each exportable metric, run `xctrace export --xpath <xpath>`
+ *   4. Collect results; mark missing schemas as not_exportable
+ *
+ * @param deps - CLI dependencies
+ * @param tracePath - Path to the .trace directory
+ * @param format - Export format (xml/json, default xml)
+ * @returns SelectiveExportResult with per-schema data and not_exportable annotations
+ */
+export function exportXctraceSelective(
+  deps: XctraceCliDeps,
+  tracePath: string,
+  format: 'xml' | 'json' = 'xml',
+): SelectiveExportResult {
+  // Step 1: List and parse TOC
+  const tocResult = listTraceSchemasParsed(deps, tracePath);
+  if (!tocResult.success) {
+    return {
+      success: false,
+      exported: {},
+      notExportable: [],
+      warnings: [tocResult.error ?? 'Failed to list trace schemas'],
+    };
+  }
+
+  // Step 2: Determine which metrics are exportable
+  const plan = findMetricsInToc(tocResult.tables);
+
+  // Step 3: Generate XPath expressions for exportable schemas
+  const xpaths = generateExportXPaths(plan);
+
+  // Step 4: Export each schema via XPath
+  const exported: Record<string, string> = {};
+  const exportWarnings: string[] = [];
+
+  for (const xpath of xpaths) {
+    const result = exportTraceFile(deps, {
+      tracePath,
+      xpath,
+      format,
+    });
+
+    if (result.success) {
+      // Use the xpath as a stable key (schema name extracted from XPath)
+      const schemaKey = extractSchemaFromXPath(xpath);
+      exported[schemaKey] = result.data;
+    } else {
+      exportWarnings.push(`Failed to export xpath "${xpath}": ${result.error}`);
+    }
+  }
+
+  // Step 5: Build not_exportable annotations
+  const notExportable = plan.notExportable.map((m) => ({
+    metric: m.metric,
+    reason: m.reason ?? 'Schema not available in trace',
+  }));
+
+  // Also add exportable metrics whose export failed as not_exportable
+  for (const warning of exportWarnings) {
+    const xpathMatch = warning.match(/xpath "([^"]+)"/);
+    if (xpathMatch) {
+      const schema = extractSchemaFromXPath(xpathMatch[1] ?? '');
+      // Find the metric that uses this schema
+      const metric = plan.exportable.find((m) => m.tables?.some((t) => t.schemaName === schema));
+      if (metric) {
+        notExportable.push({
+          metric: metric.metric,
+          reason: `Export failed: ${warning}`,
+        });
+      }
+    }
+  }
+
+  return {
+    success:
+      Object.keys(exported).length > 0 ||
+      notExportable.every((n) => n.reason.startsWith('No schema')),
+    exported,
+    notExportable,
+    warnings: [...tocResult.warnings, ...exportWarnings],
+  };
+}
+
+/**
+ * Extract the schema name from an xctrace XPath expression.
+ *
+ * XPath format: /trace-toc/run[@number="1"]/data/table[@schema="SchemaName"]
+ *
+ * @param xpath - The XPath expression
+ * @returns Schema name extracted from the XPath
+ */
+function extractSchemaFromXPath(xpath: string): string {
+  const match = xpath.match(/\[@schema="([^"]+)"\]/);
+  return match?.[1] ?? xpath;
 }
