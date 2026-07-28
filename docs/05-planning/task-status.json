@@ -913,7 +913,7 @@
           "id": "4.5",
           "title": "PerformanceBackend: FPS 近似（标 approximate）",
           "story": "US-12.1",
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -921,7 +921,8 @@
             "4.3"
           ],
           "test_file": null,
-          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。Simulator FPS 额外标注\"来自 Mac 宿主，不代表真机\"。PR #50: https://github.com/logan-suu/iTestAgent/pull/50 — Added fpsApproximate to TraceSummarySchema/BaselineDeltaSchema, implemented parseFpsFromHitches in MetricsParser, wired into XctracePerformanceBackend. 2004 tests pass. 6 files +159/-1."
+          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。Simulator FPS 额外标注\"来自 Mac 宿主，不代表真机\"。PR #50: https://github.com/logan-suu/iTestAgent/pull/50 — Added fpsApproximate to TraceSummarySchema/BaselineDeltaSchema, implemented parseFpsApproximate() from core-animation-fps-estimate xctrace schema in MetricsParser, wired into XctracePerformanceBackend summarizeTrace/compareBaseline. 2004 tests pass. 6 files +161/-3. PR #50 merged to dev-1.0 (squash: 7a3a59f). Task 4.5 complete.",
+          "last_updated": "2026-07-28T13:30:00.000Z"
         },
         {
           "id": "4.6",
