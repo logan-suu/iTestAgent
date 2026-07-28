@@ -6,8 +6,6 @@ import {
   ArtifactIndexSchema,
   type RunResult,
   RunResultSchema,
-  parseArtifactIndex,
-  parseRunResult,
 } from 'itestagent-contracts';
 
 import { generateSummary } from './summary-generator.js';
