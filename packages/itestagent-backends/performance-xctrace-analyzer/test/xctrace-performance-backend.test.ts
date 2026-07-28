@@ -52,6 +52,9 @@ const HITCHES_XML = `<?xml version="1.0"?>
   <schema name="com.apple.xctrace.launch">
     <row><launch-duration-ms>1320</launch-duration-ms></row>
   </schema>
+  <schema name="com.apple.xctrace.core-animation-fps-estimate">
+    <row><fps>59.8</fps><frame-count>1800</frame-count><duration-s>30.1</duration-s></row>
+  </schema>
 </trace-export>`;
 
 const TOC_OUTPUT = `Schema Name                              | Table Name
@@ -257,6 +260,7 @@ describe('summarizeTrace', () => {
 
     expect(summary.launchDurationMs).toBe(1320);
     expect(summary.memoryPeakMB).toBeCloseTo(418.5, 1);
+    expect(summary.fpsApproximate).toBeCloseTo(59.8, 1);
     expect(summary.crashDetected).toBe(false);
     expect(summary.hangCount).toBe(3);
     expect(summary.approximate).toBe(true);
@@ -360,6 +364,7 @@ describe('compareBaseline', () => {
       crashDetected: false,
       hangCount: 3,
       hitchesSummary: { level: 'medium' },
+      fpsApproximate: 59.8,
       approximate: true,
     };
 
@@ -374,6 +379,7 @@ describe('compareBaseline', () => {
 
     expect(delta.baselineId).toBe('baseline-001');
     expect(delta.summary).toBe('inconclusive');
+    expect(delta.deltas.fpsApproximate).toBe(0);
     expect(delta.runId).toBeDefined();
     expect(delta.comparedAt).toBeDefined();
   });
@@ -489,6 +495,7 @@ describe('PerformanceBackend — full pipeline', () => {
 
     expect(summary).toBeDefined();
     expect(summary.launchDurationMs).toBe(1320);
+    expect(summary.fpsApproximate).toBeCloseTo(59.8, 1);
     expect(summary.approximate).toBe(true);
   });
 });
@@ -524,6 +531,7 @@ describe('R5 compliance', () => {
     // R5: if data isn't available, fields should be undefined — never fabricated
     expect(summary.launchDurationMs).toBeUndefined();
     expect(summary.memoryPeakMB).toBeUndefined();
+    expect(summary.fpsApproximate).toBeUndefined();
     expect(summary.crashDetected).toBeFalsy();
     expect(summary.hangCount).toBe(0);
     expect(summary.approximate).toBe(true);
