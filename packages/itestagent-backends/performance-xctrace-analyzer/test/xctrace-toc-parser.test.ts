@@ -1,8 +1,8 @@
 /**
  * Tests for xctrace-toc-parser — TOC output parsing and metric availability.
  *
- * 避坑手册 §6: physical + simulator 双份 trace fixture。
- * 未知 schema 走容错分支不崩溃。
+ * Trap Handbook §6: physical + simulator dual trace fixtures.
+ * Unknown schemas use graceful fallback, no crash.
  */
 
 import { describe, expect, it } from 'bun:test';
@@ -48,7 +48,7 @@ App Launch                               |
 `;
 
 /**
- * Xcode 26 Deferred 录制模式 TOC — schema names may differ.
+ * Xcode 26 Deferred recording mode TOC — schema names may differ.
  * In Xcode 26, "Hitch" is renamed to "HitchData" and uses different column names.
  */
 const TOC_XCODE26_DEFERRED = `

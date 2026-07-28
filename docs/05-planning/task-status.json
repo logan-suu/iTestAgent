@@ -897,7 +897,7 @@
           "id": "4.4",
           "title": "PerformanceBackend: xctrace export 封装（TOC/XPath）+ 版本容错",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -905,8 +905,8 @@
           "dependencies": [
             "4.3"
           ],
-          "test_file": null,
-          "notes": "跨 Xcode 版本容错。simulator xctrace 行为与 physical 可能不同（部分 schema 不可用）。不可导出标 not_exportable。physical + simulator 双份 trace fixture。"
+          "test_file": "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-toc-parser.test.ts",
+          "notes": "PR #49: https://github.com/logan-suu/iTestAgent/pull/49 — feat(backends): TOC-driven selective xctrace export with version-aware schema compatibility. New files: xctrace-toc-parser.ts (parseTocOutput, findMetricsInToc, generateExportXPaths), xctrace-version-compat.ts (detectXcodeVersion, KNOWN_SCHEMA_COMPAT for Xcode 16→26). Enhanced: xctrace-cli.ts (extractXcodeVersion, listTraceSchemasParsed, exportXctraceSelective), xctrace-performance-backend.ts (selective XPath export, per-schema files, partial export warnings). 61 new tests (29 TOC parser + 13 version compat + 19 CLI enhanced). G1-G4: typecheck 0, lint 0, 1992 total tests pass. not_exportable annotations for missing simulator schemas."
         },
         {
           "id": "4.5",

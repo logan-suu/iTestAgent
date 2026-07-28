@@ -185,8 +185,8 @@ export function createXctracePerformanceBackend(
      *   3. For each exportable metric, export via `xctrace export --xpath`
      *   4. Mark missing schemas as not_exportable per R5
      *
-     * 避坑手册 §6: Simulator 行为与 physical 不同（部分 schema 不可用），
-     * 走容错分支不崩溃。
+     * Trap Handbook §6: Simulator xctrace behavior differs from physical
+     * (some schemas unavailable). Graceful fallback, no crash.
      *
      * AC4 (US-12.1): uses xcrun xctrace export for data extraction.
      */
@@ -207,10 +207,14 @@ export function createXctracePerformanceBackend(
 
       for (const [schemaName, data] of Object.entries(result.exported)) {
         const ext = format === 'json' ? 'json' : 'xml';
-        const exportPath = pathJoin(workDir, `itestagent-export-${exportId}-${schemaName}.${ext}`);
+        const safeSchemaName = schemaName.replace(/[^A-Za-z0-9_-]/g, '_');
+        const exportPath = pathJoin(
+          workDir,
+          `itestagent-export-${exportId}-${safeSchemaName}.${ext}`,
+        );
 
         try {
-          Bun.write(exportPath, data);
+          await Bun.write(exportPath, data);
           exportedFiles.push(exportPath);
         } catch (err) {
           result.warnings.push(

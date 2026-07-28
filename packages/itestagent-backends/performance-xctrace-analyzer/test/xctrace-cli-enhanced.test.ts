@@ -195,5 +195,7 @@ App Launch                               |
     expect(Object.keys(result.exported)).toContain('App Launch');
     expect(Object.keys(result.exported)).toContain('VM');
     expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.notExportable.some((n) => n.metric === 'hitches')).toBe(true);
+    expect(result.notExportable.some((n) => n.metric === 'hangs')).toBe(true);
   });
 });

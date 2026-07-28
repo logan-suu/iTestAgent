@@ -1,8 +1,8 @@
 /**
  * Tests for xctrace-version-compat — Xcode version detection and schema compatibility.
  *
- * 避坑手册 §6: xctrace export XML schema 跨 Xcode 版本会变。
- * Xcode 26 引入 Deferred 录制模式，解析要兼容。
+ * Trap Handbook §6: xctrace export XML schema changes across Xcode versions.
+ * Xcode 26 introduces Deferred recording mode, parsing must be compatible.
  */
 
 import { describe, expect, it } from 'bun:test';

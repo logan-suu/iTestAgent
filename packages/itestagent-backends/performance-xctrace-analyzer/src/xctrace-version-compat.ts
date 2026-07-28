@@ -1,12 +1,13 @@
 /**
  * xctrace-version-compat — Xcode version detection and schema compatibility.
  *
- * 避坑手册 §6:
- *   - xctrace export 的 XML schema 跨 Xcode 版本会变；id/ref 解析脆弱
- *   - Xcode 26 引入 Deferred 录制模式，解析要兼容
- *   - schema 名称/列做容错
+ * Trap Handbook §6:
+ *   - xctrace export XML schema changes across Xcode versions; id/ref parsing fragile
+ *   - Xcode 26 introduces Deferred recording mode, parsing must be compatible
+ *   - Schema name/column tolerance
  *
- * 技术选型 §15: xctrace/xcresulttool 输出 schema 跨版本容错，backend 吸收差异。
+ * Tech Selection §15: xctrace/xcresulttool output schema cross-version tolerance,
+ * backend absorbs differences.
  */
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ export function toVersionKey(version: XcodeVersion): string {
 /**
  * Known schema compatibility mappings across Xcode versions.
  *
- * 避坑手册 §6: schema 名称/列做容错。
+ * Trap Handbook §6: Schema name/column tolerance.
  *
  * Each entry maps a canonical schema name to version-specific aliases
  * and column name mappings.

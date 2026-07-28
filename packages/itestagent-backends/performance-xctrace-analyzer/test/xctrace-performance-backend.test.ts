@@ -194,7 +194,7 @@ describe('exportTrace', () => {
 
     expect(result.status).toBe('completed');
     expect(result.exportedFiles).toBeDefined();
-    expect(result.exportedFiles?.length).toBeGreaterThanOrEqual(1);
+    expect(result.exportedFiles?.length).toBe(3); // Hangs, VM, App Launch (Hitch excluded: hyphen columns mismatch required pattern underscores)
   });
 
   it('returns failed status when --toc fails', async () => {

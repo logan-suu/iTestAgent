@@ -4,11 +4,11 @@
  * AGENTS.md R5: metrics not exportable are explicitly marked not_exportable;
  * unknown schemas are not crash-causing.
  *
- * 避坑手册 §6:
- *   - 底层用 xctrace export --toc 探测 + --xpath 抽取，schema 名称/列做容错
- *   - 不可导出显式标 not_exportable；memory 标近似；绝不编造
- *   - Simulator xctrace 行为与真机不同（部分 schema 不可用）
- *   - 未知 schema 走容错分支不崩溃
+ * Trap Handbook §6:
+ *   - Use xctrace export --toc for discovery + --xpath for extraction, schema name/column tolerance
+ *   - Non-exportable explicitly marked not_exportable; memory marked approximate; never fabricate
+ *   - Simulator xctrace behavior differs from physical (some schemas unavailable)
+ *   - Unknown schemas use graceful fallback, no crash
  */
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -70,8 +70,8 @@ export interface MetricSchemaMapping {
  * found in the TOC. If a matching schema has at least one matching column
  * (when requiredColumnPatterns is specified), the metric is exportable.
  *
- * 避坑手册 §6: xctrace export XML schema 跨 Xcode 版本会变；
- * 这里用 pattern 匹配而非精确名称，做容错。
+ * Trap Handbook §6: xctrace export XML schema changes across Xcode versions;
+ * pattern matching used instead of exact names for tolerance.
  */
 export const METRIC_SCHEMA_MAP: MetricSchemaMapping[] = [
   {
@@ -118,7 +118,7 @@ export const METRIC_SCHEMA_MAP: MetricSchemaMapping[] = [
  * kdebug                                   |
  * ```
  *
- * 避坑手册 §6: 未知 schema 走容错分支不崩溃。
+ * Trap Handbook §6: Unknown schemas use graceful fallback, no crash.
  * Partial parse is returned even when some lines are unrecognized.
  *
  * @param raw - Raw text output from `xctrace export --toc`
@@ -151,7 +151,7 @@ export function parseTocOutput(raw: string): TocResult {
     // e.g. "kdebug                                   |"
     // e.g. "App Launch                               |"
     const trailingPipeMatch = line.match(/^([A-Za-z][A-Za-z0-9_. -]+)\s+\|$/);
-    if (trailingPipeMatch && trailingPipeMatch[1]) {
+    if (trailingPipeMatch?.[1]) {
       currentSchema = trailingPipeMatch[1].trim() || null;
       continue;
     }
@@ -184,25 +184,6 @@ export function parseTocOutput(raw: string): TocResult {
       continue;
     }
 
-    // Indented table without schema header case: "  Hitch  | ..."
-    const indentedPipe = line.match(/^\s+(.+?)\s*\|\s*(.+)$/);
-    if (indentedPipe) {
-      const tableName = indentedPipe[1]?.trim() ?? 'unknown';
-      const columnsRaw = indentedPipe[2]?.trim() ?? '';
-      const columns = columnsRaw
-        .split(',')
-        .map((c) => c.trim())
-        .filter((c) => c.length > 0);
-      const schemaName = currentSchema ?? tableName;
-
-      tables.push({
-        schemaName,
-        tableName,
-        columns,
-      });
-      continue;
-    }
-
     // Unrecognized line: record warning, don't crash
     if (line.length > 0) {
       warnings.push(`Unrecognized TOC line at index ${i}: "${line.substring(0, 80)}"`);
@@ -221,7 +202,8 @@ export function parseTocOutput(raw: string): TocResult {
  * (case-insensitive). If requiredColumnPatterns is specified, at least one
  * matching column must exist in the table.
  *
- * 避坑手册 §6: Simulator xctrace 行为与真机不同（部分 schema 不可用）。
+ * Trap Handbook §6: Simulator xctrace behavior differs from physical
+ * (some schemas unavailable).
  * Missing schemas are classified as notExportable with a reason.
  *
  * @param tables - Parsed TOC tables

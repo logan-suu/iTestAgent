@@ -268,7 +268,8 @@ export function extractXcodeVersion(spawnSync: SpawnSyncFn): XcodeVersion | null
 /**
  * List available schemas in a trace file via --toc, returning parsed TocTable[].
  *
- * 避坑手册 §6: 底层用 xctrace export --toc 探测 + --xpath 抽取，schema 名称/列做容错。
+ * Trap Handbook §6: Use xctrace export --toc for discovery + --xpath for extraction,
+ * with schema name/column tolerance.
  *
  * @param deps - CLI dependencies
  * @param tracePath - Path to the .trace directory
@@ -309,10 +310,10 @@ export interface SelectiveExportResult {
 /**
  * Selectively export a trace file using TOC-guided XPath expressions.
  *
- * 避坑手册 §6:
- *   - 底层用 xctrace export --xpath 抽取，schema 名称/列做容错
- *   - 不可导出显式标 not_exportable
- *   - 未知 schema 走容错分支不崩溃
+ * Trap Handbook §6:
+ *   - Use xctrace export --xpath for extraction, schema name/column tolerance
+ *   - Non-exportable metrics explicitly marked not_exportable
+ *   - Unknown schemas use graceful fallback, no crash
  *
  * Flow:
  *   1. List TOC → parse into TocTable[]
@@ -350,6 +351,7 @@ export function exportXctraceSelective(
   // Step 4: Export each schema via XPath
   const exported: Record<string, string> = {};
   const exportWarnings: string[] = [];
+  const failedXPaths = new Map<string, string>(); // xpath → error message
 
   for (const xpath of xpaths) {
     const result = exportTraceFile(deps, {
@@ -359,11 +361,12 @@ export function exportXctraceSelective(
     });
 
     if (result.success) {
-      // Use the xpath as a stable key (schema name extracted from XPath)
       const schemaKey = extractSchemaFromXPath(xpath);
       exported[schemaKey] = result.data;
     } else {
-      exportWarnings.push(`Failed to export xpath "${xpath}": ${result.error}`);
+      const errorText = result.error ?? 'unknown error';
+      failedXPaths.set(xpath, errorText);
+      exportWarnings.push(`Failed to export xpath "${xpath}": ${errorText}`);
     }
   }
 
@@ -373,19 +376,15 @@ export function exportXctraceSelective(
     reason: m.reason ?? 'Schema not available in trace',
   }));
 
-  // Also add exportable metrics whose export failed as not_exportable
-  for (const warning of exportWarnings) {
-    const xpathMatch = warning.match(/xpath "([^"]+)"/);
-    if (xpathMatch) {
-      const schema = extractSchemaFromXPath(xpathMatch[1] ?? '');
-      // Find the metric that uses this schema
-      const metric = plan.exportable.find((m) => m.tables?.some((t) => t.schemaName === schema));
-      if (metric) {
-        notExportable.push({
-          metric: metric.metric,
-          reason: `Export failed: ${warning}`,
-        });
-      }
+  // Attribute failed exports to matching metrics using tracked XPath→error map
+  for (const [xpath, errorText] of failedXPaths) {
+    const schema = extractSchemaFromXPath(xpath);
+    const metrics = plan.exportable.filter((m) => m.tables?.some((t) => t.schemaName === schema));
+    for (const metric of metrics) {
+      notExportable.push({
+        metric: metric.metric,
+        reason: `Export failed for schema "${schema}": ${errorText}`,
+      });
     }
   }
 
