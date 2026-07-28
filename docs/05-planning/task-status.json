@@ -944,7 +944,8 @@
           "id": "4.7",
           "title": "失败归因：证据驱动，不足则 inconclusive",
           "story": "US-14.1",
-          "status": "ready",
+          "status": "in_progress",
+          "last_updated": "2026-07-28T14:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/02-architecture/架构设计文档.md"
@@ -954,8 +955,8 @@
             "4.2",
             "4.6"
           ],
-          "test_file": null,
-          "notes": "归因类型：product_regression/script_issue/device_issue/env_issue/flaky/perf_regression/inconclusive。不臆造。targetKind 信息纳入归因上下文（device_issue 区分 physical vs simulator 原因）。"
+          "test_file": "packages/itestagent-engine/test/explanation/failure-explainer.test.ts, packages/itestagent-contracts/test/data-contracts.test.ts",
+          "notes": "归因类型：product_regression/script_issue/device_issue/env_issue/flaky/perf_regression/inconclusive。不臆造。targetKind 信息纳入归因上下文（device_issue 区分 physical vs simulator 原因）。FailureExplainer: rules engine (7 rules → crashlog/perf/device/env/flaky/historical/inconclusive) + LLM fallback。Schema: suggestion→suggestedActions 对齐 S8。14 tests, 620 total engine tests pass。"
         },
         {
           "id": "4.8",

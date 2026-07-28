@@ -153,8 +153,8 @@ export const FailureExplanationSchema = z.object({
   summary: z.string(),
   /** 支撑证据列表（artifact ID 或 log 摘要） */
   evidence: z.array(z.string()),
-  /** 修复建议（可选） */
-  suggestion: z.string().optional(),
+  /** 建议动作列表（可选），对应 S8 契约 suggestedActions[] */
+  suggestedActions: z.array(z.string()).optional(),
   /** 置信度（可选） */
   confidence: z.enum(['high', 'medium', 'low']).optional(),
 });

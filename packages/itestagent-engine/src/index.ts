@@ -126,8 +126,11 @@ export type {
 
 export { BaselineManager } from './baseline/index.js';
 
+export { FailureExplainer } from './explanation/index.js';
+
 export type {
-  BaselineKeyContext,
-  EstablishBaselineContext,
-  CompareBaselineContext,
-} from './baseline/index.js';
+  ExplainContext,
+  PreviousRunInfo,
+  LlmExplainFn,
+  FailureExplainerOptions,
+} from './explanation/index.js';
