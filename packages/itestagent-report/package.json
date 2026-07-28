@@ -8,6 +8,10 @@
   "description": "Report trio synthesis — summary.md + result.json + artifact-index.json",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/"
+    "lint": "biome check src/",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "itestagent-contracts": "*"
   }
 }

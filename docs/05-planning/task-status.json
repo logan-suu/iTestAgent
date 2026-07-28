@@ -962,8 +962,8 @@
           "id": "4.8",
           "title": "报告三件套：summary.md + result.json + artifact-index.json",
           "story": "US-15.1",
-          "status": "ready",
-          "last_updated": "2026-07-28T16:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-28T18:00:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
@@ -972,8 +972,8 @@
             "4.3",
             "4.7"
           ],
-          "test_file": null,
-          "notes": "每次 run 固定输出三件套。不输出 report.html。Simulator 报告携带 environment=simulator、representativeOfPhysicalDevice=false、comparisonScope=simulator_only。"
+          "test_file": "packages/itestagent-report/test/synthesizer.test.ts",
+          "notes": "PR #53: https://github.com/logan-suu/iTestAgent/pull/53 — feat(report) ReportSynthesizer + generateSummary. ReportTrio: summary.md (AC3: conclusion/failure/metrics/evidence/next commands), result.json (AC4: G2 RunResultSchema), artifact-index.json (AC5: G2 ArtifactIndexSchema). 28 tests. AC2: no report.html. R5: approximate annotated. ADR-011: simulator warnings. typecheck 0 / lint 0 / 2164 tests pass."
         },
         {
           "id": "4.9",
