@@ -936,8 +936,8 @@
           "dependencies": [
             "4.3"
           ],
-          "test_file": null,
-          "notes": "首次成功 run 建 baseline；crash/失败不建。用户可显式接受新 baseline（需确认）。physical 和 simulator baseline 严格分域隔离（ADR-011），Store/Schema 层拒绝跨域比较。Simulator baseline 包含 hostFingerprint/XcodeVersion/runtimeIdentifier。"
+          "test_file": "packages/itestagent-engine/test/baseline/baseline-manager.test.ts, packages/itestagent-store/test/baseline-store.test.ts",
+          "notes": "PR #51: https://github.com/logan-suu/iTestAgent/pull/51 — BaselineStore interface/schema (contracts), BaselineStore file-based impl (store), BaselineManager establish/compare/accept lifecycle (engine), XctracePerformanceBackend compareBaseline integration. 6 source + 4 test files, 49 new tests (2116 total). Baseline key: <project>|<targetKind>|<deviceModel>|<iOS>|<scenario>. ADR-011 §6: physical/simulator domain-isolated. Simulator baselines carry hostFingerprint/xcodeVersion/runtimeIdentifier. R5: fpsApproximate always marked approximate. R7: acceptNewBaseline expects PermissionEngine gate upstream."
         },
         {
           "id": "4.7",
