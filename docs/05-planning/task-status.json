@@ -962,8 +962,8 @@
           "id": "4.8",
           "title": "报告三件套：summary.md + result.json + artifact-index.json",
           "story": "US-15.1",
-          "status": "ready",
-          "last_updated": "2026-07-28T16:00:00.000Z",
+          "status": "in_progress",
+          "last_updated": "2026-07-28T17:30:00.000Z",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
