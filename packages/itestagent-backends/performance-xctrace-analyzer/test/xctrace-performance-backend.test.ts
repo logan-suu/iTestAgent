@@ -17,9 +17,13 @@ import { beforeEach, describe, expect, it } from 'bun:test';
 import { tmpdir } from 'node:os';
 import { join as pathJoin, resolve as pathResolve } from 'node:path';
 
+import { buildBaselineKey } from 'itestagent-contracts';
 import type {
   BaselineCompareInput,
   BaselineDelta,
+  BaselineListFilter,
+  BaselineRecord,
+  BaselineStore,
   PerformanceBackend,
   SymbolicateInput,
   TraceExportInput,
@@ -535,5 +539,292 @@ describe('R5 compliance', () => {
     expect(summary.crashDetected).toBeFalsy();
     expect(summary.hangCount).toBe(0);
     expect(summary.approximate).toBe(true);
+  });
+});
+
+// ─── In-memory BaselineStore mock ──────────────────────────────
+
+/**
+ * Create an in-memory BaselineStore for testing compareBaseline
+ * with real delta computation (task 4.6).
+ *
+ * Stores BaselineRecord objects keyed by their `key` field.
+ * All operations are synchronous but return Promises to match
+ * the BaselineStore interface.
+ */
+function createInMemoryBaselineStore(): BaselineStore {
+  const records = new Map<string, BaselineRecord>();
+
+  return {
+    async get(key: string): Promise<BaselineRecord | null> {
+      return records.get(key) ?? null;
+    },
+    async save(record: BaselineRecord): Promise<void> {
+      records.set(record.key, record);
+    },
+    async list(filter?: BaselineListFilter): Promise<BaselineRecord[]> {
+      let result = Array.from(records.values());
+      if (filter?.targetKind) {
+        result = result.filter((r) => r.targetKind === filter.targetKind);
+      }
+      if (filter?.projectId) {
+        const prefix = `${filter.projectId}|`;
+        result = result.filter((r) => r.key.startsWith(prefix));
+      }
+      if (filter?.scenario) {
+        result = result.filter((r) => r.key.endsWith(`|${filter.scenario}`));
+      }
+      return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    },
+    async delete(key: string): Promise<void> {
+      records.delete(key);
+    },
+  };
+}
+
+/**
+ * Build a valid baseline key for tests.
+ * Format: <projectId>|<targetKind>|<deviceModel>|<iosVersion>|<scenario>
+ */
+const BASELINE_KEY = buildBaselineKey({
+  projectId: 'test-project',
+  targetKind: 'physical',
+  deviceModel: 'iPhone15,2',
+  iosVersion: '18.0',
+  scenario: 'launch',
+});
+
+/**
+ * Create a BaselineRecord fixture for saving into the store.
+ */
+function makeBaselineRecord(overrides: Partial<BaselineRecord> = {}): BaselineRecord {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: 2,
+    key: BASELINE_KEY,
+    targetKind: 'physical',
+    approximate: true,
+    updatedFromRun: 'run-001',
+    createdAt: now,
+    updatedAt: now,
+    reachableRuns: ['run-001'],
+    ...overrides,
+  };
+}
+
+// ─── compareBaseline with BaselineStore (task 4.6) ────────────
+
+describe('compareBaseline with BaselineStore (task 4.6)', () => {
+  /**
+   * Creates a backend wired to a fresh in-memory BaselineStore,
+   * pre-populated with the given baseline record if provided.
+   */
+  function makeBackendWithStore(baseline?: BaselineRecord): {
+    backend: PerformanceBackend;
+    store: BaselineStore;
+  } {
+    const store = createInMemoryBaselineStore();
+    if (baseline) {
+      // We can't await here in a sync helper, so use void and
+      // rely on the test's await before calling compareBaseline.
+      void store.save(baseline);
+    }
+    const backend = createXctracePerformanceBackend({ baselineStore: store });
+    return { backend, store };
+  }
+
+  it('returns unchanged when current matches baseline exactly', async () => {
+    const baseline = makeBaselineRecord({
+      launchDurationMs: 1320,
+      memoryPeakMB: 418.5,
+      hangCount: 3,
+      fpsApproximate: 59.8,
+    });
+    const { backend, store } = makeBackendWithStore(baseline);
+    // Ensure save completed
+    await store.save(baseline);
+
+    const currentSummary: TraceSummary = {
+      launchDurationMs: 1320,
+      memoryPeakMB: 418.5,
+      hangCount: 3,
+      fpsApproximate: 59.8,
+      approximate: true,
+    };
+
+    const input: BaselineCompareInput = {
+      deviceId: 'test-device',
+      current: currentSummary,
+      baselineId: BASELINE_KEY,
+      targetKind: 'physical',
+    };
+
+    const delta = await backend.compareBaseline(input);
+
+    expect(delta.baselineId).toBe(BASELINE_KEY);
+    expect(delta.summary).toBe('unchanged');
+    expect(delta.deltas.launchDurationMs).toBe(0);
+    expect(delta.deltas.memoryPeakMB).toBe(0);
+    expect(delta.deltas.hangCount).toBe(0);
+    expect(delta.deltas.fpsApproximate).toBe(0);
+    expect(delta.targetKind).toBe('physical');
+    expect(delta.runId).toBeDefined();
+    expect(delta.comparedAt).toBeDefined();
+  });
+
+  it('returns regressed when launchDurationMs is worse (higher)', async () => {
+    const baseline = makeBaselineRecord({
+      launchDurationMs: 1000,
+    });
+    const { backend, store } = makeBackendWithStore(baseline);
+    await store.save(baseline);
+
+    const currentSummary: TraceSummary = {
+      launchDurationMs: 1500,
+      approximate: true,
+    };
+
+    const input: BaselineCompareInput = {
+      deviceId: 'test-device',
+      current: currentSummary,
+      baselineId: BASELINE_KEY,
+      targetKind: 'physical',
+    };
+
+    const delta = await backend.compareBaseline(input);
+
+    expect(delta.summary).toBe('regressed');
+    expect(delta.deltas.launchDurationMs).toBe(500);
+    expect(delta.baselineId).toBe(BASELINE_KEY);
+  });
+
+  it('returns improved when launchDurationMs is better (lower)', async () => {
+    const baseline = makeBaselineRecord({
+      launchDurationMs: 1500,
+    });
+    const { backend, store } = makeBackendWithStore(baseline);
+    await store.save(baseline);
+
+    const currentSummary: TraceSummary = {
+      launchDurationMs: 1000,
+      approximate: true,
+    };
+
+    const input: BaselineCompareInput = {
+      deviceId: 'test-device',
+      current: currentSummary,
+      baselineId: BASELINE_KEY,
+      targetKind: 'physical',
+    };
+
+    const delta = await backend.compareBaseline(input);
+
+    expect(delta.summary).toBe('improved');
+    expect(delta.deltas.launchDurationMs).toBe(-500);
+    expect(delta.baselineId).toBe(BASELINE_KEY);
+  });
+
+  it('returns inconclusive when no baseline exists in store', async () => {
+    const { backend } = makeBackendWithStore(); // no baseline saved
+
+    const missingKey = buildBaselineKey({
+      projectId: 'no-baseline-project',
+      targetKind: 'physical',
+      deviceModel: 'iPhoneX',
+      iosVersion: '17.0',
+      scenario: 'missing',
+    });
+
+    const currentSummary: TraceSummary = {
+      launchDurationMs: 1320,
+      approximate: true,
+    };
+
+    const input: BaselineCompareInput = {
+      deviceId: 'test-device',
+      current: currentSummary,
+      baselineId: missingKey,
+      targetKind: 'physical',
+    };
+
+    const delta = await backend.compareBaseline(input);
+
+    expect(delta.summary).toBe('inconclusive');
+    expect(delta.baselineId).toBe(missingKey);
+    expect(delta.deltas).toEqual({});
+  });
+
+  it('returns BaselineDelta with correct baselineId matching the build key', async () => {
+    const baseline = makeBaselineRecord({
+      launchDurationMs: 1200,
+    });
+    const { backend, store } = makeBackendWithStore(baseline);
+    await store.save(baseline);
+
+    const currentSummary: TraceSummary = {
+      launchDurationMs: 1200,
+      approximate: true,
+    };
+
+    const input: BaselineCompareInput = {
+      deviceId: 'test-device',
+      current: currentSummary,
+      baselineId: BASELINE_KEY,
+      targetKind: 'physical',
+    };
+
+    const delta = await backend.compareBaseline(input);
+
+    // The baselineId in output must match the composite build key,
+    // not a shortened or alternative identifier.
+    expect(delta.baselineId).toBe(BASELINE_KEY);
+    expect(delta.baselineId).toContain('test-project');
+    expect(delta.baselineId).toContain('physical');
+    expect(delta.baselineId).toContain('iPhone15,2');
+    expect(delta.baselineId).toContain('18.0');
+    expect(delta.baselineId).toContain('launch');
+  });
+
+  it('preserves targetKind from input in output', async () => {
+    const baseline = makeBaselineRecord({
+      launchDurationMs: 1200,
+    });
+    const { backend, store } = makeBackendWithStore(baseline);
+    await store.save(baseline);
+
+    const physicalDelta = await backend.compareBaseline({
+      deviceId: 'physical-device',
+      current: { launchDurationMs: 1200, approximate: true },
+      baselineId: BASELINE_KEY,
+      targetKind: 'physical',
+    });
+
+    expect(physicalDelta.targetKind).toBe('physical');
+
+    // Also test with simulator key
+    const simKey = buildBaselineKey({
+      projectId: 'sim-proj',
+      targetKind: 'simulator',
+      deviceModel: 'iPhone16,2',
+      iosVersion: '18.2',
+      scenario: 'launch',
+    });
+
+    const simBaseline = makeBaselineRecord({
+      key: simKey,
+      targetKind: 'simulator',
+      launchDurationMs: 800,
+    });
+    const { backend: simBackend, store: simStore } = makeBackendWithStore(simBaseline);
+    await simStore.save(simBaseline);
+
+    const simDelta = await simBackend.compareBaseline({
+      deviceId: 'sim-device',
+      current: { launchDurationMs: 800, approximate: true },
+      baselineId: simKey,
+      targetKind: 'simulator',
+    });
+
+    expect(simDelta.targetKind).toBe('simulator');
   });
 });

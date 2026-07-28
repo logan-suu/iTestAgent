@@ -388,3 +388,18 @@ export type {
   CredentialResolveResult,
   CredentialManager,
 } from './test-data.js';
+
+export {
+  BaselineRecordSchema,
+  BuildBaselineKeyInputSchema,
+  BaselineListFilterSchema,
+  buildBaselineKey,
+  parseBaselineKey,
+} from './baseline-store.js';
+
+export type {
+  BaselineRecord,
+  BuildBaselineKeyInput,
+  BaselineListFilter,
+  BaselineStore,
+} from './baseline-store.js';
