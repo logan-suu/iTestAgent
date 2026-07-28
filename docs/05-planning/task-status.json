@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-27T12:00:00.000Z",
+  "last_updated": "2026-07-28T13:00:00.000Z",
   "current_phase": 4,
   "phases": [
     {
@@ -913,7 +913,7 @@
           "id": "4.5",
           "title": "PerformanceBackend: FPS 近似（标 approximate）",
           "story": "US-12.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -921,7 +921,7 @@
             "4.3"
           ],
           "test_file": null,
-          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。Simulator FPS 额外标注\"来自 Mac 宿主，不代表真机\"。"
+          "notes": "FPS-like smoothness metric。不承诺精确实时 FPS。Simulator FPS 额外标注\"来自 Mac 宿主，不代表真机\"。PR #50: https://github.com/logan-suu/iTestAgent/pull/50 — Added fpsApproximate to TraceSummarySchema/BaselineDeltaSchema, implemented parseFpsFromHitches in MetricsParser, wired into XctracePerformanceBackend. 2004 tests pass. 6 files +159/-1."
         },
         {
           "id": "4.6",

@@ -346,6 +346,10 @@ export function createXctracePerformanceBackend(
         deltas.hitches = 'unchanged';
       }
 
+      if (current.fpsApproximate !== undefined) {
+        deltas.fpsApproximate = 0; // No baseline to compare against (deferred to 4.6)
+      }
+
       return {
         baselineId: input.baselineId,
         runId: randomUUID(),

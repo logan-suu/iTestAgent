@@ -88,6 +88,41 @@ const LAUNCH_SECONDS_XML = `<?xml version="1.0"?>
   </schema>
 </trace-export>`;
 
+const FPS_XML = `<?xml version="1.0"?>
+<trace-export>
+  <schema name="com.apple.xctrace.core-animation-fps-estimate">
+    <row><fps>59.8</fps><frame-count>1800</frame-count><duration-s>30.1</duration-s></row>
+  </schema>
+</trace-export>`;
+
+const FPS_PERFECT_XML = `<?xml version="1.0"?>
+<trace-export>
+  <schema name="com.apple.xctrace.core-animation-fps-estimate">
+    <row><fps>60.0</fps></row>
+  </schema>
+</trace-export>`;
+
+const FPS_LOW_XML = `<?xml version="1.0"?>
+<trace-export>
+  <schema name="com.apple.xctrace.core-animation-fps-estimate">
+    <row><frame-rate>25.3</frame-rate></row>
+  </schema>
+</trace-export>`;
+
+const FPS_FRAME_PER_SECOND_XML = `<?xml version="1.0"?>
+<trace-export>
+  <schema name="com.apple.xctrace.core-animation-fps-estimate">
+    <row><frames-per-second>44.7</frames-per-second></row>
+  </schema>
+</trace-export>`;
+
+const FPS_OUTLIER_XML = `<?xml version="1.0"?>
+<trace-export>
+  <schema name="com.apple.xctrace.core-animation-fps-estimate">
+    <row><fps>9999.0</fps></row>
+  </schema>
+</trace-export>`;
+
 const config = { isSimulator: false };
 const simConfig = { isSimulator: true };
 
@@ -327,5 +362,73 @@ describe('parsePerformanceMetrics — edge cases', () => {
     const metrics = parsePerformanceMetrics(xml, config);
     expect(metrics.hitchesSummary).toBe('low');
     expect(metrics.hangCount).toBe(0);
+  });
+});
+
+// ─── FPS Approximate ───────────────────────────────────────────────
+
+describe('parsePerformanceMetrics — FPS approximate (AC2)', () => {
+  it('extracts FPS from core-animation-fps-estimate schema', () => {
+    const metrics = parsePerformanceMetrics(FPS_XML, config);
+    expect(metrics.fpsApproximate).toBeCloseTo(59.8, 1);
+  });
+
+  it('extracts perfect FPS (60.0)', () => {
+    const metrics = parsePerformanceMetrics(FPS_PERFECT_XML, config);
+    expect(metrics.fpsApproximate).toBe(60.0);
+  });
+
+  it('extracts FPS from frame-rate element', () => {
+    const metrics = parsePerformanceMetrics(FPS_LOW_XML, config);
+    expect(metrics.fpsApproximate).toBeCloseTo(25.3, 1);
+  });
+
+  it('extracts FPS from frames-per-second element', () => {
+    const metrics = parsePerformanceMetrics(FPS_FRAME_PER_SECOND_XML, config);
+    expect(metrics.fpsApproximate).toBeCloseTo(44.7, 1);
+  });
+
+  it('returns undefined when no FPS data present', () => {
+    const metrics = parsePerformanceMetrics(HITCHES_XML, config);
+    expect(metrics.fpsApproximate).toBeUndefined();
+  });
+
+  it('returns undefined for empty XML', () => {
+    const metrics = parsePerformanceMetrics(EMPTY_XML, config);
+    expect(metrics.fpsApproximate).toBeUndefined();
+  });
+
+  it('rejects outlier FPS value (>120) as undefined', () => {
+    const metrics = parsePerformanceMetrics(FPS_OUTLIER_XML, config);
+    expect(metrics.fpsApproximate).toBeUndefined();
+  });
+
+  it('R5: all metrics including FPS are approximate', () => {
+    const metrics = parsePerformanceMetrics(FPS_XML, config);
+    expect(metrics.approximate).toBe(true);
+  });
+});
+
+describe('parseTraceSummary — FPS approximate', () => {
+  it('includes fpsApproximate in trace summary', () => {
+    const summary = parseTraceSummary(FPS_XML, config);
+    expect(summary.fpsApproximate).toBeCloseTo(59.8, 1);
+  });
+
+  it('returns undefined fpsApproximate when no FPS data', () => {
+    const summary = parseTraceSummary(EMPTY_XML, config);
+    expect(summary.fpsApproximate).toBeUndefined();
+  });
+});
+
+describe('parseRawMetrics — FPS approximate', () => {
+  it('includes fpsApproximate in raw metrics', () => {
+    const metrics = parseRawMetrics(FPS_XML, config);
+    expect(metrics.fpsApproximate).toBeCloseTo(59.8, 1);
+  });
+
+  it('returns undefined fpsApproximate when no FPS data', () => {
+    const metrics = parseRawMetrics(EMPTY_XML, config);
+    expect(metrics.fpsApproximate).toBeUndefined();
   });
 });

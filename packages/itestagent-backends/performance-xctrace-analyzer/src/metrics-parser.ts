@@ -26,6 +26,7 @@ export interface ParsedMetrics {
   crashDetected?: boolean;
   hangCount?: number;
   hitchesSummary?: 'low' | 'medium' | 'high' | 'inconclusive';
+  fpsApproximate?: number;
   approximate: boolean;
 }
 
@@ -106,6 +107,19 @@ const LAUNCH_DURATION_S_ALT_RE = /launch[-_]?duration[^>]*?(\d+(?:\.?\d+)?)\s*s(
 /** Regex for hitches count in summary XML. */
 const HITCHES_COUNT_XML_RE = /<hitches[-_]?count[^>]*>(\d+)<\/hitches[-_]?count>/i;
 const HITCHES_COUNT_ALT_RE = /hitches[-_]?count[^>]*?(\d+)/i;
+
+/**
+ * Regex to extract FPS from core-animation-fps-estimate schema XML.
+ * Matches: <fps>59.8</fps> or <FPS>60</FPS> or <frame-rate>59.8</frame-rate>
+ * Also matches: <frames-per-second>60.0</frames-per-second>
+ *
+ * AC2 (US-12.1): FPS as FPS-like approximate indicator, not guaranteed precision.
+ * R5: always marked approximate.
+ */
+const FPS_XML_RE =
+  /<(?:fps|FPS|frame[-_]?rate)[^>]*>(\d+(?:\.\d+)?)<\/(?:fps|FPS|frame[-_]?rate)>/i;
+const FPS_ALT_RE =
+  /<(?:frames[-_]?per[-_]?second)[^>]*>(\d+(?:\.\d+)?)<\/(?:frames[-_]?per[-_]?second)>/i;
 
 // ─── Parsing Functions ────────────────────────────────────────────
 
@@ -204,6 +218,28 @@ function parseHangCount(xml: string): number {
   return matches ? matches.length : 0;
 }
 
+/**
+ * Parse FPS approximate value from xctrace core-animation-fps-estimate XML data.
+ *
+ * Data source: xctrace schema `com.apple.xctrace.core-animation-fps-estimate`
+ * (referenced in tech-selection §11 as XCTraceRunner's `core-animation-fps-estimate`).
+ *
+ * AC2 (US-12.1): FPS as FPS-like approximate indicator, not guaranteed precision.
+ * R5: always marked approximate — this is sampled, not real-time frame pacing.
+ *
+ * @returns FPS value or undefined if no FPS data found
+ */
+function parseFpsApproximate(xml: string): number | undefined {
+  const fpsValue = extractFromXmlElement(xml, FPS_XML_RE) ?? extractFromXmlElement(xml, FPS_ALT_RE);
+
+  if (fpsValue === undefined) return undefined;
+
+  // Clamp to a reasonable range (0–120). Anything outside is likely a parsing artifact.
+  if (fpsValue < 0 || fpsValue > 120) return undefined;
+
+  return fpsValue;
+}
+
 // ─── Public API ───────────────────────────────────────────────────
 
 /**
@@ -225,6 +261,7 @@ export function parsePerformanceMetrics(
     crashDetected: detectCrash(xmlData),
     hangCount: parseHangCount(xmlData),
     hitchesSummary: hitches.level,
+    fpsApproximate: parseFpsApproximate(xmlData),
     approximate: true, // R5: all xctrace-derived metrics are approximate by default
   };
 }
@@ -247,6 +284,7 @@ export function parseTraceSummary(xmlData: string, _config: MetricsParserConfig)
       level: hitches.level,
       hitchesPerSecond: hitches.count,
     },
+    fpsApproximate: parseFpsApproximate(xmlData),
     approximate: true, // R5: always approximate
   };
 }
@@ -264,6 +302,7 @@ export function parseRawMetrics(xmlData: string, _config: MetricsParserConfig): 
     crashDetected: detectCrash(xmlData),
     hangCount: parseHangCount(xmlData),
     hitchesSummary: hitches.level,
+    fpsApproximate: parseFpsApproximate(xmlData),
     approximate: true, // R5
   };
 }
