@@ -54,8 +54,19 @@ const HITCHES_XML = `<?xml version="1.0"?>
   </schema>
 </trace-export>`;
 
-const TOC_XML =
-  'com.apple.xctrace.hitches_summary\ncom.apple.xctrace.hang\ncom.apple.xctrace.memory\ncom.apple.xctrace.launch';
+const TOC_OUTPUT = `Schema Name                              | Table Name
+-----------------------------------------
+Hitch                                    |
+  Hitch                                  | hitches-count, hitch-ratio, hitches-duration-ms
+os-signpost                              |
+  os-signpost-intervals                  | annotation, category, duration_ms
+Hangs                                    |
+  Hangs                                  | hang-duration-ms
+VM                                       |
+  VM-operations                          | peak-memory-MB, size
+App Launch                               |
+  App Launch                             | launch-duration-ms
+`;
 
 // ─── Test doubles ─────────────────────────────────────────────────
 
@@ -166,7 +177,7 @@ describe('recordTrace', () => {
 describe('exportTrace', () => {
   it('returns completed status with exported files on success', async () => {
     const responses = new Map<string, SyncSpawnResult>();
-    responses.set('--toc', makeSuccessResult(TOC_XML));
+    responses.set('--toc', makeSuccessResult(TOC_OUTPUT));
     responses.set('--input', makeSuccessResult(HITCHES_XML));
 
     const backend = createXctracePerformanceBackend({
@@ -183,7 +194,7 @@ describe('exportTrace', () => {
 
     expect(result.status).toBe('completed');
     expect(result.exportedFiles).toBeDefined();
-    expect(result.exportedFiles?.length).toBe(1);
+    expect(result.exportedFiles?.length).toBe(3); // Hangs, VM, App Launch (Hitch excluded: hyphen columns mismatch required pattern underscores)
   });
 
   it('returns failed status when --toc fails', async () => {
@@ -207,7 +218,7 @@ describe('exportTrace', () => {
 
   it('returns failed status when export fails', async () => {
     const responses = new Map<string, SyncSpawnResult>();
-    responses.set('--toc', makeSuccessResult(TOC_XML));
+    responses.set('--toc', makeSuccessResult(TOC_OUTPUT));
     responses.set('--input', makeFailResult('export failed'));
 
     const backend = createXctracePerformanceBackend({
@@ -425,7 +436,7 @@ describe('healthcheckXctrace', () => {
 describe('PerformanceBackend — full pipeline', () => {
   it('completes record→export→summarize with mock CLI', async () => {
     const responses = new Map<string, SyncSpawnResult>();
-    responses.set('--toc', makeSuccessResult(TOC_XML));
+    responses.set('--toc', makeSuccessResult(TOC_OUTPUT));
     responses.set('--input', makeSuccessResult(HITCHES_XML));
 
     const mockSubprocessSpawn = ((_cmd: string, _args?: string[], _opts?: unknown) => {
