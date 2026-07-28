@@ -12,6 +12,7 @@
  *   xctraceOps — CLI wrapper (xctrace-cli.ts)
  *   metricsParser — XML → PerformanceMetrics parser
  *   subprocessSpawn — SubprocessController.spawn
+ *   baselineStore — optional BaselineStore for real compareBaseline (task 4.6)
  */
 
 import { randomUUID } from 'node:crypto';
@@ -22,6 +23,7 @@ import type {
   ArtifactRef,
   BaselineCompareInput,
   BaselineDelta,
+  BaselineStore,
   PerformanceBackend,
   SymbolicateInput,
   TraceExportInput,
@@ -43,6 +45,9 @@ import type { SpawnSyncFn, SubprocessSpawnFn, XctraceCliDeps } from './xctrace-c
 import { parseTraceSummary } from './metrics-parser.js';
 import type { MetricsParserConfig } from './metrics-parser.js';
 
+import { parseBaselineKey } from 'itestagent-contracts';
+import { BaselineManager } from 'itestagent-engine';
+
 // ─── Types ────────────────────────────────────────────────────────
 
 /** Injectable dependencies for XctracePerformanceBackend. */
@@ -55,6 +60,8 @@ export interface XctracePerformanceBackendDeps {
   workDir?: string;
   /** Whether the target is a simulator (affects R5 annotations). */
   isSimulator?: boolean;
+  /** Optional BaselineStore for real compareBaseline (task 4.6). Omitting it falls back to inconclusive. */
+  baselineStore?: BaselineStore;
 }
 
 /** Backend name constant. */
@@ -130,6 +137,9 @@ export function createXctracePerformanceBackend(
     subprocessSpawn,
     workDir,
   };
+
+  const baselineStore = deps?.baselineStore;
+  const baselineManager = baselineStore ? new BaselineManager({ baselineStore }) : null;
 
   const parserConfig: MetricsParserConfig = {
     isSimulator,
@@ -320,44 +330,58 @@ export function createXctracePerformanceBackend(
     /**
      * Compare current metrics against a baseline.
      *
-     * Computes simple delta values between current and baseline metrics.
-     * Full baseline persistence (reading from store) is deferred to task 4.6.
+     * Delegates to BaselineManager for real delta computation when
+     * a BaselineStore is available. Falls back to inconclusive when
+     * no store is injected (backward compatible with task 4.3 tests).
      *
      * ADR-011: baseline domain isolation — simulator and physical baselines
-     * are never compared across domains.
+     * are never compared across domains (enforced at BaselineStore layer).
      */
     async compareBaseline(input: BaselineCompareInput): Promise<BaselineDelta> {
       const current = input.current;
-      const deltas: BaselineDelta['deltas'] = {};
+      const runId = randomUUID();
+      const comparedAt = new Date().toISOString();
 
-      if (current.launchDurationMs !== undefined) {
-        deltas.launchDurationMs = 0; // No baseline to compare against (deferred to 4.6)
+      // If no BaselineStore is wired, return placeholder as before (task 4.3 compat)
+      if (!baselineManager) {
+        const deltas: BaselineDelta['deltas'] = {};
+
+        if (current.launchDurationMs !== undefined) deltas.launchDurationMs = 0;
+        if (current.memoryPeakMB !== undefined) deltas.memoryPeakMB = 0;
+        if (current.hangCount !== undefined) deltas.hangCount = 0;
+        if (current.hitchesSummary) deltas.hitches = 'unchanged';
+        if (current.fpsApproximate !== undefined) deltas.fpsApproximate = 0;
+
+        return {
+          baselineId: input.baselineId,
+          runId,
+          comparedAt,
+          targetKind: input.targetKind,
+          deltas,
+          summary: 'inconclusive',
+        };
       }
 
-      if (current.memoryPeakMB !== undefined) {
-        deltas.memoryPeakMB = 0; // No baseline to compare against
+      const parsedKey = parseBaselineKey(input.baselineId);
+      if (!parsedKey) {
+        return {
+          baselineId: input.baselineId,
+          runId,
+          comparedAt,
+          targetKind: input.targetKind,
+          deltas: {},
+          summary: 'inconclusive',
+        };
       }
 
-      if (current.hangCount !== undefined) {
-        deltas.hangCount = 0;
-      }
-
-      if (current.hitchesSummary) {
-        deltas.hitches = 'unchanged';
-      }
-
-      if (current.fpsApproximate !== undefined) {
-        deltas.fpsApproximate = 0; // No baseline to compare against (deferred to 4.6)
-      }
-
-      return {
-        baselineId: input.baselineId,
-        runId: randomUUID(),
-        comparedAt: new Date().toISOString(),
-        targetKind: input.targetKind,
-        deltas,
-        summary: 'inconclusive', // No historical baseline available yet (task 4.6)
-      };
+      return baselineManager.compareWithBaseline(current, {
+        runId,
+        projectId: parsedKey.projectId,
+        targetKind: parsedKey.targetKind,
+        deviceModel: parsedKey.deviceModel,
+        iosVersion: parsedKey.iosVersion,
+        scenario: parsedKey.scenario,
+      });
     },
   };
 

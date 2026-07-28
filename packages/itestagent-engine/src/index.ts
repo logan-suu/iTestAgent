@@ -123,3 +123,11 @@ export type {
   EvidenceCollectionSummary,
   SymbolicationResult,
 } from './evidence/index.js';
+
+export { BaselineManager } from './baseline/index.js';
+
+export type {
+  BaselineKeyContext,
+  EstablishBaselineContext,
+  CompareBaselineContext,
+} from './baseline/index.js';
