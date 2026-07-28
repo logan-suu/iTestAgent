@@ -897,7 +897,7 @@
           "id": "4.4",
           "title": "PerformanceBackend: xctrace export 封装（TOC/XPath）+ 版本容错",
           "story": null,
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md"
@@ -906,7 +906,8 @@
             "4.3"
           ],
           "test_file": "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-toc-parser.test.ts",
-          "notes": "PR #49: https://github.com/logan-suu/iTestAgent/pull/49 — feat(backends): TOC-driven selective xctrace export with version-aware schema compatibility. New files: xctrace-toc-parser.ts (parseTocOutput, findMetricsInToc, generateExportXPaths), xctrace-version-compat.ts (detectXcodeVersion, KNOWN_SCHEMA_COMPAT for Xcode 16→26). Enhanced: xctrace-cli.ts (extractXcodeVersion, listTraceSchemasParsed, exportXctraceSelective), xctrace-performance-backend.ts (selective XPath export, per-schema files, partial export warnings). 61 new tests (29 TOC parser + 13 version compat + 19 CLI enhanced). G1-G4: typecheck 0, lint 0, 1992 total tests pass. not_exportable annotations for missing simulator schemas."
+          "notes": "PR #49: https://github.com/logan-suu/iTestAgent/pull/49 — feat(backends): TOC-driven selective xctrace export with version-aware schema compatibility. Merged to dev-1.0 (squash: 897a0f8). New files: xctrace-toc-parser.ts (parseTocOutput, findMetricsInToc, generateExportXPaths), xctrace-version-compat.ts (detectXcodeVersion, KNOWN_SCHEMA_COMPAT for Xcode 16→26). Enhanced: xctrace-cli.ts (extractXcodeVersion, listTraceSchemasParsed, exportXctraceSelective), xctrace-performance-backend.ts (selective XPath export, per-schema files, partial export warnings). 61 new tests. G1-G4 green, G5/G5-SIM pending (4.9).",
+          "last_updated": "2026-07-28T12:00:00.000Z"
         },
         {
           "id": "4.5",
