@@ -108,7 +108,7 @@ export const TraceSummarySchema = z.object({
   memoryPeakMB: z.number().nonnegative().optional(),
   /** 是否检测到 crash */
   crashDetected: z.boolean().optional(),
-  /** FPS 近似值，不承诺精确实时 FPS（AC2, R5） */
+  /** FPS approximate value, not guaranteed as precise real-time FPS (AC2, R5) */
   fpsApproximate: z.number().nonnegative().optional(),
   /** 是否有指标为近似值/估算值（R5 强制标注） */
   approximate: z.boolean().optional(),
@@ -180,7 +180,7 @@ export const BaselineDeltaSchema = z.object({
     hangCount: z.number().optional(),
     /** hitches 变化趋势 */
     hitches: z.enum(['improved', 'regressed', 'unchanged', 'inconclusive']).optional(),
-    /** FPS 近似值变化，负值为回归（FPS 下降） */
+    /** FPS approximate delta, negative = regression (FPS drop) */
     fpsApproximate: z.number().optional(),
   }),
   /** 综合判定 */
