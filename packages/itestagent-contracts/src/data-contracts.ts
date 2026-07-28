@@ -135,11 +135,11 @@ export type TestCaseResult = z.infer<typeof TestCaseResultSchema>;
 // ─── FailureExplanation ──────────────────────────────────────
 
 /**
- * 失败解释 Schema。
- * 对应架构设计文档 §6.5 RunResult.explanation + itestagent explain 命令。
+ * Failure explanation schema.
+ * Maps to Architecture Design §6.5 RunResult.explanation + itestagent explain CLI.
  */
 export const FailureExplanationSchema = z.object({
-  /** 失败分类 */
+  /** Failure classification */
   explanationType: z.enum([
     'product_regression',
     'script_issue',
@@ -149,13 +149,13 @@ export const FailureExplanationSchema = z.object({
     'perf_regression',
     'inconclusive',
   ]),
-  /** 失败摘要（人类可读） */
+  /** Human-readable failure summary */
   summary: z.string(),
-  /** 支撑证据列表（artifact ID 或 log 摘要） */
+  /** Supporting evidence list (artifact IDs or log excerpts) */
   evidence: z.array(z.string()),
-  /** 修复建议（可选） */
-  suggestion: z.string().optional(),
-  /** 置信度（可选） */
+  /** Suggested remediation actions (optional). Maps to S8 contract suggestedActions[]. */
+  suggestedActions: z.array(z.string()).optional(),
+  /** Confidence level (optional) */
   confidence: z.enum(['high', 'medium', 'low']).optional(),
 });
 

@@ -167,7 +167,7 @@ test('FailureExplanationSchema parses all 7 explanation types', () => {
       explanationType,
       summary: `Failure classified as ${explanationType}`,
       evidence: ['log-1', 'screenshot-2'],
-      suggestion: 'Try rerunning',
+      suggestedActions: ['Try rerunning', 'Check logs'],
       confidence: 'medium',
     });
     expect(result.explanationType).toBe(explanationType);
