@@ -7,9 +7,24 @@
  * Uses SubprocessController for lifecycle management (ADR-010 abort chain).
  */
 
-import type { spawn as scSpawn } from 'itestagent-server';
-import type { SubprocessHandle } from 'itestagent-server';
-import type { SignalName } from 'itestagent-server';
+// Locally defined subprocess types to avoid depending on itestagent-server.
+interface SubprocessHandle {
+  readonly pid: number | undefined;
+  readonly exited: Promise<{ exitCode: number | null; signal?: string }>;
+  kill(signal?: string): void;
+  isAlive(): boolean;
+}
+
+type SubprocessSpawnFn = (
+  command: string,
+  args?: string[],
+  options?: {
+    cwd?: string;
+    env?: Record<string, string>;
+    signal?: AbortSignal;
+    timeoutMs?: number;
+  },
+) => SubprocessHandle;
 
 import { findMetricsInToc, generateExportXPaths, parseTocOutput } from './xctrace-toc-parser.js';
 import type { ExportPlan, TocTable } from './xctrace-toc-parser.js';
@@ -28,8 +43,7 @@ export interface SyncSpawnResult {
 /** Spawn function signature (synchronous). */
 export type SpawnSyncFn = (cmd: string, args: string[], cwd?: string) => SyncSpawnResult;
 
-/** Factory function for SubprocessController.spawn. */
-export type SubprocessSpawnFn = typeof scSpawn;
+export type { SubprocessSpawnFn };
 
 /** Injectable dependencies for xctrace CLI operations. */
 export interface XctraceCliDeps {

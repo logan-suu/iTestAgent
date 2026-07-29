@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { findProjectFile } from 'itestagent-backends-analyzer-xcodeproj';
 import { APP_SOURCE_STRATEGIES, resolveAppSource } from '../src/app-source-resolver.js';
 import type {
   AppSourceContext,
@@ -169,6 +170,7 @@ describe('resolveAppSource - auto_from_workspace', () => {
     const ctx: AppSourceContext = {
       strategy: 'auto_from_workspace' as AppSourceStrategy,
       workspaceRoot: tmp,
+      findProjectFile,
     };
 
     const result = resolveAppSource(ctx);
@@ -186,6 +188,7 @@ describe('resolveAppSource - auto_from_workspace', () => {
     const ctx: AppSourceContext = {
       strategy: 'auto_from_workspace' as AppSourceStrategy,
       workspaceRoot: tmp,
+      findProjectFile,
     };
 
     const result = resolveAppSource(ctx);
@@ -204,6 +207,7 @@ describe('resolveAppSource - auto_from_workspace', () => {
     const ctx: AppSourceContext = {
       strategy: 'auto_from_workspace' as AppSourceStrategy,
       workspaceRoot: tmp,
+      findProjectFile,
     };
 
     const result = resolveAppSource(ctx);
@@ -284,6 +288,7 @@ describe('resolveAppSource - priority chain (AC2)', () => {
       strategy: 'user_specified' as AppSourceStrategy,
       workspaceRoot: tmp,
       userAppPath: nonExistent,
+      findProjectFile,
     };
 
     // user path doesn't exist, but workspace has a project → build_required

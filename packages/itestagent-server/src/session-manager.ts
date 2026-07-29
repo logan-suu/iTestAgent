@@ -205,12 +205,7 @@ export class SessionManager {
    * local deduplication; not cryptographic.
    */
   private computeProjectHash(workspace: string): string {
-    return String(
-      workspace
-        .split('')
-        .reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0)
-        .toString(16),
-    );
+    return new Bun.CryptoHasher('sha256').update(workspace).digest('hex');
   }
 
   // ─── Private: idle timer management ────────────────────────
