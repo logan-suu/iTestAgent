@@ -112,6 +112,19 @@ export interface AppiumDeviceBackendOptions {
    */
   derivedDataPath?: string;
   /**
+   * Path to WDA .xcodeproj for managed-xcodebuild mode.
+   * Required when wdaStartupMode is 'managed-xcodebuild'.
+   */
+  wdaProjectPath?: string;
+  /**
+   * Team ID for code signing (managed-xcodebuild mode).
+   * When provided, Appium handles WDA build + signing.
+   * When omitted, falls back to usePrebuiltWDA (free account workaround).
+   */
+  xcodeOrgId?: string;
+  /** Signing identity for managed-xcodebuild (default: 'Apple Development'). */
+  xcodeSigningId?: string;
+  /**
    * WdaManager instance for managing WDA lifecycle (ADR-012).
    * When provided, WDA lifecycle is managed according to wdaStartupMode.
    * Optional for mock/testing.
@@ -174,12 +187,25 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private readonly opts: Required<
     Omit<
       AppiumDeviceBackendOptions,
-      'bundleId' | 'wdaBundleId' | 'derivedDataPath' | 'wdaManager' | 'webDriverAgentUrl'
+      | 'bundleId'
+      | 'wdaBundleId'
+      | 'derivedDataPath'
+      | 'wdaManager'
+      | 'webDriverAgentUrl'
+      | 'wdaProjectPath'
+      | 'xcodeOrgId'
+      | 'xcodeSigningId'
     >
   > &
     Pick<
       AppiumDeviceBackendOptions,
-      'bundleId' | 'wdaBundleId' | 'derivedDataPath' | 'webDriverAgentUrl'
+      | 'bundleId'
+      | 'wdaBundleId'
+      | 'derivedDataPath'
+      | 'webDriverAgentUrl'
+      | 'wdaProjectPath'
+      | 'xcodeOrgId'
+      | 'xcodeSigningId'
     >;
 
   private readonly targetKind: TargetKind;
@@ -207,6 +233,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
       platformVersion: options.platformVersion ?? '',
       derivedDataPath: options.derivedDataPath,
       webDriverAgentUrl: options.webDriverAgentUrl,
+      wdaProjectPath: options.wdaProjectPath,
+      xcodeOrgId: options.xcodeOrgId,
+      xcodeSigningId: options.xcodeSigningId,
     };
   }
 
@@ -393,22 +422,27 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private async buildManagedXcodebuildCaps(): Promise<Record<string, unknown>> {
     if (this.wdaManager && !this.wdaManager.isRunning()) {
       await this.wdaManager.launch({
-        projectPath: '',
+        projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
       });
     }
+
+    const hasSigning = Boolean(this.opts.xcodeOrgId);
 
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'managed-xcodebuild',
-      usePrebuiltWDA: true,
+      usePrebuiltWDA: !hasSigning,
       bundleId: this.opts.bundleId,
       wdaBundleId: this.opts.wdaBundleId || undefined,
       deviceName: this.opts.deviceName || undefined,
       platformVersion: this.opts.platformVersion || undefined,
+      derivedDataPath: this.opts.derivedDataPath,
+      xcodeOrgId: this.opts.xcodeOrgId,
+      xcodeSigningId: this.opts.xcodeSigningId ?? 'Apple Development',
     }) as Record<string, unknown>;
   }
 
