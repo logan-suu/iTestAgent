@@ -979,11 +979,11 @@
           "id": "4.9",
           "title": "Phase 4 集成测试：证据/性能/报告联调验证",
           "story": null,
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "PR #55: https://github.com/logan-suu/iTestAgent/pull/55 — 测试文件: phase4-evidence-to-report.test.ts (P0: EvidenceCollector→FailureExplainer→ReportSynthesizer, 9 tests), phase4-performance-baseline.test.ts (P0: BaselineManager→BaselineStore→BaselineDelta + ADR-011 domain isolation, 17 tests), phase4-xcresult-pipeline.test.ts (P1: createXcresultParser→JUnit XML→TestCaseResult, 9 tests), phase4-schema-contracts.test.ts (P2: Zod schema round-trips for TraceSummary/BaselineRecord/BaselineDelta/FailureExplanation/RunResult/ArtifactIndex, 18 tests). 53 tests / 0 fail. G3 typecheck 0 / lint 0 / G4 53 pass. Coverage: P0 3/3 chains (evidence→report, perf→baseline, cross-package schemas), P1 1/1 (xcresult parser), P2 6/6 schema round-trips.\nG5-SIM verified 2026-07-29: iPhone 16 Pro Simulator (iOS 18.2). 7/7 targets pass — screenshot capture (PNG), UI tree (20 elements), ArtifactRef schema, BaselineStore simulator domain isolation, Evidence→Report pipeline, Schema round-trips. Real Safari app used. Report: docs/06-verification/g5-sim-spike-report-4.9.md. W-1~W-4: xcresult/xctrace/performance metrics/FPS not G5-SIM verified (need Xcode project test run → Phase 5).\nG5 verified 2026-07-29: iPhone 14 Plus physical device (iOS 18.2.1, iPhone14,8). 10/10 targets pass — device discovery, healthcheck, app listing (8 apps), crash log detection (ReportCrash), performance services (PerfPowerServices), xctrace support, BaselineRecord physical domain, ADR-011 isolation, ArtifactRef, BuildBaselineKey. W-1: listDevices tunnel filter needs fix for Xcode 26.5 lazy tunnel. W-3: diagnostics subcommand removed — listCrashes path needs migration. G5-SIM also verified (see above). Report: docs/06-verification/g5-spike-report-4.9.md + g5-sim-spike-report-4.9.md.",
+          "notes": "PR #55: https://github.com/logan-suu/iTestAgent/pull/55 — 测试文件: phase4-evidence-to-report.test.ts (P0: EvidenceCollector→FailureExplainer→ReportSynthesizer, 9 tests), phase4-performance-baseline.test.ts (P0: BaselineManager→BaselineStore→BaselineDelta + ADR-011 domain isolation, 17 tests), phase4-xcresult-pipeline.test.ts (P1: createXcresultParser→JUnit XML→TestCaseResult, 9 tests), phase4-schema-contracts.test.ts (P2: Zod schema round-trips for TraceSummary/BaselineRecord/BaselineDelta/FailureExplanation/RunResult/ArtifactIndex, 18 tests). 53 tests / 0 fail. G3 typecheck 0 / lint 0 / G4 53 pass. Coverage: P0 3/3 chains (evidence→report, perf→baseline, cross-package schemas), P1 1/1 (xcresult parser), P2 6/6 schema round-trips.\nG5-SIM verified 2026-07-29: iPhone 16 Pro Simulator (iOS 18.2). 7/7 targets pass — screenshot capture (PNG), UI tree (20 elements), ArtifactRef schema, BaselineStore simulator domain isolation, Evidence→Report pipeline, Schema round-trips. Real Safari app used. Report: docs/06-verification/g5-sim-spike-report-4.9.md. W-1~W-4: xcresult/xctrace/performance metrics/FPS not G5-SIM verified (need Xcode project test run → Phase 5).\nG5 verified 2026-07-29: iPhone 14 Plus physical device (iOS 18.2.1, iPhone14,8). 10/10 targets pass — device discovery, healthcheck, app listing (8 apps), crash log detection (ReportCrash), performance services (PerfPowerServices), xctrace support, BaselineRecord physical domain, ADR-011 isolation, ArtifactRef, BuildBaselineKey. W-1: listDevices tunnel filter needs fix for Xcode 26.5 lazy tunnel. W-3: diagnostics subcommand removed — listCrashes path needs migration. G5-SIM also verified (see above). Report: docs/06-verification/g5-spike-report-4.9.md + g5-sim-spike-report-4.9.md.\nPR #55 merged to dev-1.0 (2026-07-29). Phase 4 exit gate passed: 2227 tests, G5+G5-SIM verified, 22/28 deferred items resolved.",
           "dependencies": [
             "4.1",
             "4.2",
@@ -995,7 +995,7 @@
             "4.8"
           ],
           "test_file": null,
-          "last_updated": "2026-07-29T16:00:00.000Z"
+          "last_updated": "2026-07-29T16:30:00.000Z"
         }
       ]
     },
