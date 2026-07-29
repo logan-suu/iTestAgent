@@ -42,10 +42,34 @@ function createMockRunStateMachine() {
 
     cancel(runId: string, fromOrReason?: string, reason?: string): string {
       calls.push({ method: 'cancel', args: [runId, fromOrReason, reason] });
-      if (typeof fromOrReason === 'string' && ['created','planning','awaiting_confirm','preparing_device','building_installing','executing','collecting','parsing','explaining','reported','done','cancelled','blocked','infra_failed','failed'].includes(fromOrReason)) {
+      if (
+        typeof fromOrReason === 'string' &&
+        [
+          'created',
+          'planning',
+          'awaiting_confirm',
+          'preparing_device',
+          'building_installing',
+          'executing',
+          'collecting',
+          'parsing',
+          'explaining',
+          'reported',
+          'done',
+          'cancelled',
+          'blocked',
+          'infra_failed',
+          'failed',
+        ].includes(fromOrReason)
+      ) {
         return this.transition(runId, fromOrReason, 'cancelled', reason ?? 'cancelled');
       }
-      return this.transition(runId, states.get(runId) ?? 'created', 'cancelled', fromOrReason ?? 'cancelled');
+      return this.transition(
+        runId,
+        states.get(runId) ?? 'created',
+        'cancelled',
+        fromOrReason ?? 'cancelled',
+      );
     },
 
     cleanup(runId: string): void {
