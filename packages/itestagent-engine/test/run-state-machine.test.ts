@@ -163,7 +163,8 @@ describe('RunStateMachine forward transitions', () => {
 
   test('events carry reason when provided', () => {
     const { machine, events } = createMachine();
-    machine.transition('r1', 'created', 'planning', 'AI started planning');
+    machine.setStateForTesting('r1', 'created');
+    machine.transition('r1', 'planning', 'AI started planning');
 
     expect(events).toHaveLength(1);
     expect(events[0]?.reason).toBe('AI started planning');
@@ -217,7 +218,8 @@ describe('RunStateMachine exception transitions', () => {
     const nonTerminal = RUN_STATE_FORWARD.filter((s) => s !== 'done');
 
     for (const from of nonTerminal) {
-      const result = machine.cancel(`run-${from}`, from);
+      machine.setStateForTesting(`run-${from}`, from);
+      const result = machine.cancel(`run-${from}`);
       expect(result).toBe('cancelled');
     }
   });
@@ -227,7 +229,8 @@ describe('RunStateMachine exception transitions', () => {
     const nonTerminal = RUN_STATE_FORWARD.filter((s) => s !== 'done');
 
     for (const from of nonTerminal) {
-      const result = machine.block(`run-${from}`, from);
+      machine.setStateForTesting(`run-${from}`, from);
+      const result = machine.block(`run-${from}`);
       expect(result).toBe('blocked');
     }
   });
@@ -237,7 +240,8 @@ describe('RunStateMachine exception transitions', () => {
     const nonTerminal = RUN_STATE_FORWARD.filter((s) => s !== 'done');
 
     for (const from of nonTerminal) {
-      const result = machine.fail(`run-${from}`, from);
+      machine.setStateForTesting(`run-${from}`, from);
+      const result = machine.fail(`run-${from}`);
       expect(result).toBe('failed');
     }
   });
@@ -247,7 +251,8 @@ describe('RunStateMachine exception transitions', () => {
     const nonTerminal = RUN_STATE_FORWARD.filter((s) => s !== 'done');
 
     for (const from of nonTerminal) {
-      const result = machine.infraFail(`run-${from}`, from);
+      machine.setStateForTesting(`run-${from}`, from);
+      const result = machine.infraFail(`run-${from}`);
       expect(result).toBe('infra_failed');
     }
   });
@@ -256,14 +261,16 @@ describe('RunStateMachine exception transitions', () => {
     const { machine } = createMachine();
 
     for (const from of RUN_STATE_EXCEPTION) {
-      const result = machine.transition(`run-${from}`, from, 'done');
+      machine.setStateForTesting(`run-${from}`, from);
+      const result = machine.transition(`run-${from}`, 'done');
       expect(result).toBe('done');
     }
   });
 
   test('cancel with reason is included in event', () => {
     const { machine, events } = createMachine();
-    machine.cancel('r1', 'executing', 'user pressed Ctrl+C');
+    machine.setStateForTesting('r1', 'executing');
+    machine.cancel('r1', 'user pressed Ctrl+C');
 
     expect(events).toHaveLength(1);
     expect(events[0]?.to).toBe('cancelled');
@@ -279,7 +286,8 @@ describe('RunStateMachine pause and resume', () => {
   test('pause transitions to blocked and saves context', () => {
     const { machine } = createMachine();
 
-    const result = machine.pause('r1', 'executing', 'device disconnected');
+    machine.setStateForTesting('r1', 'executing');
+    const result = machine.pause('r1', 'device disconnected');
     expect(result).toBe('blocked');
     expect(machine.isPaused('r1')).toBe(true);
 
@@ -372,14 +380,13 @@ describe('RunStateMachine pause and resume', () => {
   test('full pause-resume-continue cycle', () => {
     const { machine } = createMachine();
 
-    // Start run
-    let state: RunState = 'created';
-    state = machine.transition('r1', state, 'planning');
-    state = machine.transition('r1', state, 'awaiting_confirm');
+    machine.start('r1');
+    machine.transition('r1', 'planning');
+    machine.transition('r1', 'awaiting_confirm');
 
     // Pause during execution (simulating L2 error)
-    state = machine.transition('r1', state, 'preparing_device');
-    state = machine.pause('r1', state, 'WDA port conflict');
+    machine.transition('r1', 'preparing_device');
+    let state = machine.pause('r1', 'WDA port conflict');
 
     expect(state).toBe('blocked');
     expect(machine.getPauseContext('r1')?.prePauseState).toBe('preparing_device');
@@ -389,16 +396,17 @@ describe('RunStateMachine pause and resume', () => {
     expect(state).toBe('awaiting_confirm');
 
     // User confirms, continue
-    state = machine.transition('r1', state, 'preparing_device');
-    state = machine.transition('r1', state, 'building_installing');
-    state = machine.transition('r1', state, 'executing');
+    machine.transition('r1', 'preparing_device');
+    machine.transition('r1', 'building_installing');
+    state = machine.transition('r1', 'executing');
     expect(state).toBe('executing');
   });
 
   test('block (not pause) also tracks context', () => {
     const { machine } = createMachine();
 
-    machine.block('r1', 'executing', 'blocked by security policy');
+    machine.setStateForTesting('r1', 'executing');
+    machine.block('r1', 'blocked by security policy');
     expect(machine.isPaused('r1')).toBe(true);
     expect(machine.getPauseContext('r1')?.reason).toBe('blocked by security policy');
   });
@@ -406,11 +414,12 @@ describe('RunStateMachine pause and resume', () => {
   test('blocked → done clears pause context', () => {
     const { machine } = createMachine();
 
-    machine.pause('r1', 'executing', 'paused');
+    machine.setStateForTesting('r1', 'executing');
+    machine.pause('r1', 'paused');
     expect(machine.isPaused('r1')).toBe(true);
 
     // blocked → done is valid (contract), should clear context
-    machine.transition('r1', 'blocked', 'done');
+    machine.transition('r1', 'done');
     expect(machine.isPaused('r1')).toBe(false);
     expect(machine.getPauseContext('r1')).toBeUndefined();
   });

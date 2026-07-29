@@ -30,15 +30,22 @@ function createMockRunStateMachine() {
       return 'created';
     },
 
-    transition(runId: string, from: string, to: string, reason?: string): string {
-      calls.push({ method: 'transition', args: [runId, from, to, reason] });
-      states.set(runId, to);
-      return to;
+    getState(runId: string): string | undefined {
+      return states.get(runId);
     },
 
-    cancel(runId: string, from: string, reason?: string): string {
-      calls.push({ method: 'cancel', args: [runId, from, reason] });
-      return this.transition(runId, from, 'cancelled', reason ?? 'cancelled');
+    transition(runId: string, from: string, toOrReason: string, reason?: string): string {
+      calls.push({ method: 'transition', args: [runId, from, toOrReason, reason] });
+      states.set(runId, toOrReason);
+      return toOrReason;
+    },
+
+    cancel(runId: string, fromOrReason?: string, reason?: string): string {
+      calls.push({ method: 'cancel', args: [runId, fromOrReason, reason] });
+      if (typeof fromOrReason === 'string' && ['created','planning','awaiting_confirm','preparing_device','building_installing','executing','collecting','parsing','explaining','reported','done','cancelled','blocked','infra_failed','failed'].includes(fromOrReason)) {
+        return this.transition(runId, fromOrReason, 'cancelled', reason ?? 'cancelled');
+      }
+      return this.transition(runId, states.get(runId) ?? 'created', 'cancelled', fromOrReason ?? 'cancelled');
     },
 
     cleanup(runId: string): void {
@@ -367,7 +374,7 @@ describe('SessionManager', () => {
       expect(cancelCalls[0]?.args[0]).toBe(session.runId);
     });
 
-    test('passes current run state as "from" to cancel', () => {
+    test('calls cancel with the runId from stored state', () => {
       const session = manager.createSession({
         workspace: '/test/project',
         targetKind: 'physical',
@@ -376,8 +383,8 @@ describe('SessionManager', () => {
       manager.closeSession(session.sessionId);
 
       const cancelCall = mockRSM._calls.find((c) => c.method === 'cancel');
-      // After start(), the state is 'created'
-      expect(cancelCall?.args[1]).toBe('created');
+      expect(cancelCall).toBeDefined();
+      expect(cancelCall?.args[0]).toBe(session.runId);
     });
 
     test('removes session from the internal map', () => {

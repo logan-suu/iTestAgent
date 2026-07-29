@@ -87,6 +87,16 @@ export class AiSdkAgentRuntime implements AgentRuntime {
         const event = this.mapStreamPart(part, turnId, sessionId);
         if (event) yield event;
       }
+
+      // Clean abort: signal was triggered during stream iteration
+      if (this.abortController.signal.aborted) {
+        yield {
+          type: 'session.aborted',
+          sessionId,
+          reason: this.abortController.signal.reason ?? 'aborted',
+        } satisfies AgentEvent;
+        return;
+      }
     } catch (err: unknown) {
       if (this.abortController.signal.aborted) {
         yield {

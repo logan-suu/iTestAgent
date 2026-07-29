@@ -260,6 +260,7 @@ export class ToolDispatcher {
   private targetKind: TargetKind;
   private onEvent: EventEmitter | undefined;
   private signal: AbortSignal | undefined;
+  private deviceLocks = new Map<string, Promise<void>>();
 
   constructor(options: ToolDispatcherOptions) {
     this.permissionEngine = options.permissionEngine;
@@ -350,6 +351,23 @@ export class ToolDispatcher {
     }
 
     const backend = selectResult.backend;
+
+    // Per-device serialization: extract device id and queue on same UDID
+    const deviceId =
+      ((parsedArgs as Record<string, unknown>).deviceId as string | undefined) ??
+      ((parsedArgs as Record<string, unknown>).udid as string | undefined);
+
+    let deviceRelease: (() => void) | undefined;
+    if (deviceId) {
+      const prevLock = this.deviceLocks.get(deviceId) ?? Promise.resolve();
+      await prevLock;
+      this.deviceLocks.set(
+        deviceId,
+        new Promise<void>((r) => {
+          deviceRelease = r;
+        }),
+      );
+    }
 
     // 6. Emit tool.started
     this.emit({
@@ -452,6 +470,8 @@ export class ToolDispatcher {
           backend: backend.name,
         },
       };
+    } finally {
+      deviceRelease?.();
     }
   }
 
