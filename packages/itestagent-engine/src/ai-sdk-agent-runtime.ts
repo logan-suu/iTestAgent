@@ -189,12 +189,12 @@ export class AiSdkAgentRuntime implements AgentRuntime {
       tools[name] = aiTool({
         description: def.description,
         parameters: def.parameters,
-        execute: async (args: unknown): Promise<unknown> => {
+        execute: async (args: unknown, options: { toolCallId: string }): Promise<unknown> => {
           if (!executor) {
             throw new Error('no tool executor configured');
           }
           const result = await executor({
-            id: '',
+            id: options.toolCallId,
             name,
             arguments: args as Record<string, unknown>,
           });

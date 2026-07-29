@@ -374,7 +374,27 @@ export class ToolDispatcher {
       const method = backend[mapping.method] as (...args: unknown[]) => Promise<unknown>;
       const rawResult = await method.call(backend, parsedArgs);
 
-      // 8. Collect artifacts
+      // 8. Check for backend-level failure (H-02 fix: success:false → error).
+      if (rawResult && typeof rawResult === 'object') {
+        const resultObj = rawResult as Record<string, unknown>;
+        if (resultObj.success === false || 'error' in resultObj) {
+          const errorMsg = String(
+            resultObj.error ?? resultObj.message ?? 'Backend operation failed',
+          );
+          this.emit({
+            type: 'tool.failed',
+            callId,
+            error: { code: 'backend.error', message: errorMsg },
+          });
+          return {
+            callId,
+            status: 'error',
+            output: { error: errorMsg },
+          };
+        }
+      }
+
+      // 9. Collect artifacts
       const artifacts: ArtifactRef[] = [];
       if (rawResult && typeof rawResult === 'object') {
         const resultObj = rawResult as Record<string, unknown>;
@@ -389,10 +409,10 @@ export class ToolDispatcher {
         }
       }
 
-      // 9. Normalize output
+      // 10. Normalize output
       const normalized = normalizeOutput(rawResult);
 
-      // 10. Emit tool.completed
+      // 11. Emit tool.completed
       this.emit({
         type: 'tool.completed',
         callId,
