@@ -8,7 +8,7 @@
 
 import { render as otRender } from '@opentui/solid';
 import type { JSX } from '@opentui/solid';
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
 import { PLAN_SECTIONS, formatPlanSections } from '../plan-review.js';
 import type { TuiRenderer } from '../renderer.js';
@@ -168,8 +168,8 @@ function CandidateReviewPanel(props: {
     }
   };
 
-  const candidates = s().candidates;
-  const idx = s().candidateIndex;
+  const candidates = createMemo(() => s().candidates);
+  const idx = createMemo(() => s().candidateIndex);
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
@@ -180,9 +180,9 @@ function CandidateReviewPanel(props: {
 
       <scrollbox flexGrow={1} padding={0}>
         <box flexDirection="column">
-          <For each={candidates as unknown as Array<(typeof candidates)[number]>}>
+          <For each={candidates()}>
             {(candidate, index) => {
-              const isSelected = index() === idx;
+              const isSelected = index() === idx();
               const tier = getConfidenceTier(candidate.confidence);
               const marker = candidate.confirmed ? '[x]' : '[ ]';
               const prefix = isSelected ? '>' : ' ';
@@ -217,7 +217,7 @@ function CandidateReviewPanel(props: {
 
       <Show when={s().candidateEditMode}>
         <box borderStyle="rounded" padding={1} marginTop={1}>
-          <text>{`Edit: "${candidates[idx]?.name ?? ''}" → `}</text>
+          <text>{`Edit: "${candidates()[idx()]?.name ?? ''}" → `}</text>
           <text>{s().candidateEditDraft}</text>
         </box>
       </Show>
@@ -225,7 +225,7 @@ function CandidateReviewPanel(props: {
       <box borderStyle="rounded" padding={1} marginTop={1}>
         <text
           opacity={0.5}
-        >{`${candidates.filter((c) => c.confirmed).length}/${candidates.length} confirmed  `}</text>
+        >{`${candidates().filter((c) => c.confirmed).length}/${candidates().length} confirmed  `}</text>
         <Show when={s().candidateEditMode}>
           <text opacity={0.5}>Editing — type name, then Enter to save. Escape to cancel </text>
         </Show>

@@ -137,8 +137,8 @@
       "item": "SolidJS reactivity: CandidateReviewPanel reads candidates/idx outside tracking scope",
       "detail": "In opentui-renderer.tsx CandidateReviewPanel, const candidates = s().candidates and const idx = s().candidateIndex are read once in the component body (outside JSX tracking scope). Subsequent state changes from toggle/navigate/reorder events won't reflect in the UI — the For each list, selection highlight, confirmed count, and edit preview all use stale values. Fix: either access s().candidates / s().candidateIndex directly in JSX expressions (reactive through Solid's auto-tracking), or wrap them in createMemo(() => s().candidates). Also consider adding eslint-plugin-solid to the project to catch future reactivity violations statically. Deferred to Phase 3 when the TUI renderer is refactored for real backend-driven state updates.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-008 fix: wrapped candidates/idx in createMemo() for SolidJS reactive tracking in CandidateReviewPanel",
       "created_at": "2026-07-19T23:30:00.000Z",
       "notes": " Task 3.17 disposition: deferred: OpenTUI SolidJS reactivity (covered by DEF-025)"
     },
@@ -417,8 +417,8 @@
       "item": "US-7.1 (XCUITest path) ownership conflict between task 3.11 (BuildDriver) and task 4.1 (xcresult parser)",
       "detail": "US-7.1 xcodebuild test + xcresult is implemented in task 3.11 (build driver level), but xcresult parsing is assigned to task 4.1 (Phase 4 evidence/report). The split means Phase 3 cannot fully verify the XCUITest path end-to-end because result parsing is deferred. Resolution: either extend 3.11 to include basic xcresult parsing (test counts, pass/fail), or explicitly mark the XCUITest→xcresult→report chain as a Phase 3→Phase 4 handoff in task 3.17 exit criteria.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "Handoff documented in phase3-exit-report.md; Phase 4 xcresult parsing (tasks 4.1-4.2) completed. Cross-phase integration test verifies XCUITest path end-to-end.",
       "created_at": "2026-07-25T10:00:00.000Z",
       "notes": "Task 3.17: Handoff documented in phase3-exit-report.md — Phase 3 delivers xcodebuild test execution, Phase 4 delivers xcresult parsing. Cross-phase integration test verifies XCUITest path executes successfully."
     },
@@ -468,8 +468,8 @@
       "item": "US-11.1 assertion strategy conflict: P0 in task 3.14 AC1-AC3 but MVP summary lists P1 for assertion-based pass/fail",
       "detail": "The report notes a priority conflict: US-11.1 assertion strategy is listed as P0 in the task definition (3.14), suggesting assertions are critical for execution correctness, but the MVP completion standard (item 11) lists assertion-based pass/fail as P1 (explored/inconclusive/needs_assertion are acceptable outputs). Resolution: clarify in task 3.17 exit criteria that while the AssertionEvaluator exists (3.14), the full agent-suggested→confirmed→evaluated closed loop (including TUI confirmation panel per DEF-019) is Phase 3 integration scope, not individual task scope.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "Clarified in phase3-exit-report.md — AssertionEvaluator exists (3.14), full closed-loop assert (LLM→confirm→evaluate) is Phase 3 harness wiring scope",
       "created_at": "2026-07-25T10:00:00.000Z",
       "notes": "Task 3.17: Clarified in phase3-exit-report.md — AssertionEvaluator exists (3.14), full closed-loop assert (LLM→confirm→evaluate) is Phase 3 harness wiring scope. explored/inconclusive/needs_assertion are valid Phase 3 outputs."
     },
