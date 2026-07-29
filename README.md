@@ -54,7 +54,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 
 ## 快速开始
 
-> iTestAgent 当前处于 **Phase 3：真机执行核心** 阶段，尚未发布可安装版本。
+> iTestAgent 当前处于 **Phase 4：证据 / 性能 / 报告** 阶段，尚未发布可安装版本。
 
 ### 前置依赖
 
@@ -85,7 +85,7 @@ itestagent
 > 对比上次结果，这个包启动有没有变慢
 ```
 
-### MVP 完成标准（18 条，含 Simulator 同级支持）
+### MVP 完成标准（19 条，含 Simulator 同级支持）
 
 1. 运行 `itestagent` 进入 OpenTUI 交互式 TUI
 2. Agent 自动分析 iOS 项目并生成 Project Profile
@@ -137,15 +137,15 @@ itestagent
 | 能力 | 成熟度 | 说明 |
 |---|---|---|
 | CLI 入口 + 配置 | ✅ Verified | `itestagent --version`/`config` 可用 |
-| TUI Shell 骨架 | ✅ Verified | OpenTUI+SolidJS，TTY 检测正常 |
+| TUI Shell 骨架 | 🔧 Implemented | OpenTUI+SolidJS，单元测试通过 |
 | Harness 核心接口契约 | ✅ Contracted | 14 Zod schemas + 5 Backend interfaces |
-| RunStateMachine / PermissionEngine | ✅ Verified | State machine, permission rules implemented |
-| Server / SessionManager / SSE | ✅ Verified | Bun server + SSE + session lifecycle |
+| RunStateMachine / PermissionEngine | 🔧 Implemented | State machine + permission rules，单元测试通过 |
+| Server / SessionManager / SSE | 🔧 Implemented | Bun server + SSE + session lifecycle，单元测试通过 |
 | doctor 环境诊断 | ✅ Verified | physical + simulator lanes, all checks |
 | devices 设备发现 | ✅ Verified | physical + simulator discovery + healthcheck |
-| Project Profile / TestPlan | ✅ Verified | S2→S3 pipeline, 22 integration tests |
-| AgentRuntime / Backend 执行 | 🔧 Implemented | PermissionEngine, ContextBuilder, BackendSelector, BuildDriver, AppiumDeviceBackend (physical, G5 ✅ Route C verified, works with free accounts) done; AgentRuntime(3.8), ToolDispatcher(3.9), Simulator adapter(3.10) pending |
-| 证据采集 / 性能 / 报告 | 📋 Designed | 接口已定义，实现待 Phase 4 |
+| Project Profile / TestPlan | 🔧 Implemented | S2→S3 pipeline, 22 integration tests |
+| AgentRuntime / Backend 执行 | 🔧 Implemented | PermissionEngine, ContextBuilder, BackendSelector, BuildDriver, AppiumDeviceBackend (physical, G5 Route C verified, works with free accounts) |
+| 证据采集 / 性能 / 报告 | 🔧 Implemented | Phase 4 in progress — xctrace, evidence collection, report synthesis
 
 **成熟度定义**（ADR-011 审计建议）：
 - 📋 **Designed** — 规格/ADR 已确定，接口已定义，但无实现
@@ -161,8 +161,8 @@ itestagent
 | Phase 0 | ✅ 完成 | 立项与多 Backend 横评（端到端真机 + 元素定位） |
 | Phase 1 | ✅ 完成 | 骨架与环境（CLI/TUI/Server/SessionManager/doctor/devices/store/config） |
 | Phase 2 | ✅ 完成 | 项目分析与 TestPlan（Profile→Intent→TestPlan→TUI 确认） |
-| Phase 3 | 🔄 in_progress | 真机+Simulator 执行核心（双路径 + Flow） |
-| Phase 4 | ⬜ 待开始 | 证据 / 性能 / 报告 |
+| Phase 3 | ✅ 完成 | 真机+Simulator 执行核心（双路径 + Flow） |
+| Phase 4 | 🔄 in_progress | 证据 / 性能 / 报告 |
 | Phase 5 | ⬜ 待开始 | 打磨与 MVP 验收 |
 | Phase 6+ | ⬜ 待开始 | 增强路线 |
 
