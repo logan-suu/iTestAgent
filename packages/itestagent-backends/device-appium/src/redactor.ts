@@ -95,7 +95,7 @@ export function createRedactingLogger(component: string): RedactingLogger {
       console.warn(`${prefix} ${redactError(msg)}`);
     },
     info(msg: string) {
-      console.error(`${prefix} ${redactError(msg)}`);
+      console.info(`${prefix} ${redactError(msg)}`);
     },
   };
 }
