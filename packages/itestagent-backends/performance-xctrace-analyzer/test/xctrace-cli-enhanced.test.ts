@@ -60,7 +60,7 @@ const SPY_LAUNCH_XML =
 describe('extractXcodeVersion', () => {
   it('extracts Xcode 16.0 version', () => {
     const spawnSync = mockSpawnSync({
-      '--version': spawnSuccess('xctrace version 16.0 (2040.3)\n'),
+      version: spawnSuccess('xctrace version 16.0 (2040.3)\n'),
     });
     const version = extractXcodeVersion(spawnSync);
     expect(version).not.toBeNull();
@@ -70,7 +70,7 @@ describe('extractXcodeVersion', () => {
 
   it('returns null when xctrace is not available', () => {
     const spawnSync = mockSpawnSync({
-      '--version': spawnFailure('xcrun: error: unable to find utility "xctrace"'),
+      version: spawnFailure('xcrun: error: unable to find utility "xctrace"'),
     });
     const version = extractXcodeVersion(spawnSync);
     expect(version).toBeNull();
@@ -78,7 +78,7 @@ describe('extractXcodeVersion', () => {
 
   it('returns null for unparseable version string', () => {
     const spawnSync = mockSpawnSync({
-      '--version': spawnSuccess('unknown output\n'),
+      version: spawnSuccess('unknown output\n'),
     });
     const version = extractXcodeVersion(spawnSync);
     expect(version).toBeNull();

@@ -92,10 +92,9 @@ export interface RecordHandle {
 /** Map template names to xctrace template identifiers. */
 const TEMPLATE_MAP: Record<string, string> = {
   cpu: 'Time Profiler',
-  hangs: 'Hangs',
+  hangs: 'Animation Hitches',
   memory: 'Allocations',
   launch: 'App Launch',
-  all: 'All',
 };
 
 /**
@@ -115,7 +114,7 @@ export function checkXctraceAvailable(spawnSync: SpawnSyncFn): {
   version?: string;
   error?: string;
 } {
-  const result = spawnSync('xcrun', ['xctrace', '--version']);
+  const result = spawnSync('xcrun', ['xctrace', 'version']);
   if (result.exitCode !== 0) {
     return { available: false, error: result.stderr.trim() || 'xctrace not found' };
   }
@@ -260,7 +259,7 @@ export function symbolicateCrash(
  * @returns Parsed XcodeVersion or null if unavailable
  */
 export function extractXcodeVersion(spawnSync: SpawnSyncFn): XcodeVersion | null {
-  const result = spawnSync('xcrun', ['xctrace', '--version']);
+  const result = spawnSync('xcrun', ['xctrace', 'version']);
   if (result.exitCode !== 0) return null;
   return detectXcodeVersion(result.stdout);
 }

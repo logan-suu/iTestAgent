@@ -155,7 +155,7 @@ describe('recordTrace', () => {
     const input: TraceRecordInput = {
       deviceId: 'test-device-id',
       bundleId: 'com.example.app',
-      template: 'all',
+      template: 'cpu',
       durationSeconds: 10,
     };
 
@@ -167,7 +167,7 @@ describe('recordTrace', () => {
     expect(result.redactionStatus).toBe('raw-local-only');
   });
 
-  it('defaults template=all when not specified', async () => {
+  it('defaults template=cpu when not specified', async () => {
     const backend = makeMockBackend();
 
     const input: TraceRecordInput = {
@@ -418,7 +418,7 @@ describe('compareBaseline', () => {
 describe('healthcheckXctrace', () => {
   it('reports available when xctrace responds', () => {
     const responses = new Map<string, SyncSpawnResult>();
-    responses.set('--version', makeSuccessResult('xctrace version 16.0'));
+    responses.set('version', makeSuccessResult('xctrace version 16.0'));
 
     const result = healthcheckXctrace({
       spawnSync: createMockSpawnSync(responses),
@@ -430,7 +430,7 @@ describe('healthcheckXctrace', () => {
 
   it('reports unavailable when xctrace is missing', () => {
     const responses = new Map<string, SyncSpawnResult>();
-    responses.set('--version', makeFailResult('command not found'));
+    responses.set('version', makeFailResult('command not found'));
 
     const result = healthcheckXctrace({
       spawnSync: createMockSpawnSync(responses),
@@ -468,7 +468,7 @@ describe('PerformanceBackend — full pipeline', () => {
     const recordResult = await backend.recordTrace({
       deviceId: 'test-device',
       bundleId: 'com.example.app',
-      template: 'all',
+      template: 'cpu',
       durationSeconds: 5,
     });
 
