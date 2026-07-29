@@ -352,3 +352,11 @@ export class ContextBuilder {
     return lines.join('\n');
   }
 }
+
+export function redactValue(value: string, patterns?: RegExp[]): string {
+  let result = value;
+  for (const pattern of patterns ?? DEFAULT_SECRET_PATTERNS) {
+    result = result.replaceAll(pattern, '[REDACTED]');
+  }
+  return result;
+}

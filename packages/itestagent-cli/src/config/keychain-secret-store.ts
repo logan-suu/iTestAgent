@@ -44,13 +44,17 @@ export class KeychainSecretStore implements SecretStore {
       const chunks: Buffer[] = [];
       const errChunks: Buffer[] = [];
 
-      child.stdout.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
+      if (child.stdout) {
+        child.stdout.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+      }
 
-      child.stderr.on('data', (chunk: Buffer) => {
-        errChunks.push(chunk);
-      });
+      if (child.stderr) {
+        child.stderr.on('data', (chunk: Buffer) => {
+          errChunks.push(chunk);
+        });
+      }
 
       child.on('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'ENOENT') {
@@ -127,13 +131,6 @@ export class KeychainSecretStore implements SecretStore {
     ]);
   }
 
-  /**
-   * Delete a stored secret from the macOS Keychain.
-   *
-   * No-op if the key does not exist (errSecItemNotFound is silently ignored).
-   *
-   * @throws Error if Keychain access fails for reasons other than "not found".
-   */
   async delete(key: string): Promise<void> {
     const result = await this.runSecurity([
       'delete-generic-password',
