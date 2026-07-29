@@ -200,14 +200,20 @@ export class RunStepRecorder {
 }
 
 function sanitizeUnknown(value: unknown): unknown {
-  if (typeof value === 'string') return redactValue(value);
+  if (typeof value === 'string') {
+    try {
+      return redactValue(value);
+    } catch {
+      return '[REDACTED]';
+    }
+  }
   if (typeof value === 'object' && value !== null) {
     try {
       const json = JSON.stringify(value);
       const redacted = redactValue(json);
       return JSON.parse(redacted);
     } catch {
-      return value;
+      return '[UNSERIALIZABLE_RESULT_REDACTED]';
     }
   }
   return value;

@@ -178,6 +178,16 @@ export function createXctracePerformanceBackend(
 
       recordingHandles.set(traceId, recording);
 
+      // Clean up handle when subprocess exits
+      recording.subprocess.exited.then(
+        () => {
+          recordingHandles.delete(traceId);
+        },
+        () => {
+          recordingHandles.delete(traceId);
+        },
+      );
+
       return {
         id: traceId,
         type: 'trace',

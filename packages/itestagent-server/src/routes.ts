@@ -1,4 +1,5 @@
-import type { AgentRuntime, ToolCall, ToolResult } from 'itestagent-contracts';
+import type { AgentRuntime, ToolCall } from 'itestagent-contracts';
+import { ToolCallSchema } from 'itestagent-contracts';
 import type { ServerToolExecutor } from './server.js';
 import type { SessionManager } from './session-manager.js';
 import type { SSEHub } from './sse-hub.js';
@@ -150,13 +151,11 @@ async function handleExecute(
     );
   }
 
-  const toolCall = body as unknown as ToolCall;
-  if (!toolCall.name) {
-    return jsonResponse(
-      { error: 'invalid_request', message: '"name" (tool name) is required.' },
-      400,
-    );
+  const parsed = ToolCallSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonResponse({ error: 'invalid_tool_call', issues: parsed.error.issues }, 400);
   }
+  const toolCall = parsed.data;
 
   try {
     const result = await toolExecutor(toolCall);

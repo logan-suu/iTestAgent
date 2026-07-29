@@ -420,15 +420,18 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * Uses usePrebuiltWDA to skip build-for-testing only.
    */
   private async buildManagedXcodebuildCaps(): Promise<Record<string, unknown>> {
-    if (this.wdaManager && !this.wdaManager.isRunning()) {
+    const hasSigning = Boolean(this.opts.xcodeOrgId);
+
+    // When Appium handles signing (xcodeOrgId present), WdaManager must NOT launch WDA
+    // — Appium's xcodebuild manages the WDA process directly. WdaManager launch would
+    // create a port conflict on wdaLocalPort.
+    if (!hasSigning && this.wdaManager && !this.wdaManager.isRunning()) {
       await this.wdaManager.launch({
         projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
       });
     }
-
-    const hasSigning = Boolean(this.opts.xcodeOrgId);
 
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
@@ -442,7 +445,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       platformVersion: this.opts.platformVersion || undefined,
       derivedDataPath: this.opts.derivedDataPath,
       xcodeOrgId: this.opts.xcodeOrgId,
-      xcodeSigningId: this.opts.xcodeSigningId ?? 'Apple Development',
+      xcodeSigningId: this.opts.xcodeSigningId ?? (hasSigning ? 'Apple Development' : undefined),
     }) as Record<string, unknown>;
   }
 

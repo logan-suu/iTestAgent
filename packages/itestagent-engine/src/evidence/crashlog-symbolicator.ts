@@ -66,6 +66,11 @@ function findDsym(appName: string, dsymPath?: string): string | null {
     return null;
   }
 
+  // Validate appName is a simple bundle executable name (no path separators)
+  if (!appName || appName.includes('/') || appName.includes('..')) {
+    return null;
+  }
+
   // Search DerivedData for <appName>.app.dSYM without shell interpolation.
   try {
     const targetDir = `${appName}.app.dSYM`;

@@ -170,8 +170,10 @@ export class RunStateMachine {
       }
       from = stored;
       to = fromOrTo;
-      if (typeof toOrReason === 'string') reason = toOrReason;
     }
+
+    const resolvedReason =
+      typeof toOrReason === 'string' && !ALL_RUN_STATES.has(toOrReason) ? toOrReason : reason;
 
     const isRecovery = from === 'blocked' && to === 'awaiting_confirm';
     const isExceptionToDone = isTerminalState(from) && to === 'done';
@@ -191,11 +193,11 @@ export class RunStateMachine {
       runId,
       from,
       to,
-      reason,
+      reason: resolvedReason,
     });
 
     if (to === 'blocked') {
-      this.pauseContexts.set(runId, { prePauseState: from, reason: reason ?? 'paused' });
+      this.pauseContexts.set(runId, { prePauseState: from, reason: resolvedReason ?? 'paused' });
     }
 
     if (isRecovery || to === 'done') {

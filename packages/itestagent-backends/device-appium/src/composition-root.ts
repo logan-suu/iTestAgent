@@ -134,6 +134,18 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     );
   }
 
+  if (
+    targetKind === 'physical' &&
+    wdaStartupMode === 'managed-xcodebuild' &&
+    !config.xcodeOrgId &&
+    !config.wdaProjectPath
+  ) {
+    throw new Error(
+      'wdaProjectPath is required for managed-xcodebuild without xcodeOrgId. ' +
+        'Provide the WebDriverAgent .xcodeproj path or set xcodeOrgId for Appium-managed signing.',
+    );
+  }
+
   const backendOptions: AppiumDeviceBackendOptions = {
     udid: config.udid,
     targetKind,

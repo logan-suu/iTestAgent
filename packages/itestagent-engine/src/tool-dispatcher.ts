@@ -369,16 +369,16 @@ export class ToolDispatcher {
       );
     }
 
-    // 6. Emit tool.started
-    this.emit({
-      type: 'tool.started',
-      callId,
-      name: parsedCall.name,
-      backend: backend.name,
-    });
-
+    // 6. Emit tool.started (inside try so device lock covers emit failures)
     // 7. Execute backend method
     try {
+      this.emit({
+        type: 'tool.started',
+        callId,
+        name: parsedCall.name,
+        backend: backend.name,
+      });
+
       // Abort check before execution
       if (this.signal?.aborted) {
         this.emit({

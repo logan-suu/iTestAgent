@@ -199,10 +199,8 @@ export class SessionManager {
   // ─── Private: project hash ─────────────────────────────────
 
   /**
-   * Derive a stable hash from the workspace path.
-   *
-   * Uses a simple multiplicative hash — sufficient for
-   * local deduplication; not cryptographic.
+   * Derive a SHA-256 hash from the workspace path
+   * (matches project-analyzer's project hash algorithm).
    */
   private computeProjectHash(workspace: string): string {
     return new Bun.CryptoHasher('sha256').update(workspace).digest('hex');

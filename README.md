@@ -145,7 +145,7 @@ itestagent
 | devices 设备发现 | ✅ Verified | physical + simulator discovery + healthcheck |
 | Project Profile / TestPlan | 🔧 Implemented | S2→S3 pipeline, 22 integration tests |
 | AgentRuntime / Backend 执行 | 🔧 Implemented | PermissionEngine, ContextBuilder, BackendSelector, BuildDriver, AppiumDeviceBackend (physical, G5 Route C verified, works with free accounts) |
-| 证据采集 / 性能 / 报告 | 🔧 Implemented | Phase 4 in progress — xctrace, evidence collection, report synthesis
+| 证据采集 / 性能 / 报告 | 🔧 Implemented | Phase 4 in progress — xctrace, evidence collection, report synthesis |
 
 **成熟度定义**（ADR-011 审计建议）：
 - 📋 **Designed** — 规格/ADR 已确定，接口已定义，但无实现

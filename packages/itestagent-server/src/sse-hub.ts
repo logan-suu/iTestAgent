@@ -97,7 +97,7 @@ export class SSEHub {
    */
   broadcast(sessionId: string, event: AgentEvent): void {
     const state = this.sessions.get(sessionId);
-    if (!state || state.subscribers.size === 0) return;
+    if (!state) return;
 
     state.eventCounter += 1;
     const encoded = this.encodeSSE(event, state.eventCounter);
@@ -107,6 +107,8 @@ export class SSEHub {
       state.buffer.shift();
     }
     state.buffer.push(encoded);
+
+    if (state.subscribers.size === 0) return;
 
     for (const sub of state.subscribers) {
       try {
