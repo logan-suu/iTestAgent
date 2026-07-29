@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-26T00:00:00.000Z",
+  "last_updated": "2026-07-29T00:00:00.000Z",
   "items": [
     {
       "id": "DEF-001",
@@ -15,11 +15,11 @@
       "item": "Unify db.ts + store-driver.ts SQLite connections into single factory",
       "detail": "createStoreDriver() and createDb() each open their own bun:sqlite connection. If transaction() callback tries to write through a Drizzle client from createDb(), it will hit SQLITE_BUSY because BEGIN IMMEDIATE holds a write lock. Fix: consolidate into a single connection factory or add connection pooling.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-001 fix: createStoreCore() factory with shared Database connection",
       "created_at": "2026-07-18T14:19:51.110Z",
       "notes": "Task 3.17 disposition: deferred: requires DB connection refactor (Phase 4 store unification)",
-      "resolved_at": null
+      "resolved_at": "2026-07-29T00:00:00.000Z"
     },
     {
       "id": "DEF-002",
@@ -33,8 +33,8 @@
       "item": "Add proper transaction isolation test using shared connection handle",
       "detail": "Test bypasses driver.transaction() - performs raw SQL insert outside the transaction callback. After connection unification (DEF-001), add a test that inserts via the driver-managed connection within a transaction callback and verifies commit/rollback semantics.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-001 fix: store-core.test.ts covers transaction commit/rollback with shared connection",
       "created_at": "2026-07-18T14:19:51.110Z",
       "notes": " Task 3.17 disposition: deferred: depends on DEF-001 connection unification"
     },
@@ -137,8 +137,8 @@
       "item": "SolidJS reactivity: CandidateReviewPanel reads candidates/idx outside tracking scope",
       "detail": "In opentui-renderer.tsx CandidateReviewPanel, const candidates = s().candidates and const idx = s().candidateIndex are read once in the component body (outside JSX tracking scope). Subsequent state changes from toggle/navigate/reorder events won't reflect in the UI — the For each list, selection highlight, confirmed count, and edit preview all use stale values. Fix: either access s().candidates / s().candidateIndex directly in JSX expressions (reactive through Solid's auto-tracking), or wrap them in createMemo(() => s().candidates). Also consider adding eslint-plugin-solid to the project to catch future reactivity violations statically. Deferred to Phase 3 when the TUI renderer is refactored for real backend-driven state updates.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-008 fix: wrapped candidates/idx in createMemo() for SolidJS reactive tracking in CandidateReviewPanel",
       "created_at": "2026-07-19T23:30:00.000Z",
       "notes": " Task 3.17 disposition: deferred: OpenTUI SolidJS reactivity (covered by DEF-025)"
     },
@@ -261,8 +261,8 @@
       "item": "Thread AbortSignal through DeviceBackend interface to enable in-flight cancellation",
       "detail": "ToolDispatcher checks AbortSignal before dispatch and before execution, but DeviceBackend methods (tap, swipe, screenshot, launchApp, etc.) lack a signal/options parameter. Running backend operations still cannot be cancelled mid-flight. Fix: add signal?: AbortSignal to the DeviceBackend contract methods, then pass this.signal into method.call() in ToolDispatcher, and propagate through every backend implementation (AppiumDeviceBackend, MockDeviceBackend, and future backends). Deferred because: (1) requires contract changes affecting all backend implementations, (2) needs coordination with DEF-012 (async Bun.spawn conversion) and DEF-014 (WdaManager AbortSignal propagation) for the complete signal chain from ToolDispatcher → backend → subprocess.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-015 fix: signal?: AbortSignal added to DeviceBackend interface, ToolDispatcher, MockDeviceBackend, AppiumDeviceBackend",
       "created_at": "2026-07-22T03:00:00.000Z",
       "notes": " Task 3.17 disposition: deferred: requires DeviceBackend contract change (major)"
     },
@@ -278,8 +278,8 @@
       "item": "Replace console.error with redacting structured logger in AppiumDeviceBackend catch blocks",
       "detail": "DEF-013 was partially resolved by adding console.error(errorMsg) to 7 AppiumDeviceBackend catch blocks, but the current implementation logs raw error.message/String(error) directly. This violates R6 (sensitive data such as tokens, OTPs, payment data, and identifiers could appear in Appium driver error messages). Fix: introduce a redacting structured logger that strips PII before emitting, or log only safe operation context and error-class metadata (error name, HTTP status, operation name) rather than the raw error message. Add tests proving tokens, OTPs, payment data, and identifiers are removed from emitted logs. Deferred because: (1) no shared redacting logger infrastructure exists yet, (2) needs cross-cutting infrastructure decision (Phase 4 evidence/report layer), (3) current console.error is a strict improvement over the previous silent degradation.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-016 fix: createRedactingLogger() in redactor.ts, replaces console.error calls in AppiumDeviceBackend",
       "created_at": "2026-07-22T15:50:00.000Z"
     },
     {
@@ -312,8 +312,8 @@
       "item": "Add negative-path test coverage for device-explorer error branches",
       "detail": "All 20 tests exercise happy-path/degradation scenarios; none exercise MockToolDispatcher returning status: 'error' for tap/swipe/input/screenshot. The failStep branches at device-explorer.ts Lines 214-216, 248-250, 278-283, 294-296 are entirely untested. Given RunStep failure records feed downstream reports, adding tests that configure the mock to fail and assert the resulting failStep output would increase confidence in this path.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "DEF-018 fix: 5 negative-path tests (tap/swipe/input/screenshot/all) added to device-explorer.test.ts",
       "created_at": "2026-07-22T15:50:00.000Z",
       "notes": " Task 3.17 disposition: deferred: test coverage enhancement (Phase 4 hardening)"
     },
@@ -417,8 +417,8 @@
       "item": "US-7.1 (XCUITest path) ownership conflict between task 3.11 (BuildDriver) and task 4.1 (xcresult parser)",
       "detail": "US-7.1 xcodebuild test + xcresult is implemented in task 3.11 (build driver level), but xcresult parsing is assigned to task 4.1 (Phase 4 evidence/report). The split means Phase 3 cannot fully verify the XCUITest path end-to-end because result parsing is deferred. Resolution: either extend 3.11 to include basic xcresult parsing (test counts, pass/fail), or explicitly mark the XCUITest→xcresult→report chain as a Phase 3→Phase 4 handoff in task 3.17 exit criteria.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "Handoff documented in phase3-exit-report.md; Phase 4 xcresult parsing (tasks 4.1-4.2) completed. Cross-phase integration test verifies XCUITest path end-to-end.",
       "created_at": "2026-07-25T10:00:00.000Z",
       "notes": "Task 3.17: Handoff documented in phase3-exit-report.md — Phase 3 delivers xcodebuild test execution, Phase 4 delivers xcresult parsing. Cross-phase integration test verifies XCUITest path executes successfully."
     },
@@ -468,8 +468,8 @@
       "item": "US-11.1 assertion strategy conflict: P0 in task 3.14 AC1-AC3 but MVP summary lists P1 for assertion-based pass/fail",
       "detail": "The report notes a priority conflict: US-11.1 assertion strategy is listed as P0 in the task definition (3.14), suggesting assertions are critical for execution correctness, but the MVP completion standard (item 11) lists assertion-based pass/fail as P1 (explored/inconclusive/needs_assertion are acceptable outputs). Resolution: clarify in task 3.17 exit criteria that while the AssertionEvaluator exists (3.14), the full agent-suggested→confirmed→evaluated closed loop (including TUI confirmation panel per DEF-019) is Phase 3 integration scope, not individual task scope.",
       "target_phase": 4,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "Clarified in phase3-exit-report.md — AssertionEvaluator exists (3.14), full closed-loop assert (LLM→confirm→evaluate) is Phase 3 harness wiring scope",
       "created_at": "2026-07-25T10:00:00.000Z",
       "notes": "Task 3.17: Clarified in phase3-exit-report.md — AssertionEvaluator exists (3.14), full closed-loop assert (LLM→confirm→evaluate) is Phase 3 harness wiring scope. explored/inconclusive/needs_assertion are valid Phase 3 outputs."
     },

@@ -390,7 +390,7 @@ export class ToolDispatcher {
       }
 
       const method = backend[mapping.method] as (...args: unknown[]) => Promise<unknown>;
-      const rawResult = await method.call(backend, parsedArgs);
+      const rawResult = await method.call(backend, parsedArgs, this.signal);
 
       // 8. Check for backend-level failure (H-02 fix: success:false → error).
       if (rawResult && typeof rawResult === 'object') {

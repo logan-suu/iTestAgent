@@ -76,3 +76,26 @@ export function redactErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
   return redactError(msg);
 }
+
+// ─── Structured Redacting Logger (DEF-016) ──────────────────────
+
+export interface RedactingLogger {
+  error(msg: string): void;
+  warn(msg: string): void;
+  info(msg: string): void;
+}
+
+export function createRedactingLogger(component: string): RedactingLogger {
+  const prefix = `[${component}]`;
+  return {
+    error(msg: string) {
+      console.error(`${prefix} ${redactError(msg)}`);
+    },
+    warn(msg: string) {
+      console.warn(`${prefix} ${redactError(msg)}`);
+    },
+    info(msg: string) {
+      console.info(`${prefix} ${redactError(msg)}`);
+    },
+  };
+}

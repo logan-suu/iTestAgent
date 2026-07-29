@@ -52,15 +52,20 @@ import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions, WdaStartupMode } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
-import { redactError } from './redactor.js';
+import { type RedactingLogger, createRedactingLogger } from './redactor.js';
 import type { WdaManager } from './wda-manager.js';
 
 // ─── Subprocess helper ─────────────────────────────────────────
 
 async function spawnAsync(
   cmd: string[],
+  signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn(cmd, {
+    stdout: 'pipe',
+    stderr: 'pipe',
+    ...(signal ? { signal } : {}),
+  });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -184,6 +189,8 @@ const SIMULATOR_CAPABILITIES: BackendCapabilities = {
 export class AppiumDeviceBackend implements DeviceBackend {
   readonly name = 'appium';
 
+  private readonly logger: RedactingLogger;
+
   private readonly opts: Required<
     Omit<
       AppiumDeviceBackendOptions,
@@ -217,6 +224,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private screenSize: AppiumScreenSize | null = null;
 
   constructor(driver: AppiumDriver, options: AppiumDeviceBackendOptions) {
+    this.logger = createRedactingLogger('AppiumDeviceBackend');
     this.driver = driver;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
@@ -537,25 +545,22 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── listDevices ─────────────────────────────────────────
 
-  async listDevices(): Promise<DeviceInfo[]> {
+  async listDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     if (this.targetKind === 'simulator') {
-      return this.listSimulatorDevices();
+      return this.listSimulatorDevices(signal);
     }
-    return this.listPhysicalDevices();
+    return this.listPhysicalDevices(signal);
   }
 
   /**
    * List physical iOS devices via devicectl (no Appium session needed).
    */
-  private async listPhysicalDevices(): Promise<DeviceInfo[]> {
+  private async listPhysicalDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync([
-        'xcrun',
-        'devicectl',
-        'list',
-        'devices',
-        '--json',
-      ]);
+      const { stdout: raw, exitCode } = await spawnAsync(
+        ['xcrun', 'devicectl', 'list', 'devices', '--json'],
+        signal,
+      );
 
       if (exitCode !== 0 || !raw.trim()) {
         return [];
@@ -564,7 +569,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
       const parsed = JSON.parse(raw) as {
         result?: {
           devices?: Array<{
-            connectionProperties?: { tunnelState?: string };
+            connectionProperties?: {
+              tunnelState?: string;
+              transportType?: string;
+              pairingState?: string;
+            };
             hardwareProperties?: { udid?: string; productType?: string };
             deviceProperties?: { name?: string; osVersionNumber?: string };
           }>;
@@ -574,11 +583,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
       const devices = parsed?.result?.devices ?? [];
 
       return devices
-        .filter(
-          (d) =>
-            d.connectionProperties?.tunnelState === 'connected' ||
-            d.connectionProperties?.tunnelState === 'available',
-        )
+        .filter((d) => {
+          const cp = d.connectionProperties;
+          if (!cp) return false;
+          // Xcode 26+: tunnel is lazy — accept any wired+paired device
+          if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
+          // Xcode <26: tunnel state is authoritative
+          if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
+          return false;
+        })
         .map((d) => ({
           udid: String(d.hardwareProperties?.udid ?? ''),
           name: d.deviceProperties?.name,
@@ -602,15 +615,12 @@ export class AppiumDeviceBackend implements DeviceBackend {
    *
    * R5: If simctl is unavailable, returns empty array.
    */
-  private async listSimulatorDevices(): Promise<DeviceInfo[]> {
+  private async listSimulatorDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync([
-        'xcrun',
-        'simctl',
-        'list',
-        'devices',
-        '--json',
-      ]);
+      const { stdout: raw, exitCode } = await spawnAsync(
+        ['xcrun', 'simctl', 'list', 'devices', '--json'],
+        signal,
+      );
 
       if (exitCode !== 0 || !raw.trim()) {
         return [];
@@ -657,22 +667,22 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── healthcheck ─────────────────────────────────────────
 
-  async healthcheck(deviceId: string): Promise<HealthCheckResult> {
+  async healthcheck(deviceId: string, signal?: AbortSignal): Promise<HealthCheckResult> {
     if (this.targetKind === 'simulator') {
-      return this.simulatorHealthcheck(deviceId);
+      return this.simulatorHealthcheck(deviceId, signal);
     }
-    return this.physicalHealthcheck(deviceId);
+    return this.physicalHealthcheck(deviceId, signal);
   }
 
-  private async physicalHealthcheck(deviceId: string): Promise<HealthCheckResult> {
+  private async physicalHealthcheck(
+    deviceId: string,
+    signal?: AbortSignal,
+  ): Promise<HealthCheckResult> {
     try {
-      const { stdout, exitCode } = await spawnAsync([
-        'xcrun',
-        'devicectl',
-        'list',
-        'devices',
-        '--json',
-      ]);
+      const { stdout, exitCode } = await spawnAsync(
+        ['xcrun', 'devicectl', 'list', 'devices', '--json'],
+        signal,
+      );
 
       if (exitCode !== 0) {
         return {
@@ -707,15 +717,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
     }
   }
 
-  private async simulatorHealthcheck(deviceId: string): Promise<HealthCheckResult> {
+  private async simulatorHealthcheck(
+    deviceId: string,
+    signal?: AbortSignal,
+  ): Promise<HealthCheckResult> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync([
-        'xcrun',
-        'simctl',
-        'list',
-        'devices',
-        '--json',
-      ]);
+      const { stdout: raw, exitCode } = await spawnAsync(
+        ['xcrun', 'simctl', 'list', 'devices', '--json'],
+        signal,
+      );
 
       if (exitCode !== 0) {
         return {
@@ -756,7 +766,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── listApps ────────────────────────────────────────────
 
-  async listApps(_deviceId: string): Promise<AppInfo[]> {
+  async listApps(_deviceId: string, signal?: AbortSignal): Promise<AppInfo[]> {
     try {
       await this.ensureSession();
 
@@ -770,14 +780,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }));
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(redactError(`[AppiumDeviceBackend.listApps] ${errorMsg}`));
+      this.logger.error(`[listApps] ${errorMsg}`);
       return [];
     }
   }
 
   // ────────── launchApp ───────────────────────────────────────────
 
-  async launchApp(input: LaunchAppInput): Promise<ActionResult> {
+  async launchApp(input: LaunchAppInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -798,7 +808,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── terminateApp ────────────────────────────────────────
 
-  async terminateApp(input: TerminateAppInput): Promise<ActionResult> {
+  async terminateApp(input: TerminateAppInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -815,7 +825,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── getUiTree ───────────────────────────────────────────
 
-  async getUiTree(_input: DeviceTarget): Promise<UiTreeSnapshot> {
+  async getUiTree(_input: DeviceTarget, signal?: AbortSignal): Promise<UiTreeSnapshot> {
     try {
       await this.ensureSession();
 
@@ -828,7 +838,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(redactError(`[AppiumDeviceBackend.getUiTree] ${errorMsg}`));
+      this.logger.error(`[getUiTree] ${errorMsg}`);
       return {
         raw: '',
         format: 'xml',
@@ -839,7 +849,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── screenshot ──────────────────────────────────────────
 
-  async screenshot(_input: ScreenshotInput): Promise<ArtifactRef> {
+  async screenshot(_input: ScreenshotInput, signal?: AbortSignal): Promise<ArtifactRef> {
     try {
       await this.ensureSession();
 
@@ -859,7 +869,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(redactError(`[AppiumDeviceBackend.screenshot] ${errorMsg}`));
+      this.logger.error(`[screenshot] ${errorMsg}`);
       return {
         id: `screenshot_error_${Date.now()}`,
         type: 'screenshot',
@@ -871,7 +881,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── tap ─────────────────────────────────────────────────
 
-  async tap(input: TapInput): Promise<ActionResult> {
+  async tap(input: TapInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -889,7 +899,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── swipe ───────────────────────────────────────────────
 
-  async swipe(input: SwipeInput): Promise<ActionResult> {
+  async swipe(input: SwipeInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -908,7 +918,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── typeText ────────────────────────────────────────────
 
-  async typeText(input: TypeTextInput): Promise<ActionResult> {
+  async typeText(input: TypeTextInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -925,7 +935,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── pressButton ─────────────────────────────────────────
 
-  async pressButton(input: PressButtonInput): Promise<ActionResult> {
+  async pressButton(input: PressButtonInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -945,7 +955,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── openUrl ─────────────────────────────────────────────
 
-  async openUrl(input: OpenUrlInput): Promise<ActionResult> {
+  async openUrl(input: OpenUrlInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
       await this.ensureSession();
 
@@ -963,7 +973,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── startRecording ──────────────────────────────────────
 
-  async startRecording(_input: RecordingInput): Promise<RecordingHandle> {
+  async startRecording(_input: RecordingInput, signal?: AbortSignal): Promise<RecordingHandle> {
     try {
       await this.ensureSession();
 
@@ -974,7 +984,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(redactError(`[AppiumDeviceBackend.startRecording] ${errorMsg}`));
+      this.logger.error(`[startRecording] ${errorMsg}`);
       return {
         handleId: `recording_error_${Date.now()}`,
         startedAt: new Date().toISOString(),
@@ -984,7 +994,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── stopRecording ───────────────────────────────────────
 
-  async stopRecording(input: RecordingHandle): Promise<ArtifactRef> {
+  async stopRecording(input: RecordingHandle, signal?: AbortSignal): Promise<ArtifactRef> {
     try {
       await this.ensureSession();
 
@@ -1004,7 +1014,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(redactError(`[AppiumDeviceBackend.stopRecording] ${errorMsg}`));
+      this.logger.error(`[stopRecording] ${errorMsg}`);
       return {
         id: `video_error_${Date.now()}`,
         type: 'video',
@@ -1016,22 +1026,25 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── listCrashes ─────────────────────────────────────────
 
-  async listCrashes(_input: DeviceTarget): Promise<CrashSummary[]> {
+  async listCrashes(_input: DeviceTarget, signal?: AbortSignal): Promise<CrashSummary[]> {
     if (this.targetKind === 'simulator') {
       return [];
     }
 
     try {
-      const { stdout: raw, exitCode } = await spawnAsync([
-        'xcrun',
-        'devicectl',
-        'device',
-        'info',
-        'diagnostics',
-        '--device',
-        this.opts.udid,
-        '--json',
-      ]);
+      const { stdout: raw, exitCode } = await spawnAsync(
+        [
+          'xcrun',
+          'devicectl',
+          'device',
+          'info',
+          'diagnostics',
+          '--device',
+          this.opts.udid,
+          '--json',
+        ],
+        signal,
+      );
 
       if (exitCode !== 0 || !raw.trim()) {
         return [];
@@ -1056,14 +1069,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(redactError(`[AppiumDeviceBackend.listCrashes] ${errorMsg}`));
+      this.logger.error(`[listCrashes] ${errorMsg}`);
       return [];
     }
   }
 
   // ────────── collectLogs ─────────────────────────────────────────
 
-  async collectLogs(input: LogCollectInput): Promise<ArtifactRef> {
+  async collectLogs(input: LogCollectInput, signal?: AbortSignal): Promise<ArtifactRef> {
     try {
       await this.ensureSession();
 
@@ -1082,7 +1095,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(redactError(`[AppiumDeviceBackend.collectLogs] ${errorMsg}`));
+      this.logger.error(`[collectLogs] ${errorMsg}`);
       return {
         id: `log_error_${Date.now()}`,
         type: 'log',

@@ -460,3 +460,102 @@ test('step backend is "appium" (from RunStepRecorder default)', async () => {
     expect(step.backend).toBe('appium');
   }
 });
+
+// ─── Negative Path: Error Tool Dispatcher ───────────────────────
+
+/**
+ * A ToolDispatcher variant that returns { status: 'error' } for
+ * specified tool names. Used to test DeviceExplorer failStep branches.
+ */
+class ErrorToolDispatcher implements ExplorerToolDispatcher {
+  constructor(private failTools: Set<string>) {}
+
+  async dispatch(call: {
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }): Promise<{
+    callId: string;
+    status: 'ok' | 'error';
+    output: unknown;
+  }> {
+    if (this.failTools.has(call.name)) {
+      return {
+        callId: call.id,
+        status: 'error' as const,
+        output: { error: `mock error: ${call.name}` },
+      };
+    }
+    return {
+      callId: call.id,
+      status: 'ok' as const,
+      output: { ok: true },
+    };
+  }
+}
+
+test('tap failure records failStep with degradation and error', async () => {
+  const dispatcher = new ErrorToolDispatcher(new Set(['tap']));
+  const explorer = new DeviceExplorer(dispatcher, DEFAULT_OPTIONS);
+  const steps = await explorer.explore([{ action: 'tap', target: 'login_button' }]);
+
+  const tapStep = steps.find((s) => s.action === 'tap');
+  expect(tapStep).toBeDefined();
+  const result = tapStep?.result as Record<string, unknown>;
+  expect(result.degradation).toBe(true);
+  expect(result.error).toBeString();
+  expect(tapStep?.artifacts).toBeArray();
+});
+
+test('swipe failure records failStep with degradation and error', async () => {
+  const dispatcher = new ErrorToolDispatcher(new Set(['swipe']));
+  const explorer = new DeviceExplorer(dispatcher, DEFAULT_OPTIONS);
+  const steps = await explorer.explore([
+    { action: 'swipe', target: 'swipe_down', direction: 'down' },
+  ]);
+
+  const swipeStep = steps.find((s) => s.action === 'swipe');
+  expect(swipeStep).toBeDefined();
+  const result = swipeStep?.result as Record<string, unknown>;
+  expect(result.degradation).toBe(true);
+  expect(result.error).toBeString();
+});
+
+test('input failure records failStep with degradation and error', async () => {
+  const dispatcher = new ErrorToolDispatcher(new Set(['type_text']));
+  const explorer = new DeviceExplorer(dispatcher, DEFAULT_OPTIONS);
+  const steps = await explorer.explore([
+    { action: 'input', target: 'username_field', text: 'admin' },
+  ]);
+
+  const inputStep = steps.find((s) => s.action === 'type_text');
+  expect(inputStep).toBeDefined();
+  const result = inputStep?.result as Record<string, unknown>;
+  expect(result.degradation).toBe(true);
+  expect(result.error).toBeString();
+});
+
+test('screenshot failure records failStep with degradation and error', async () => {
+  const dispatcher = new ErrorToolDispatcher(new Set(['screenshot']));
+  const explorer = new DeviceExplorer(dispatcher, DEFAULT_OPTIONS);
+  const steps = await explorer.explore([{ action: 'screenshot', target: 'evidence' }]);
+
+  const shotStep = steps.find((s) => s.action === 'screenshot');
+  expect(shotStep).toBeDefined();
+  const result = shotStep?.result as Record<string, unknown>;
+  expect(result.degradation).toBe(true);
+  expect(result.error).toBeString();
+});
+
+test('all tool errors degrade with ac4_note in result', async () => {
+  // All tool dispatches fail — launch, tap all error out
+  const dispatcher = new ErrorToolDispatcher(new Set(['launch_app', 'tap']));
+  const explorer = new DeviceExplorer(dispatcher, DEFAULT_OPTIONS);
+  const steps = await explorer.explore([{ action: 'tap', target: 'login_button' }]);
+
+  const launchStep = steps.find((s) => s.action === 'launch');
+  expect(launchStep).toBeDefined();
+  const launchResult = launchStep?.result as Record<string, unknown>;
+  expect(launchResult.ac4_note).toBeString();
+  expect(launchResult.degradation).toBe(true);
+});
