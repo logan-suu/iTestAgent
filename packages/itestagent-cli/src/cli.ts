@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { join } from 'node:path';
 import { stdout } from 'node:process';
 import { createInterface } from 'node:readline';
