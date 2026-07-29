@@ -17,7 +17,7 @@
  *     and the symbolicated field is set to false — never pretends to have symbolicated.
  */
 
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnAsync } from './spawn-async.js';
@@ -66,20 +66,39 @@ function findDsym(appName: string, dsymPath?: string): string | null {
     return null;
   }
 
-  // DerivedData/<project>-<hash>/Build/Products/<config>-iphoneos/<app>.app.dSYM
-  // The dSYM is typically alongside the .app bundle in the products directory.
-  // We search for <appName>.app.dSYM at any depth under DerivedData.
-  try {
-    const result = execSync(
-      `find "${derivedData}" -maxdepth 6 -type d -name "${appName}.app.dSYM" 2>/dev/null | head -1`,
-      { encoding: 'utf-8', timeout: 5000 },
-    ).trim();
+  // Validate appName is a simple bundle executable name (no path separators)
+  if (!appName || appName.includes('/') || appName.includes('..')) {
+    return null;
+  }
 
-    if (result && existsSync(result)) {
-      return result;
+  // Search DerivedData for <appName>.app.dSYM without shell interpolation.
+  try {
+    const targetDir = `${appName}.app.dSYM`;
+    const projects = readdirSync(derivedData);
+
+    for (const project of projects) {
+      const projectDir = join(derivedData, project);
+      if (!existsSync(projectDir)) continue;
+
+      try {
+        const buildDirs = [
+          join(projectDir, 'Build', 'Products'),
+          join(projectDir, 'Build', 'Intermediates.noindex'),
+        ];
+        for (const buildDir of buildDirs) {
+          if (!existsSync(buildDir)) continue;
+          const configs = readdirSync(buildDir);
+          for (const config of configs) {
+            const dSYMPath = join(buildDir, config, targetDir);
+            if (existsSync(dSYMPath)) return dSYMPath;
+          }
+        }
+      } catch {
+        // skip unreadable project dirs
+      }
     }
   } catch {
-    // find failed — fall through
+    // DerivedData unreadable
   }
 
   return null;

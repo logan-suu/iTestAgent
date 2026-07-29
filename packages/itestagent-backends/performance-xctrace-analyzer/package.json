@@ -7,8 +7,7 @@
   "types": "src/index.ts",
   "description": "PerformanceBackend implementation — xctrace analyzer core (MVP first candidate)",
   "dependencies": {
-    "itestagent-contracts": "workspace:*",
-    "itestagent-server": "workspace:*"
+    "itestagent-contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest"

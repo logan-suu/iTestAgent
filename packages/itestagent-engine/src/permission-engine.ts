@@ -137,6 +137,19 @@ export class PermissionEngine {
     }
 
     // gate === 'ask' — block until user confirms
+
+    // Guard: reject empty callId (no stable identity for the request).
+    if (!callId) {
+      return Promise.reject(new Error('Permission ask requires a non-empty callId'));
+    }
+
+    // Guard: reject duplicate callId (later request would overwrite the earlier one).
+    if (this.pending.has(callId)) {
+      return Promise.reject(
+        new Error(`Duplicate permission ask: callId "${callId}" already has a pending request`),
+      );
+    }
+
     return new Promise<ResolveResult>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(callId);

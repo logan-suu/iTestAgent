@@ -40,7 +40,12 @@ import {
   startRecording,
   symbolicateCrash,
 } from './xctrace-cli.js';
-import type { SpawnSyncFn, SubprocessSpawnFn, XctraceCliDeps } from './xctrace-cli.js';
+import type {
+  RecordHandle,
+  SpawnSyncFn,
+  SubprocessSpawnFn,
+  XctraceCliDeps,
+} from './xctrace-cli.js';
 
 import { parseTraceSummary } from './metrics-parser.js';
 import type { MetricsParserConfig } from './metrics-parser.js';
@@ -141,6 +146,8 @@ export function createXctracePerformanceBackend(
   const baselineStore = deps?.baselineStore;
   const baselineManager = baselineStore ? new BaselineManager({ baselineStore }) : null;
 
+  const recordingHandles = new Map<string, RecordHandle>();
+
   const parserConfig: MetricsParserConfig = {
     isSimulator,
   };
@@ -164,18 +171,22 @@ export function createXctracePerformanceBackend(
       const recording = startRecording(cliDeps, {
         deviceId: input.deviceId,
         bundleId: input.bundleId,
-        template: input.template ?? 'all',
+        template: input.template ?? 'cpu',
         outputPath: tracePath,
         timeLimitSeconds: input.durationSeconds,
       });
 
-      // TODO(task 4.4): wire subprocess handle into session lifecycle
-      //   - store handle so caller can stopRecording(artifactRef.id)
-      //   - await exited before exportTrace/summarizeTrace
-      //   - handle abort/timeout via AbortSignal chain
-      void recording.subprocess.exited.catch(() => {
-        // Subprocess exit is handled by caller via abort/timelimit.
-      });
+      recordingHandles.set(traceId, recording);
+
+      // Clean up handle when subprocess exits
+      recording.subprocess.exited.then(
+        () => {
+          recordingHandles.delete(traceId);
+        },
+        () => {
+          recordingHandles.delete(traceId);
+        },
+      );
 
       return {
         id: traceId,

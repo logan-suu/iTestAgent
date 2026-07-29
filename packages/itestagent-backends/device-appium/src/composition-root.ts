@@ -53,12 +53,25 @@ export interface ProductionAppiumConfig {
   deviceName?: string;
   /** iOS version string. */
   platformVersion?: string;
-  /** Custom derived data path. */
+  /** Custom derived data path for WDA builds. */
   derivedDataPath?: string;
   /** Appium server URL (default: http://127.0.0.1:4723). */
   appiumServerUrl?: string;
   /** Staging directory for WDA build artifacts. */
   wdaStagingDir?: string;
+  /**
+   * Path to WDA .xcodeproj for managed-xcodebuild mode.
+   * Required when wdaStartupMode is 'managed-xcodebuild'.
+   */
+  wdaProjectPath?: string;
+  /**
+   * Team ID for code signing (managed-xcodebuild mode).
+   * When provided, Appium handles WDA build + signing.
+   * When omitted, falls back to usePrebuiltWDA (free account workaround).
+   */
+  xcodeOrgId?: string;
+  /** Signing identity for managed-xcodebuild (default: 'Apple Development'). */
+  xcodeSigningId?: string;
 }
 
 /**
@@ -121,6 +134,18 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     );
   }
 
+  if (
+    targetKind === 'physical' &&
+    wdaStartupMode === 'managed-xcodebuild' &&
+    !config.xcodeOrgId &&
+    !config.wdaProjectPath
+  ) {
+    throw new Error(
+      'wdaProjectPath is required for managed-xcodebuild without xcodeOrgId. ' +
+        'Provide the WebDriverAgent .xcodeproj path or set xcodeOrgId for Appium-managed signing.',
+    );
+  }
+
   const backendOptions: AppiumDeviceBackendOptions = {
     udid: config.udid,
     targetKind,
@@ -133,6 +158,9 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     deviceName: config.deviceName,
     platformVersion: config.platformVersion,
     derivedDataPath: config.derivedDataPath,
+    wdaProjectPath: config.wdaProjectPath,
+    xcodeOrgId: config.xcodeOrgId,
+    xcodeSigningId: config.xcodeSigningId,
     wdaManager,
   };
 

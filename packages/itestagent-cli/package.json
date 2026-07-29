@@ -12,7 +12,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
-    "test": "bun test"
+    "test": "bun test",
+    "build": "bun build src/cli.ts --outdir dist --target bun --external '@opentui/*'"
   },
   "dependencies": {
     "commander": "^15.0.0",

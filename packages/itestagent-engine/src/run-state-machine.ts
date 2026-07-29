@@ -1,5 +1,12 @@
-import { isTerminalState, isValidTransition } from 'itestagent-contracts';
+import {
+  RUN_STATE_EXCEPTION,
+  RUN_STATE_FORWARD,
+  isTerminalState,
+  isValidTransition,
+} from 'itestagent-contracts';
 import type { RunState, RunStateChangedEvent } from 'itestagent-contracts';
+
+const ALL_RUN_STATES = new Set<string>([...RUN_STATE_FORWARD, ...RUN_STATE_EXCEPTION]);
 import { z } from 'zod';
 
 // ─── Error Level ───────────────────────────────────────────
@@ -108,18 +115,21 @@ export type StateChangeHandler = (event: RunStateChangedEvent) => void;
  *     it is NOT in the contract-level VALID_TRANSITIONS.
  */
 export class RunStateMachine {
+  private currentStates = new Map<string, RunState>();
   private pauseContexts = new Map<string, PauseContext>();
   private onEvent?: StateChangeHandler;
 
-  /**
-   * @param options.onEvent - Optional callback for state change events.
-   *   Fires synchronously on every successful transition.
-   */
   constructor(options?: { onEvent?: StateChangeHandler }) {
     this.onEvent = options?.onEvent;
   }
 
-  // ─── Core Transition ─────────────────────────────────────
+  getState(runId: string): RunState | undefined {
+    return this.currentStates.get(runId);
+  }
+
+  setStateForTesting(runId: string, state: RunState): void {
+    this.currentStates.set(runId, state);
+  }
 
   /**
    * Execute a run state transition.
@@ -128,21 +138,46 @@ export class RunStateMachine {
    * `blocked → awaiting_confirm` recovery transition.
    * Emits a `run.state.changed` event on success.
    *
-   * @param runId - The run identifier (for event tracking)
-   * @param from - Current state
+   * The state machine tracks current state internally — the caller
+   * does NOT need to pass `from` (it is inferred from stored state).
+   *
+   * @param runId - The run identifier
    * @param to - Target state
    * @param reason - Optional reason for the transition
    * @returns The new state (`to`) on success
    * @throws Error if the transition is invalid or from a terminal state
    */
-  transition(runId: string, from: RunState, to: RunState, reason?: string): RunState {
-    // Allow blocked → awaiting_confirm as a recovery transition (pause → resume)
+  transition(
+    runId: string,
+    fromOrTo: RunState,
+    toOrReason?: RunState | string,
+    reason?: string,
+  ): RunState {
+    let from: RunState;
+    let to: RunState;
+    let isCompatCall = false;
+
+    // Backward-compat: transition(runId, from, to, reason?)
+    if (typeof toOrReason === 'string' && ALL_RUN_STATES.has(toOrReason)) {
+      from = fromOrTo;
+      to = toOrReason as RunState;
+      isCompatCall = true;
+    } else {
+      // New API: transition(runId, to, reason?)
+      const stored = this.currentStates.get(runId);
+      if (!stored) {
+        throw new Error(`Run "${runId}" has no current state — call start() first`);
+      }
+      from = stored;
+      to = fromOrTo;
+    }
+
+    const resolvedReason =
+      typeof toOrReason === 'string' && !ALL_RUN_STATES.has(toOrReason) ? toOrReason : reason;
+
     const isRecovery = from === 'blocked' && to === 'awaiting_confirm';
-    // Exception states can only go to done (handled by isValidTransition)
     const isExceptionToDone = isTerminalState(from) && to === 'done';
 
-    // Terminal state check (before validity check for better error messages)
-    // Exception → done IS valid; blocked → awaiting_confirm is recovery
     if (isTerminalState(from) && !isExceptionToDone && !isRecovery) {
       throw new Error(`Cannot transition from terminal state "${from}" for run "${runId}"`);
     }
@@ -151,25 +186,20 @@ export class RunStateMachine {
       throw new Error(`Invalid transition for run "${runId}": ${from} → ${to}`);
     }
 
+    this.currentStates.set(runId, to);
+
     this.emit({
       type: 'run.state.changed',
       runId,
       from,
       to,
-      reason,
+      reason: resolvedReason,
     });
 
-    // Track pause context when entering blocked
     if (to === 'blocked') {
-      this.pauseContexts.set(runId, {
-        prePauseState: from,
-        reason: reason ?? 'paused',
-      });
+      this.pauseContexts.set(runId, { prePauseState: from, reason: resolvedReason ?? 'paused' });
     }
 
-    // Clear pause context on recovery or when reaching terminal state.
-    // Without this, blocked → done leaves stale context and isPaused() returns
-    // true incorrectly even though the run is terminal.
     if (isRecovery || to === 'done') {
       this.pauseContexts.delete(runId);
     }
@@ -179,39 +209,44 @@ export class RunStateMachine {
 
   // ─── Convenience: Exception Transitions ──────────────────
 
-  /** Transition to `cancelled` (user-triggered abort). */
-  cancel(runId: string, from: RunState, reason?: string): RunState {
-    return this.transition(runId, from, 'cancelled', reason);
+  cancel(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
+    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
+      return this.transition(runId, fromOrReason as RunState, 'cancelled', reason);
+    }
+    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
+    return this.transition(runId, 'cancelled', resolvedReason);
   }
 
-  /** Transition to `blocked` (needs user intervention). */
-  block(runId: string, from: RunState, reason?: string): RunState {
-    return this.transition(runId, from, 'blocked', reason);
+  block(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
+    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
+      return this.transition(runId, fromOrReason as RunState, 'blocked', reason);
+    }
+    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
+    return this.transition(runId, 'blocked', resolvedReason);
   }
 
-  /** Transition to `failed` (execution error). */
-  fail(runId: string, from: RunState, reason?: string): RunState {
-    return this.transition(runId, from, 'failed', reason);
+  fail(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
+    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
+      return this.transition(runId, fromOrReason as RunState, 'failed', reason);
+    }
+    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
+    return this.transition(runId, 'failed', resolvedReason);
   }
 
-  /** Transition to `infra_failed` (infrastructure error: build, signing, device). */
-  infraFail(runId: string, from: RunState, reason?: string): RunState {
-    return this.transition(runId, from, 'infra_failed', reason);
+  infraFail(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
+    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
+      return this.transition(runId, fromOrReason as RunState, 'infra_failed', reason);
+    }
+    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
+    return this.transition(runId, 'infra_failed', resolvedReason);
   }
 
-  // ─── Pause / Resume ──────────────────────────────────────
-
-  /**
-   * Pause a run: transition to `blocked` and save the pre-pause state.
-   *
-   * Architecture doc §7.3 L2: "TUI 暂停，用户修复后继续"
-   *
-   * @param runId - Run identifier
-   * @param from - Current forward state
-   * @param reason - Why the run is pausing (default: "paused")
-   */
-  pause(runId: string, from: RunState, reason?: string): RunState {
-    return this.transition(runId, from, 'blocked', reason ?? 'paused');
+  pause(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
+    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
+      return this.transition(runId, fromOrReason as RunState, 'blocked', reason ?? 'paused');
+    }
+    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
+    return this.transition(runId, 'blocked', resolvedReason ?? 'paused');
   }
 
   /**
@@ -226,7 +261,7 @@ export class RunStateMachine {
     if (!this.isPaused(runId)) {
       throw new Error(`Run "${runId}" is not paused`);
     }
-    return this.transition(runId, 'blocked', 'awaiting_confirm', 'resumed');
+    return this.transition(runId, 'awaiting_confirm', 'resumed');
   }
 
   // ─── Pause Context Queries ───────────────────────────────
@@ -251,12 +286,14 @@ export class RunStateMachine {
    * This is NOT a transition — it sets the starting point.
    */
   start(runId: string): RunState {
-    return 'created';
+    const state: RunState = 'created';
+    this.currentStates.set(runId, state);
+    return state;
   }
 
-  /** Clear all internal tracking state for a run. Idempotent. */
   cleanup(runId: string): void {
     this.pauseContexts.delete(runId);
+    this.currentStates.delete(runId);
   }
 
   // ─── Private ─────────────────────────────────────────────

@@ -1,3 +1,6 @@
+import type { AgentRuntime, ToolCall } from 'itestagent-contracts';
+import { ToolCallSchema } from 'itestagent-contracts';
+import type { ServerToolExecutor } from './server.js';
 import type { SessionManager } from './session-manager.js';
 import type { SSEHub } from './sse-hub.js';
 
@@ -19,6 +22,8 @@ const VALID_TARGET_KINDS = ['physical', 'simulator'] as const;
 export function createFetchHandler(
   sseHub: SSEHub,
   sessionManager: SessionManager,
+  agentRuntime?: AgentRuntime,
+  toolExecutor?: ServerToolExecutor,
 ): (req: Request) => Response | Promise<Response> {
   return (req: Request): Response | Promise<Response> => {
     const url = new URL(req.url);
@@ -34,9 +39,22 @@ export function createFetchHandler(
     }
 
     // GET /session/:id — get session info.
-    const sessionMatch = url.pathname.match(/^\/session\/([a-zA-Z0-9_-]+)$/);
-    if (sessionMatch?.[1] && req.method === 'GET') {
-      return handleGetSession(sessionManager, sessionMatch[1]);
+    const sessionGetMatch = url.pathname.match(/^\/session\/([a-zA-Z0-9_-]+)$/);
+    if (sessionGetMatch?.[1] && req.method === 'GET') {
+      return handleGetSession(sessionManager, sessionGetMatch[1]);
+    }
+
+    // POST /session/:id/execute — dispatch a tool call through the execution chain.
+    const executeMatch = url.pathname.match(/^\/session\/([a-zA-Z0-9_-]+)\/execute$/);
+    if (executeMatch?.[1] && req.method === 'POST') {
+      return handleExecute(
+        req,
+        sessionManager,
+        sseHub,
+        agentRuntime,
+        toolExecutor,
+        executeMatch[1],
+      );
     }
 
     // GET /events?sessionId=xxx — SSE event stream.
@@ -101,6 +119,71 @@ function handleGetSession(sessionManager: SessionManager, sessionId: string): Re
     return jsonResponse({ error: 'session_not_found', sessionId }, 404);
   }
   return jsonResponse(session);
+}
+
+async function handleExecute(
+  req: Request,
+  sessionManager: SessionManager,
+  sseHub: SSEHub,
+  agentRuntime: AgentRuntime | undefined,
+  toolExecutor: ServerToolExecutor | undefined,
+  sessionId: string,
+): Promise<Response> {
+  const session = sessionManager.getSession(sessionId);
+  if (!session) {
+    return jsonResponse({ error: 'session_not_found', sessionId }, 404);
+  }
+
+  if (!toolExecutor) {
+    return jsonResponse(
+      { error: 'not_configured', message: 'Server has no tool executor configured.' },
+      501,
+    );
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return jsonResponse(
+      { error: 'invalid_body', message: 'Request body must be valid JSON.' },
+      400,
+    );
+  }
+
+  const parsed = ToolCallSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonResponse({ error: 'invalid_tool_call', issues: parsed.error.issues }, 400);
+  }
+  const toolCall = parsed.data;
+
+  try {
+    const result = await toolExecutor(toolCall);
+
+    if (result.status === 'error') {
+      sseHub.broadcast(sessionId, {
+        type: 'tool.failed',
+        callId: result.callId,
+        error: {
+          code: 'backend.error',
+          message: String(
+            (result.output as Record<string, unknown> | undefined)?.error ?? 'Unknown error',
+          ),
+        },
+      });
+    } else {
+      sseHub.broadcast(sessionId, {
+        type: 'tool.completed',
+        callId: result.callId,
+        result,
+      });
+    }
+
+    return jsonResponse(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return jsonResponse({ error: 'execute_failed', message }, 500);
+  }
 }
 
 function handleSSE(url: URL, sseHub: SSEHub, sessionManager: SessionManager): Response {

@@ -572,15 +572,14 @@ describe('Backend execution — result normalization', () => {
     expect(output.success).toBe(true);
   });
 
-  test('failed backend result preserves error in output', async () => {
+  test('failed backend result (success:false) is treated as error', async () => {
     const { dispatcher, backend } = createDispatcher();
     backend.tapResult = { success: false, error: 'element not found' };
 
     const result = await dispatcher.dispatch(makeToolCall());
 
-    expect(result.status).toBe('ok'); // tool succeeded; backend returned a result
+    expect(result.status).toBe('error');
     const output = result.output as Record<string, unknown>;
-    expect(output.success).toBe(false);
     expect(output.error).toBe('element not found');
   });
 

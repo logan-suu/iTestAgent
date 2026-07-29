@@ -87,6 +87,16 @@ export class AiSdkAgentRuntime implements AgentRuntime {
         const event = this.mapStreamPart(part, turnId, sessionId);
         if (event) yield event;
       }
+
+      // Clean abort: signal was triggered during stream iteration
+      if (this.abortController.signal.aborted) {
+        yield {
+          type: 'session.aborted',
+          sessionId,
+          reason: this.abortController.signal.reason ?? 'aborted',
+        } satisfies AgentEvent;
+        return;
+      }
     } catch (err: unknown) {
       if (this.abortController.signal.aborted) {
         yield {
@@ -189,12 +199,12 @@ export class AiSdkAgentRuntime implements AgentRuntime {
       tools[name] = aiTool({
         description: def.description,
         parameters: def.parameters,
-        execute: async (args: unknown): Promise<unknown> => {
+        execute: async (args: unknown, options: { toolCallId: string }): Promise<unknown> => {
           if (!executor) {
             throw new Error('no tool executor configured');
           }
           const result = await executor({
-            id: '',
+            id: options.toolCallId,
             name,
             arguments: args as Record<string, unknown>,
           });

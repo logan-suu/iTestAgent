@@ -21,6 +21,13 @@
       "name": "itestagent-backends-analyzer-xcodequery",
       "version": "0.0.1",
     },
+    "packages/itestagent-backends/analyzer-xcresult": {
+      "name": "itestagent-backends-analyzer-xcresult",
+      "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+      },
+    },
     "packages/itestagent-backends/build-fastlane": {
       "name": "itestagent-backends-build-fastlane",
       "version": "0.0.1",
@@ -59,6 +66,13 @@
     "packages/itestagent-backends/performance-xctrace-analyzer": {
       "name": "itestagent-backends-performance-xctrace-analyzer",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+        "itestagent-server": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
     },
     "packages/itestagent-cli": {
       "name": "itestagent-cli",
@@ -109,6 +123,9 @@
     "packages/itestagent-report": {
       "name": "itestagent-report",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "*",
+      },
     },
     "packages/itestagent-server": {
       "name": "itestagent-server",
@@ -574,6 +591,8 @@
     "itestagent-backends-analyzer-xcodeproj": ["itestagent-backends-analyzer-xcodeproj@workspace:packages/itestagent-backends/analyzer-xcodeproj"],
 
     "itestagent-backends-analyzer-xcodequery": ["itestagent-backends-analyzer-xcodequery@workspace:packages/itestagent-backends/analyzer-xcodequery"],
+
+    "itestagent-backends-analyzer-xcresult": ["itestagent-backends-analyzer-xcresult@workspace:packages/itestagent-backends/analyzer-xcresult"],
 
     "itestagent-backends-build-fastlane": ["itestagent-backends-build-fastlane@workspace:packages/itestagent-backends/build-fastlane"],
 

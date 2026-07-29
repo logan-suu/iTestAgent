@@ -34,7 +34,10 @@ const mockRunStateMachine = {
   start(_runId: string): RunState {
     return 'created';
   },
-  cancel(_runId: string, _from: RunState, _reason?: string): RunState {
+  getState(_runId: string): RunState | undefined {
+    return 'created';
+  },
+  cancel(_runId: string, _fromOrReason?: string, _reason?: string): RunState {
     return 'cancelled';
   },
 } as unknown as RunStateMachine;

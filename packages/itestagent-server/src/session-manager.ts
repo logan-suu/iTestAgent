@@ -24,13 +24,8 @@ const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
  * tracked by RunStateMachine.
  */
 export class SessionManager {
-  /** SessionId → SessionInfo for all non-closed sessions. */
   private sessions = new Map<string, SessionInfo>();
 
-  /** runId → current RunState (forward chain + exception states). */
-  private runStates = new Map<string, RunState>();
-
-  /** sessionId → setTimeout handle for idle auto-close. */
   private idleTimers = new Map<string, Timer>();
 
   private sseHub: SSEHub;
@@ -110,8 +105,7 @@ export class SessionManager {
       });
 
     // Start the RunStateMachine: enters initial 'created' state.
-    const state = this.runStateMachine.start(runId);
-    this.runStates.set(runId, state);
+    this.runStateMachine.start(runId);
 
     // Track session in memory.
     this.sessions.set(sessionId, session);
@@ -148,11 +142,9 @@ export class SessionManager {
       return; // Already closed or never existed (idempotent).
     }
 
-    const currentState = this.runStates.get(session.runId);
+    const currentState = this.runStateMachine.getState(session.runId);
     if (currentState !== undefined) {
-      // Transition to cancelled via RunStateMachine.
-      const newState = this.runStateMachine.cancel(session.runId, currentState, 'session_closed');
-      this.runStates.set(session.runId, newState);
+      this.runStateMachine.cancel(session.runId, 'session_closed');
     }
 
     // Persist cancelled status to DB. .catch() triggers Promise resolution
@@ -207,18 +199,11 @@ export class SessionManager {
   // ─── Private: project hash ─────────────────────────────────
 
   /**
-   * Derive a stable hash from the workspace path.
-   *
-   * Uses a simple multiplicative hash — sufficient for
-   * local deduplication; not cryptographic.
+   * Derive a SHA-256 hash from the workspace path
+   * (matches project-analyzer's project hash algorithm).
    */
   private computeProjectHash(workspace: string): string {
-    return String(
-      workspace
-        .split('')
-        .reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0)
-        .toString(16),
-    );
+    return new Bun.CryptoHasher('sha256').update(workspace).digest('hex');
   }
 
   // ─── Private: idle timer management ────────────────────────

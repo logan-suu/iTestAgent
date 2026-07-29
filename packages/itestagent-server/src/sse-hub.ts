@@ -2,63 +2,88 @@ import type { AgentEvent } from 'itestagent-contracts';
 import { isTerminalEvent } from 'itestagent-contracts';
 import type { SSESubscriber } from './types.js';
 
+const EVENT_BUFFER_SIZE = 64;
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
+interface SessionState {
+  subscribers: Set<SSESubscriber>;
+  eventCounter: number;
+  buffer: Uint8Array[];
+  heartbeat: ReturnType<typeof setInterval> | null;
+}
+
 /**
  * SSE Hub — Server-Sent Events channel with session isolation.
  *
  * Architecture §7.4: SSE must be ordered, traceable, terminal-event-unique,
  * reconnectable, and isolated per session.
  *
- * Each sessionId has its own set of subscribers. Broadcasts are
- * session-scoped — subscribers for session A never receive events
- * from session B.
+ * Each sessionId has its own event counter, ring buffer for replay,
+ * and heartbeat keepalive. Subscribers are cleaned up on client disconnect
+ * via ReadableStream cancel callback.
  */
 export class SSEHub {
-  /** SessionId → Set of active subscribers. */
-  private subscribers = new Map<string, Set<SSESubscriber>>();
+  /** SessionId → session state. */
+  private sessions = new Map<string, SessionState>();
 
   /**
    * Subscribe to events for a given session.
    *
    * Returns a ReadableStream that the caller can pass as a Response body
-   * for SSE delivery. The stream closes when a terminal event is broadcast
+   * for SSE delivery. On client disconnect, the cancel callback removes
+   * the subscriber. The stream closes when a terminal event is broadcast
    * or when the subscriber is explicitly unsubscribed.
+   *
+   * Supports Last-Event-ID for reconnection: if the client sends
+   * Last-Event-ID header, buffered events after that ID are replayed first.
    */
-  subscribe(sessionId: string): ReadableStream<Uint8Array> {
-    // ReadableStream start() runs synchronously — controller is assigned before use.
+  subscribe(sessionId: string, lastEventId?: number): ReadableStream<Uint8Array> {
     let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const hub = this;
 
-    const stream = new ReadableStream<Uint8Array>({
-      start(c) {
-        controller = c;
-      },
-    });
-
+    // Create subscriber first (referenced by cancel callback)
     const subscriber: SSESubscriber = {
       sessionId,
-      controller,
+      get controller() {
+        return controller;
+      },
       cleanup: () => {
         try {
           controller.close();
         } catch {
-          // Controller may already be closed.
+          /* closed */
         }
       },
     };
 
-    this.getOrCreateSession(sessionId).add(subscriber);
-
-    // Remove subscriber when the client disconnects.
-    const originalCleanup = subscriber.cleanup;
+    const wrappedCleanup = subscriber.cleanup;
     subscriber.cleanup = () => {
-      const set = this.subscribers.get(sessionId);
-      if (set) {
-        set.delete(subscriber);
-        if (set.size === 0) {
-          this.subscribers.delete(sessionId);
-        }
-      }
-      originalCleanup();
+      hub.removeSubscriberRaw(sessionId, subscriber);
+      wrappedCleanup();
     };
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+        const state = hub.sessions.get(sessionId);
+        if (state && lastEventId !== undefined) {
+          for (const chunk of state.buffer.slice(lastEventId)) {
+            try {
+              c.enqueue(chunk);
+            } catch {
+              break;
+            }
+          }
+        }
+      },
+      cancel() {
+        subscriber.cleanup();
+      },
+    });
+
+    const state = hub.getOrCreateSession(sessionId);
+    state.subscribers.add(subscriber);
+    hub.ensureHeartbeat(sessionId);
 
     return stream;
   }
@@ -66,26 +91,33 @@ export class SSEHub {
   /**
    * Broadcast an AgentEvent to all subscribers of the given session.
    *
-   * If the event is terminal (isTerminalEvent returns true), all subscribers
-   * for that session are automatically cleaned up after delivery.
+   * Each event is assigned a session-scoped monotonic ID and buffered
+   * for reconnection replay. Terminal events close the session's SSE
+   * channel and stop the heartbeat.
    */
   broadcast(sessionId: string, event: AgentEvent): void {
-    const set = this.subscribers.get(sessionId);
-    if (!set || set.size === 0) {
-      return;
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
+
+    state.eventCounter += 1;
+    const encoded = this.encodeSSE(event, state.eventCounter);
+
+    // Ring buffer for replay
+    if (state.buffer.length >= EVENT_BUFFER_SIZE) {
+      state.buffer.shift();
     }
+    state.buffer.push(encoded);
 
-    const encoded = this.encodeSSE(event);
+    if (state.subscribers.size === 0) return;
 
-    for (const sub of set) {
+    for (const sub of state.subscribers) {
       try {
         sub.controller.enqueue(encoded);
       } catch {
-        // Subscriber's stream may already be closed — skip.
+        /* skip */
       }
     }
 
-    // Terminal events close the session's SSE channel.
     if (isTerminalEvent(event)) {
       this.closeSession(sessionId);
     }
@@ -98,69 +130,91 @@ export class SSEHub {
     subscriber.cleanup();
   }
 
-  /**
-   * Close all subscribers for a session and remove the session entry.
-   */
   closeSession(sessionId: string): void {
-    const set = this.subscribers.get(sessionId);
-    if (!set) {
-      return;
-    }
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
 
-    for (const sub of set) {
+    this.stopHeartbeat(sessionId);
+
+    for (const sub of state.subscribers) {
       try {
         sub.cleanup();
       } catch {
-        // Ignore cleanup errors.
+        /* skip */
       }
     }
 
-    this.subscribers.delete(sessionId);
+    this.sessions.delete(sessionId);
   }
 
-  /**
-   * Close all sessions and subscribers. Used during server shutdown.
-   */
   closeAll(): void {
-    for (const sessionId of [...this.subscribers.keys()]) {
+    for (const sessionId of [...this.sessions.keys()]) {
       this.closeSession(sessionId);
     }
   }
 
-  /**
-   * Return the number of active sessions (sessions with at least one subscriber).
-   */
   get sessionCount(): number {
-    return this.subscribers.size;
+    return this.sessions.size;
   }
 
-  /**
-   * Encode an AgentEvent as an SSE data frame.
-   *
-   * Format: `data: {JSON}\n\n`
-   * Includes `event:` for the event type and `id:` for monotonic tracking.
-   */
-  private eventCounter = 0;
-
-  private encodeSSE(event: AgentEvent): Uint8Array {
-    this.eventCounter += 1;
-    const lines = [
-      `event: ${event.type}`,
-      `id: ${this.eventCounter}`,
-      `data: ${JSON.stringify(event)}`,
-      '', // Blank line terminates the message.
-    ];
+  private encodeSSE(event: AgentEvent, eventId: number): Uint8Array {
+    const lines = [`event: ${event.type}`, `id: ${eventId}`, `data: ${JSON.stringify(event)}`, ''];
     return new TextEncoder().encode(lines.join('\n'));
   }
 
-  // ─── Private helpers ───────────────────────────────────────
-
-  private getOrCreateSession(sessionId: string): Set<SSESubscriber> {
-    let set = this.subscribers.get(sessionId);
-    if (!set) {
-      set = new Set();
-      this.subscribers.set(sessionId, set);
+  private getOrCreateSession(sessionId: string): SessionState {
+    let state = this.sessions.get(sessionId);
+    if (!state) {
+      state = {
+        subscribers: new Set(),
+        eventCounter: 0,
+        buffer: [],
+        heartbeat: null,
+      };
+      this.sessions.set(sessionId, state);
     }
-    return set;
+    return state;
+  }
+
+  private removeSubscriber(sessionId: string, subscriber: SSESubscriber): void {
+    this.removeSubscriberRaw(sessionId, subscriber);
+    subscriber.cleanup();
+  }
+
+  private removeSubscriberRaw(sessionId: string, subscriber: SSESubscriber): void {
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
+    state.subscribers.delete(subscriber);
+    if (state.subscribers.size === 0) {
+      this.stopHeartbeat(sessionId);
+    }
+  }
+
+  private ensureHeartbeat(sessionId: string): void {
+    const state = this.sessions.get(sessionId);
+    if (!state || state.heartbeat) return;
+
+    state.heartbeat = setInterval(() => {
+      const s = this.sessions.get(sessionId);
+      if (!s || s.subscribers.size === 0) {
+        this.stopHeartbeat(sessionId);
+        return;
+      }
+      for (const sub of s.subscribers) {
+        try {
+          sub.controller.enqueue(new TextEncoder().encode(': keepalive\n\n'));
+        } catch {
+          /* skip */
+        }
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(sessionId: string): void {
+    const state = this.sessions.get(sessionId);
+    if (state?.heartbeat) {
+      clearInterval(state.heartbeat);
+      state.heartbeat = null;
+    }
   }
 }

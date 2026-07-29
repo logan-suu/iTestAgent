@@ -1,6 +1,5 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { findProjectFile } from 'itestagent-backends-analyzer-xcodeproj';
 
 /**
  * AppSourceResolver — App source decision engine (task 3.1).
@@ -67,6 +66,9 @@ export interface AppSourceContext {
   strategy: AppSourceStrategy;
   workspaceRoot: string;
   userAppPath?: string;
+  findProjectFile?: (
+    root: string,
+  ) => { type: 'xcode_workspace' | 'xcode_project'; path: string } | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -159,7 +161,7 @@ export function resolveAppSource(ctx: AppSourceContext): AppSourceResolution {
   }
 
   // ── 3. Detect project file (.xcworkspace / .xcodeproj) ────────
-  const projectFile = findProjectFile(absRoot);
+  const projectFile = ctx.findProjectFile?.(absRoot);
   if (projectFile) {
     return {
       kind: 'build_required',

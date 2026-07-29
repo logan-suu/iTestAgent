@@ -18,7 +18,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 
-import { findProjectFile as defaultFindProjectFile } from 'itestagent-backends-analyzer-xcodeproj';
 import type {
   ArchiveInput,
   ArchiveResult,
@@ -169,7 +168,11 @@ export function createXcodebuildBuildDriver(deps?: Partial<XcodebuildDriverDeps>
   const spawnSync = deps?.spawnSync ?? defaultSpawnSync;
   const spawnAsync = deps?.spawnAsync ?? defaultSpawnAsync;
   const beautify = deps?.beautify ?? defaultBeautify;
-  const resolveProjectFile = deps?.findProjectFile ?? defaultFindProjectFile;
+  const findProjectFile = deps?.findProjectFile;
+  if (!findProjectFile) {
+    throw new Error('findProjectFile dependency is required for BuildDriver');
+  }
+  const resolveProjectFile = findProjectFile;
   const findApp = deps?.findAppPath ?? findAppInDerivedData;
 
   // Devicectl ops: use same spawn fns for consistency; tests can inject their own via deps.

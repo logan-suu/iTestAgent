@@ -260,6 +260,7 @@ export class ToolDispatcher {
   private targetKind: TargetKind;
   private onEvent: EventEmitter | undefined;
   private signal: AbortSignal | undefined;
+  private deviceLocks = new Map<string, Promise<void>>();
 
   constructor(options: ToolDispatcherOptions) {
     this.permissionEngine = options.permissionEngine;
@@ -351,16 +352,33 @@ export class ToolDispatcher {
 
     const backend = selectResult.backend;
 
-    // 6. Emit tool.started
-    this.emit({
-      type: 'tool.started',
-      callId,
-      name: parsedCall.name,
-      backend: backend.name,
-    });
+    // Per-device serialization: extract device id and queue on same UDID
+    const deviceId =
+      ((parsedArgs as Record<string, unknown>).deviceId as string | undefined) ??
+      ((parsedArgs as Record<string, unknown>).udid as string | undefined);
 
+    let deviceRelease: (() => void) | undefined;
+    if (deviceId) {
+      const prevLock = this.deviceLocks.get(deviceId) ?? Promise.resolve();
+      await prevLock;
+      this.deviceLocks.set(
+        deviceId,
+        new Promise<void>((r) => {
+          deviceRelease = r;
+        }),
+      );
+    }
+
+    // 6. Emit tool.started (inside try so device lock covers emit failures)
     // 7. Execute backend method
     try {
+      this.emit({
+        type: 'tool.started',
+        callId,
+        name: parsedCall.name,
+        backend: backend.name,
+      });
+
       // Abort check before execution
       if (this.signal?.aborted) {
         this.emit({
@@ -374,7 +392,27 @@ export class ToolDispatcher {
       const method = backend[mapping.method] as (...args: unknown[]) => Promise<unknown>;
       const rawResult = await method.call(backend, parsedArgs);
 
-      // 8. Collect artifacts
+      // 8. Check for backend-level failure (H-02 fix: success:false → error).
+      if (rawResult && typeof rawResult === 'object') {
+        const resultObj = rawResult as Record<string, unknown>;
+        if (resultObj.success === false || 'error' in resultObj) {
+          const errorMsg = String(
+            resultObj.error ?? resultObj.message ?? 'Backend operation failed',
+          );
+          this.emit({
+            type: 'tool.failed',
+            callId,
+            error: { code: 'backend.error', message: errorMsg },
+          });
+          return {
+            callId,
+            status: 'error',
+            output: { error: errorMsg },
+          };
+        }
+      }
+
+      // 9. Collect artifacts
       const artifacts: ArtifactRef[] = [];
       if (rawResult && typeof rawResult === 'object') {
         const resultObj = rawResult as Record<string, unknown>;
@@ -389,10 +427,10 @@ export class ToolDispatcher {
         }
       }
 
-      // 9. Normalize output
+      // 10. Normalize output
       const normalized = normalizeOutput(rawResult);
 
-      // 10. Emit tool.completed
+      // 11. Emit tool.completed
       this.emit({
         type: 'tool.completed',
         callId,
@@ -432,6 +470,8 @@ export class ToolDispatcher {
           backend: backend.name,
         },
       };
+    } finally {
+      deviceRelease?.();
     }
   }
 

@@ -10,6 +10,7 @@
  */
 
 import type { RunStep } from 'itestagent-contracts';
+import { redactValue } from '../context-builder.js';
 import type { LocatorResult } from './types.js';
 
 // ─── Step Record ────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export class RunStepRecorder {
     if (!record) return;
 
     const durationMs = Date.now() - record.startedAt;
+    const sanitizedResult = sanitizeUnknown(result);
 
     this.steps.push({
       stepId: record.stepId,
@@ -99,7 +101,7 @@ export class RunStepRecorder {
             }
           : undefined,
       },
-      result: result ?? { ok: true },
+      result: sanitizedResult ?? { ok: true },
       artifacts: [...record.artifacts, ...artifacts],
       startedAt: new Date(record.startedAt).toISOString(),
       durationMs,
@@ -135,11 +137,11 @@ export class RunStepRecorder {
             }
           : undefined,
       },
-      result: {
+      result: sanitizeUnknown({
         error,
         degradation: true,
         ac4_note: 'Element location failed or action was unreliable — explicitly degraded per AC4.',
-      },
+      }),
       artifacts: record.artifacts,
       startedAt: new Date(record.startedAt).toISOString(),
       durationMs,
@@ -195,4 +197,24 @@ export class RunStepRecorder {
     this.active.clear();
     this.stepCounter = 0;
   }
+}
+
+function sanitizeUnknown(value: unknown): unknown {
+  if (typeof value === 'string') {
+    try {
+      return redactValue(value);
+    } catch {
+      return '[REDACTED]';
+    }
+  }
+  if (typeof value === 'object' && value !== null) {
+    try {
+      const json = JSON.stringify(value);
+      const redacted = redactValue(json);
+      return JSON.parse(redacted);
+    } catch {
+      return '[UNSERIALIZABLE_RESULT_REDACTED]';
+    }
+  }
+  return value;
 }
