@@ -238,7 +238,7 @@ R12 所有对外可见的版本控制内容必须使用英文。项目文档（d
 语义层  ProjectProfile / TestPlan / RunStep / Flow / ArtifactRef
 Backend接口层  DeviceBackend / PerformanceBackend / BuildDriver / ProjectAnalyzerBackend / StoreDriver
 Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQuery / Drizzle / Kysely
-工具层  Xcode / Appium / WDA / xctrace / devicectl / iPhone 真机
+工具层  Xcode 26+ / Appium / WDA / xctrace / devicectl / iPhone 真机
 存储层  itestagent-store（SQLite + 文件系统 + 报告）
 
 Harness 边界（ADR-010）：

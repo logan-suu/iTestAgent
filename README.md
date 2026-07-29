@@ -60,7 +60,7 @@ Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQu
 
 - macOS + Xcode + Command Line Tools
 - 支持开发者签名的 Apple ID
-- iPhone 真机（iOS 16+）或 iOS Simulator（Xcode 16+）
+- iPhone 真机（iOS 16+）或 iOS Simulator（Xcode 26+）
 - Bun ≥ 1.x
 - OpenAI-compatible API Key
 
