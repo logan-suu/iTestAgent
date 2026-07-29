@@ -569,7 +569,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
       const parsed = JSON.parse(raw) as {
         result?: {
           devices?: Array<{
-            connectionProperties?: { tunnelState?: string };
+            connectionProperties?: {
+              tunnelState?: string;
+              transportType?: string;
+              pairingState?: string;
+            };
             hardwareProperties?: { udid?: string; productType?: string };
             deviceProperties?: { name?: string; osVersionNumber?: string };
           }>;
@@ -581,8 +585,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return devices
         .filter(
           (d) =>
-            d.connectionProperties?.tunnelState === 'connected' ||
-            d.connectionProperties?.tunnelState === 'available',
+            d.connectionProperties?.transportType === 'wired' &&
+            d.connectionProperties?.pairingState === 'paired',
         )
         .map((d) => ({
           udid: String(d.hardwareProperties?.udid ?? ''),
