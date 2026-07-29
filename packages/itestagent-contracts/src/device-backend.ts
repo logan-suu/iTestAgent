@@ -35,50 +35,50 @@ export interface DeviceBackend {
   readonly capabilities: BackendCapabilities;
 
   /** 设备发现 */
-  listDevices(): Promise<DeviceInfo[]>;
+  listDevices(signal?: AbortSignal): Promise<DeviceInfo[]>;
 
   /** 设备健康检查 */
-  healthcheck(deviceId: string): Promise<HealthCheckResult>;
+  healthcheck(deviceId: string, signal?: AbortSignal): Promise<HealthCheckResult>;
 
   /** 已安装 App 列表 */
-  listApps(deviceId: string): Promise<AppInfo[]>;
+  listApps(deviceId: string, signal?: AbortSignal): Promise<AppInfo[]>;
 
   /** 启动 App */
-  launchApp(input: LaunchAppInput): Promise<ActionResult>;
+  launchApp(input: LaunchAppInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 终止 App */
-  terminateApp(input: TerminateAppInput): Promise<ActionResult>;
+  terminateApp(input: TerminateAppInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 获取 UI 树（accessibility tree） */
-  getUiTree(input: DeviceTarget): Promise<UiTreeSnapshot>;
+  getUiTree(input: DeviceTarget, signal?: AbortSignal): Promise<UiTreeSnapshot>;
 
   /** 截图 */
-  screenshot(input: ScreenshotInput): Promise<ArtifactRef>;
+  screenshot(input: ScreenshotInput, signal?: AbortSignal): Promise<ArtifactRef>;
 
   /** 点击（normalized coordinates 0-1） */
-  tap(input: TapInput): Promise<ActionResult>;
+  tap(input: TapInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 滑动 */
-  swipe(input: SwipeInput): Promise<ActionResult>;
+  swipe(input: SwipeInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 输入文本 */
-  typeText(input: TypeTextInput): Promise<ActionResult>;
+  typeText(input: TypeTextInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 按硬件按钮 */
-  pressButton(input: PressButtonInput): Promise<ActionResult>;
+  pressButton(input: PressButtonInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 打开 URL/Deep Link */
-  openUrl(input: OpenUrlInput): Promise<ActionResult>;
+  openUrl(input: OpenUrlInput, signal?: AbortSignal): Promise<ActionResult>;
 
   /** 开始录制（视频/截图） */
-  startRecording(input: RecordingInput): Promise<RecordingHandle>;
+  startRecording(input: RecordingInput, signal?: AbortSignal): Promise<RecordingHandle>;
 
   /** 停止录制 */
-  stopRecording(input: RecordingHandle): Promise<ArtifactRef>;
+  stopRecording(input: RecordingHandle, signal?: AbortSignal): Promise<ArtifactRef>;
 
   /** 崩溃日志列表 */
-  listCrashes(input: DeviceTarget): Promise<CrashSummary[]>;
+  listCrashes(input: DeviceTarget, signal?: AbortSignal): Promise<CrashSummary[]>;
 
   /** 收集日志（syslog/crashlog） */
-  collectLogs(input: LogCollectInput): Promise<ArtifactRef>;
+  collectLogs(input: LogCollectInput, signal?: AbortSignal): Promise<ArtifactRef>;
 }

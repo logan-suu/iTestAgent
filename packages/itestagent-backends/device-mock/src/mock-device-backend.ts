@@ -95,11 +95,11 @@ export class MockDeviceBackend implements DeviceBackend {
 
   // ─── DeviceBackend Interface ────────────────────────────────
 
-  listDevices(): Promise<DeviceInfo[]> {
+  listDevices(_signal?: AbortSignal): Promise<DeviceInfo[]> {
     return Promise.resolve([...this.cfg.devices]);
   }
 
-  healthcheck(deviceId: string): Promise<HealthCheckResult> {
+  healthcheck(deviceId: string, _signal?: AbortSignal): Promise<HealthCheckResult> {
     const found = this.cfg.devices.some((d) => d.udid === deviceId);
     if (found) {
       return Promise.resolve({ healthy: true });
@@ -107,59 +107,59 @@ export class MockDeviceBackend implements DeviceBackend {
     return Promise.resolve({ healthy: false, details: 'device not found' });
   }
 
-  listApps(_deviceId: string): Promise<AppInfo[]> {
+  listApps(_deviceId: string, _signal?: AbortSignal): Promise<AppInfo[]> {
     return Promise.resolve([...this.cfg.apps]);
   }
 
-  launchApp(_input: LaunchAppInput): Promise<ActionResult> {
+  launchApp(_input: LaunchAppInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  terminateApp(_input: TerminateAppInput): Promise<ActionResult> {
+  terminateApp(_input: TerminateAppInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  getUiTree(_input: DeviceTarget): Promise<UiTreeSnapshot> {
+  getUiTree(_input: DeviceTarget, _signal?: AbortSignal): Promise<UiTreeSnapshot> {
     return Promise.resolve({ ...this.cfg.uiTree, capturedAt: new Date().toISOString() });
   }
 
-  screenshot(_input: ScreenshotInput): Promise<ArtifactRef> {
+  screenshot(_input: ScreenshotInput, _signal?: AbortSignal): Promise<ArtifactRef> {
     return Promise.resolve({ ...this.cfg.screenshot });
   }
 
-  tap(_input: TapInput): Promise<ActionResult> {
+  tap(_input: TapInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  swipe(_input: SwipeInput): Promise<ActionResult> {
+  swipe(_input: SwipeInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  typeText(_input: TypeTextInput): Promise<ActionResult> {
+  typeText(_input: TypeTextInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  pressButton(_input: PressButtonInput): Promise<ActionResult> {
+  pressButton(_input: PressButtonInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  openUrl(_input: OpenUrlInput): Promise<ActionResult> {
+  openUrl(_input: OpenUrlInput, _signal?: AbortSignal): Promise<ActionResult> {
     return Promise.resolve({ ...this.cfg.actionResult });
   }
 
-  startRecording(_input: RecordingInput): Promise<RecordingHandle> {
+  startRecording(_input: RecordingInput, _signal?: AbortSignal): Promise<RecordingHandle> {
     return Promise.resolve({ ...this.cfg.recordingHandle });
   }
 
-  stopRecording(_input: RecordingHandle): Promise<ArtifactRef> {
+  stopRecording(_input: RecordingHandle, _signal?: AbortSignal): Promise<ArtifactRef> {
     return Promise.resolve({ ...this.cfg.logArtifact });
   }
 
-  listCrashes(_input: DeviceTarget): Promise<CrashSummary[]> {
+  listCrashes(_input: DeviceTarget, _signal?: AbortSignal): Promise<CrashSummary[]> {
     return Promise.resolve([...this.cfg.crashLogs]);
   }
 
-  collectLogs(_input: LogCollectInput): Promise<ArtifactRef> {
+  collectLogs(_input: LogCollectInput, _signal?: AbortSignal): Promise<ArtifactRef> {
     return Promise.resolve({ ...this.cfg.logArtifact });
   }
 }
