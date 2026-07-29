@@ -583,11 +583,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
       const devices = parsed?.result?.devices ?? [];
 
       return devices
-        .filter(
-          (d) =>
-            d.connectionProperties?.transportType === 'wired' &&
-            d.connectionProperties?.pairingState === 'paired',
-        )
+        .filter((d) => {
+          const cp = d.connectionProperties;
+          if (!cp) return false;
+          // Xcode 26+: tunnel is lazy — accept any wired+paired device
+          if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
+          // Xcode <26: tunnel state is authoritative
+          if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
+          return false;
+        })
         .map((d) => ({
           udid: String(d.hardwareProperties?.udid ?? ''),
           name: d.deviceProperties?.name,
