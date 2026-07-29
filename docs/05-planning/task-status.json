@@ -979,11 +979,11 @@
           "id": "4.9",
           "title": "Phase 4 集成测试：证据/性能/报告联调验证",
           "story": null,
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/02-architecture/数据流全链路技术说明文档.md"
           ],
-          "notes": "验证证据采集→xcresult解析→PerformanceBackend(physical+simulator)→baseline(分域)→归因→报告三件套全链路。physical 和 simulator 双目标证据验证。",
+          "notes": "测试文件: phase4-evidence-to-report.test.ts (P0: EvidenceCollector→FailureExplainer→ReportSynthesizer, 9 tests), phase4-performance-baseline.test.ts (P0: BaselineManager→BaselineStore→BaselineDelta + ADR-011 domain isolation, 17 tests), phase4-xcresult-pipeline.test.ts (P1: createXcresultParser→JUnit XML→TestCaseResult, 9 tests), phase4-schema-contracts.test.ts (P2: Zod schema round-trips for TraceSummary/BaselineRecord/BaselineDelta/FailureExplanation/RunResult/ArtifactIndex, 18 tests). 53 tests / 0 fail. G3 typecheck 0 / lint 0 / G4 53 pass. Coverage: P0 3/3 chains (evidence→report, perf→baseline, cross-package schemas), P1 1/1 (xcresult parser), P2 6/6 schema round-trips.",
           "dependencies": [
             "4.1",
             "4.2",
@@ -994,7 +994,8 @@
             "4.7",
             "4.8"
           ],
-          "test_file": null
+          "test_file": null,
+          "last_updated": "2026-07-29T14:30:00.000Z"
         }
       ]
     },
@@ -1050,7 +1051,7 @@
           "id": "5.4",
           "title": "explain + rerun --failed-only",
           "story": "US-14.1, US-16.1",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -1065,7 +1066,7 @@
           "id": "5.5",
           "title": "安全与脱敏收尾：日志/报告/Keychain/写项目确认",
           "story": "US-18.3",
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/03-implementation/开发避坑与关键注意点手册.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
