@@ -242,13 +242,26 @@ export class BaselineManager {
   /**
    * Accept a new baseline by updating an existing record with the given run ID.
    *
-   * AC4: User confirms accepting new baseline (PermissionEngine handles the gate,
-   * this method performs only the store operation).
+   * AC4: User confirms accepting new baseline.
+   * R7: Accepting a new baseline requires user confirmation.
+   * Pass `confirmed: true` to proceed. Throws if called without explicit confirmation.
    *
    * Prepends runId to reachableRuns and bumps updatedAt.
    * Returns null if no baseline exists for the key.
    */
-  async acceptNewBaseline(runId: string, key: string): Promise<BaselineRecord | null> {
+  async acceptNewBaseline(
+    runId: string,
+    key: string,
+    confirmed?: boolean,
+  ): Promise<BaselineRecord | null> {
+    // R7: baseline acceptance requires explicit user confirmation
+    if (confirmed !== true) {
+      throw new Error(
+        'R7: Accepting a new baseline requires user confirmation. ' +
+          'Pass confirmed: true to proceed.',
+      );
+    }
+
     const existing = await this.baselineStore.get(key);
     if (!existing) return null;
 

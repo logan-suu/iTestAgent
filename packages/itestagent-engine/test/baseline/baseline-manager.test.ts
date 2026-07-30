@@ -740,6 +740,7 @@ describe('acceptNewBaseline', () => {
     const result = await manager.acceptNewBaseline(
       'run-002',
       'nonexistent|physical|iPhone|18.0|smoke',
+      true,
     );
     expect(result).toBeNull();
   });
@@ -752,7 +753,7 @@ describe('acceptNewBaseline', () => {
     });
     store.seed(original);
 
-    const result = await manager.acceptNewBaseline('run-002', original.key);
+    const result = await manager.acceptNewBaseline('run-002', original.key, true);
 
     expect(result).not.toBeNull();
     expect(result?.reachableRuns).toEqual(['run-002', 'run-001']);
@@ -766,8 +767,8 @@ describe('acceptNewBaseline', () => {
     });
     store.seed(original);
 
-    await manager.acceptNewBaseline('run-002', original.key);
-    const result = await manager.acceptNewBaseline('run-003', original.key);
+    await manager.acceptNewBaseline('run-002', original.key, true);
+    const result = await manager.acceptNewBaseline('run-003', original.key, true);
 
     expect(result?.reachableRuns).toEqual(['run-003', 'run-002', 'run-001']);
   });
@@ -780,7 +781,7 @@ describe('acceptNewBaseline', () => {
     });
     store.seed(original);
 
-    const accepted = await manager.acceptNewBaseline('run-002', original.key);
+    const accepted = await manager.acceptNewBaseline('run-002', original.key, true);
 
     expect(accepted).not.toBeNull();
     if (!accepted) throw new Error('expected non-null');
@@ -807,7 +808,7 @@ describe('acceptNewBaseline', () => {
     });
     store.seed(original);
 
-    const result = await manager.acceptNewBaseline('run-002', original.key);
+    const result = await manager.acceptNewBaseline('run-002', original.key, true);
 
     expect(result?.schemaVersion).toBe(2);
     expect(result?.key).toBe(original.key);
@@ -832,7 +833,7 @@ describe('acceptNewBaseline', () => {
     });
     store.seed(original);
 
-    const result = await manager.acceptNewBaseline('run-002', original.key);
+    const result = await manager.acceptNewBaseline('run-002', original.key, true);
 
     expect(result?.updatedFromRun).toBe('run-002');
   });
@@ -845,7 +846,7 @@ describe('acceptNewBaseline', () => {
     store.seed(original);
     const saveCountBefore = store.saved.length;
 
-    await manager.acceptNewBaseline('run-newsave', original.key);
+    await manager.acceptNewBaseline('run-newsave', original.key, true);
 
     expect(store.saved.length).toBe(saveCountBefore + 1);
     expect(store.saved[store.saved.length - 1]?.updatedFromRun).toBe('run-newsave');
@@ -858,7 +859,7 @@ describe('acceptNewBaseline', () => {
     });
     store.seed(original);
 
-    await manager.acceptNewBaseline('run-002', original.key);
+    await manager.acceptNewBaseline('run-002', original.key, true);
 
     const stored = await store.get(original.key);
     expect(stored?.updatedFromRun).toBe('run-002');
@@ -920,7 +921,7 @@ describe('edge cases', () => {
 
     // Accept new baseline
     const key = buildBaselineKey(makeKeyContext());
-    const accepted = await manager.acceptNewBaseline('run-004', key);
+    const accepted = await manager.acceptNewBaseline('run-004', key, true);
     expect(accepted?.reachableRuns).toContain('run-004');
   });
 
@@ -1011,10 +1012,10 @@ describe('edge cases', () => {
     const original = makeBaselineRecord({ key, reachableRuns: ['run-A'] });
     store.seed(original);
 
-    const r1 = await manager.acceptNewBaseline('run-B', key);
+    const r1 = await manager.acceptNewBaseline('run-B', key, true);
     expect(r1?.reachableRuns).toEqual(['run-B', 'run-A']);
 
-    const r2 = await manager.acceptNewBaseline('run-C', key);
+    const r2 = await manager.acceptNewBaseline('run-C', key, true);
     expect(r2?.reachableRuns).toEqual(['run-C', 'run-B', 'run-A']);
   });
 

@@ -52,7 +52,7 @@ import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions, WdaStartupMode } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
-import { type RedactingLogger, createRedactingLogger } from './redactor.js';
+import { type RedactingLogger, createRedactingLogger, redactError } from './redactor.js';
 import type { WdaManager } from './wda-manager.js';
 
 // ─── Subprocess helper ─────────────────────────────────────────
@@ -525,14 +525,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
     if (error instanceof AppiumDriverError) {
       return {
         success: false,
-        error: `[${error.code}] ${operation}: ${error.message}`,
+        error: `[${error.code}] ${operation}: ${redactError(error.message)}`,
       };
     }
 
     const message = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `${operation}: ${message}`,
+      error: `${operation}: ${redactError(message)}`,
     };
   }
 

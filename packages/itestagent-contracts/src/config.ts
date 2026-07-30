@@ -15,7 +15,6 @@ import { z } from 'zod';
  * Note: US-18.2 AC3 (credential masking + Keychain integration) is implemented by task 1.10.
  * apiKeyRef stores only the reference name (never a plaintext key). Real credentials are
  * injected at runtime via SecretStore and never enter the config object.
- * maskSensitiveFields therefore requires no additional masking.
  */
 
 // ─── Model Config Section ──────────────────────────────────
@@ -128,13 +127,4 @@ export const DEFAULT_CONFIG: ItestAgentConfig = ItestAgentConfigSchema.parse({})
  */
 export function parseConfig(raw: unknown): ItestAgentConfig {
   return ItestAgentConfigSchema.parse(raw);
-}
-
-/**
- * Mask sensitive fields in config for display/logging (R6).
- * apiKeyRef is not masked (it is a reference name, not a plaintext key — US-18.2 AC3).
- * Real credentials are injected at runtime via SecretStore and never enter the config object.
- */
-export function maskSensitiveFields(config: ItestAgentConfig): ItestAgentConfig {
-  return config;
 }

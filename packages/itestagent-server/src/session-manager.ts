@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { RunState } from 'itestagent-contracts';
-import type { RunStateMachine } from 'itestagent-engine';
+import { type RunStateMachine, redactValue } from 'itestagent-engine';
 import { schema } from 'itestagent-store';
 import type { DbClient } from 'itestagent-store';
 
@@ -84,7 +84,10 @@ export class SessionManager {
       .onConflictDoNothing()
       .catch((err: unknown) => {
         if (process.env.ITESTAGENT_DEBUG) {
-          console.warn('[SessionManager] DB insert (projects) failed:', err);
+          console.warn(
+            '[SessionManager] DB insert (projects) failed:',
+            redactValue(err instanceof Error ? err.message : String(err)),
+          );
         }
       });
 
@@ -100,7 +103,10 @@ export class SessionManager {
       })
       .catch((err: unknown) => {
         if (process.env.ITESTAGENT_DEBUG) {
-          console.warn('[SessionManager] DB insert (runs) failed:', err);
+          console.warn(
+            '[SessionManager] DB insert (runs) failed:',
+            redactValue(err instanceof Error ? err.message : String(err)),
+          );
         }
       });
 
@@ -155,7 +161,10 @@ export class SessionManager {
       .where(eq(runs.runId, session.runId))
       .catch((err: unknown) => {
         if (process.env.ITESTAGENT_DEBUG) {
-          console.warn('[SessionManager] DB update (runs) failed:', err);
+          console.warn(
+            '[SessionManager] DB update (runs) failed:',
+            redactValue(err instanceof Error ? err.message : String(err)),
+          );
         }
       });
 

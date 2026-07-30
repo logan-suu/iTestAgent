@@ -364,7 +364,7 @@ describe('profile-io (AC2, AC3, AC4)', () => {
     const profile = await generateProjectProfile(backend, '/fake/MyApp');
 
     const projectRoot = join(tmpDir, 'MyApp');
-    saveProfileToProject(profile, projectRoot);
+    saveProfileToProject(profile, projectRoot, true);
 
     const expectedPath = join(projectRoot, '.itestagent', 'project-profile.json');
     const saved = JSON.parse(readFileSync(expectedPath, 'utf-8'));

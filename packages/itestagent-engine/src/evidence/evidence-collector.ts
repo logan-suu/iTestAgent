@@ -24,6 +24,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { ArtifactRef, ArtifactStore } from 'itestagent-contracts';
+import { redactValue } from '../context-builder.js';
 import { symbolicateCrashlog } from './crashlog-symbolicator.js';
 import {
   simctlCollectCrashLogs,
@@ -112,7 +113,7 @@ export class EvidenceCollector {
         throw result.reason;
       } else {
         console.warn(
-          `[EvidenceCollector] Unexpected error during evidence collection: ${result.reason}`,
+          `[EvidenceCollector] Unexpected error during evidence collection: ${redactValue(result.reason instanceof Error ? result.reason.message : String(result.reason))}`,
         );
       }
     }
@@ -307,7 +308,7 @@ export class EvidenceCollector {
               } catch (symErr) {
                 const symMsg = symErr instanceof Error ? symErr.message : String(symErr);
                 console.warn(
-                  `[EvidenceCollector] Symbolication failed for ${crashRef.path}: ${symMsg}`,
+                  `[EvidenceCollector] Symbolication failed for ${redactValue(crashRef.path)}: ${redactValue(symMsg)}`,
                 );
               }
             }

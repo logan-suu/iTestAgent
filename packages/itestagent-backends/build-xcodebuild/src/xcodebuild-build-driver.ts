@@ -36,6 +36,20 @@ import type { DevicectlDeps, DevicectlOps } from './devicectl-ops.js';
 import { diagnoseSigningError } from './signing-diagnostics.js';
 import type { SigningDiagnostic } from './signing-diagnostics.js';
 
+// ─── PII Redaction ────────────────────────────────────────────────
+
+/**
+ * Redact personally-identifiable and device-identifying information
+ * from console output. Backend implementations are independent (ADR-010)
+ * and must NOT import from engine or other backends.
+ */
+function redactPii(msg: string): string {
+  return msg
+    .replace(/[A-F0-9]{8}-[A-F0-9]{16}/gi, '[udid]')
+    .replace(/[A-Z0-9]{10}/g, '[team-id]')
+    .replace(/\/Users\/[^/\s]+/g, '[home-path]');
+}
+
 // ─── Types ────────────────────────────────────────────────────────
 
 /** Result of a synchronous subprocess call. */
@@ -564,8 +578,9 @@ function findAppInDerivedData(
     // DerivedData scan failed — non-blocking (caller continues without appPath).
     // Log as warning so the failure is not silent (R5 compliance).
     console.warn(
-      `[itestagent-build] findAppInDerivedData: scan failed for ${derivedDataPath}:`,
-      err instanceof Error ? err.message : String(err),
+      redactPii(
+        `[itestagent-build] findAppInDerivedData: scan failed for ${derivedDataPath}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
     );
   }
 

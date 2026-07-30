@@ -23,6 +23,7 @@ import {
 } from 'itestagent-contracts';
 import { parseToolCall } from 'itestagent-contracts';
 import type { BackendSelector } from './backend-selector.js';
+import { redactValue } from './context-builder.js';
 import type { PermissionEngine, ResolveResult } from './permission-engine.js';
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -238,11 +239,11 @@ function normalizeOutput(raw: unknown): unknown {
 function normalizeError(error: unknown): { error: string; cause?: string } {
   if (error instanceof Error) {
     return {
-      error: error.message,
-      cause: error.cause ? String(error.cause) : undefined,
+      error: redactValue(error.message),
+      cause: error.cause ? redactValue(String(error.cause)) : undefined,
     };
   }
-  return { error: String(error) };
+  return { error: redactValue(String(error)) };
 }
 
 // ─── ToolDispatcher ────────────────────────────────────────────
