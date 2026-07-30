@@ -30,11 +30,7 @@ import type {
 } from 'itestagent-contracts';
 
 import type { FlowV2, ReplayResult } from 'itestagent-flow';
-import {
-  checkTargetCompatibility,
-  generateDraft,
-  replayFlow,
-} from 'itestagent-flow';
+import { checkTargetCompatibility, generateDraft, replayFlow } from 'itestagent-flow';
 import { createDb, createRunStore, schema } from 'itestagent-store';
 import type { DbClient, RunStore } from 'itestagent-store';
 
@@ -62,7 +58,13 @@ function makeMockCapabilities(): BackendCapabilities {
 }
 
 function makeScreenshotRef(id = 'ss-001'): ArtifactRef {
-  return { id, type: 'screenshot', path: `artifacts/${id}.png`, mimeType: 'image/png', redactionStatus: 'safe' };
+  return {
+    id,
+    type: 'screenshot',
+    path: `artifacts/${id}.png`,
+    mimeType: 'image/png',
+    redactionStatus: 'safe',
+  };
 }
 
 /**
@@ -80,7 +82,14 @@ function createMockBackend(overrides?: {
 
     async listDevices(): Promise<DeviceInfo[]> {
       return [
-        { udid: 'test-udid', name: 'iPhone 14 Plus', model: 'iPhone14,8', osVersion: '18.2', platform: 'ios', targetKind: 'physical' },
+        {
+          udid: 'test-udid',
+          name: 'iPhone 14 Plus',
+          model: 'iPhone14,8',
+          osVersion: '18.2',
+          platform: 'ios',
+          targetKind: 'physical',
+        },
       ];
     },
     async healthcheck(_deviceId: string): Promise<HealthCheckResult> {
@@ -96,27 +105,46 @@ function createMockBackend(overrides?: {
       return makePassResult(`Terminated ${input.bundleId}`);
     },
     async getUiTree(_input: DeviceTarget): Promise<UiTreeSnapshot> {
-      return { raw: '<App><Button name="Login"/></App>', format: 'xml', capturedAt: new Date().toISOString() };
+      return {
+        raw: '<App><Button name="Login"/></App>',
+        format: 'xml',
+        capturedAt: new Date().toISOString(),
+      };
     },
-    async screenshot(_input: { deviceId: string; compressionQuality?: number }): Promise<ArtifactRef> {
+    async screenshot(_input: {
+      deviceId: string;
+      compressionQuality?: number;
+    }): Promise<ArtifactRef> {
       return makeScreenshotRef();
     },
     async tap(_input: { deviceId: string; x: number; y: number }): Promise<ActionResult> {
       return overrides?.tapResult ?? makePassResult('Tapped');
     },
-    async swipe(_input: { deviceId: string; fromX: number; fromY: number; toX: number; toY: number }): Promise<ActionResult> {
+    async swipe(_input: {
+      deviceId: string;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+    }): Promise<ActionResult> {
       return makePassResult('Swiped');
     },
     async typeText(_input: { deviceId: string; text: string }): Promise<ActionResult> {
       return makePassResult('Typed text');
     },
-    async pressButton(_input: { deviceId: string; button: 'home' | 'back' | 'power' | 'volumeUp' | 'volumeDown' }): Promise<ActionResult> {
+    async pressButton(_input: {
+      deviceId: string;
+      button: 'home' | 'back' | 'power' | 'volumeUp' | 'volumeDown';
+    }): Promise<ActionResult> {
       return makePassResult('Button pressed');
     },
     async openUrl(_input: { deviceId: string; url: string }): Promise<ActionResult> {
       return makePassResult('URL opened');
     },
-    async startRecording(_input: { deviceId: string; timeLimitSec?: number }): Promise<RecordingHandle> {
+    async startRecording(_input: {
+      deviceId: string;
+      timeLimitSec?: number;
+    }): Promise<RecordingHandle> {
       return { handleId: 'rec-1', startedAt: new Date().toISOString() };
     },
     async stopRecording(_input: RecordingHandle): Promise<ArtifactRef> {
@@ -125,8 +153,12 @@ function createMockBackend(overrides?: {
     async listCrashes(_input: DeviceTarget): Promise<CrashSummary[]> {
       return [];
     },
-    async collectLogs(_input: { deviceId: string; logType?: string; durationSec?: number }): Promise<ArtifactRef> {
-      return { id: 'log-1', type: 'syslog', path: '/tmp/log.txt', redactionStatus: 'safe' };
+    async collectLogs(_input: {
+      deviceId: string;
+      logType?: string;
+      durationSec?: number;
+    }): Promise<ArtifactRef> {
+      return { id: 'log-1', type: 'log', path: '/tmp/log.txt', redactionStatus: 'safe' };
     },
   };
 }
@@ -249,7 +281,12 @@ describe('P3→P5: FlowV2 → replayFlow', () => {
     const flow = makeFlowV2({
       steps: [
         { action: 'launchApp', target: 'App', value: 'com.example.app' },
-        { action: 'tap', target: 'Delete', locator: { strategy: 'identifier', value: 'deleteBtn' }, safetyGate: 'ask' },
+        {
+          action: 'tap',
+          target: 'Delete',
+          locator: { strategy: 'identifier', value: 'deleteBtn' },
+          safetyGate: 'ask',
+        },
       ],
     });
 
@@ -302,8 +339,9 @@ describe('P3→P5: FlowV2 → generateDraft', () => {
 
   it('rejects flows with empty steps', () => {
     const flow = makeFlowV2({ steps: [] });
-    expect(() => generateDraft(flow, { format: 'xcuitest', runId: 'r1' }))
-      .toThrow('Flow must have at least one step');
+    expect(() => generateDraft(flow, { format: 'xcuitest', runId: 'r1' })).toThrow(
+      'Flow must have at least one step',
+    );
   });
 
   it('includes flowId in generated header comment', () => {
@@ -395,33 +433,35 @@ describe('P1→P5: RunStore parentRunId (rerun linking)', () => {
   it('findById returns seeded original run with parentRunId=null', async () => {
     const row = await runStore.findById('original-run-p1p5');
     expect(row).toBeTruthy();
-    expect(row!.runId).toBe('original-run-p1p5');
-    expect(row!.parentRunId).toBeNull();
+    expect(row?.runId).toBe('original-run-p1p5');
+    expect(row?.parentRunId).toBeNull();
   });
 
   it('findById returns rerun with parentRunId linking to original', async () => {
     const rerun = await runStore.findById('rerun-p1p5');
     expect(rerun).toBeTruthy();
-    expect(rerun!.parentRunId).toBe('original-run-p1p5');
+    expect(rerun?.parentRunId).toBe('original-run-p1p5');
   });
 
   it('findByStatus returns runs ordered by createdAt desc', async () => {
     const failed = await runStore.findByStatus('failed');
     expect(failed.length).toBeGreaterThanOrEqual(1);
-    expect(failed[0].runId).toBe('original-run-p1p5');
+    expect(failed[0]?.runId).toBe('original-run-p1p5');
   });
 
   it('findLatest returns a run (seeded in beforeAll)', async () => {
     const latest = await runStore.findLatest();
     expect(latest).toBeTruthy();
-    // Seeded runs: original-run-p1p5, rerun-p1p5 — latest should be one of them
-    expect(['original-run-p1p5', 'rerun-p1p5']).toContain(latest!.runId);
+    if (latest) {
+      // Seeded runs: original-run-p1p5, rerun-p1p5 — latest should be one of them
+      expect(['original-run-p1p5', 'rerun-p1p5']).toContain(latest.runId);
+    }
   });
 
   it('parentRunId chain integrity: original=null, rerun→original', async () => {
     const original = await runStore.findById('original-run-p1p5');
     const rerun = await runStore.findById('rerun-p1p5');
-    expect(original!.parentRunId).toBeNull();
-    expect(rerun!.parentRunId).toBe('original-run-p1p5');
+    expect(original?.parentRunId).toBeNull();
+    expect(rerun?.parentRunId).toBe('original-run-p1p5');
   });
 });

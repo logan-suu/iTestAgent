@@ -257,6 +257,7 @@ describe('Phase 5: Explain Pipeline', () => {
 
       expect(explanation).toBeDefined();
       expect(explanation.explanationType).toBeDefined();
+      expect(['crash', 'product_regression']).toContain(explanation.explanationType);
       expect(explanation.summary).toBeDefined();
       expect(explanation.evidence).toBeDefined();
 
@@ -321,6 +322,9 @@ describe('Phase 5: Explain Pipeline', () => {
       const explainer = new FailureExplainer();
       const explanation = await explainer.explain(context);
       expect(explanation.explanationType).toBeDefined();
+      expect(['perf_regression', 'product_regression', 'flaky', 'inconclusive', 'crash']).toContain(
+        explanation.explanationType,
+      );
     });
   });
 });

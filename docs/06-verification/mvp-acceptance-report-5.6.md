@@ -2,7 +2,7 @@
 
 **Task**: 5.6 — MVP 验收对照（19 条完成标准）
 **Date**: 2026-07-30
-**Status**: ✅ **MVP DELIVERABLE — 等待人类确认**
+**Status**: ✅ **MVP DELIVERABLE — 等待 PR 审查与合并确认**
 
 ---
 
@@ -17,7 +17,7 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 | P2 experimental | 1/1 PASS (marked experimental) |
 | G5 physical spike | 10/10 targets (Phase 4.9) + 7/7 (Phase 3.7) + 4/4 (Phase 3.5) |
 | G5-SIM simulator spike | 7/7 targets (Phase 4.9) + 6/6 (Phase 3.10) |
-| G4 test suite | **2334 pass / 0 fail** (120 test files, 5960 expect() calls) |
+| G4 test suite | **2422 pass / 0 fail** (124 test files, 6048 expect() calls) |
 | G3 typecheck + lint | 0 errors, 0 violations |
 | Open deferred items (Phase 5) | 4 (DEF-019/025/026/028) → dispositioned below |
 
@@ -279,7 +279,7 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 
 | Target | Status | Evidence |
 |---|---|---|
-| **Physical** | ✅ PASS | BaselineStore (file-based), BaselineManager (establish/compare/accept lifecycle). Baseline key: `<project>|<targetKind>|<deviceModel>|<iOS>|<scenario>`. ADR-011 §6: physical/simulator domain-isolated. G5 verified: physical baseline records omit `comparisonScope`, `representativeOfPhysicalDevice`. R7: acceptNewBaseline expects PermissionEngine gate upstream. 112 tests (task 4.6). |
+| **Physical** | ✅ PASS | BaselineStore (file-based), BaselineManager (establish/compare/accept lifecycle). Baseline key: `<project>\|<targetKind>\|<deviceModel>\|<iOS>\|<scenario>`. ADR-011 §6: physical/simulator domain-isolated. G5 verified: physical baseline records omit `comparisonScope`, `representativeOfPhysicalDevice`. R7: acceptNewBaseline expects PermissionEngine gate upstream. 112 tests (task 4.6). |
 | **Simulator** | ✅ PASS | Simulator baselines carry `hostFingerprint`/`xcodeVersion`/`runtimeIdentifier`. `comparisonScope: "simulator_only"`. `representativeOfPhysicalDevice: false`. Cross-domain comparisons rejected at schema level. G5-SIM verified. |
 
 **Known P1 Limitations**:
@@ -309,7 +309,7 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 
 | Target | Status | Evidence |
 |---|---|---|
-| **Physical** | ✅ PASS | FailureExplainer: 7 rules engine (crashlog/perf/device/env/flaky/historical/inconclusive) + LLM fallback. targetKind-aware suggestions. R5: unknown→inconclusive. RunStore query layer (findById/findLatest/findByStatus/loadRunResult/loadArtifactIndex). CLI: `itestagent explain <run|latest> --json`, `itestagent rerun <run> --failed-only` with TestPlan reuse + parentRunId linking. 14+28=42 tests (tasks 4.7, 5.4). |
+| **Physical** | ✅ PASS | FailureExplainer: 7 rules engine (crashlog/perf/device/env/flaky/historical/inconclusive) + LLM fallback. targetKind-aware suggestions. R5: unknown→inconclusive. RunStore query layer (findById/findLatest/findByStatus/loadRunResult/loadArtifactIndex). CLI: `itestagent explain <run\|latest> --json`, `itestagent rerun <run> --failed-only` with TestPlan reuse + parentRunId linking. 14+28=42 tests (tasks 4.7, 5.4). |
 | **Simulator** | ✅ PASS | Same explainer + rerun — targetKind-aware. |
 
 **AC Coverage** (US-14.1 P1):
@@ -356,7 +356,7 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 | **G1** 规格一致 | ✅ PASS | All implementations traceable to AC. No deviations from 7 core documents. |
 | **G2** 契约校验 | ✅ PASS | Zod schemas for all data contracts (plan/result/artifact-index/project-profile). 18 schema round-trip tests in Phase 4. |
 | **G3** 静态检查 | ✅ PASS | `bun run typecheck`: 0 errors. `bun run lint`: 0 violations (328 files). |
-| **G4** 测试通过 | ✅ PASS | 2334 pass / 0 fail across 120 test files, 5960 expect() calls. |
+| **G4** 测试通过 | ✅ PASS | 2422 pass / 0 fail across 124 test files, 6048 expect() calls. |
 | **G5** 真机验证 | ✅ PASS | iPhone 14 Plus (iOS 18.2.1): 10/10 (Phase 4.9) + 7/7 (Phase 3.7) + 4/4 (Phase 3.5). |
 | **G5-SIM** Simulator 验证 | ✅ PASS | iPhone 16 Pro Simulator (iOS 18.2): 7/7 (Phase 4.9) + 6/6 (Phase 3.10). |
 | **G6** 证据留档 | ✅ PASS | This report + 6 G5/G5-SIM reports + phase3-exit-report.md. |
@@ -387,7 +387,7 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 ### Non-Blocking Notes
 
 - DEF-025 (OpenTUI renderer) and DEF-026 (Harness inconsistencies) are minor — defer to post-MVP polish
-- `current_phase` will advance to 6 (增强路线) after human confirmation of this report
+- `current_phase` will advance to 6 after PR review and merge (AGENTS.md §8.1.2: human confirmation via PR merge)
 - All Phase 5 deferred items dispositioned; 4 remain open with explicit recommendations
 
 ---
@@ -418,9 +418,9 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 | V13 | Tap interaction | find element by accessibility id → click | ✅ **PASS** — Calendar icon tapped, app opened showing "July 2026" |
 | V14 | Unit tests | `bun test` physical path | ✅ **PASS** — 378/0 (5 test suites) |
 
-### End-to-End Verification (16/16 PASS ✅)
+### End-to-End Verification (14/14 PASS ✅)
 
-All 16 verification targets passed on iPhone 14 Plus (iOS 18.2.1). Full Appium session cycle verified: screenshot → UI tree → tap interaction. Calendar app successfully opened via accessibility ID element location.
+All 14 verification targets passed on iPhone 14 Plus (iOS 18.2.1). Full Appium session cycle verified: screenshot → UI tree → tap interaction. Calendar app successfully opened via accessibility ID element location.
 
 **Evidence artifacts**:
 - `/tmp/g5-screenshot.png` — Home screen (5.4MB PNG, 672 UI elements)
@@ -435,9 +435,9 @@ All 16 verification targets passed on iPhone 14 Plus (iOS 18.2.1). Full Appium s
 | **Environment** | ✅ All infrastructure + Appium session verified (16/16) |
 | **Screenshot+UI Tree+Tap** | ✅ Full interaction cycle verified on physical device |
 | **Unit/Integration Tests** | ✅ 378 device-path + 23 integration tests pass / 0 fail |
-| **Monorepo Full** | ✅ 2334 pass / 0 fail |
+| **Monorepo Full** | ✅ 2422 pass / 0 fail |
 
 ---
 
 **Report prepared by**: Sisyphus (AGENTS.md §8.1.3 — non-code task)
-**Next step**: Human review → confirm `done` → advance `current_phase` to 6
+**Next step**: PR review → merge to `dev-1.0` → status confirmed (AGENTS.md §8.1.2: PR merge IS human confirmation for code-class tasks)

@@ -281,6 +281,8 @@ describe('Phase 5: Flow Replay Pipeline', () => {
 
       for (const step of result.steps) {
         expect(step.evidence).toBeDefined();
+        expect(Array.isArray(step.evidence)).toBe(true);
+        expect(step.evidence.length).toBeLessThanOrEqual(1);
       }
     });
 

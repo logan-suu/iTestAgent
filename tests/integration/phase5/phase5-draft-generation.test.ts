@@ -200,9 +200,11 @@ describe('Phase 5: Draft Code Generation', () => {
     });
 
     it('does not write to disk (R7 — returns string path only)', () => {
+      const { existsSync } = require('node:fs');
       const result = generateDraft(FULL_FLOW, { format: 'xcuitest', runId: 'run-001' });
       expect(result.filePath).toBeDefined();
       expect(typeof result.filePath).toBe('string');
+      expect(existsSync(result.filePath)).toBe(false);
     });
   });
 
@@ -210,6 +212,7 @@ describe('Phase 5: Draft Code Generation', () => {
     it('preserves bundle IDs in launchApp step', () => {
       const result = generateDraft(FULL_FLOW, { format: 'xcuitest', runId: 'run-001' });
       expect(result.code).toContain('launch');
+      expect(result.code).toContain('MyApp');
     });
 
     it('preserves typeText values', () => {
