@@ -1009,8 +1009,8 @@
           "id": "5.1",
           "title": "质量门禁 G1-G7 落地到 CI",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-07-30T00:00:00.000Z",
+          "status": "done",
+          "last_updated": "2026-07-30T06:00:00.000Z",
           "documents_required": [
             "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
           ],
@@ -1018,7 +1018,7 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "CI 建立：typecheck + lint + test + mock backend。新增 macOS Simulator lane（boot→build→Appium/WDA→UI action→evidence→Flow→report/baseline，G5-SIM）。physical G5 独立（manual/self-hosted lane）。PR #56: https://github.com/logan-suu/iTestAgent/pull/56 — ci.yml (G3+G4), security-scan.yml (G7 Gitleaks), simulator-ci.yml (G5-SIM workflow_dispatch+weekly), .gitleaks.toml."
+          "notes": "CI 建立：typecheck + lint + test + mock backend。新增 macOS Simulator lane（boot→build→Appium/WDA→UI action→evidence→Flow→report/baseline，G5-SIM）。physical G5 独立（manual/self-hosted lane）。PR #56: https://github.com/logan-suu/iTestAgent/pull/56 — ci.yml (G3+G4), security-scan.yml (G7 Gitleaks), simulator-ci.yml (G5-SIM workflow_dispatch+weekly), .gitleaks.toml. Merged to dev-1.0 2026-07-30."
         },
         {
           "id": "5.2",
