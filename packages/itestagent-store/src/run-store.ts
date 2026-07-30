@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { parseArtifactIndex, parseRunResult } from 'itestagent-contracts';
 import type { ArtifactIndex, RunResult } from 'itestagent-contracts';
 import { resolveStoreRoot } from './bootstrap.js';
@@ -39,7 +39,7 @@ export interface RunStore {
   /** Get previous runs (for flaky / historical comparison). */
   getPreviousRuns(
     runId: string,
-  ): Promise<Array<{ runId: string; status: string; scenario: string }>>;
+  ): Promise<Array<{ runId: string; status: string; profileRef: string }>>;
 
   /** Insert a new run record into the SQLite `runs` table. */
   insertRun(record: Omit<NewRun, 'id'>): Promise<void>;
@@ -92,14 +92,14 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
 
     async getPreviousRuns(
       _runId: string,
-    ): Promise<Array<{ runId: string; status: string; scenario: string }>> {
+    ): Promise<Array<{ runId: string; status: string; profileRef: string }>> {
       // Load all run directories from the runs folder and return success/fail
       // data for historical comparison in failure explanation.
       const runsDir = join(root, 'runs');
       const entries = await readdir(runsDir, { withFileTypes: true }).catch(() => []);
       const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
 
-      const results: Array<{ runId: string; status: string; scenario: string }> = [];
+      const results: Array<{ runId: string; status: string; profileRef: string }> = [];
       for (const dirId of dirs) {
         try {
           const resultPath = join(runsDir, dirId, 'result.json');
@@ -108,7 +108,7 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
           results.push({
             runId: dirId,
             status: parsed.status,
-            scenario: parsed.projectProfileRef,
+            profileRef: parsed.projectProfileRef,
           });
         } catch {
           // Skip malformed run directories

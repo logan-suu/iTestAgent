@@ -21,7 +21,6 @@
     "itestagent-contracts": "workspace:*",
     "itestagent-engine": "workspace:*",
     "itestagent-store": "workspace:*",
-    "itestagent-report": "workspace:*",
     "itestagent-tui": "workspace:*"
   }
 }

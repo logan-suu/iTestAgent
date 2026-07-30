@@ -338,7 +338,7 @@ export function createProgram(): Command {
                 | 'needs_assertion'
                 | 'flaky'
                 | 'blocked',
-              scenario: r.scenario,
+              scenario: r.profileRef,
             })),
         });
 
