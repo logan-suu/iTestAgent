@@ -1,12 +1,5 @@
-import {
-  RUN_STATE_EXCEPTION,
-  RUN_STATE_FORWARD,
-  isTerminalState,
-  isValidTransition,
-} from 'itestagent-contracts';
+import { isTerminalState, isValidTransition } from 'itestagent-contracts';
 import type { RunState, RunStateChangedEvent } from 'itestagent-contracts';
-
-const ALL_RUN_STATES = new Set<string>([...RUN_STATE_FORWARD, ...RUN_STATE_EXCEPTION]);
 import { z } from 'zod';
 
 // ─── Error Level ───────────────────────────────────────────
@@ -132,48 +125,30 @@ export class RunStateMachine {
   }
 
   /**
-   * Execute a run state transition.
+   * Execute a run state transition with an explicit `from` parameter.
    *
    * Validates against VALID_TRANSITIONS (contract) plus the
    * `blocked → awaiting_confirm` recovery transition.
    * Emits a `run.state.changed` event on success.
    *
-   * The state machine tracks current state internally — the caller
-   * does NOT need to pass `from` (it is inferred from stored state).
+   * When no state is stored for the run (stored === undefined), the
+   * `from` parameter is trusted without additional validation — this
+   * allows callers to set initial state explicitly.
    *
    * @param runId - The run identifier
+   * @param from - Expected current state (validated against stored state if present)
    * @param to - Target state
    * @param reason - Optional reason for the transition
    * @returns The new state (`to`) on success
    * @throws Error if the transition is invalid or from a terminal state
    */
-  transition(
-    runId: string,
-    fromOrTo: RunState,
-    toOrReason?: RunState | string,
-    reason?: string,
-  ): RunState {
-    let from: RunState;
-    let to: RunState;
-    let isCompatCall = false;
-
-    // Backward-compat: transition(runId, from, to, reason?)
-    if (typeof toOrReason === 'string' && ALL_RUN_STATES.has(toOrReason)) {
-      from = fromOrTo;
-      to = toOrReason as RunState;
-      isCompatCall = true;
-    } else {
-      // New API: transition(runId, to, reason?)
-      const stored = this.currentStates.get(runId);
-      if (!stored) {
-        throw new Error(`Run "${runId}" has no current state — call start() first`);
-      }
-      from = stored;
-      to = fromOrTo;
+  transitionFrom(runId: string, from: RunState, to: RunState, reason?: string): RunState {
+    const stored = this.currentStates.get(runId);
+    if (stored !== undefined && stored !== from) {
+      throw new Error(
+        `State mismatch: stored state is "${stored}" but expected "${from}" for run "${runId}"`,
+      );
     }
-
-    const resolvedReason =
-      typeof toOrReason === 'string' && !ALL_RUN_STATES.has(toOrReason) ? toOrReason : reason;
 
     const isRecovery = from === 'blocked' && to === 'awaiting_confirm';
     const isExceptionToDone = isTerminalState(from) && to === 'done';
@@ -193,11 +168,11 @@ export class RunStateMachine {
       runId,
       from,
       to,
-      reason: resolvedReason,
+      reason,
     });
 
     if (to === 'blocked') {
-      this.pauseContexts.set(runId, { prePauseState: from, reason: resolvedReason ?? 'paused' });
+      this.pauseContexts.set(runId, { prePauseState: from, reason: reason ?? 'paused' });
     }
 
     if (isRecovery || to === 'done') {
@@ -207,46 +182,43 @@ export class RunStateMachine {
     return to;
   }
 
+  /**
+   * Execute a run state transition, inferring `from` from internally stored state.
+   *
+   * @param runId - The run identifier
+   * @param to - Target state
+   * @param reason - Optional reason for the transition
+   * @returns The new state (`to`) on success
+   * @throws Error if the run has no current state
+   */
+  transition(runId: string, to: RunState, reason?: string): RunState {
+    const stored = this.currentStates.get(runId);
+    if (!stored) {
+      throw new Error(`Run "${runId}" has no current state — call start() first`);
+    }
+    return this.transitionFrom(runId, stored, to, reason);
+  }
+
   // ─── Convenience: Exception Transitions ──────────────────
 
-  cancel(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
-    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
-      return this.transition(runId, fromOrReason as RunState, 'cancelled', reason);
-    }
-    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
-    return this.transition(runId, 'cancelled', resolvedReason);
+  cancel(runId: string, reason?: string): RunState {
+    return this.transition(runId, 'cancelled', reason);
   }
 
-  block(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
-    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
-      return this.transition(runId, fromOrReason as RunState, 'blocked', reason);
-    }
-    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
-    return this.transition(runId, 'blocked', resolvedReason);
+  block(runId: string, reason?: string): RunState {
+    return this.transition(runId, 'blocked', reason);
   }
 
-  fail(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
-    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
-      return this.transition(runId, fromOrReason as RunState, 'failed', reason);
-    }
-    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
-    return this.transition(runId, 'failed', resolvedReason);
+  fail(runId: string, reason?: string): RunState {
+    return this.transition(runId, 'failed', reason);
   }
 
-  infraFail(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
-    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
-      return this.transition(runId, fromOrReason as RunState, 'infra_failed', reason);
-    }
-    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
-    return this.transition(runId, 'infra_failed', resolvedReason);
+  infraFail(runId: string, reason?: string): RunState {
+    return this.transition(runId, 'infra_failed', reason);
   }
 
-  pause(runId: string, fromOrReason?: RunState | string, reason?: string): RunState {
-    if (typeof fromOrReason === 'string' && ALL_RUN_STATES.has(fromOrReason)) {
-      return this.transition(runId, fromOrReason as RunState, 'blocked', reason ?? 'paused');
-    }
-    const resolvedReason = typeof fromOrReason === 'string' ? fromOrReason : reason;
-    return this.transition(runId, 'blocked', resolvedReason ?? 'paused');
+  pause(runId: string, reason?: string): RunState {
+    return this.transition(runId, 'blocked', reason ?? 'paused');
   }
 
   /**

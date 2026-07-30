@@ -44,12 +44,12 @@ function Header(props: { workspace: string; deviceStatus: DeviceStatus }): JSX.E
   return (
     <box flexDirection="column" borderStyle="single" padding={1} marginBottom={1}>
       <text>
-        <text opacity={0.5}>Workspace: </text>
-        <text>{props.workspace}</text>
+        <span>Workspace: </span>
+        <span>{props.workspace}</span>
       </text>
       <text>
-        <text opacity={0.5}>Device: </text>
-        <text>{DEVICE_LABELS[props.deviceStatus]}</text>
+        <span>Device: </span>
+        <span>{DEVICE_LABELS[props.deviceStatus]}</span>
       </text>
     </box>
   );
@@ -68,8 +68,8 @@ function MessageList(props: { messages: readonly Message[] }): JSX.Element {
           return (
             // biome-ignore lint/correctness/useJsxKeyInIterable: OpenTUI uses id as element key
             <text id={msg.id}>
-              <text opacity={0.5}>{`[${prefix}] `}</text>
-              <text>{msg.text}</text>
+              <span>{`[${prefix}] `}</span>
+              <span>{msg.text}</span>
             </text>
           );
         })
@@ -87,8 +87,10 @@ function InputBar(props: {
     <box borderStyle="rounded" padding={1}>
       <text>{'> '}</text>
       <input
+        focused={true}
         value={props.draft}
         onInput={props.setDraft}
+        onSubmit={props.onSubmit}
         placeholder="Type here and press Enter to send..."
       />
     </box>
@@ -195,10 +197,10 @@ function CandidateReviewPanel(props: {
                   backgroundColor={isSelected ? '#222233' : undefined}
                 >
                   <text>
-                    <text opacity={0.5}>{`${prefix} ${marker} `}</text>
-                    <text>{`${CONFIDENCE_PREFIX[tier]} ${candidate.name}`}</text>
+                    <span>{`${prefix} ${marker} `}</span>
+                    <span>{`${CONFIDENCE_PREFIX[tier]} ${candidate.name}`}</span>
                     <Show when={candidate.keywords && candidate.keywords.length > 0}>
-                      <text opacity={0.4}>{`  (${(candidate.keywords ?? []).join(', ')})`}</text>
+                      <span>{`  (${(candidate.keywords ?? []).join(', ')})`}</span>
                     </Show>
                   </text>
                   <text opacity={0.5}>{`    ${formatConfidenceBar(candidate.confidence)}`}</text>
@@ -232,7 +234,12 @@ function CandidateReviewPanel(props: {
         <Show when={!s().candidateEditMode}>
           <text opacity={0.5}>Cmd: </text>
         </Show>
-        <input value={cmd()} onInput={handleCmdInput} placeholder="j/k/space/e/A/N/q" />
+        <input
+          focused={true}
+          value={cmd()}
+          onInput={handleCmdInput}
+          placeholder="j/k/space/e/A/N/q"
+        />
       </box>
     </box>
   );
@@ -328,14 +335,14 @@ function PlanReviewPanel(props: {
                   backgroundColor={isSelected ? '#222233' : undefined}
                 >
                   <text>
-                    <text opacity={0.7}>{`${prefix} ${section.title}`}</text>
+                    <span>{`${prefix} ${section.title}`}</span>
                   </text>
                   <For each={section.fields as unknown as Array<(typeof section.fields)[number]>}>
                     {(field) => (
                       <box padding={0}>
                         <text>
-                          <text opacity={0.4}>{`    ${field.label}: `}</text>
-                          <text>{field.value}</text>
+                          <span>{`    ${field.label}: `}</span>
+                          <span>{field.value}</span>
                         </text>
                       </box>
                     )}
@@ -364,7 +371,7 @@ function PlanReviewPanel(props: {
         <Show when={!s().planModifyMode}>
           <text opacity={0.5}>Cmd: </text>
         </Show>
-        <input value={cmd()} onInput={handleCmdInput} placeholder="j/k/m/Enter/q" />
+        <input focused={true} value={cmd()} onInput={handleCmdInput} placeholder="j/k/m/Enter/q" />
       </box>
     </box>
   );

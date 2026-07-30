@@ -451,10 +451,11 @@
       "item": "Agent Harness internal inconsistencies: runtime/session/tool ID disunity, AI SDK wrapper empty tool call ID, tool.progress has no producer, BackendSelector healthcheck placeholder",
       "detail": "The report identifies several minor internal inconsistencies in the Agent Harness components (AiSdkAgentRuntime, ToolDispatcher, BackendSelector). These are not blocking defects but reduce internal coherence. Items: (1) ID generation not unified across runtime/session/tool layers, (2) AiSdkAgentRuntime may pass empty tool call IDs to AI SDK, (3) tool.progress AgentEvent type exists but no code produces it, (4) BackendSelector healthcheckGate may be a placeholder without real healthcheck integration. These should be systematically reviewed during task 3.17 integration testing when the full harness (Runtime→Dispatcher→Selector→Backend) is wired together.",
       "target_phase": 5,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "Post-MVP cleanup (2026-07-30). (1) ID unification: added createId() in itestagent-contracts/src/ids.ts using Bun.randomUUIDv7() with crypto.randomUUID() fallback, migrated generateRunId(), generateSessionId(), startStep() — 2442 tests pass. (3) tool.progress producer: added progress event emission in ToolDispatcher.dispatch() after backend execution, before output normalization — 2442 tests pass. (2) and (4) were resolved in Phase 3.",
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": "Task 3.17 disposition: Partially resolved — (2) AI SDK empty toolCallId fixed (crypto.randomUUID() fallback, commit 78cf280); (4) DeviceExplorer backend hardcode fixed (ExplorationOptions.backendName, commit 78cf280). Remaining items (1) ID unification, (3) tool.progress producer — deferred to Phase 4 polish."
+      "notes": "Task 3.17 disposition: Partially resolved — (2) AI SDK empty toolCallId fixed (crypto.randomUUID() fallback, commit 78cf280); (4) DeviceExplorer backend hardcode fixed (ExplorationOptions.backendName, commit 78cf280). Remaining items (1) ID unification, (3) tool.progress producer — deferred to Phase 4 polish.",
+      "resolved_at": "2026-07-30T23:30:00.000Z"
     },
     {
       "id": "DEF-027",
@@ -485,10 +486,11 @@
       "item": "RunStateMachine transition() value-based overload detection is ambiguous",
       "detail": "The transition(fromOrTo, toOrReason, reason?) overload detection uses ALL_RUN_STATES.has(toOrReason) to distinguish old API (transition(runId, from, to, reason?)) from new API (transition(runId, to, reason?)). This heuristic misclassifies reason strings that happen to match RunState enum values. For example, cancel(runId, 'failed') — where 'failed' is intended as a reason — would be misinterpreted as cancel(runId, 'failed', 'cancelled'). Fix requires explicit API split or flag-based overloads, which involves migrating all callers and tests across multiple packages — scope too large for current PR.",
       "target_phase": 5,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "Post-MVP cleanup (2026-07-30). API split: added transitionFrom(runId, from, to, reason?) for explicit from-state; simplified transition(runId, to, reason?) to always infer from stored state; removed ALL_RUN_STATES heuristic from all 6 convenience methods (cancel, block, fail, infraFail, pause). Migrated ~59 call sites across 4 test files + 2 mock files. typecheck 0 errors, 2442 tests pass.",
       "created_at": "2026-07-29T00:00:00.000Z",
-      "notes": "Deferred from PR #54 review. The compat overload was added in Phase R-4 to preserve backward compatibility with existing callers in integration and unit tests. A full migration to explicit new API requires coordinated changes across session-manager, run-state-machine tests, integration tests (phase1, cross-phase, CP.3), and TUI contracts tests."
+      "notes": "Deferred from PR #54 review. The compat overload was added in Phase R-4 to preserve backward compatibility with existing callers in integration and unit tests. A full migration to explicit new API requires coordinated changes across session-manager, run-state-machine tests, integration tests (phase1, cross-phase, CP.3), and TUI contracts tests.",
+      "resolved_at": "2026-07-30T23:30:00.000Z"
     }
   ]
 }

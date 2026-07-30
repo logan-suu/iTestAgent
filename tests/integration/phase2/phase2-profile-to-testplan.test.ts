@@ -278,7 +278,9 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
     const plan = compileTestPlan(intentResult.intent, profile);
 
     expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
-    expect(plan.runId).toMatch(/^run_\d{8}_\d{6}_\w{4}$/);
+    expect(plan.runId).toMatch(
+      /^run_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
     expect(plan.device.kind).toBe('physical');
     if (plan.device.physical) {
       expect(plan.device.physical.selector).toBe('local_connected');
@@ -358,7 +360,9 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
     if (intentResult.status !== 'complete') return;
 
     const plan = compileTestPlan(intentResult.intent, profile, { runIdPrefix: 'smoke' });
-    expect(plan.runId).toMatch(/^smoke_\d{8}_\d{6}_\w{4}$/);
+    expect(plan.runId).toMatch(
+      /^smoke_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
 
     makeValidTestPlan(plan);
   });

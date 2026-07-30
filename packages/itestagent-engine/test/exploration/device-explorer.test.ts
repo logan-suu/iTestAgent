@@ -311,11 +311,10 @@ test('multiple actions produce strictly ordered step IDs', async () => {
   const steps = await explorer.explore(actions);
 
   expect(steps).toHaveLength(3);
-  expect(steps.map((s: RunStep) => s.stepId)).toEqual([
-    's1', // launch
-    's2', // tap
-    's3', // screenshot
-  ]);
+  // All steps should have unique IDs with 's_' prefix
+  const stepIds = steps.map((s: RunStep) => s.stepId);
+  expect(stepIds.every((id: string) => id.startsWith('s_'))).toBeTrue();
+  expect(new Set(stepIds).size).toBe(3);
 });
 
 // ─── Unknown Target / Degradation ────────────────────────────────
@@ -403,7 +402,7 @@ test('reset allows fresh recording cycle', async () => {
 
   const steps = await explorer.explore([{ action: 'tap', target: 'login_button' }]);
   expect(steps).toHaveLength(2);
-  expect(steps[0]?.stepId).toBe('s1');
+  expect(steps[0]?.stepId.startsWith('s_')).toBeTrue();
   expect(steps[0]?.action).toBe('launch');
   expect(steps[1]?.action).toBe('tap');
   expect(steps[1]?.target).toBe('login_button');

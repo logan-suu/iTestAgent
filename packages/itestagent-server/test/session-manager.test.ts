@@ -34,42 +34,22 @@ function createMockRunStateMachine() {
       return states.get(runId);
     },
 
-    transition(runId: string, from: string, toOrReason: string, reason?: string): string {
-      calls.push({ method: 'transition', args: [runId, from, toOrReason, reason] });
-      states.set(runId, toOrReason);
-      return toOrReason;
+    transition(runId: string, to: string, reason?: string): string {
+      const stored = states.get(runId);
+      calls.push({ method: 'transition', args: [runId, to, reason] });
+      return this.transitionFrom(runId, stored ?? 'created', to, reason);
     },
 
-    cancel(runId: string, fromOrReason?: string, reason?: string): string {
-      calls.push({ method: 'cancel', args: [runId, fromOrReason, reason] });
-      if (
-        typeof fromOrReason === 'string' &&
-        [
-          'created',
-          'planning',
-          'awaiting_confirm',
-          'preparing_device',
-          'building_installing',
-          'executing',
-          'collecting',
-          'parsing',
-          'explaining',
-          'reported',
-          'done',
-          'cancelled',
-          'blocked',
-          'infra_failed',
-          'failed',
-        ].includes(fromOrReason)
-      ) {
-        return this.transition(runId, fromOrReason, 'cancelled', reason ?? 'cancelled');
-      }
-      return this.transition(
-        runId,
-        states.get(runId) ?? 'created',
-        'cancelled',
-        fromOrReason ?? 'cancelled',
-      );
+    transitionFrom(runId: string, from: string, to: string, reason?: string): string {
+      calls.push({ method: 'transitionFrom', args: [runId, from, to, reason] });
+      states.set(runId, to);
+      return to;
+    },
+
+    cancel(runId: string, reason?: string): string {
+      calls.push({ method: 'cancel', args: [runId, reason] });
+      const stored = states.get(runId);
+      return this.transitionFrom(runId, stored ?? 'created', 'cancelled', reason ?? 'cancelled');
     },
 
     cleanup(runId: string): void {

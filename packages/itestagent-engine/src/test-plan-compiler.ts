@@ -5,6 +5,7 @@ import {
   type ExecutionPlan,
   type TestPlan,
   TestPlanSchema,
+  createId,
   parseTestPlan,
 } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
@@ -35,7 +36,7 @@ export function compileTestPlan(
   profile: ProjectProfile,
   options?: CompileOptions,
 ): TestPlan {
-  const runId = options?.runId ?? generateRunId(options?.runIdPrefix);
+  const runId = options?.runId ?? createId(options?.runIdPrefix ?? 'run');
   const projectProfileRef = options?.projectProfileRef ?? profileRef(profile.projectHash);
 
   // ── Device selector (ADR-011: kind-driven) ────────────────
@@ -92,15 +93,6 @@ export interface CompileOptions {
 }
 
 // ─── Private helpers ─────────────────────────────────────────
-
-/** Generate a timestamped runId: run_20260720_143022_a1b2 */
-function generateRunId(prefix = 'run'): string {
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
-  const random = Math.random().toString(36).slice(2, 6);
-  return `${prefix}_${date}_${time}_${random}`;
-}
 
 /** Build a reference path to the project-profile.json */
 function profileRef(projectHash: string): string {

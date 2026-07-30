@@ -199,20 +199,22 @@ describe('Phase 1 Integration: Session Lifecycle (SSEHub → SessionManager → 
 
   test('RSM forward chain: created→planning→awaiting_confirm→preparing_device', () => {
     const s = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
-    expect(rsm.transition(s.runId, 'created', 'planning')).toBe('planning');
-    expect(rsm.transition(s.runId, 'planning', 'awaiting_confirm')).toBe('awaiting_confirm');
+    expect(rsm.transitionFrom(s.runId, 'created', 'planning')).toBe('planning');
+    expect(rsm.transitionFrom(s.runId, 'planning', 'awaiting_confirm')).toBe('awaiting_confirm');
   });
 
   test('RSM cancel and pause/resume', () => {
     const s = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
-    rsm.transition(s.runId, 'created', 'planning');
-    expect(rsm.cancel(s.runId, 'planning')).toBe('cancelled');
+    rsm.transitionFrom(s.runId, 'created', 'planning');
+    rsm.setStateForTesting(s.runId, 'planning');
+    expect(rsm.cancel(s.runId)).toBe('cancelled');
   });
 
   test('RSM pause→blocked→resume→awaiting_confirm', () => {
     const s = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
-    rsm.transition(s.runId, 'created', 'planning');
-    expect(rsm.pause(s.runId, 'planning')).toBe('blocked');
+    rsm.transitionFrom(s.runId, 'created', 'planning');
+    rsm.setStateForTesting(s.runId, 'planning');
+    expect(rsm.pause(s.runId)).toBe('blocked');
     expect(rsm.isPaused(s.runId)).toBe(true);
     expect(rsm.resume(s.runId)).toBe('awaiting_confirm');
     expect(rsm.isPaused(s.runId)).toBe(false);
@@ -220,14 +222,15 @@ describe('Phase 1 Integration: Session Lifecycle (SSEHub → SessionManager → 
 
   test('RSM invalid transition throws', () => {
     const s = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
-    expect(() => rsm.transition(s.runId, 'created', 'executing')).toThrow('Invalid transition');
+    expect(() => rsm.transitionFrom(s.runId, 'created', 'executing')).toThrow('Invalid transition');
   });
 
   test('RSM terminal→done is valid, terminal→forward is not', () => {
     const s = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
-    expect(rsm.cancel(s.runId, 'created')).toBe('cancelled');
-    expect(rsm.transition(s.runId, 'cancelled', 'done')).toBe('done');
-    expect(() => rsm.transition(s.runId, 'done', 'created')).toThrow();
+    rsm.setStateForTesting(s.runId, 'created');
+    expect(rsm.cancel(s.runId)).toBe('cancelled');
+    expect(rsm.transitionFrom(s.runId, 'cancelled', 'done')).toBe('done');
+    expect(() => rsm.transitionFrom(s.runId, 'done', 'created')).toThrow();
   });
 });
 

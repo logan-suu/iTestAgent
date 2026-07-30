@@ -240,8 +240,10 @@ describe('CP.3: RSM → PermissionEngine → SSEHub (P1→P3)', () => {
     const sm = new SessionManager({ sseHub, db: mockDb() as any, runStateMachine: rsm });
     const session = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
 
-    expect(rsm.transition(session.runId, 'created', 'planning')).toBe('planning');
-    expect(rsm.transition(session.runId, 'planning', 'awaiting_confirm')).toBe('awaiting_confirm');
+    expect(rsm.transitionFrom(session.runId, 'created', 'planning')).toBe('planning');
+    expect(rsm.transitionFrom(session.runId, 'planning', 'awaiting_confirm')).toBe(
+      'awaiting_confirm',
+    );
   });
 
   test('RSM pause/resume', () => {
@@ -249,8 +251,9 @@ describe('CP.3: RSM → PermissionEngine → SSEHub (P1→P3)', () => {
     const sm = new SessionManager({ sseHub, db: mockDb() as any, runStateMachine: rsm });
     const session = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
 
-    rsm.transition(session.runId, 'created', 'planning');
-    expect(rsm.pause(session.runId, 'planning')).toBe('blocked');
+    rsm.transitionFrom(session.runId, 'created', 'planning');
+    rsm.setStateForTesting(session.runId, 'planning');
+    expect(rsm.pause(session.runId)).toBe('blocked');
     expect(rsm.isPaused(session.runId)).toBe(true);
     expect(rsm.resume(session.runId)).toBe('awaiting_confirm');
   });
@@ -260,8 +263,9 @@ describe('CP.3: RSM → PermissionEngine → SSEHub (P1→P3)', () => {
     const sm = new SessionManager({ sseHub, db: mockDb() as any, runStateMachine: rsm });
     const session = sm.createSession({ workspace: '/tmp/x', targetKind: 'simulator' });
 
-    expect(rsm.cancel(session.runId, 'created')).toBe('cancelled');
-    expect(rsm.transition(session.runId, 'cancelled', 'done')).toBe('done');
+    rsm.setStateForTesting(session.runId, 'created');
+    expect(rsm.cancel(session.runId)).toBe('cancelled');
+    expect(rsm.transitionFrom(session.runId, 'cancelled', 'done')).toBe('done');
   });
 
   test('PermissionEngine.check returns ask for high-risk actions', () => {

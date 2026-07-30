@@ -93,7 +93,7 @@ export function CredentialPromptPanel(props: {
         </box>
         <box borderStyle="rounded" padding={1} marginTop={1}>
           <text opacity={0.5}>Cmd: </text>
-          <input value={cmd()} onInput={handleCmdInput} placeholder="Enter/q" />
+          <input focused={true} value={cmd()} onInput={handleCmdInput} placeholder="Enter/q" />
         </box>
       </box>
     );
@@ -118,17 +118,17 @@ export function CredentialPromptPanel(props: {
 
       <box flexDirection="column" padding={1} marginBottom={1}>
         <text>
-          <text opacity={0.7}>Label: </text>
-          <text>{formatCredentialPromptHeader(req.label, req.helpText)}</text>
+          <span>Label: </span>
+          <span>{formatCredentialPromptHeader(req.label, req.helpText)}</span>
         </text>
         <text>
-          <text opacity={0.4}>Kind: </text>
-          <text>{req.kind}</text>
+          <span>Kind: </span>
+          <span>{req.kind}</span>
           <Show when={req.required}>
-            <text opacity={0.7}> (required)</text>
+            <span> (required)</span>
           </Show>
           <Show when={!req.required}>
-            <text opacity={0.4}> (optional)</text>
+            <span> (optional)</span>
           </Show>
         </text>
         <Show when={s().credentialRememberToggled}>
@@ -140,6 +140,7 @@ export function CredentialPromptPanel(props: {
         <text>{'> '}</text>
         <text opacity={0.5}>{req.kind === 'text' ? '' : '[masked] '}</text>
         <input
+          focused={true}
           value={displayValue()}
           onInput={handleCredentialInput}
           placeholder={`Enter ${req.kind === 'text' ? 'value' : req.kind}...`}
@@ -162,7 +163,7 @@ export function CredentialPromptPanel(props: {
           [Enter] Submit | [Tab] Skip | [Ctrl+R] Remember | [q] Cancel{'  '}
         </text>
         <text opacity={0.5}>Cmd: </text>
-        <input value={cmd()} onInput={handleCmdInput} placeholder="Enter/Tab/R/q" />
+        <input focused={true} value={cmd()} onInput={handleCmdInput} placeholder="Enter/Tab/R/q" />
       </box>
     </box>
   );

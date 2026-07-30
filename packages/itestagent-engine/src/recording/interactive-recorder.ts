@@ -15,6 +15,7 @@
  *   to ensure PermissionEngine gating and proper event emission.
  */
 
+import { createId } from 'itestagent-contracts';
 import type { AgentRuntime, AgentTurnInput } from 'itestagent-contracts';
 import type {
   RecordingEvent,
@@ -123,7 +124,7 @@ export class InteractiveRecorder {
     this.uiTreeFetcher = options.uiTreeFetcher;
     this.actionExecutor = options.actionExecutor;
     this.systemPromptBuilder = options.systemPromptBuilder ?? null;
-    this.sessionId = this.generateSessionId();
+    this.sessionId = createId('rec');
   }
 
   // ── Public API ──────────────────────────────────────────────────
@@ -636,12 +637,6 @@ export class InteractiveRecorder {
 
   private emitStateChange(): void {
     this.callbacks.onStateChange({ state: this.state });
-  }
-
-  private generateSessionId(): string {
-    const ts = Date.now().toString(36);
-    const rand = Math.random().toString(36).slice(2, 8);
-    return `rec-${ts}-${rand}`;
   }
 
   private sleep(ms: number): Promise<void> {

@@ -15,6 +15,9 @@ import { type DeviceStatus, createInitialState, tuiShellReducer } from '../src/t
 // Mock @opentui/solid render to avoid native Zig core dependency in test env.
 mock.module('@opentui/solid', () => ({
   render: () => Promise.resolve(),
+  createElement: () => ({}),
+  createComponent: (Comp: unknown, props: unknown) => ({}),
+  spread: () => ({}),
 }));
 
 // biome-ignore format: typeof import() doesn't support multi-line format

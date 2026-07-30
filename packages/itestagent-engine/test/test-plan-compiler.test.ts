@@ -91,7 +91,9 @@ describe('compileTestPlan', () => {
     it('compiles a valid TestPlan from physical intent + profile', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
       expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
-      expect(plan.runId).toMatch(/^run_\d{8}_\d{6}_[a-z0-9]{4}$/);
+      expect(plan.runId).toMatch(
+        /^run_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
       expect(plan.device.kind).toBe('physical');
       expect(plan.device.physical?.selector).toBe('local_connected');
     });

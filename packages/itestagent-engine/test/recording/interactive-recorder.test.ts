@@ -251,7 +251,7 @@ test('cancel returns RecordingResult with correct metadata', async () => {
   recorder.cancel();
   const result = await startPromise;
 
-  expect(result.sessionId).toMatch(/^rec-/);
+  expect(result.sessionId).toMatch(/^rec_/);
   expect(result.featureName).toBe(BASE_CONFIG.featureName);
   expect(result.backend).toBe(BASE_CONFIG.backend);
   expect(result.device.udid).toBe(BASE_CONFIG.deviceId);
@@ -634,7 +634,7 @@ test('RecordingResult has correct structure after confirm', async () => {
   const result = await recorder.start();
 
   expect(typeof result.sessionId).toBe('string');
-  expect(result.sessionId).toMatch(/^rec-/);
+  expect(result.sessionId).toMatch(/^rec_/);
   expect(typeof result.featureName).toBe('string');
   expect(typeof result.backend).toBe('string');
   expect(result.device).toBeDefined();

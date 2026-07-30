@@ -9,6 +9,7 @@
  * supports start/complete/fail lifecycle with automatic timing.
  */
 
+import { createId } from 'itestagent-contracts';
 import type { RunStep } from 'itestagent-contracts';
 import { redactValue } from '../context-builder.js';
 import type { LocatorResult } from './types.js';
@@ -58,7 +59,7 @@ export class RunStepRecorder {
    */
   startStep(action: string, target: string, locator?: LocatorResult): string {
     this.stepCounter += 1;
-    const stepId = `s${this.stepCounter}`;
+    const stepId = createId('s');
     const record: StepRecord = {
       stepId,
       backend: this.backend,

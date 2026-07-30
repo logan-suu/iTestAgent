@@ -131,7 +131,7 @@ describe('RunStateMachine forward transitions', () => {
     for (let i = 1; i < forwardChain.length; i++) {
       const from = forwardChain[i - 1] as RunState;
       const to = forwardChain[i] as RunState;
-      state = machine.transition(runId, from, to);
+      state = machine.transitionFrom(runId, from, to);
       expect(state).toBe(to);
     }
 
@@ -145,14 +145,14 @@ describe('RunStateMachine forward transitions', () => {
     for (let i = 0; i < RUN_STATE_FORWARD.length - 1; i++) {
       const from = RUN_STATE_FORWARD[i] as RunState;
       const to = RUN_STATE_FORWARD[i + 1] as RunState;
-      const result = machine.transition(`run-${i}`, from, to);
+      const result = machine.transitionFrom(`run-${i}`, from, to);
       expect(result).toBe(to);
     }
   });
 
   test('events carry correct runId and state pair', () => {
     const { machine, events } = createMachine();
-    machine.transition('my-run', 'created', 'planning');
+    machine.transitionFrom('my-run', 'created', 'planning');
 
     expect(events).toHaveLength(1);
     expect(events[0]?.runId).toBe('my-run');
@@ -178,29 +178,31 @@ describe('RunStateMachine forward transitions', () => {
 describe('RunStateMachine invalid transition rejection', () => {
   test('rejects backward transition', () => {
     const { machine } = createMachine();
-    expect(() => machine.transition('r1', 'planning', 'created')).toThrow('Invalid transition');
+    expect(() => machine.transitionFrom('r1', 'planning', 'created')).toThrow('Invalid transition');
   });
 
   test('rejects skip-over transition', () => {
     const { machine } = createMachine();
-    expect(() => machine.transition('r1', 'created', 'executing')).toThrow('Invalid transition');
+    expect(() => machine.transitionFrom('r1', 'created', 'executing')).toThrow(
+      'Invalid transition',
+    );
   });
 
   test('rejects transition from done (terminal)', () => {
     const { machine } = createMachine();
-    expect(() => machine.transition('r1', 'done', 'reported')).toThrow('terminal state');
+    expect(() => machine.transitionFrom('r1', 'done', 'reported')).toThrow('terminal state');
   });
 
   test('rejects transition from exception state (except to done)', () => {
     const { machine } = createMachine();
     // failed is terminal; executing is not a valid target
-    expect(() => machine.transition('r1', 'failed', 'executing')).toThrow('terminal');
+    expect(() => machine.transitionFrom('r1', 'failed', 'executing')).toThrow('terminal');
   });
 
   test('does NOT emit events on invalid transition', () => {
     const { machine, events } = createMachine();
     try {
-      machine.transition('r1', 'done', 'reported');
+      machine.transitionFrom('r1', 'done', 'reported');
     } catch {
       // expected
     }
@@ -300,7 +302,7 @@ describe('RunStateMachine pause and resume', () => {
   test('pause without reason defaults to "paused"', () => {
     const { machine } = createMachine();
 
-    machine.pause('r1', 'collecting');
+    machine.transitionFrom('r1', 'collecting', 'blocked', 'paused');
     const ctx = machine.getPauseContext('r1');
     expect(ctx?.reason).toBe('paused');
   });
@@ -308,7 +310,7 @@ describe('RunStateMachine pause and resume', () => {
   test('resume: blocked → awaiting_confirm', () => {
     const { machine } = createMachine();
 
-    machine.pause('r1', 'executing');
+    machine.transitionFrom('r1', 'executing', 'blocked', 'paused');
     const result = machine.resume('r1');
 
     expect(result).toBe('awaiting_confirm');
@@ -319,7 +321,7 @@ describe('RunStateMachine pause and resume', () => {
   test('resume emits event with reason "resumed"', () => {
     const { machine, events } = createMachine();
 
-    machine.pause('r1', 'building_installing');
+    machine.transitionFrom('r1', 'building_installing', 'blocked', 'paused');
     const beforeCount = events.length;
 
     machine.resume('r1');
@@ -338,7 +340,7 @@ describe('RunStateMachine pause and resume', () => {
   test('resume fails after cleanup', () => {
     const { machine } = createMachine();
 
-    machine.pause('r1', 'executing');
+    machine.transitionFrom('r1', 'executing', 'blocked', 'paused');
     machine.cleanup('r1');
     expect(machine.isPaused('r1')).toBe(false);
     expect(() => machine.resume('r1')).toThrow('not paused');
@@ -347,8 +349,8 @@ describe('RunStateMachine pause and resume', () => {
   test('multiple runs are isolated', () => {
     const { machine } = createMachine();
 
-    machine.pause('run-a', 'executing');
-    machine.pause('run-b', 'collecting');
+    machine.transitionFrom('run-a', 'executing', 'blocked', 'paused');
+    machine.transitionFrom('run-b', 'collecting', 'blocked', 'paused');
 
     expect(machine.isPaused('run-a')).toBe(true);
     expect(machine.isPaused('run-b')).toBe(true);
@@ -371,7 +373,7 @@ describe('RunStateMachine pause and resume', () => {
 
     for (const from of nonTerminal) {
       const runId = `run-pause-${from}`;
-      const result = machine.pause(runId, from);
+      const result = machine.transitionFrom(runId, from, 'blocked', 'paused');
       expect(result).toBe('blocked');
       expect(machine.isPaused(runId)).toBe(true);
     }
@@ -438,7 +440,7 @@ describe('RunStateMachine lifecycle', () => {
   test('cleanup is idempotent', () => {
     const { machine } = createMachine();
 
-    machine.pause('r1', 'executing');
+    machine.transitionFrom('r1', 'executing', 'blocked', 'paused');
     expect(machine.isPaused('r1')).toBe(true);
 
     machine.cleanup('r1');
@@ -452,8 +454,8 @@ describe('RunStateMachine lifecycle', () => {
   test('cleanup does not affect other runs', () => {
     const { machine } = createMachine();
 
-    machine.pause('r1', 'executing');
-    machine.pause('r2', 'collecting');
+    machine.transitionFrom('r1', 'executing', 'blocked', 'paused');
+    machine.transitionFrom('r2', 'collecting', 'blocked', 'paused');
     machine.cleanup('r1');
 
     expect(machine.isPaused('r1')).toBe(false);
@@ -468,13 +470,13 @@ describe('RunStateMachine lifecycle', () => {
 describe('RunStateMachine without onEvent', () => {
   test('transitions work without event handler', () => {
     const machine = new RunStateMachine();
-    const result = machine.transition('r1', 'created', 'planning');
+    const result = machine.transitionFrom('r1', 'created', 'planning');
     expect(result).toBe('planning');
   });
 
   test('pause/resume works without event handler', () => {
     const machine = new RunStateMachine();
-    machine.pause('r1', 'executing');
+    machine.transitionFrom('r1', 'executing', 'blocked', 'paused');
     expect(machine.isPaused('r1')).toBe(true);
     expect(machine.resume('r1')).toBe('awaiting_confirm');
   });

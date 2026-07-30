@@ -429,10 +429,18 @@ export class ToolDispatcher {
         }
       }
 
-      // 10. Normalize output
+      // 10. Emit progress before output normalization
+      this.emit({
+        type: 'tool.progress',
+        callId,
+        message: 'Processing tool output',
+        percent: 80,
+      });
+
+      // 11. Normalize output
       const normalized = normalizeOutput(rawResult);
 
-      // 11. Emit tool.completed
+      // 12. Emit tool.completed
       this.emit({
         type: 'tool.completed',
         callId,
@@ -450,7 +458,7 @@ export class ToolDispatcher {
         ...(artifacts.length > 0 ? { artifacts } : {}),
       };
     } catch (err: unknown) {
-      // 11. Normalize error (R5: never silent)
+      // 13. Normalize error (R5: never silent)
       const errorInfo = normalizeError(err);
 
       this.emit({

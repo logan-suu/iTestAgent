@@ -60,18 +60,24 @@ test('constructor accepts backend name and stores it', () => {
 
 // ─── startStep ──────────────────────────────────────────────
 
-test('startStep returns a string stepId starting with s', () => {
+test('startStep returns a string stepId starting with s_', () => {
   const recorder = new RunStepRecorder('test-backend');
   const stepId = recorder.startStep('tap', 'Login Button');
   expect(typeof stepId).toBe('string');
-  expect(stepId.startsWith('s')).toBeTrue();
+  expect(stepId.startsWith('s_')).toBeTrue();
 });
 
-test('stepCounter increments (s1, s2, s3)', () => {
+test('stepCounter increments correctly', () => {
   const recorder = new RunStepRecorder('test-backend');
-  expect(recorder.startStep('tap', 'First')).toBe('s1');
-  expect(recorder.startStep('swipe', 'Second')).toBe('s2');
-  expect(recorder.startStep('input', 'Third')).toBe('s3');
+  const id1 = recorder.startStep('tap', 'First');
+  const id2 = recorder.startStep('swipe', 'Second');
+  const id3 = recorder.startStep('input', 'Third');
+  // All stepIds should be unique UUIDs with 's_' prefix
+  expect(id1.startsWith('s_')).toBeTrue();
+  expect(id2.startsWith('s_')).toBeTrue();
+  expect(id3.startsWith('s_')).toBeTrue();
+  expect(id1).not.toBe(id2);
+  expect(id2).not.toBe(id3);
 });
 
 // ─── completeStep ───────────────────────────────────────────
@@ -161,7 +167,7 @@ test('getSteps returns only completed/failed steps (not active ones)', () => {
 
   const steps = recorder.getSteps();
   expect(steps).toHaveLength(1);
-  expect(steps[0]?.stepId).toBe('s2');
+  expect(steps[0]?.stepId.startsWith('s_')).toBeTrue();
   expect(steps[0]?.action).toBe('swipe');
 });
 
@@ -349,7 +355,7 @@ test('toJSON returns valid JSON string', () => {
   const parsed = JSON.parse(json);
   expect(Array.isArray(parsed)).toBeTrue();
   expect(parsed).toHaveLength(1);
-  expect(parsed[0]?.stepId).toBe('s1');
+  expect(parsed[0]?.stepId.startsWith('s_')).toBeTrue();
   expect(parsed[0]?.backend).toBe('test-backend');
 });
 
@@ -370,7 +376,9 @@ test('toJSON includes all steps', () => {
 
   const parsed = JSON.parse(recorder.toJSON());
   expect(parsed).toHaveLength(3);
-  expect(parsed.map((s: { stepId: string }) => s.stepId)).toEqual(['s1', 's2', 's3']);
+  expect(
+    parsed.map((s: { stepId: string }) => s.stepId).every((id: string) => id.startsWith('s_')),
+  ).toBeTrue();
 });
 
 // ─── reset ───────────────────────────────────────────────────
@@ -390,9 +398,9 @@ test('reset clears all steps, active steps, and resets counter', () => {
   expect(recorder.activeCount).toBe(0);
   expect(recorder.toJSON()).toBe('[]');
 
-  // Counter should restart from s1
+  // Counter should restart — new IDs still have s_ prefix
   const newId = recorder.startStep('tap', 'Fresh');
-  expect(newId).toBe('s1');
+  expect(newId.startsWith('s_')).toBeTrue();
 });
 
 test('reset allows fresh recording cycle', () => {
@@ -405,7 +413,7 @@ test('reset allows fresh recording cycle', () => {
   recorder.completeStep(stepId, { ok: true });
   const steps = recorder.getSteps();
   expect(steps).toHaveLength(1);
-  expect(steps[0]?.stepId).toBe('s1');
+  expect(steps[0]?.stepId.startsWith('s_')).toBeTrue();
   expect(steps[0]?.action).toBe('swipe');
 });
 
@@ -448,9 +456,9 @@ test('mixed complete and fail steps both appear in getSteps', () => {
 
   const steps = recorder.getSteps();
   expect(steps).toHaveLength(2);
-  expect(steps[0]?.stepId).toBe('s1');
+  expect(steps[0]?.stepId.startsWith('s_')).toBeTrue();
   expect(steps[0]?.result).toEqual({ ok: true });
-  expect(steps[1]?.stepId).toBe('s2');
+  expect(steps[1]?.stepId.startsWith('s_')).toBeTrue();
   expect((steps[1]?.result as Record<string, unknown>).error).toBe('Swipe missed');
 });
 

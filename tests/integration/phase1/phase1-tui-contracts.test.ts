@@ -273,7 +273,7 @@ describe('Phase 1 Integration: TUI State + Contracts Alignment', () => {
       expect(session.sessionId).toStartWith('ses_');
       expect(session.status).toBe('active');
 
-      const state = rsm.transition(session.runId, 'created', 'planning');
+      const state = rsm.transitionFrom(session.runId, 'created', 'planning');
       expect(state).toBe('planning');
     });
 
@@ -310,7 +310,7 @@ describe('Phase 1 Integration: TUI State + Contracts Alignment', () => {
       const session = sm.createSession({ workspace: '/tmp/x', targetKind: 'physical' });
       const reader = sseHub.subscribe(session.sessionId).getReader();
 
-      rsm.transition(session.runId, 'created', 'planning');
+      rsm.transitionFrom(session.runId, 'created', 'planning');
 
       sseHub.broadcast(session.sessionId, {
         type: 'run.state.changed',

@@ -184,7 +184,7 @@ export function RecordingPanel(props: {
 
       {/* ── Hidden command input for key capture ── */}
       <box borderStyle="rounded" padding={0} marginTop={1}>
-        <input value={cmd()} onInput={handleCmdInput} placeholder="" />
+        <input focused={true} value={cmd()} onInput={handleCmdInput} placeholder="" />
       </box>
     </box>
   );
