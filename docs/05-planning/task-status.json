@@ -1166,7 +1166,7 @@
           "id": "6.5",
           "title": "Flow 管理 / 导出 XCUITest/Appium 正式测试",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
