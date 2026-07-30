@@ -1054,7 +1054,7 @@
           "id": "5.4",
           "title": "explain + rerun --failed-only",
           "story": "US-14.1, US-16.1",
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -1064,7 +1064,7 @@
           ],
           "test_file": null,
           "last_updated": "2026-07-30T20:00:00.000Z",
-          "notes": "explain 基于 evidence + baseline 归因。rerun --failed-only 复用原 TestPlan（含 targetKind），仅重放失败用例。CLI explain 命令实现完成（RunStore + FailureExplainer 集成），rerun 命令实现 TestPlan 加载+过滤+关联逻辑，完整执行调度需 engine 集成。PR #59: https://github.com/logan-suu/iTestAgent/pull/59 — feat(cli,store): RunStore (findById/findLatest/findByStatus/loadRunResult/loadArtifactIndex/getPreviousRuns/insertRun), CLI explain <run> (--json), CLI rerun <run> --failed-only, runs schema +scenario column. 9 files, +668/-13. G3 typecheck 0/lint 0, G4 2332 tests pass."
+          "notes": "PR #59 merged to dev-1.0 (2026-07-30). RunStore query layer (findById/findLatest/findByStatus/loadRunResult/loadArtifactIndex/getPreviousRuns/insertRun), CLI explain <run|latest> (--json) with FailureExplainer integration, CLI rerun <run> --failed-only with TestPlan reuse + parentRunId linking. runs schema +parentRunId column. 002_parent_run_id migration. 28 new tests (10 RunStore + 4 CLI + 14 existing). G3 typecheck 0/lint 0, G4 2332 tests pass. Full re-execution dispatch for rerun pending engine integration (Phase 5.6)."
         },
         {
           "id": "5.5",
