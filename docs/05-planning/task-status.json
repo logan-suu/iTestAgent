@@ -1002,7 +1002,7 @@
     {
       "id": 5,
       "name": "打磨与 MVP 验收",
-      "status": "in_progress",
+      "status": "done",
       "integration_test": "5.6",
       "tasks": [
         {
@@ -1070,7 +1070,7 @@
           "id": "5.5",
           "title": "安全与脱敏收尾：日志/报告/Keychain/写项目确认",
           "story": "US-18.3",
-          "status": "in_progress",
+          "status": "done",
           "documents_required": [
             "docs/03-implementation/开发避坑与关键注意点手册.md",
             "docs/02-architecture/数据流全链路技术说明文档.md"
@@ -1080,8 +1080,8 @@
             "4.8"
           ],
           "test_file": null,
-          "last_updated": "2026-07-30T21:00:00.000Z",
-          "notes": "PR #60: https://github.com/logan-suu/iTestAgent/pull/60 — R7 confirmed gates (WdaManager.preparePreinstalledWDA, BaselineManager.acceptNewBaseline, profile-io.saveProfileToProject). R6 redactValue() on error messages (AiSdkAgentRuntime, EvidenceCollector, DeviceExplorer, SessionManager, ToolDispatcher). R6 report sanitizeText() (OpenAI keys, JWTs, credential assignments, auth headers). R6 flow replay: reject unresolved session.secret.*. Removed dead code maskSensitiveFields. 22 files, +155/-59. G3 typecheck 0/lint 0, G4 2332 tests pass."
+          "last_updated": "2026-07-30T23:00:00.000Z",
+          "notes": "PR #60: https://github.com/logan-suu/iTestAgent/pull/60 — R7 confirmed gates (WdaManager.preparePreinstalledWDA, BaselineManager.acceptNewBaseline, profile-io.saveProfileToProject). R6 redactValue() on error messages (AiSdkAgentRuntime, EvidenceCollector, DeviceExplorer, SessionManager, ToolDispatcher). R6 report sanitizeText() (OpenAI keys, JWTs, credential assignments, auth headers). R6 flow replay: reject unresolved session.secret.*. Removed dead code maskSensitiveFields. 24 files, +220/-80. CodeRabbit findings (8) all fixed in c4baea5. G3 typecheck 0/lint 0, G4 2334 tests pass. PR #60 squashed and merged to dev-1.0 (2026-07-30)."
         },
         {
           "id": "5.6",
