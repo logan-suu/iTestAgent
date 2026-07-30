@@ -1024,7 +1024,7 @@
           "id": "5.2",
           "title": "Flow 重放：itestagent run flow <flowId>",
           "story": "US-9.2",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -1032,7 +1032,7 @@
             "3.15"
           ],
           "test_file": null,
-          "notes": "重放 iTestAgent Flow YAML。Flow 必须在同 targetKind 下重放（ADR-011）。不支持的目标类型 blocked 并给出原因。"
+          "notes": "✅ Task 5.2 complete. FlowReplayEngine (packages/itestagent-flow/src/replay.ts) with checkTargetCompatibility (ADR-011) + replayFlow (18 action types mapped to DeviceBackend, safetyGate R7, locator resolution, evidence collection, abort signal). 51 new tests in replay.test.ts (2289 total, all pass). CLI: --execute flag + dynamic backend import with dry-run fallback. G3: typecheck 0, lint 0. G4: 2289 pass. G5/G5-SIM: deferred — requires connected device.",
         },
         {
           "id": "5.3",
