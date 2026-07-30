@@ -8,6 +8,8 @@ export { createStoreDriver } from './store-driver.js';
 export { createArtifactStore, createPersistentArtifactStore } from './artifact-store.js';
 export { createBaselineStore } from './baseline-store.js';
 export type { FileSystem } from './baseline-store.js';
+export { createRunStore, createDefaultRunStore } from './run-store.js';
+export type { RunStore } from './run-store.js';
 export * as schema from './schema.js';
 
 /**
