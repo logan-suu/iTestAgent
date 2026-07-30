@@ -13,3 +13,21 @@ export {
 } from './schema.js';
 export { readFlowFile, saveFlow, type SaveFlowOptions, type SaveFlowResult } from './writer.js';
 export { parseFlowYaml, serializeFlowYaml } from './yaml.js';
+export {
+  type ReplayOptions,
+  type TargetCompatibilityResult,
+  checkTargetCompatibility,
+  replayFlow,
+} from './replay.js';
+export {
+  type ReplayResult,
+  type ReplayStepResult,
+  type ReplayStepStatus,
+  type ReplaySummary,
+  type ReplayEvidence,
+  blockedStep,
+  createEmptySummary,
+  failedStep,
+  passedStep,
+  skippedStep,
+} from './replay-result.js';

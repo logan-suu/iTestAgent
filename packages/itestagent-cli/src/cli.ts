@@ -301,67 +301,193 @@ export function createProgram(): Command {
     });
 
   // ─── run flow (US-9.2 AC2: replay iTestAgent Flow) ───
-  // Task 3.15: Flow read + validate + summary.
-  // Full replay execution deferred to task 3.17 (Phase 3 integration).
+  // Task 5.2: Full replay execution via FlowReplayEngine.
   const runCmd = program.command('run').description('run-related commands');
 
   runCmd
     .command('flow <id>')
-    .description('validate and summarize an iTestAgent Flow (replay execution in Phase 3.17)')
+    .description('validate and replay an iTestAgent Flow')
     .option('--project <path>', 'also read from project .itestagent/flows/ directory')
-    .action(async (flowId: string, options: { project?: string }) => {
-      try {
-        const { readFlowFile, safeParseFlowV2 } = await import('itestagent-flow');
-        const raw = await readFlowFile(flowId);
-        const result = safeParseFlowV2(raw);
+    .option('--execute', 'replay the flow against a connected device (default: validate only)')
+    .option('--device-id <id>', 'target device UDID or serial (required with --execute)')
+    .option('--bundle-id <id>', 'app bundle ID for launch/terminate (required with --execute)')
+    .option('--no-evidence', 'skip screenshot/page-source evidence collection during replay')
+    .option('--non-interactive', 'skip safetyGate confirmation prompts (deny all)')
+    .action(
+      async (
+        flowId: string,
+        options: {
+          project?: string;
+          execute?: boolean;
+          deviceId?: string;
+          bundleId?: string;
+          noEvidence?: boolean;
+          nonInteractive?: boolean;
+        },
+      ) => {
+        try {
+          const { readFlowFile, safeParseFlowV2 } = await import('itestagent-flow');
+          const raw = await readFlowFile(flowId);
+          const result = safeParseFlowV2(raw);
 
-        if (!result.success) {
-          console.error(`❌ Flow "${flowId}" failed schema validation:\n`);
-          for (const issue of result.error.issues) {
-            console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
+          if (!result.success) {
+            console.error(`❌ Flow "${flowId}" failed schema validation:\n`);
+            for (const issue of result.error.issues) {
+              console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
+            }
+            process.exit(1);
           }
+
+          const flow = result.data;
+
+          // ── Validate + Summarize (always) ─────────────────────────
+          console.log(`✅ Flow "${flow.flowId}" — valid iTestAgent Flow v2`);
+          console.log(`   Source:     ${flow.source}`);
+          console.log(`   Status:     ${flow.status}`);
+          console.log(`   Targets:    ${flow.supportedTargetKinds.join(', ')}`);
+          console.log(`   Capabilities: ${flow.requiredCapabilities.join(', ')}`);
+          console.log(`   Steps:      ${flow.steps.length}`);
+          console.log('   Validated:');
+          for (const t of flow.lastValidatedTargets) {
+            const detail = t.deviceTypeIdentifier ?? t.model ?? t.udid;
+            const version = t.runtimeIdentifier ?? t.osVersion ?? '';
+            console.log(`     - ${t.kind}: ${detail}${version ? ` (${version})` : ''}`);
+          }
+
+          console.log('\n   Steps:');
+          for (let i = 0; i < flow.steps.length; i++) {
+            const step = flow.steps[i];
+            if (!step) continue;
+            const safety = step.safetyGate ? ` [safety:${step.safetyGate}]` : '';
+            const comment = step.comment ? ` — ${step.comment}` : '';
+            console.log(`     ${i + 1}. ${step.action} ${step.target ?? ''}${safety}${comment}`);
+          }
+
+          if (flow.notes) {
+            console.log(`\n   Notes: ${flow.notes}`);
+          }
+
+          // ── Execute (when --execute flag is present) ───────────────
+          if (!options.execute) {
+            console.log(
+              `\n   Run: itestagent run flow ${flow.flowId} --execute  (add --execute to replay)`,
+            );
+            return;
+          }
+
+          // Validate --execute prerequisites
+          if (!options.deviceId) {
+            console.error('\n❌ --device-id is required with --execute');
+            console.error(
+              '   Usage: itestagent run flow <id> --execute --device-id <UDID> --bundle-id <bundle.id>',
+            );
+            process.exit(1);
+          }
+          if (!options.bundleId) {
+            console.error('\n❌ --bundle-id is required with --execute');
+            console.error(
+              '   Usage: itestagent run flow <id> --execute --device-id <UDID> --bundle-id <bundle.id>',
+            );
+            process.exit(1);
+          }
+
+          // Check target compatibility
+          const { checkTargetCompatibility, replayFlow } = await import('itestagent-flow');
+          // Infer targetKind from the options or default to the flow's first supported kind
+          const targetKind = flow.supportedTargetKinds[0] ?? 'simulator';
+          const compat = checkTargetCompatibility(flow, targetKind);
+
+          if (!compat.ok) {
+            console.error(`\n❌ Target compatibility blocked: ${compat.reason}`);
+            process.exit(1);
+          }
+
+          console.log(
+            `\n🚀 Replaying flow "${flow.flowId}" on ${targetKind} (${options.deviceId})...\n`,
+          );
+
+          // Dynamically import backend (non-literal to avoid tsc module resolution)
+          let backend: unknown;
+          const appiumPkg = 'itestagent-backends/device-appium';
+          const mockPkg = 'itestagent-backends/device-mock';
+          try {
+            const mod = (await import(appiumPkg)) as {
+              AppiumDeviceBackend: new (opts: Record<string, unknown>) => unknown;
+            };
+            backend = new mod.AppiumDeviceBackend({ targetKind });
+          } catch {
+            console.error('⚠️  AppiumDeviceBackend not available. Using mock backend for dry-run.');
+            const mod = (await import(mockPkg)) as { MockDeviceBackend: new () => unknown };
+            backend = new mod.MockDeviceBackend();
+          }
+
+          // Safety gate callback
+          const onSafetyGate = options.nonInteractive
+            ? undefined
+            : async (step: { action: string; target?: string }) => {
+                // In CLI mode without TUI, we skip safetyGate prompts
+                console.warn(
+                  `⚠️  SafetyGate: "${step.action}" requires confirmation (non-interactive mode: skipping)`,
+                );
+                return false;
+              };
+
+          const replayResult = await replayFlow(flow, backend as Parameters<typeof replayFlow>[1], {
+            deviceId: options.deviceId,
+            bundleId: options.bundleId,
+            collectEvidence: !options.noEvidence,
+            onStepStart: (idx, step) => {
+              const target = step.target ? ` (${step.target})` : '';
+              process.stdout.write(
+                `   [${idx + 1}/${flow.steps.length}] ${step.action}${target}... `,
+              );
+            },
+            onSafetyGate,
+          });
+
+          // Print per-step results
+          for (const step of replayResult.steps) {
+            const icon =
+              step.status === 'passed'
+                ? '✅'
+                : step.status === 'failed'
+                  ? '❌'
+                  : step.status === 'blocked'
+                    ? '🚫'
+                    : '⏭️';
+            process.stdout.write(`${icon}\n`);
+            if (step.error) {
+              console.log(`      Error: ${step.error}`);
+            }
+            if (step.evidence.length > 0) {
+              console.log(`      Evidence: ${step.evidence.length} artifact(s)`);
+            }
+            if (step.detail) {
+              console.log(`      Detail: ${step.detail}`);
+            }
+          }
+
+          // Summary
+          console.log(`\n${'─'.repeat(40)}`);
+          console.log(`Replay complete: ${replayResult.overallStatus.toUpperCase()}`);
+          console.log(
+            `   Total: ${replayResult.summary.total} | Passed: ${replayResult.summary.passed} | Failed: ${replayResult.summary.failed} | Skipped: ${replayResult.summary.skipped} | Blocked: ${replayResult.summary.blocked}`,
+          );
+          console.log(
+            `   Duration: ${Date.parse(replayResult.completedAt) - Date.parse(replayResult.startedAt)}ms`,
+          );
+          console.log(`${'─'.repeat(40)}`);
+
+          if (replayResult.overallStatus !== 'passed') {
+            process.exit(1);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`❌ Failed to replay flow "${flowId}": ${message}`);
           process.exit(1);
         }
-
-        const flow = result.data;
-
-        // Summary output
-        console.log(`✅ Flow "${flow.flowId}" — valid iTestAgent Flow v2`);
-        console.log(`   Source:     ${flow.source}`);
-        console.log(`   Status:     ${flow.status}`);
-        console.log(`   Targets:    ${flow.supportedTargetKinds.join(', ')}`);
-        console.log(`   Capabilities: ${flow.requiredCapabilities.join(', ')}`);
-        console.log(`   Steps:      ${flow.steps.length}`);
-        console.log('   Validated:');
-        for (const t of flow.lastValidatedTargets) {
-          const detail = t.deviceTypeIdentifier ?? t.model ?? t.udid;
-          const version = t.runtimeIdentifier ?? t.osVersion ?? '';
-          console.log(`     - ${t.kind}: ${detail}${version ? ` (${version})` : ''}`);
-        }
-
-        // Step summary
-        console.log('\n   Steps:');
-        for (let i = 0; i < flow.steps.length; i++) {
-          const step = flow.steps[i];
-          if (!step) continue;
-          const safety = step.safetyGate ? ` [safety:${step.safetyGate}]` : '';
-          const comment = step.comment ? ` — ${step.comment}` : '';
-          console.log(`     ${i + 1}. ${step.action} ${step.target ?? ''}${safety}${comment}`);
-        }
-
-        if (flow.notes) {
-          console.log(`\n   Notes: ${flow.notes}`);
-        }
-
-        console.log(
-          `\n   Run: itestagent run flow ${flow.flowId} --execute  (available in Phase 3.17)`,
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`❌ Failed to read flow "${flowId}": ${message}`);
-        process.exit(1);
-      }
-    });
+      },
+    );
 
   return program;
 }
