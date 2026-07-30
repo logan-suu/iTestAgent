@@ -1100,7 +1100,7 @@
             "5.3"
           ],
           "test_file": null,
-          "notes": "✅ MVP 验收通过（2026-07-30，人类确认）。验收报告：docs/06-verification/mvp-acceptance-report-5.6.md。结果：18/18 P0 PASS，4/4 P1 PASS（有限制声明），1/1 P2 PASS（实验性）。G4: 2334/0 tests。G5+G5-SIM 双目标验证通过。4 条 open deferred items 已审查并 disposition。建议：DEF-028 (major, RunStateMachine transition overload) 正式发布前修复。current_phase → 6。",
+          "notes": "✅ MVP 验收通过（2026-07-30，人类确认）。PR #61: https://github.com/logan-suu/iTestAgent/pull/61。验收报告：docs/06-verification/mvp-acceptance-report-5.6.md。结果：18/18 P0 PASS，4/4 P1 PASS（有限制声明），1/1 P2 PASS（实验性）。G4: 2334/0 tests。G5+G5-SIM 双目标验证通过。4 条 open deferred items 已审查并 disposition。建议：DEF-028 (major, RunStateMachine transition overload) 正式发布前修复。current_phase → 6。",
           "last_updated": "2026-07-30T23:00:00.000Z"
         }
       ]
