@@ -865,6 +865,14 @@ describe('acceptNewBaseline', () => {
     expect(stored?.updatedFromRun).toBe('run-002');
     expect(stored?.reachableRuns).toContain('run-002');
   });
+
+  test('throws when confirmed is omitted or false (R7 gate)', async () => {
+    const { manager } = makeBaselineManager();
+    const key = buildBaselineKey(makeKeyContext());
+
+    await expect(manager.acceptNewBaseline('run-001', key)).rejects.toThrow(/R7/);
+    await expect(manager.acceptNewBaseline('run-001', key, false)).rejects.toThrow(/R7/);
+  });
 });
 
 // ────────────────────────────────────────────────────────────

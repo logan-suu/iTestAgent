@@ -1080,7 +1080,8 @@
             "4.8"
           ],
           "test_file": null,
-          "notes": "敏感数据不落盘明文。默认不写项目目录。Simulator erase/delete 列为高风险操作（ADR-011）。"
+          "last_updated": "2026-07-30T21:00:00.000Z",
+          "notes": "PR #60: https://github.com/logan-suu/iTestAgent/pull/60 — R7 confirmed gates (WdaManager.preparePreinstalledWDA, BaselineManager.acceptNewBaseline, profile-io.saveProfileToProject). R6 redactValue() on error messages (AiSdkAgentRuntime, EvidenceCollector, DeviceExplorer, SessionManager, ToolDispatcher). R6 report sanitizeText() (OpenAI keys, JWTs, credential assignments, auth headers). R6 flow replay: reject unresolved session.secret.*. Removed dead code maskSensitiveFields. 22 files, +155/-59. G3 typecheck 0/lint 0, G4 2332 tests pass."
         },
         {
           "id": "5.6",

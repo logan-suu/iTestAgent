@@ -799,7 +799,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return this.toActionResult(error, 'launchApp');
@@ -816,7 +816,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return this.toActionResult(error, 'terminateApp');
@@ -890,7 +890,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return this.toActionResult(error, 'tap');
@@ -909,7 +909,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return this.toActionResult(error, 'swipe');
@@ -926,7 +926,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return this.toActionResult(error, 'typeText');
@@ -943,7 +943,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return {
@@ -964,7 +964,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return {
         success: result.success,
         message: result.message,
-        error: result.error,
+        error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
       return this.toActionResult(error, 'openUrl');

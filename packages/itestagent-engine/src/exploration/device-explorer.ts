@@ -374,7 +374,8 @@ export class DeviceExplorer {
    * @param error - Error message.
    */
   private async failStepWithEvidence(stepId: string, error: string): Promise<void> {
-    this.recorder.failStep(stepId, error);
+    const redactedError = redactValue(error);
+    this.recorder.failStep(stepId, redactedError);
 
     if (!this.artifactStore || !this.options.runDir) return;
 

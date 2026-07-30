@@ -438,7 +438,7 @@ export class EvidenceCollector {
     return {
       type,
       collected: false,
-      reason: `[${type}] ${reason} (R5: explicit degradation)`,
+      reason: `[${type}] ${redactValue(reason)} (R5: explicit degradation)`,
     };
   }
 }

@@ -45,9 +45,12 @@ import type { SigningDiagnostic } from './signing-diagnostics.js';
  */
 function redactPii(msg: string): string {
   return msg
-    .replace(/[A-F0-9]{8}-[A-F0-9]{16}/gi, '[udid]')
+    .replace(
+      /[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}|[A-F0-9]{8}-[A-F0-9]{16}|[A-F0-9]{40}/gi,
+      '[udid]',
+    )
     .replace(/[A-Z0-9]{10}/g, '[team-id]')
-    .replace(/\/Users\/[^/\s]+/g, '[home-path]');
+    .replace(/\/Users\/[^\s,"')\]]+/g, '[home-path]');
 }
 
 // ─── Types ────────────────────────────────────────────────────────

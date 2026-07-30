@@ -373,6 +373,15 @@ describe('profile-io (AC2, AC3, AC4)', () => {
     expect(saved.app.name).toBe('MyApp');
   });
 
+  // ── R7: confirmation gate ───────────────────────────────
+
+  it('R7: saveProfileToProject throws when confirmed is omitted or false', async () => {
+    const profile = await generateProjectProfile(backend, '/fake/MyApp');
+    const projectRoot = join(tmpDir, 'R7-test');
+    expect(() => saveProfileToProject(profile, projectRoot)).toThrow(/R7/);
+    expect(() => saveProfileToProject(profile, projectRoot, false)).toThrow(/R7/);
+  });
+
   // ── AC4: round-trip integrity ────────────────────────────
 
   it('AC4: profile can be saved and loaded with full integrity', async () => {

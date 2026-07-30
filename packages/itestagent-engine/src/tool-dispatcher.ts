@@ -397,9 +397,10 @@ export class ToolDispatcher {
       if (rawResult && typeof rawResult === 'object') {
         const resultObj = rawResult as Record<string, unknown>;
         if (resultObj.success === false || 'error' in resultObj) {
-          const errorMsg = String(
+          const rawError = String(
             resultObj.error ?? resultObj.message ?? 'Backend operation failed',
           );
+          const errorMsg = redactValue(rawError);
           this.emit({
             type: 'tool.failed',
             callId,
@@ -535,7 +536,7 @@ export class ToolDispatcher {
     return {
       callId,
       status: 'error',
-      output: { error, ...(code ? { code } : {}) },
+      output: { error: redactValue(error), ...(code ? { code } : {}) },
     };
   }
 

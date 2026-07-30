@@ -130,6 +130,8 @@ function sanitizeText(text: string): string {
   let result = text;
   // OpenAI API keys (sk-...)
   result = result.replace(/sk-[A-Za-z0-9_-]{32,}/gi, '[REDACTED]');
+  // Standalone JWT tokens (must appear BEFORE the Bearer pattern to catch bare JWTs)
+  result = result.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gi, '[REDACTED]');
   // JWT / Bearer tokens
   result = result.replace(
     /Bearer\s+eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gi,
@@ -137,7 +139,7 @@ function sanitizeText(text: string): string {
   );
   // Credential value assignments (password=, token=, secret=, apikey=, credential=)
   result = result.replace(
-    /(password|token|secret|apikey|credential)\s*[:=]\s*\S+/gi,
+    /(password|token|secret|apikey|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|\S+)/gi,
     '$1=[REDACTED]',
   );
   // Auth header values (x-api-key:, authorization:)
