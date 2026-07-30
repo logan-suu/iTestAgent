@@ -1048,7 +1048,7 @@
             "3.15"
           ],
           "test_file": "packages/itestagent-flow/test/draft-generator.test.ts",
-          "notes": "feat(flow): draft-generator.ts — FlowV2→XCUITest(Swift)+Appium(TypeScript/WebDriverIO) test code draft generation. 670 lines, 25 tests. All 18 FlowStepV2 actions mapped for both formats. R5: missing locators → placeholder comments. R7: output path string only (no disk write). AC1-AC4 all covered. G3: typecheck 0, lint 0, 2314 tests pass."
+          "notes": "feat(flow): draft-generator.ts — FlowV2→XCUITest(Swift)+Appium(TypeScript/WebDriverIO) test code draft generation. 670 lines, 25 tests. All 18 FlowStepV2 actions mapped for both formats. R5: missing locators → placeholder comments. R7: output path string only (no disk write). AC1-AC4 all covered. G3: typecheck 0, lint 0, 2314 tests pass. PR #58 (https://github.com/logan-suu/iTestAgent/pull/58)."
         },
         {
           "id": "5.4",
