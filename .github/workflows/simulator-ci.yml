@@ -1,0 +1,64 @@
+name: Simulator CI (G5-SIM)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ios-runtime:
+        description: 'iOS Simulator runtime (e.g. "18.2")'
+        required: false
+        default: '18.2'
+        type: string
+      device-type:
+        description: 'Simulator device type (e.g. "iPhone 16 Pro")'
+        required: false
+        default: 'iPhone 16 Pro'
+        type: string
+  schedule:
+    # Weekly Sunday at 03:00 UTC for regular G5-SIM verification
+    - cron: '0 3 * * 0'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator-check:
+    name: G5-SIM — Simulator Integration
+    runs-on: macos-15
+    env:
+      IOS_RUNTIME: ${{ inputs.ios-runtime || '18.2' }}
+      DEVICE_TYPE: ${{ inputs.device-type || 'iPhone 16 Pro' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify Xcode & simctl
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+          xcrun simctl list devicetypes | grep "$DEVICE_TYPE"
+
+      - name: Run mock-backend tests (no Simulator needed)
+        run: bun test --test-name-pattern="mock|MockBackend|mock-backend"
+
+      - name: Typecheck (G3)
+        run: bun run typecheck
+
+      - name: Lint (G3)
+        run: bun run lint
+
+      # G5-SIM: Full Simulator integration tests.
+      # These require a booted Simulator with Appium/WDA.
+      # Run manually (workflow_dispatch) or on schedule.
+      # Standard CI (ci.yml) covers G3+G4 on every PR.
+      - name: G5-SIM — Simulator integration tests
+        run: |
+          echo "G5-SIM lane: Simulator integration tests require booted iOS Simulator + Appium/WDA."
+          echo "Runtime: iOS ${IOS_RUNTIME}, Device: ${DEVICE_TYPE}"
+          echo "Run Simulator-specific integration tests here."
+          # bun test tests/integration/phase4/phase4-simulator.test.ts
