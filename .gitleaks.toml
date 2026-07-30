@@ -1,0 +1,13 @@
+title = "iTestAgent Gitleaks Config"
+
+# Exclude docs/ (Chinese-language project documentation per R12 exemption)
+# Exclude fixtures/ (test data with fake-but-realistic-looking content)
+# Exclude node_modules/ (third-party)
+[allowlist]
+  paths = [
+    '''^docs\/''',
+    '''^fixtures\/''',
+    '''^node_modules\/''',
+    '''^\.opencode\/''',
+    '''^\.codegraph\/''',
+  ]
