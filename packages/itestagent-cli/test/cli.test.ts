@@ -92,3 +92,36 @@ test('config subcommand outputs merged config via spawnSync (US-18.2)', () => {
   expect(stdout).toContain('schemaVersion');
   expect(stdout).toContain('provider');
 });
+
+test('explain command has --json option (US-14.1 AC2: structured output)', () => {
+  const program = createProgram();
+  const explainCmd = program.commands.find((cmd) => cmd.name() === 'explain');
+  expect(explainCmd).toBeDefined();
+  const jsonOption = explainCmd?.options.find((opt) => opt.flags.includes('--json'));
+  expect(jsonOption).toBeDefined();
+});
+
+test('explain with non-existent run exits with error', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath, 'explain', 'nonexistent-run-99999'],
+  });
+  expect(result.exitCode).toBe(1);
+  const stderr = result.stderr.toString();
+  expect(stderr).toContain('Error');
+});
+
+test('explain latest with no runs exits with error', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath, 'explain', 'latest'],
+  });
+  expect(result.exitCode).toBe(1);
+});
+
+test('rerun with non-existent run exits with error', () => {
+  const result = Bun.spawnSync({
+    cmd: ['bun', cliPath, 'rerun', 'nonexistent-run-99999'],
+  });
+  expect(result.exitCode).toBe(1);
+  const stderr = result.stderr.toString();
+  expect(stderr).toContain('Error');
+});

@@ -29,6 +29,7 @@ export const runs = sqliteTable('runs', {
   targetKind: text('target_kind').notNull(),
   backend: text('backend'),
   status: text('status').notNull().default('created'),
+  parentRunId: text('parent_run_id'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 

@@ -23,6 +23,7 @@ const MIGRATIONS: [string, string][] = [
       target_kind     TEXT NOT NULL CHECK(target_kind IN ('physical', 'simulator')),
       backend         TEXT,
       status          TEXT NOT NULL DEFAULT 'created',
+      parent_run_id   TEXT,
       created_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -31,6 +32,7 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_projects_project_hash ON projects(project_hash);
     `,
   ],
+  ['002_parent_run_id', 'ALTER TABLE runs ADD COLUMN parent_run_id TEXT;'],
 ];
 
 /**
@@ -64,8 +66,20 @@ export function createStoreDriver(dbPath: string, existingConnection?: Database)
         } | null;
 
         if (!row) {
-          sqlite.run(sql);
-          sqlite.run('INSERT INTO _migrations (name) VALUES (?)', [name]);
+          try {
+            sqlite.run(sql);
+            sqlite.run('INSERT INTO _migrations (name) VALUES (?)', [name]);
+          } catch (err) {
+            // If migration fails because the change was already applied
+            // (e.g. fresh DB has parent_run_id from 001_initial), mark as
+            // applied anyway — the column already exists.
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes('duplicate column name') || msg.includes('already exists')) {
+              sqlite.run('INSERT INTO _migrations (name) VALUES (?)', [name]);
+            } else {
+              throw err;
+            }
+          }
         }
       }
     },

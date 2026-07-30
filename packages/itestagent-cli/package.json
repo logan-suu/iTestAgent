@@ -19,6 +19,9 @@
     "commander": "^15.0.0",
     "jsonc-parser": "^3.3.1",
     "itestagent-contracts": "workspace:*",
+    "itestagent-engine": "workspace:*",
+    "itestagent-store": "workspace:*",
+    "itestagent-report": "workspace:*",
     "itestagent-tui": "workspace:*"
   }
 }

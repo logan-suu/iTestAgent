@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-30T00:00:00.000Z",
+            "last_updated": "2026-07-30T20:00:00.000Z",
   "current_phase": 5,
   "phases": [
     {
@@ -1054,7 +1054,7 @@
           "id": "5.4",
           "title": "explain + rerun --failed-only",
           "story": "US-14.1, US-16.1",
-          "status": "ready",
+          "status": "in_progress",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -1063,7 +1063,8 @@
             "4.8"
           ],
           "test_file": null,
-          "notes": "explain 基于 evidence + baseline 归因。rerun --failed-only 复用原 TestPlan（含 targetKind），仅重放失败用例。"
+          "last_updated": "2026-07-30T20:00:00.000Z",
+          "notes": "explain 基于 evidence + baseline 归因。rerun --failed-only 复用原 TestPlan（含 targetKind），仅重放失败用例。CLI explain 命令实现完成（RunStore + FailureExplainer 集成），rerun 命令实现 TestPlan 加载+过滤+关联逻辑，完整执行调度需 engine 集成。PR #59: https://github.com/logan-suu/iTestAgent/pull/59 — feat(cli,store): RunStore (findById/findLatest/findByStatus/loadRunResult/loadArtifactIndex/getPreviousRuns/insertRun), CLI explain <run> (--json), CLI rerun <run> --failed-only, runs schema +scenario column. 9 files, +668/-13. G3 typecheck 0/lint 0, G4 2332 tests pass."
         },
         {
           "id": "5.5",
