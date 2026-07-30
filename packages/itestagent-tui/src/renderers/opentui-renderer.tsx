@@ -64,7 +64,13 @@ function MessageList(props: { messages: readonly Message[] }): JSX.Element {
         <text opacity={0.5}>Type a message and press Enter to send. Ctrl+C to quit.</text>
       ) : (
         msgs.map((msg) => {
-          const prefix = msg.type === 'user' ? 'You' : msg.type === 'error' ? 'ERR' : 'Sys';
+          let prefix: string;
+          switch (msg.type) {
+            case 'user': prefix = 'You'; break;
+            case 'assistant': prefix = 'AI'; break;
+            case 'error': prefix = 'ERR'; break;
+            default: prefix = 'Sys'; break;
+          }
           return (
             // biome-ignore lint/correctness/useJsxKeyInIterable: OpenTUI uses id as element key
             <text id={msg.id}>
@@ -382,9 +388,15 @@ function PlanReviewPanel(props: {
 function App(props: {
   initialState: TuiShellState;
   dispatch: (event: TuiShellEvent) => void;
+  setStateRef: { current: ((s: TuiShellState) => void) | null };
 }): JSX.Element {
   const [state, setState] = createSignal<TuiShellState>(props.initialState);
   const [draft, setDraft] = createSignal('');
+
+  // Expose setState for external renderer.update() calls
+  props.setStateRef.current = (s: TuiShellState) => setState(s);
+
+  const s = (): TuiShellState => state();
 
   const wrappedDispatch = (event: TuiShellEvent) => {
     setState((prev) => tuiShellReducer(prev, event));
@@ -407,19 +419,19 @@ function App(props: {
 
   return (
     <box flexDirection="column" padding={1}>
-      <Header workspace={state().workspace} deviceStatus={state().deviceStatus} />
+      <Header workspace={s().workspace} deviceStatus={s().deviceStatus} />
 
-      {state().mode === 'plan_review' ? (
+      {s().mode === 'plan_review' ? (
         <PlanReviewPanel state={state} dispatch={wrappedDispatch} />
-      ) : state().mode === 'candidate_review' ? (
+      ) : s().mode === 'candidate_review' ? (
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
-      ) : state().mode === 'recording_review' ? (
+      ) : s().mode === 'recording_review' ? (
         <RecordingPanel state={state} dispatch={wrappedDispatch} />
-      ) : state().mode === 'credential_prompt' ? (
+      ) : s().mode === 'credential_prompt' ? (
         <CredentialPromptPanel state={state} dispatch={wrappedDispatch} />
       ) : (
         <>
-          <MessageList messages={state().messages} />
+          <MessageList messages={s().messages} />
           <InputBar draft={draft()} setDraft={setDraft} onSubmit={handleSubmit} />
         </>
       )}
@@ -430,13 +442,23 @@ function App(props: {
 // ─── OpenTuiRenderer ───────────────────────────────────────────────────
 
 export function createOpenTuiRenderer(): TuiRenderer {
+  const setStateRef: { current: ((s: TuiShellState) => void) | null } = { current: null };
+
   return {
     async start(initialState, dispatch) {
-      await otRender(() => <App initialState={initialState} dispatch={dispatch} />, {
-        stdout: process.stdout,
-        stdin: process.stdin,
-        exitOnCtrlC: true,
-      });
+      await otRender(
+        () => (
+          <App initialState={initialState} dispatch={dispatch} setStateRef={setStateRef} />
+        ),
+        {
+          stdout: process.stdout,
+          stdin: process.stdin,
+          exitOnCtrlC: true,
+        },
+      );
+    },
+    update(state: TuiShellState) {
+      setStateRef.current?.(state);
     },
   };
 }

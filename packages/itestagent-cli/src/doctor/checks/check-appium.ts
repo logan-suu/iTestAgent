@@ -27,7 +27,7 @@ export async function checkAppium(): Promise<DoctorCheckResult> {
   }
 
   if (drivers.exitCode === 0) {
-    const hasXCUITest = /xcuitest/i.test(drivers.stdout);
+    const hasXCUITest = /xcuitest/i.test(drivers.stdout + drivers.stderr);
     details.push(`Installed drivers: ${hasXCUITest ? 'xcuitest ✓' : drivers.stdout || '(empty)'}`);
     if (!hasXCUITest) {
       issues.push('XCUITest driver not installed');
