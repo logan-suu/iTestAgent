@@ -562,7 +562,7 @@ describe('replayFlow — assertions', () => {
     expect(result.steps[0]?.status).toBe('failed');
   });
 
-  test('assertText passes when expectedText matches element', async () => {
+  test('assertText passes when expectedText matches element text', async () => {
     const backend = new MockDeviceBackend();
     backend.setUiTree(makeUiTreeSnapshot());
     const flow = makeFlow({
@@ -575,9 +575,7 @@ describe('replayFlow — assertions', () => {
       ],
     });
     const result = await replayFlow(flow, backend, makeReplayOpts());
-    // Note: assertText currently returns failed because extractElementText
-    // returns empty string. This test documents current behavior.
-    expect(result.steps[0]?.status).toBe('failed');
+    expect(result.steps[0]?.status).toBe('passed');
   });
 });
 

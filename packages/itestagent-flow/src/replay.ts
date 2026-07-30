@@ -73,40 +73,6 @@ export interface TargetCompatibilityResult {
 
 // ─── Constants ────────────────────────────────────────────────────
 
-/** Actions that can be replayed without a DeviceBackend (no-op / control flow). */
-const NO_BACKEND_ACTIONS = new Set<string>(['comment', 'wait']);
-
-/** Actions that require DeviceBackend interaction. */
-const BACKEND_ACTIONS = new Set<string>([
-  'launchApp',
-  'terminateApp',
-  'tap',
-  'longPress',
-  'swipe',
-  'typeText',
-  'pressButton',
-  'openUrl',
-  'screenshot',
-  'getUiTree',
-  'startRecording',
-  'stopRecording',
-  'collectLogs',
-  'assertVisible',
-  'assertNotVisible',
-  'assertText',
-]);
-
-/** Actions classified as assertions (need UiTree for verification). */
-const ASSERTION_ACTIONS = new Set<string>(['assertVisible', 'assertNotVisible', 'assertText']);
-
-/** Actions classified as irreversible (always treated as safety-relevant). */
-const IRREVERSIBLE_ACTIONS = new Set<string>([
-  'terminateApp',
-  'openUrl',
-  'startRecording',
-  'stopRecording',
-]);
-
 // ─── Locator Resolution ───────────────────────────────────────────
 
 /** Parsed coordinate from locator value (e.g., "0.5,0.3" → {x:0.5, y:0.3}). */
@@ -144,6 +110,20 @@ function parseCoordinate(value: string): ParsedCoordinate | null {
 }
 
 /**
+ * Result from finding an element in the UiTree XML.
+ * Includes position and text attributes for assertions.
+ */
+interface UiTreeElement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
+  label: string;
+  value: string;
+}
+
+/**
  * Search a UiTree XML string for an element matching a locator.
  *
  * Strategies:
@@ -151,12 +131,9 @@ function parseCoordinate(value: string): ParsedCoordinate | null {
  *   - identifier: matches name="..." or accessibility-id="..." attribute
  *   - xpath: simple path matching (element type + attribute)
  *
- * Returns the parsed bounding box { x, y, width, height } or null if not found.
+ * Returns the element with position and text attributes, or null if not found.
  */
-function findElementInUiTree(
-  xml: string,
-  locator: LocatorV2,
-): { x: number; y: number; width: number; height: number } | null {
+function findElementInUiTree(xml: string, locator: LocatorV2): UiTreeElement | null {
   if (locator.strategy === 'coordinate') {
     const coord = parseCoordinate(locator.value);
     if (!coord) return null;
@@ -221,7 +198,12 @@ function findElementInUiTree(
 
   if ([x, y, width, height].some((v) => Number.isNaN(v))) return null;
 
-  return { x, y, width, height };
+  // Extract text attributes for assertion support
+  const name = elementStr.match(/\bname="([^"]*)"/)?.[1] ?? '';
+  const label = elementStr.match(/\blabel="([^"]*)"/)?.[1] ?? '';
+  const value = elementStr.match(/\bvalue="([^"]*)"/)?.[1] ?? '';
+
+  return { x, y, width, height, name, label, value };
 }
 
 /**
@@ -813,17 +795,8 @@ function normalizePressButton(button: string): 'home' | 'back' | 'volumeUp' | 'v
  * Extract visible text from a matched element in the UiTree XML.
  * Checks name, label, and value attributes.
  */
-function extractElementText(
-  element: { x: number; y: number; width: number; height: number },
-  _xml: string,
-): string {
-  // The element bounds were extracted from regex — we don't have the full attributes.
-  // For the text assertion, we return empty string and let the assertion logic
-  // handle it via the expectedText comparison.
-  // In practice, assertText should use the UiTree content directly, but
-  // as a conservative approach, we check if the locator value itself appears
-  // in the XML as a substring (simple text search).
-  return '';
+function extractElementText(element: UiTreeElement, _xml: string): string {
+  return element.label || element.name || element.value || '';
 }
 
 // ─── Main Replay Engine ───────────────────────────────────────────
@@ -875,8 +848,6 @@ export async function replayFlow(
         steps.push(skippedStep(j, s.action, s.target, 'Replay aborted'));
         summary.skipped++;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _unused = remaining; // consumed by the loop above
       break;
     }
 
