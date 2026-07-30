@@ -1,4 +1,5 @@
 export { compileFlow } from './compiler.js';
+export { generateDraft, type DraftOptions, type DraftResult } from './draft-generator.js';
 export {
   parseFlowV2,
   safeParseFlowV2,
