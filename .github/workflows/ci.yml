@@ -39,6 +39,7 @@ jobs:
     name: G4 — Test
     runs-on: ubuntu-latest
     needs: [typecheck, lint]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

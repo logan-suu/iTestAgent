@@ -56,9 +56,10 @@ jobs:
       # These require a booted Simulator with Appium/WDA.
       # Run manually (workflow_dispatch) or on schedule.
       # Standard CI (ci.yml) covers G3+G4 on every PR.
-      - name: G5-SIM — Simulator integration tests
+      # TODO(Phase 5.6): Wire actual Simulator integration tests
+      # (e.g. bun test tests/integration/phase5/phase5-simulator.test.ts).
+      - name: G5-SIM — Simulator integration tests (placeholder)
         run: |
           echo "G5-SIM lane: Simulator integration tests require booted iOS Simulator + Appium/WDA."
           echo "Runtime: iOS ${IOS_RUNTIME}, Device: ${DEVICE_TYPE}"
-          echo "Run Simulator-specific integration tests here."
-          # bun test tests/integration/phase4/phase4-simulator.test.ts
+          echo "TODO(Phase 5.6): Wire actual Simulator integration tests."
