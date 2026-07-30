@@ -5,6 +5,54 @@ import {
   type TuiShellEvent,
   type TuiShellState,
 } from './tui-shell.js';
+import { homedir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { spawn } from 'node:child_process';
+import { parse as parseJsonc } from 'jsonc-parser';
+
+// ── First-run detection ─────────────────────────────────────
+
+function isFirstRun(): boolean {
+  return !existsSync(resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc'));
+}
+
+function saveConfig(baseUrl: string, model: string): void {
+  const dir = resolve(homedir(), '.itestagent', 'config');
+  const path = resolve(dir, 'itestagent.jsonc');
+  Bun.write(path, JSON.stringify({
+    schemaVersion: '1.0',
+    model: { provider: 'openai', baseURL: baseUrl, apiKeyRef: 'openai_api_key', model },
+    device: { allowCrossTargetFallback: false },
+    tui: { framework: 'opentui' },
+  }, null, 2));
+}
+
+function loadConfigForDisplay(): { baseURL: string; model: string } {
+  const path = resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc');
+  try {
+    const raw = readFileSync(path, 'utf-8');
+    const cfg = parseJsonc(raw) as Record<string, unknown>;
+    const m = cfg.model as Record<string, unknown> | undefined;
+    return { baseURL: (m?.baseURL as string) ?? 'unknown', model: (m?.model as string) ?? 'unknown' };
+  } catch { return { baseURL: 'unknown', model: 'unknown' }; }
+}
+
+function saveApiKey(key: string): Promise<boolean> {
+  return new Promise((resolvePromise) => {
+    const child = spawn('/usr/bin/security', [
+      'add-generic-password',
+      '-s', 'itestagent/openai_api_key',
+      '-a', 'itestagent',
+      '-w', key,
+      '-U',
+    ], { stdio: 'ignore' });
+    child.on('close', (code) => resolvePromise(code === 0));
+    child.on('error', () => resolvePromise(false));
+  });
+}
+
+// ── TUI entry ───────────────────────────────────────────────
 
 export async function startTui(workspace?: string): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -13,37 +61,94 @@ export async function startTui(workspace?: string): Promise<void> {
     return;
   }
 
-  // Lazy-load renderer to avoid dependency issues for CLI commands
   const { createAnsiRenderer } = await import('./renderers/ansi-renderer.js');
 
   const ws = workspace ?? process.cwd();
   let state: TuiShellState = createInitialState(ws);
   let pendingUserText = '';
 
-  // Try to create the agent session (may fail gracefully)
+  // Detect first-run → enter setup wizard
+  const needsSetup = isFirstRun();
+  if (needsSetup) {
+    state = tuiShellReducer(state, { type: 'setup_start' });
+    state = { ...state, setupBaseUrl: 'https://api.deepseek.com/v1', setupModel: 'deepseek-chat' };
+  }
+
+  // Try to create the agent session (skip if in setup)
   let agentSession: Awaited<ReturnType<(typeof import('./agent-session.js'))['createAgentSession']>> | null = null;
-  try {
-    const { createAgentSession } = await import('./agent-session.js');
-    agentSession = await createAgentSession(ws);
-    state = tuiShellReducer(state, {
-      type: 'system_message',
-      text: `iTestAgent ready. Workspace: ${ws}\nType /help for commands, or describe what you want to test.`,
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    state = tuiShellReducer(state, {
-      type: 'system_message',
-      text: `⚠ Agent not available: ${msg}\nCLI commands (doctor, devices, config) still work.\nType a message to get started.`,
-    });
+  if (!needsSetup) {
+    try {
+      const { createAgentSession } = await import('./agent-session.js');
+      agentSession = await createAgentSession(ws);
+      // Show loaded config so user knows what's active
+      const cfg = loadConfigForDisplay();
+      state = tuiShellReducer(state, {
+        type: 'system_message',
+        text: `iTestAgent ready.\n${cfg.baseURL} / ${cfg.model}\nWorkspace: ${ws}\nType a message to get started.`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      state = tuiShellReducer(state, {
+        type: 'system_message',
+        text: `⚠ Agent not available: ${msg}\nType a message to get started.`,
+      });
+    }
   }
 
   const renderer: TuiRenderer = createAnsiRenderer();
 
   await renderer.start(state, (event: TuiShellEvent) => {
+    // ── Setup mode handling ──────────────────────────────
+    if (state.mode === 'setup' && event.type === 'submit') {
+      const input = pendingUserText.trim();
+      pendingUserText = '';
+
+      switch (state.setupStep) {
+        case 0: { // Base URL
+          const url = input || state.setupBaseUrl;
+          const fixed = url.startsWith('http') ? url : `https://${url}`;
+          state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
+          break;
+        }
+        case 1: { // API Key (input hidden in renderer)
+          if (!input || input.length < 10) {
+            state = { ...state, setupError: 'API key too short. Paste the full key.' };
+          } else {
+            saveApiKey(input).then((ok) => {
+              if (!ok) console.error('Warning: failed to save API key to Keychain');
+            });
+            state = { ...state, setupStep: 2, setupError: '' };
+          }
+          break;
+        }
+        case 2: { // Model name
+          const model = input || state.setupModel;
+          saveConfig(state.setupBaseUrl, model);
+          state = { ...state, setupModel: model };
+          state = tuiShellReducer(state, { type: 'setup_complete' });
+          state = tuiShellReducer(state, {
+            type: 'system_message',
+            text: `Setup complete! ${state.setupBaseUrl} / ${model}\nType a message to get started.`,
+          });
+          void (async () => {
+            try {
+              const { createAgentSession } = await import('./agent-session.js');
+              agentSession = await createAgentSession(ws);
+              renderer.update(state);
+            } catch { /* noop */ }
+          })();
+          break;
+        }
+      }
+      renderer.update(state);
+      return;
+    }
+
+    // ── Regular chat mode handling ─────────────────────
     if (event.type === 'input') {
       pendingUserText = event.text;
       state = tuiShellReducer(state, event);
-      renderer.update(state);
+      if (state.mode !== 'setup') renderer.update(state);
       return;
     }
 
@@ -51,8 +156,6 @@ export async function startTui(workspace?: string): Promise<void> {
       const text = pendingUserText;
       pendingUserText = '';
       state = tuiShellReducer(state, event);
-
-      // Process through agent asynchronously
       processAgentMessage(agentSession, text).then((newState) => {
         state = newState;
         renderer.update(state);
@@ -63,14 +166,16 @@ export async function startTui(workspace?: string): Promise<void> {
 
     if (event.type === 'submit') {
       state = tuiShellReducer(state, event);
-      renderer.update(state);
+      if (state.mode !== 'setup') renderer.update(state);
       return;
     }
 
     state = tuiShellReducer(state, event);
-    renderer.update(state);
+    if (state.mode !== 'setup') renderer.update(state);
   });
 }
+
+// ── Agent message processing ────────────────────────────────
 
 async function processAgentMessage(
   session: { processMessage(input: string): AsyncIterable<{ type: string; payload: Record<string, unknown> }> },

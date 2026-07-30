@@ -14,14 +14,14 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
+import { parse as parseJsonc } from 'jsonc-parser';
 
 function loadConfig(): { baseURL?: string; model?: string } {
   const configPath = resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc');
   try {
     const raw = readFileSync(configPath, 'utf-8');
-    const stripped = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    const config: Record<string, unknown> = JSON.parse(stripped);
-    const modelCfg = config.model as Record<string, unknown> | undefined;
+    const cfg = parseJsonc(raw) as Record<string, unknown>;
+    const modelCfg = cfg.model as Record<string, unknown> | undefined;
     return {
       baseURL: (modelCfg?.baseURL as string) ?? 'https://api.deepseek.com/v1',
       model: (modelCfg?.model as string) ?? 'deepseek-chat',

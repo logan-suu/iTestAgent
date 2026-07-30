@@ -22,7 +22,7 @@ function moveTo(row: number, col: number) {
   process.stdout.write(`${CSI}${row};${col}H`);
 }
 
-type Mode = 'chat' | 'candidate_review' | 'plan_review' | 'recording_review' | 'credential_prompt';
+type Mode = 'chat' | 'setup' | 'candidate_review' | 'plan_review' | 'recording_review' | 'credential_prompt';
 
 function render(state: TuiShellState): string[] {
   const lines: string[] = [];
@@ -52,7 +52,31 @@ function render(state: TuiShellState): string[] {
   lines.push('─'.repeat(Math.min(cols, 80)));
 
   // Mode indicator
-  if (mode === 'candidate_review') {
+  if (mode === 'setup') {
+    lines.push('');
+    lines.push(`${BOLD}${CYAN}First-Time Setup${RESET}`);
+    lines.push(`${DIM}Configure your AI provider to get started.${RESET}`);
+    lines.push('');
+
+    const step = state.setupStep;
+    if (step === 0) {
+      lines.push(`${BOLD}API Base URL${RESET}`);
+      lines.push(`${DIM}Default: ${state.setupBaseUrl}${RESET}`);
+      lines.push('Press Enter to accept default, or type a custom URL.');
+      if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
+    } else if (step === 1) {
+      lines.push(`${BOLD}API Key${RESET}`);
+      lines.push(`${DIM}Paste your API key (input is hidden):${RESET}`);
+      if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
+    } else if (step === 2) {
+      lines.push(`${BOLD}Model Name${RESET}`);
+      lines.push(`${DIM}Default: ${state.setupModel}${RESET}`);
+      lines.push('Press Enter to accept default, or type a custom model name.');
+      if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
+    }
+    lines.push('');
+    lines.push(`${DIM}Ctrl+C to exit setup at any time.${RESET}`);
+  } else if (mode === 'candidate_review') {
     lines.push(`${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`);
   } else if (mode === 'plan_review') {
     lines.push(`${YELLOW}[Plan Review]${RESET} j/k to navigate, Enter to confirm, q to cancel`);
@@ -68,7 +92,7 @@ function renderScreen(state: TuiShellState) {
     process.stdout.write(lines[i] + '\r\n');
   }
   // Input prompt
-  process.stdout.write('> ');
+  process.stdout.write(state.mode === 'setup' ? '' : '> ');
 }
 
 export function createAnsiRenderer(): TuiRenderer {
@@ -120,7 +144,7 @@ export function createAnsiRenderer(): TuiRenderer {
           if (code === 13) {
             const text = inputBuffer.trim();
             inputBuffer = '';
-            if (text && dispatchFn) {
+            if (dispatchFn) {
               dispatchFn({ type: 'input', text });
               dispatchFn({ type: 'submit' });
               // Re-render

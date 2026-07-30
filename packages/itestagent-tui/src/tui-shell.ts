@@ -30,6 +30,7 @@ import { PLAN_SECTIONS, navigatePlanSection } from './plan-review.js';
 
 export type TuiShellMode =
   | 'chat'
+  | 'setup'
   | 'candidate_review'
   | 'plan_review'
   | 'recording_review'
@@ -86,6 +87,12 @@ export interface TuiShellState {
   readonly credentialResponses: ReadonlyMap<string, CredentialResponse>;
   readonly credentialCompleted: boolean;
   readonly credentialRememberToggled: boolean;
+  /** Setup wizard state (mode === 'setup'). */
+  readonly setupStep: number;
+  readonly setupProvider: string;
+  readonly setupBaseUrl: string;
+  readonly setupModel: string;
+  readonly setupError: string;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -146,7 +153,10 @@ export type TuiShellEvent =
   | { readonly type: 'credential_toggle_remember' }
   | { readonly type: 'credential_confirm_all' }
   // Stream delta event for LLM token streaming into TUI
-  | { readonly type: 'stream_delta'; readonly id: string; readonly text: string };
+  | { readonly type: 'stream_delta'; readonly id: string; readonly text: string }
+  // Setup wizard events
+  | { readonly type: 'setup_start' }
+  | { readonly type: 'setup_complete' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -189,6 +199,11 @@ export function createInitialState(workspace?: string): TuiShellState {
     credentialResponses: new Map(),
     credentialCompleted: false,
     credentialRememberToggled: false,
+    setupStep: 0,
+    setupProvider: '',
+    setupBaseUrl: '',
+    setupModel: '',
+    setupError: '',
   };
 }
 
@@ -700,5 +715,13 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         mode: 'chat',
         credentialCompleted: true,
       };
+
+    // ── Setup wizard ──────────────────────────────────────────────
+
+    case 'setup_start':
+      return { ...state, mode: 'setup', setupStep: 0, setupError: '' };
+
+    case 'setup_complete':
+      return { ...state, mode: 'chat', setupStep: 0 };
   }
 }
