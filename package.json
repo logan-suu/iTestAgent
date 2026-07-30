@@ -11,7 +11,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "bun test",
-    "test:ci": "bun test $(find packages tests -name '*.test.ts' -not -path '*/xcresult-parser*' -not -path '*/opentui-renderer*' -not -path '*/phase4-evidence*' -not -path '*/itestagent-cli/test/cli.test.ts' -not -path '*/doctor/run-doctor*' | sort)",
+    "test:ci": "bun test $(find packages tests -name '*.test.ts' -not -path '*/xcresult-parser*' -not -path '*/opentui-renderer*' -not -path '*/phase4-evidence*' -not -path '*/itestagent-cli/test/cli.test.ts' -not -path '*/itestagent-cli/test/doctor/*' | sort)",
     "build": "bun run typecheck"
   },
   "devDependencies": {
