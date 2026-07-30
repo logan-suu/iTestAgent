@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { ArtifactRef } from 'itestagent-contracts';
+import { redactValue } from '../context-builder.js';
 import { spawnAsync } from './spawn-async.js';
 
 function makeScreenshotRef(path: string): ArtifactRef {
@@ -38,10 +39,10 @@ export async function simctlScreenshot(
     }
 
     const stderrMsg = res.stderr || 'no output';
-    console.warn(`simctlScreenshot failed, exit ${res.exitCode}: ${stderrMsg}`);
+    console.warn(`simctlScreenshot failed, exit ${res.exitCode}: ${redactValue(stderrMsg)}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`simctlScreenshot error: ${msg}`);
+    console.warn(`simctlScreenshot error: ${redactValue(msg)}`);
   }
 
   return null;
@@ -102,7 +103,9 @@ export function simctlStartRecording(
           };
         }
 
-        console.warn(`simctlStartRecording.stop: Video file not found at ${outputPath}`);
+        console.warn(
+          `simctlStartRecording.stop: Video file not found at ${redactValue(outputPath)}`,
+        );
         return null;
       },
 
@@ -115,7 +118,7 @@ export function simctlStartRecording(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`simctlStartRecording error: ${msg}`);
+    console.warn(`simctlStartRecording error: ${redactValue(msg)}`);
     if (proc && !stopped) {
       proc.kill('SIGKILL');
     }
@@ -182,10 +185,10 @@ export async function simctlCollectSyslog(
     }
 
     const stderrMsg = res.stderr || 'no output';
-    console.warn(`simctlCollectSyslog failed, exit ${res.exitCode}: ${stderrMsg}`);
+    console.warn(`simctlCollectSyslog failed, exit ${res.exitCode}: ${redactValue(stderrMsg)}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`simctlCollectSyslog error: ${msg}`);
+    console.warn(`simctlCollectSyslog error: ${redactValue(msg)}`);
   }
 
   return null;
@@ -237,7 +240,9 @@ export async function simctlCollectCrashLogs(
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`simctlCollectCrashLogs copy failed for ${file}: ${msg}`);
+      console.warn(
+        `simctlCollectCrashLogs copy failed for ${redactValue(file)}: ${redactValue(msg)}`,
+      );
     }
   }
 

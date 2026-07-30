@@ -116,10 +116,36 @@ export function generateSummary(input: ReportSynthesizerInput): string {
     lines.push('');
   }
 
-  return lines.join('\n');
+  const summary = lines.join('\n');
+  return sanitizeText(summary);
 }
 
 // ─── Private helpers ────────────────────────────────────────
+
+/**
+ * Sanitize credentials and secrets from report text (defense-in-depth for R6).
+ * Applies regex redaction for common credential patterns before text hits disk.
+ */
+function sanitizeText(text: string): string {
+  let result = text;
+  // OpenAI API keys (sk-...)
+  result = result.replace(/sk-[A-Za-z0-9_-]{32,}/gi, '[REDACTED]');
+  // Standalone JWT tokens (must appear BEFORE the Bearer pattern to catch bare JWTs)
+  result = result.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gi, '[REDACTED]');
+  // JWT / Bearer tokens
+  result = result.replace(
+    /Bearer\s+eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gi,
+    'Bearer [REDACTED]',
+  );
+  // Credential value assignments (password=, token=, secret=, apikey=, credential=)
+  result = result.replace(
+    /(password|token|secret|apikey|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|\S+)/gi,
+    '$1=[REDACTED]',
+  );
+  // Auth header values (x-api-key:, authorization:)
+  result = result.replace(/(x-api-key|authorization)\s*:\s*\S+/gi, '$1: [REDACTED]');
+  return result;
+}
 
 function statusLabel(status: string): string {
   const map: Record<string, string> = {

@@ -8,6 +8,7 @@ import type {
   ToolCall,
   ToolResult,
 } from 'itestagent-contracts';
+import { redactValue } from './context-builder.js';
 
 export type ToolExecutor = (call: ToolCall) => Promise<ToolResult>;
 
@@ -111,7 +112,7 @@ export class AiSdkAgentRuntime implements AgentRuntime {
           sessionId,
           error: {
             code: 'backend.error',
-            message: err instanceof Error ? err.message : String(err),
+            message: redactValue(err instanceof Error ? err.message : String(err)),
           },
         } satisfies AgentEvent;
       }
@@ -265,8 +266,9 @@ export class AiSdkAgentRuntime implements AgentRuntime {
           callId: p.toolCallId ? String(p.toolCallId) : crypto.randomUUID(),
           error: {
             code: 'backend.error',
-            message:
+            message: redactValue(
               p.error instanceof Error ? p.error.message : String(p.error ?? 'unknown tool error'),
+            ),
           },
         } satisfies AgentEvent;
 
@@ -276,8 +278,9 @@ export class AiSdkAgentRuntime implements AgentRuntime {
           sessionId,
           error: {
             code: 'backend.error',
-            message:
+            message: redactValue(
               p.error instanceof Error ? p.error.message : String(p.error ?? 'unknown error'),
+            ),
           },
         } satisfies AgentEvent;
 

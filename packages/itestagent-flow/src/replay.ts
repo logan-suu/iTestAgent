@@ -522,6 +522,12 @@ async function executeStep(
         // R6: valueRef with session.secret.* means the value is injected at runtime
         // For replay, valueRef is resolved before calling replayFlow — the caller should
         // have already substituted any secret references.
+        // Defense-in-depth: reject unresolved secrets.
+        if (step.valueRef?.startsWith('session.secret.')) {
+          throw new Error(
+            `R6: Unresolved secret reference ${step.valueRef}. Caller must resolve session.secret.* references before replay.`,
+          );
+        }
         await backend.typeText({ deviceId, text } as TypeTextInput, signal);
         break;
       }

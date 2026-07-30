@@ -103,8 +103,23 @@ export function saveProfile(profile: ProjectProfile): void {
  * G2: Validates against Zod schema before writing. Throws ZodError on invalid input.
  * AC3: Only call after user confirmation ("固化到项目").
  * Writes to <projectRoot>/.itestagent/project-profile.json
+ *
+ * R7: Writing to project directory requires user confirmation (US-18.3 AC2).
+ * Pass `confirmed: true` to proceed. Throws if called without explicit confirmation.
  */
-export function saveProfileToProject(profile: ProjectProfile, projectRoot: string): void {
+export function saveProfileToProject(
+  profile: ProjectProfile,
+  projectRoot: string,
+  confirmed?: boolean,
+): void {
+  // R7: project write requires explicit user confirmation (US-18.3 AC2)
+  if (confirmed !== true) {
+    throw new Error(
+      'R7: Writing profile to project directory (.itestagent/project-profile.json) requires user confirmation. ' +
+        'Pass confirmed: true to proceed (US-18.3 AC2).',
+    );
+  }
+
   // G2: Validate before writing
   const validated = ProjectProfileSchema.parse(profile);
   const dir = join(projectRoot, '.itestagent');

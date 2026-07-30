@@ -421,16 +421,27 @@ export class WdaManager {
    * (preinstalled mode).
    *
    * R7: Installation modifies the target device — must be confirmed by user.
+   * Pass `confirmed: true` to proceed. Throws if called without explicit confirmation.
    *
    * @param buildOpts - WDA build options
    * @param deviceId - CoreDevice identifier for installation
    * @param signal - Optional AbortSignal
+   * @param confirmed - R7 gate: must be `true` to proceed with device modification
    */
   async preparePreinstalledWDA(
     buildOpts: WdaBuildOptions,
     deviceId: string,
     signal?: AbortSignal,
+    confirmed?: boolean,
   ): Promise<WdaPreinstallVerification> {
+    // R7: device modification requires explicit user confirmation
+    if (confirmed !== true) {
+      throw new Error(
+        'R7: Installing WDA to a physical device modifies the target device and requires user confirmation. ' +
+          'Pass confirmed: true to proceed.',
+      );
+    }
+
     const result = await this.build({ ...buildOpts, signal });
 
     await this.install({

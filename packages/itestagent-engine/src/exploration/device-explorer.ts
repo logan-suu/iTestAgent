@@ -15,6 +15,7 @@
  */
 
 import type { ArtifactRef, ArtifactStore, RunStep } from 'itestagent-contracts';
+import { redactValue } from '../context-builder.js';
 import { EvidenceCollector } from '../evidence/evidence-collector.js';
 import { ElementLocator } from './element-locator.js';
 import { RunStepRecorder } from './run-step-recorder.js';
@@ -373,7 +374,8 @@ export class DeviceExplorer {
    * @param error - Error message.
    */
   private async failStepWithEvidence(stepId: string, error: string): Promise<void> {
-    this.recorder.failStep(stepId, error);
+    const redactedError = redactValue(error);
+    this.recorder.failStep(stepId, redactedError);
 
     if (!this.artifactStore || !this.options.runDir) return;
 
@@ -396,7 +398,9 @@ export class DeviceExplorer {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[DeviceExplorer] Evidence collection failed for step ${stepId}: ${msg}`);
+      console.warn(
+        `[DeviceExplorer] Evidence collection failed for step ${stepId}: ${redactValue(msg)}`,
+      );
     }
   }
 

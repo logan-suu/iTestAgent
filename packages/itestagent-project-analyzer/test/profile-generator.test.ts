@@ -364,13 +364,22 @@ describe('profile-io (AC2, AC3, AC4)', () => {
     const profile = await generateProjectProfile(backend, '/fake/MyApp');
 
     const projectRoot = join(tmpDir, 'MyApp');
-    saveProfileToProject(profile, projectRoot);
+    saveProfileToProject(profile, projectRoot, true);
 
     const expectedPath = join(projectRoot, '.itestagent', 'project-profile.json');
     const saved = JSON.parse(readFileSync(expectedPath, 'utf-8'));
 
     expect(saved.schemaVersion).toBe('itestagent.project-profile.v1');
     expect(saved.app.name).toBe('MyApp');
+  });
+
+  // ── R7: confirmation gate ───────────────────────────────
+
+  it('R7: saveProfileToProject throws when confirmed is omitted or false', async () => {
+    const profile = await generateProjectProfile(backend, '/fake/MyApp');
+    const projectRoot = join(tmpDir, 'R7-test');
+    expect(() => saveProfileToProject(profile, projectRoot)).toThrow(/R7/);
+    expect(() => saveProfileToProject(profile, projectRoot, false)).toThrow(/R7/);
   });
 
   // ── AC4: round-trip integrity ────────────────────────────
