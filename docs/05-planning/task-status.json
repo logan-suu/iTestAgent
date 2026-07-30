@@ -1,8 +1,8 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-            "last_updated": "2026-07-30T20:00:00.000Z",
-  "current_phase": 5,
+  "last_updated": "2026-07-30T23:00:00.000Z",
+  "current_phase": 6,
   "phases": [
     {
       "id": 0,
@@ -1003,6 +1003,7 @@
       "id": 5,
       "name": "打磨与 MVP 验收",
       "status": "done",
+      "last_updated": "2026-07-30T23:00:00.000Z",
       "integration_test": "5.6",
       "tasks": [
         {
@@ -1087,7 +1088,7 @@
           "id": "5.6",
           "title": "MVP 验收对照（19 条完成标准）",
           "story": null,
-          "status": "pending",
+          "status": "done",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
@@ -1099,7 +1100,8 @@
             "5.3"
           ],
           "test_file": null,
-          "notes": "P0 全绿、P1 声明限制、实验性标注。双目标 MVP 验收矩阵（physical + simulator 各 19 条验收对照）。G5 + G5-SIM 均通过。"
+          "notes": "✅ MVP 验收通过（2026-07-30，人类确认）。PR #61: https://github.com/logan-suu/iTestAgent/pull/61。验收报告：docs/06-verification/mvp-acceptance-report-5.6.md。结果：18/18 P0 PASS，4/4 P1 PASS（有限制声明），1/1 P2 PASS（实验性）。G4: 2334/0 tests。G5+G5-SIM 双目标验证通过。4 条 open deferred items 已审查并 disposition。建议：DEF-028 (major, RunStateMachine transition overload) 正式发布前修复。current_phase → 6。\nPhase 5 代码级集成测试（2026-07-30）: tests/integration/phase5/ 4个测试文件: phase5-flow-replay.test.ts (P0: FlowV2→replayFlow→ReplayResult)、phase5-explain-rerun.test.ts (P0: RunStore→FailureExplainer→explain + parentRunId)、phase5-draft-generation.test.ts (P1: FlowV2→XCUITest+Appium draft)、phase5-schema-contracts.test.ts (P2: FlowV2/FlowStepV2/LocatorV2/ValidatedTarget schema round-trips + redactValue)。88 tests / 0 fail。typecheck 0 / lint 0。",
+          "last_updated": "2026-07-30T23:30:00.000Z"
         }
       ]
     },
