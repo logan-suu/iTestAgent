@@ -37,7 +37,7 @@ jobs:
 
   test:
     name: G4 — Test
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: [typecheck, lint]
     timeout-minutes: 15
     steps:
