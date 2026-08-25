@@ -16,7 +16,9 @@ import type { MockDeviceConfig } from './mock-device-backend.js';
 export function createDefaultDevices(): DeviceInfo[] {
   return [
     {
-      udid: '00008110-00123456A12B001E',
+      // Synthetic placeholder in Apple's physical-device UDID shape.
+      // Never use a real device UDID here — fixtures must be machine-independent.
+      udid: '00008110-00FEEDFACE000001',
       name: 'iPhone 15 Pro',
       model: 'iPhone 15 Pro',
       osVersion: '18.3',
@@ -122,7 +124,7 @@ export function createDefaultActionResult(): ActionResult {
  * Create a default ArtifactRef for the given type.
  */
 export function createDefaultArtifactRef(type: ArtifactRef['type']): ArtifactRef {
-  const id = `artifact_${type}_${Date.now()}`;
+  const id = `artifact_${type}_mock`;
   const base: ArtifactRef = {
     id,
     type,
@@ -156,7 +158,7 @@ export function createDefaultConfig(): Required<MockDeviceConfig> {
     crashLogs: createDefaultCrashLogs(),
     recordingHandle: {
       handleId: 'rec_001',
-      startedAt: new Date().toISOString(),
+      startedAt: '2026-01-01T00:00:00.000Z',
     },
     logArtifact: createDefaultArtifactRef('log'),
   };

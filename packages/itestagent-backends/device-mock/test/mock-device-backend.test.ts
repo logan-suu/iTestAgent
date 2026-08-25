@@ -5,7 +5,7 @@ import type { MockDeviceConfig } from '../src/mock-device-backend.js';
 
 // ─── Fixtures ────────────────────────────────────────────────
 
-const TEST_DEVICE_ID = '00008110-00123456A12B001E';
+const TEST_DEVICE_ID = '00008110-00FEEDFACE000001';
 const UNKNOWN_DEVICE_ID = 'DEADBEEF-BADF-0000-0000-000000000000';
 
 const CUSTOM_DEVICE: DeviceInfo = {
@@ -59,7 +59,7 @@ describe('MockDeviceBackend', () => {
       const backend = new MockDeviceBackend();
       const devices = await backend.listDevices();
       expect(devices.length).toBe(4);
-      expect(devices[0]?.udid).toBe('00008110-00123456A12B001E');
+      expect(devices[0]?.udid).toBe('00008110-00FEEDFACE000001');
     });
 
     it('merges custom config with defaults', async () => {
