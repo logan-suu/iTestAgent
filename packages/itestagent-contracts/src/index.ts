@@ -264,6 +264,9 @@ export type {
   ArtifactStore,
 } from './store-driver.js';
 
+// B03 (guide §11.4 "result+artifact-index→B03"): the data-contracts schemas
+// live in focused modules now; data-contracts.ts re-exports them for
+// backwards compatibility.
 export {
   RunStatusSchema,
   PerformanceMetricsSchema,
@@ -272,11 +275,9 @@ export {
   FailureExplanationSchema,
   RunStepSchema,
   RunResultSchema,
-  ArtifactIndexSchema,
   DEFAULT_SCHEMA_VERSION,
   parseRunResult,
-  parseArtifactIndex,
-} from './data-contracts.js';
+} from './run-result-contracts.js';
 
 export type {
   RunStatus,
@@ -286,8 +287,24 @@ export type {
   FailureExplanation,
   RunStep,
   RunResult,
-  ArtifactIndex,
-} from './data-contracts.js';
+} from './run-result-contracts.js';
+
+export { ArtifactIndexSchema, parseArtifactIndex } from './artifact-index-contract.js';
+
+export type { ArtifactIndex } from './artifact-index-contract.js';
+
+export {
+  CrossFieldValidationError,
+  assertValidRunResultArtifactIndexPair,
+  findDuplicateArtifactIds,
+  findDuplicateArtifactRefs,
+  findDuplicateCaseIds,
+  findUnresolvedArtifactRefs,
+  parseValidatedRunResultPair,
+  validateRunResultArtifactIndexPair,
+} from './json-schema-cross-field.js';
+
+export type { CrossFieldIssue } from './json-schema-cross-field.js';
 
 export {
   ScopeSchema,
