@@ -1,11 +1,11 @@
 /** @jsxImportSource react */
 
-import { render, Box, Text } from 'ink';
-import React, { useState, useEffect } from 'react';
+import { Box, Text, render } from 'ink';
 import { useInput } from 'ink';
+import React, { useState, useEffect } from 'react';
+import type { TuiRenderer } from '../renderer.js';
 import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { tuiShellReducer } from '../tui-shell.js';
-import type { TuiRenderer } from '../renderer.js';
 
 function App(props: {
   initialState: TuiShellState;
@@ -17,31 +17,42 @@ function App(props: {
 
   useEffect(() => {
     props.stateRef.current = (s: TuiShellState) => setState(s);
-  }, []);
+  }, [props.stateRef]);
 
-  useInput((input: string, key: { return?: boolean; backspace?: boolean; delete?: boolean; ctrl?: boolean; meta?: boolean }) => {
-    if (key.return) {
-      const text = draft.trim();
-      if (text) {
-        props.dispatch({ type: 'input', text });
-        props.dispatch({ type: 'submit' });
-        setState((prev) => {
-          let s = tuiShellReducer(prev, { type: 'input', text });
-          s = tuiShellReducer(s, { type: 'submit' });
-          return s;
-        });
-        setDraft('');
+  useInput(
+    (
+      input: string,
+      key: {
+        return?: boolean;
+        backspace?: boolean;
+        delete?: boolean;
+        ctrl?: boolean;
+        meta?: boolean;
+      },
+    ) => {
+      if (key.return) {
+        const text = draft.trim();
+        if (text) {
+          props.dispatch({ type: 'input', text });
+          props.dispatch({ type: 'submit' });
+          setState((prev) => {
+            let s = tuiShellReducer(prev, { type: 'input', text });
+            s = tuiShellReducer(s, { type: 'submit' });
+            return s;
+          });
+          setDraft('');
+        }
+        return;
       }
-      return;
-    }
-    if (key.backspace || key.delete) {
-      setDraft((prev) => prev.slice(0, -1));
-      return;
-    }
-    if (input && !key.ctrl && !key.meta) {
-      setDraft((prev) => prev + input);
-    }
-  });
+      if (key.backspace || key.delete) {
+        setDraft((prev) => prev.slice(0, -1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setDraft((prev) => prev + input);
+      }
+    },
+  );
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
@@ -78,9 +89,7 @@ export function createInkRenderer(): TuiRenderer {
 
   return {
     async start(initialState, dispatch) {
-      const { unmount } = render(
-        React.createElement(App, { initialState, dispatch, stateRef }),
-      );
+      const { unmount } = render(React.createElement(App, { initialState, dispatch, stateRef }));
       await new Promise<void>((resolve) => {
         const cleanup = () => {
           unmount();

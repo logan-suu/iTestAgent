@@ -66,10 +66,18 @@ function MessageList(props: { messages: readonly Message[] }): JSX.Element {
         msgs.map((msg) => {
           let prefix: string;
           switch (msg.type) {
-            case 'user': prefix = 'You'; break;
-            case 'assistant': prefix = 'AI'; break;
-            case 'error': prefix = 'ERR'; break;
-            default: prefix = 'Sys'; break;
+            case 'user':
+              prefix = 'You';
+              break;
+            case 'assistant':
+              prefix = 'AI';
+              break;
+            case 'error':
+              prefix = 'ERR';
+              break;
+            default:
+              prefix = 'Sys';
+              break;
           }
           return (
             // biome-ignore lint/correctness/useJsxKeyInIterable: OpenTUI uses id as element key
@@ -447,9 +455,7 @@ export function createOpenTuiRenderer(): TuiRenderer {
   return {
     async start(initialState, dispatch) {
       await otRender(
-        () => (
-          <App initialState={initialState} dispatch={dispatch} setStateRef={setStateRef} />
-        ),
+        () => <App initialState={initialState} dispatch={dispatch} setStateRef={setStateRef} />,
         {
           stdout: process.stdout,
           stdin: process.stdin,

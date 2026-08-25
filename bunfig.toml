@@ -10,6 +10,11 @@ exact = true
 # Save lockfile at workspace root (monorepo)
 save = { lockfile = "bun.lock" }
 
+# Promotion policy (guide §7.2): explicit public registry + hoisted linker.
+# configVersion 0 corresponds to the hoisted linker; bun ci == frozen lock install.
+registry = "https://registry.npmjs.org"
+linker = "hoisted"
+
 [test]
 # Preload OpenTUI Solid JSX runtime for test files that transitively
 # import renderer code (solves "Cannot find module 'react/jsx-dev-runtime'").

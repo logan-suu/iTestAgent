@@ -1,0 +1,16 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 0,
+  "workspaces": {
+    "": {
+      "name": "itestagent-fixture",
+      "dependencies": {
+        "left-pad": "^1.3.0",
+        "floating-dep": "^2.0.0"
+      }
+    }
+  },
+  "packages": {
+    "left-pad": ["left-pad@1.3.0", "", {}, "sha512-fixture-integrity-hash"]
+  }
+}

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# pre-commit -- git pre-commit hook installed via `git config core.hooksPath .githooks`
+# (B00 GREEN step, guide §12.1). Delegates to scripts/verify-precommit-receipt.ts.
+#
+# The gate requires the Git-dir-local GATE_RECEIPT
+# ($GIT_DIR/itestagent-receipts/<batch>-gates.json) written by
+# run-precommit-gates.ts to verify:
+#   - the receipt exists, is a regular non-symlink file with safe owner/mode;
+#   - `stagedTreeHash` still equals the current index tree (`git write-tree`);
+#   - `g7 === true` (the pre-Bun secret scan passed).
+# The commit is rejected when the receipt is missing, the tree changed, G7
+# failed, or the receipt mode/owner is unsafe.
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+GIT_DIR="$(git rev-parse --absolute-git-dir)"
+RECEIPT_DIR="$GIT_DIR/itestagent-receipts"
+
+BUN_BIN="${HOME}/.local/bin/bun-1.3.14"
+if [ ! -x "$BUN_BIN" ]; then
+  BUN_BIN="bun"
+fi
+
+if [ ! -d "$RECEIPT_DIR" ]; then
+  echo "pre-commit: error: no gate receipts directory at $RECEIPT_DIR" >&2
+  exit 1
+fi
+
+# Gate receipts are Git-dir-local, per-batch `<batch>-gates.json` files. The
+# active batch is the one whose receipt is present; reject the commit when none
+# exists (fail-closed).
+shopt -s nullglob
+receipts=("$RECEIPT_DIR"/*-gates.json)
+if [ "${#receipts[@]}" -eq 0 ]; then
+  echo "pre-commit: error: no gate receipt found in $RECEIPT_DIR" >&2
+  exit 1
+fi
+
+for receipt in "${receipts[@]}"; do
+  "$BUN_BIN" "$ROOT/scripts/verify-precommit-receipt.ts" --receipt "$receipt" || exit $?
+done
+
+exit 0

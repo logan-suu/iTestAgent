@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/logan-suu/iTestAgent/schemas/migration-manifest.schema.json",
+  "title": "iTestAgent Promotion Batch Manifest",
+  "description": "Self-describing, non-self-referential batch manifest for the iTestAgent promotion migration (G6 gate).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "batchId",
+    "baseCommit",
+    "stagedTreeHash",
+    "baselineMode",
+    "baselineDigest",
+    "greenCommand",
+    "greenExit",
+    "payloadFiles",
+    "rollbackTag"
+  ],
+  "properties": {
+    "manifestVersion": {
+      "const": 1,
+      "description": "Schema version of this manifest format."
+    },
+    "batchId": {
+      "type": "string",
+      "pattern": "^B[0-4][0-9]$",
+      "description": "Batch identifier, B00 through B42."
+    },
+    "baseCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full SHA-256 of the base commit the batch was built on (the previous rollback tag commit)."
+    },
+    "stagedTreeHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "git write-tree of the staged payload tree, EXCLUDING this manifest file itself (avoids self-reference)."
+    },
+    "baselineMode": {
+      "enum": ["red", "characterization", "verification-missing"],
+      "description": "RED mode captured for the batch. B26 must be 'characterization'; B38/B41/B42 must be 'verification-missing'; all others 'red'."
+    },
+    "baselineDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the RED (or characterization/verification-missing) test output that defined the baseline contract."
+    },
+    "greenCommand": {
+      "type": "string",
+      "description": "Exact test command that passed in the GREEN phase (from the batch allowlist)."
+    },
+    "greenExit": {
+      "const": 0,
+      "description": "Exit code of the GREEN test command; must be 0."
+    },
+    "gateCommands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command", "exit"],
+        "properties": {
+          "name": {
+            "enum": ["G0", "G1", "G2", "G3", "G4", "G4b", "G6", "G7", "LOCK_INVARIANT"]
+          },
+          "command": { "type": "string" },
+          "exit": { "const": 0 }
+        }
+      },
+      "description": "Record of gate executions with their exit codes."
+    },
+    "lockInvariant": {
+      "type": ["object", "null"],
+      "description": "Present ONLY for B05/B37: {beforeSha256, afterSha256, equal:true} proving an export-map-only change left bun.lock byte-identical.",
+      "additionalProperties": false,
+      "required": ["beforeSha256", "afterSha256", "equal"],
+      "properties": {
+        "beforeSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "afterSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "equal": { "const": true }
+      }
+    },
+    "payloadFiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^(?!/docs/06-verification/migration/B[0-4][0-9]\\.json$).+$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "bytes"],
+          "properties": {
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "bytes": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "description": "Repo-relative path -> {sha256, bytes} for every payload file in this batch (excluding this manifest)."
+    },
+    "rollbackTag": {
+      "type": "string",
+      "pattern": "^promo/(b[0-9][0-9]-|base-|plan-approved-|wave-[0-9][0-9]-green)",
+      "description": "Annotated rollback tag for this batch, per scripts/expected-batch-tag.ts."
+    }
+  }
+}

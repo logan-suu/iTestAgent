@@ -1,5 +1,11 @@
+import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel } from 'ai';
+import type { AgentEvent, ToolCall, ToolResult } from 'itestagent-contracts';
+import { MockDeviceBackend } from 'itestagent-device-mock';
 import {
   AiSdkAgentRuntime,
   BackendRegistry,
@@ -8,12 +14,6 @@ import {
   PermissionEngine,
   ToolDispatcher,
 } from 'itestagent-engine';
-import type { AgentEvent, ToolCall, ToolResult } from 'itestagent-contracts';
-import { MockDeviceBackend } from 'itestagent-device-mock';
-import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { resolve } from 'node:path';
 import { parse as parseJsonc } from 'jsonc-parser';
 
 function loadConfig(): { baseURL?: string; model?: string } {
@@ -171,7 +171,9 @@ export async function createAgentSession(workspace: string): Promise<TuiAgentSes
   const config = loadConfig();
   const apiKey = await loadApiKey();
   if (!apiKey) {
-    throw new Error('No API key found. Store it in Keychain: security add-generic-password -s itestagent/openai_api_key -a itestagent -w');
+    throw new Error(
+      'No API key found. Store it in Keychain: security add-generic-password -s itestagent/openai_api_key -a itestagent -w',
+    );
   }
 
   const openai = createOpenAI({

@@ -26,8 +26,10 @@ Thumbs.db
 *.swo
 *~
 
-# OpenCode / Agent
+# OpenCode / Agent state (promotion denylist — never commit, see guide §2.1)
 .omo/
+.opencode/
+.superpowers/
 
 # Code intelligence (local tool index, never commit)
 .codegraph/

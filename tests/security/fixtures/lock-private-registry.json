@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 0,
+  "workspaces": {
+    "": {
+      "name": "itestagent-fixture",
+      "dependencies": {
+        "internal-tool": "1.0.0"
+      }
+    }
+  },
+  "packages": {
+    "internal-tool": ["internal-tool@1.0.0", "http://internal-registry.example.com/", {}, "sha512-fixture-integrity-hash"]
+  }
+}

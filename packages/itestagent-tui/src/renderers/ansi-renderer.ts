@@ -1,7 +1,7 @@
+import type { createInterface } from 'node:readline';
+import type { TuiRenderer } from '../renderer.js';
 import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { createInitialState, tuiShellReducer } from '../tui-shell.js';
-import type { TuiRenderer } from '../renderer.js';
-import { createInterface } from 'node:readline';
 
 // ── Simple ANSI terminal renderer — zero external dependencies ──
 
@@ -22,7 +22,13 @@ function moveTo(row: number, col: number) {
   process.stdout.write(`${CSI}${row};${col}H`);
 }
 
-type Mode = 'chat' | 'setup' | 'candidate_review' | 'plan_review' | 'recording_review' | 'credential_prompt';
+type Mode =
+  | 'chat'
+  | 'setup'
+  | 'candidate_review'
+  | 'plan_review'
+  | 'recording_review'
+  | 'credential_prompt';
 
 function render(state: TuiShellState): string[] {
   const lines: string[] = [];
@@ -37,10 +43,13 @@ function render(state: TuiShellState): string[] {
   // Messages
   for (const msg of state.messages) {
     const prefix =
-      msg.type === 'user' ? `${GREEN}YOU${RESET}` :
-      msg.type === 'assistant' ? `${CYAN} AI${RESET}` :
-      msg.type === 'error' ? `${RED}ERR${RESET}` :
-      `${DIM}SYS${RESET}`;
+      msg.type === 'user'
+        ? `${GREEN}YOU${RESET}`
+        : msg.type === 'assistant'
+          ? `${CYAN} AI${RESET}`
+          : msg.type === 'error'
+            ? `${RED}ERR${RESET}`
+            : `${DIM}SYS${RESET}`;
     lines.push(`[${prefix}] ${msg.text}`);
   }
 
@@ -77,7 +86,9 @@ function render(state: TuiShellState): string[] {
     lines.push('');
     lines.push(`${DIM}Ctrl+C to exit setup at any time.${RESET}`);
   } else if (mode === 'candidate_review') {
-    lines.push(`${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`);
+    lines.push(
+      `${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`,
+    );
   } else if (mode === 'plan_review') {
     lines.push(`${YELLOW}[Plan Review]${RESET} j/k to navigate, Enter to confirm, q to cancel`);
   }
@@ -89,7 +100,7 @@ function renderScreen(state: TuiShellState) {
   clearScreen();
   const lines = render(state);
   for (let i = 0; i < lines.length; i++) {
-    process.stdout.write(lines[i] + '\r\n');
+    process.stdout.write(`${lines[i]}\r\n`);
   }
   // Input prompt
   process.stdout.write(state.mode === 'setup' ? '' : '> ');
@@ -98,7 +109,7 @@ function renderScreen(state: TuiShellState) {
 export function createAnsiRenderer(): TuiRenderer {
   let currentState: TuiShellState;
   let dispatchFn: ((event: TuiShellEvent) => void) | null = null;
-  let rl: ReturnType<typeof createInterface> | null = null;
+  const rl: ReturnType<typeof createInterface> | null = null;
   let inputBuffer = '';
 
   return {
@@ -120,7 +131,7 @@ export function createAnsiRenderer(): TuiRenderer {
 
           // Ctrl+C → exit
           if (code === 3) {
-            process.stdout.write(RESET + '\r\n');
+            process.stdout.write(`${RESET}\r\n`);
             process.stdin.setRawMode?.(false);
             process.stdin.pause();
             process.stdin.removeListener('data', onData);
@@ -135,7 +146,7 @@ export function createAnsiRenderer(): TuiRenderer {
               // Clear input line and re-render
               moveToCursor();
               process.stdout.write('\x1b[0K');
-              process.stdout.write('> ' + inputBuffer);
+              process.stdout.write(`> ${inputBuffer}`);
             }
             continue;
           }
@@ -166,7 +177,7 @@ export function createAnsiRenderer(): TuiRenderer {
       // Wait for exit signal
       await new Promise<void>((resolve) => {
         process.once('SIGINT', () => {
-          process.stdout.write(RESET + '\r\n');
+          process.stdout.write(`${RESET}\r\n`);
           process.stdin.setRawMode?.(false);
           resolve();
         });
@@ -176,7 +187,7 @@ export function createAnsiRenderer(): TuiRenderer {
     update(state: TuiShellState) {
       currentState = state;
       renderScreen(state);
-      process.stdout.write('> ' + inputBuffer);
+      process.stdout.write(`> ${inputBuffer}`);
     },
   };
 }

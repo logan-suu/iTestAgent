@@ -1,0 +1,122 @@
+[
+  {
+    "from": "itestagent-tui",
+    "to": "itestagent-cli"
+  },
+  {
+    "from": "itestagent-tui",
+    "to": "itestagent-engine"
+  },
+  {
+    "from": "itestagent-cli",
+    "to": "itestagent-engine"
+  },
+  {
+    "from": "itestagent-cli",
+    "to": "itestagent-report"
+  },
+  {
+    "from": "itestagent-cli",
+    "to": "itestagent-flow"
+  },
+  {
+    "from": "itestagent-server",
+    "to": "itestagent-engine"
+  },
+  {
+    "from": "itestagent-server",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-backends-device-appium"
+  },
+  {
+    "from": "itestagent-backends-device-appium",
+    "to": "itestagent-process"
+  },
+  {
+    "from": "itestagent-store",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-cli",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-cli",
+    "to": "itestagent-store"
+  },
+  {
+    "from": "itestagent-cli",
+    "to": "itestagent-tui"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-project-analyzer"
+  },
+  {
+    "from": "itestagent-server",
+    "to": "itestagent-store"
+  },
+  {
+    "from": "itestagent-flow",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-report",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-project-analyzer",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-backends-analyzer-xcresult",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-backends-build-xcodebuild",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-backends-performance-xctrace-analyzer",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-backends-analyzer-xcodeproj",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-backends-device-appium",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-device-mock",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-backends-build-xcodebuild",
+    "to": "itestagent-backends-analyzer-xcodeproj"
+  },
+  {
+    "from": "itestagent-backends-performance-xctrace-analyzer",
+    "to": "itestagent-engine"
+  },
+  {
+    "from": "itestagent-tui",
+    "to": "itestagent-contracts"
+  },
+  {
+    "from": "itestagent-tui",
+    "to": "itestagent-device-mock"
+  },
+  {
+    "from": "itestagent-tui",
+    "to": "itestagent-project-analyzer"
+  }
+]

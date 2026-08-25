@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 0,
+  "workspaces": {
+    "": {
+      "name": "itestagent-fixture",
+      "dependencies": {
+        "no-integrity": "1.0.0"
+      }
+    }
+  },
+  "packages": {
+    "no-integrity": ["no-integrity@1.0.0", "", {}, ""]
+  }
+}

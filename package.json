@@ -12,7 +12,18 @@
     "lint:fix": "biome check --write .",
     "test": "bun test",
     "test:ci": "bun test $(find packages tests -name '*.test.ts' -not -path '*/xcresult-parser*' -not -path '*/opentui-renderer*' -not -path '*/phase4-evidence*' -not -path '*/itestagent-cli/test/cli.test.ts' -not -path '*/itestagent-cli/test/doctor/*' | sort)",
-    "build": "bun run typecheck"
+    "build": "bun run typecheck",
+    "gate:g0": "bun scripts/verify-batch-state.ts",
+    "gate:g1": "bun test tests/architecture/schema-parity-gate.test.ts",
+    "gate:g2": "bun scripts/scan-forbidden-literals.ts",
+    "gate:g3": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+    "gate:g4b": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+    "gate:g6": "bun scripts/validate-migration-manifest.ts",
+    "gate:g7": "bun test tests/security/no-secret-echo.test.ts",
+    "batch:test": "bun scripts/run-batch-tests.ts",
+    "batch:allowlist": "bun scripts/verify-batch-allowlist.ts",
+    "evidence:generate": "bun scripts/generate-evidence.ts",
+    "evidence:verify": "bun scripts/verify-evidence.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
