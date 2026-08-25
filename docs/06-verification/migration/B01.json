@@ -1,0 +1,57 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B01",
+  "baseCommit": "c4100c34f138bca84204803a200d7bbac4f2643b",
+  "stagedTreeHash": "1f544dac87eb476c8fbc033672653dbd9c295d17",
+  "baselineMode": "red",
+  "baselineDigest": "e91c2dc126d48dfc66d8b0949ed04005c6bb7c12df84d7acc86a367e876cb5b8",
+  "greenCommand": "bun run batch:test -- B01",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B01-files.txt": {
+      "sha256": "f3d1eeb32f70ea14da60e3d9cbdf09a9a64e036f722c40b672ba7779f2293ca5",
+      "bytes": 641
+    },
+    "packages/itestagent-contracts/src/device-action-inputs.ts": {
+      "sha256": "6ef903d2f96f622bb7c88bb98592ac5b86fedeb4ea8ad0ea6d1ba724183f437c",
+      "bytes": 3693
+    },
+    "packages/itestagent-contracts/src/device-artifacts.ts": {
+      "sha256": "8c35186c6593dbcc33bca413741790b1bbe54a3b9e23c1df4c545946bba38e67",
+      "bytes": 3182
+    },
+    "packages/itestagent-contracts/src/device-identity.ts": {
+      "sha256": "1d23e2f2f1055ebe2a9af309df93dc2ab0656654af51b9eb7a1225f30b626bff",
+      "bytes": 4683
+    },
+    "packages/itestagent-contracts/src/device-runtime.ts": {
+      "sha256": "8df6077f2a2db67cdeb77f35da5c320c4d6392957b464b4dc20998e75f5f5749",
+      "bytes": 2503
+    },
+    "packages/itestagent-contracts/src/device-types.ts": {
+      "sha256": "94ebc819a61440e624ae8d7f5654335cee13d1ff8cd239f4db838a48f14e61e5",
+      "bytes": 2806
+    },
+    "packages/itestagent-contracts/src/index.ts": {
+      "sha256": "23d06003943e271162b95da8e36f152666bb8996e90439858aa8c7a8465d8199",
+      "bytes": 8289
+    },
+    "packages/itestagent-contracts/test/build-driver.test.ts": {
+      "sha256": "050ac6a7f288e1fbf8713d988c2cda9081f775856acfa0165f93451004b124f4",
+      "bytes": 7330
+    },
+    "packages/itestagent-contracts/test/device-types.test.ts": {
+      "sha256": "74ffd8194d54780417b9428da4b4cea68aaa48381d71f273079e719525e67070",
+      "bytes": 12628
+    },
+    "packages/itestagent-contracts/test/launch-app-input.test.ts": {
+      "sha256": "23d8946699f0205b21174bd6989cc23b35eeeff787c5b5f02c9812da4a52dfc5",
+      "bytes": 3114
+    },
+    "packages/itestagent-contracts/test/public-api-superset.test.ts": {
+      "sha256": "0f96daf003badddfd04fa9f0ac632a76802c22aac9b08865105337918733c124",
+      "bytes": 16348
+    }
+  },
+  "rollbackTag": "promo/b01-contracts-device-core"
+}

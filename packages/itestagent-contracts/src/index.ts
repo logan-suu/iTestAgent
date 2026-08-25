@@ -53,16 +53,26 @@ export {
   ArtifactTypeSchema,
   RedactionStatusSchema,
   ArtifactRefSchema,
+  parseArtifactRef,
+} from './device-artifacts.js';
+
+export {
   DeviceInfoSchema,
   DeviceSnapshotSchema,
   DeviceTargetSchema,
   HealthCheckResultSchema,
   BackendCapabilitiesSchema,
   AppInfoSchema,
+} from './device-types.js';
+
+export {
   ActionResultSchema,
   UiTreeSnapshotSchema,
   CrashSummarySchema,
   RecordingHandleSchema,
+} from './device-runtime.js';
+
+export {
   LaunchAppInputSchema,
   TerminateAppInputSchema,
   TapInputSchema,
@@ -73,8 +83,7 @@ export {
   ScreenshotInputSchema,
   RecordingInputSchema,
   LogCollectInputSchema,
-  parseArtifactRef,
-} from './device-types.js';
+} from './device-action-inputs.js';
 
 export {
   ToolCallSchema,
@@ -96,16 +105,25 @@ export type {
   ArtifactType,
   RedactionStatus,
   ArtifactRef,
+} from './device-artifacts.js';
+
+export type {
   DeviceInfo,
   DeviceSnapshot,
   DeviceTarget,
   HealthCheckResult,
   BackendCapabilities,
   AppInfo,
+} from './device-types.js';
+
+export type {
   ActionResult,
   UiTreeSnapshot,
   CrashSummary,
   RecordingHandle,
+} from './device-runtime.js';
+
+export type {
   LaunchAppInput,
   TerminateAppInput,
   TapInput,
@@ -116,7 +134,7 @@ export type {
   ScreenshotInput,
   RecordingInput,
   LogCollectInput,
-} from './device-types.js';
+} from './device-action-inputs.js';
 
 export {
   BuildDoctorResultSchema,
