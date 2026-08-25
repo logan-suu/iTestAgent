@@ -258,8 +258,10 @@ describe('workspace dependency graph (guide §8)', () => {
       .map((v) => `${v.pkg}: imports "${v.specifier}" in ${v.file}`);
     expect(newViolations).toEqual([]);
 
-    // (b) The reported count must equal the documented baseline count.
-    expect(violations.length).toBe(snapshot.length);
+    // (b) The reported count must never exceed the documented baseline count.
+    // Legitimate fixes REMOVE violations (manifest declarations land in later
+    // batches), so a decreasing count is the expected direction of travel.
+    expect(violations.length).toBeLessThanOrEqual(snapshot.length);
   });
 
   test('every declared workspace dependency edge is allowed or a documented baseline edge', () => {

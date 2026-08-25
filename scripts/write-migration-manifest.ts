@@ -28,6 +28,7 @@
 import { createHash } from 'node:crypto';
 import {
   closeSync,
+  existsSync,
   constants as fsConstants,
   openSync,
   readFileSync,
@@ -260,6 +261,7 @@ function main(): void {
   const payloadFiles: Record<string, { sha256: string; bytes: number }> = {};
   for (const rel of [...new Set(changed)].sort()) {
     if (rel === manifestRel) continue; // no self-reference
+    if (!existsSync(join(root, rel))) continue;
     // Physical containment + symlink check before the no-follow open.
     const safe = assertContained(root, rel);
     const { sha256, bytes } = sha256AndBytes(safe);
