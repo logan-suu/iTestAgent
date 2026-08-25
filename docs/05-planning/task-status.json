@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-07-30T23:00:00.000Z",
+  "last_updated": "2026-08-24T22:40:20-05:00",
   "current_phase": 6,
   "phases": [
     {
@@ -106,6 +106,20 @@
           ],
           "test_file": null,
           "notes": "已完成。Phase 0 横评报告输出到 docs/06-verification/phase-0-cross-evaluation-report.md。决策矩阵确定：Appium/WDA（免费账号可用）+ MockBackend CI + xctrace-analyzer-core + OpenTUI/Ink + raw xcodebuild+XcodeProj。ADR-006~009 记录。Phase 0 出口通过，进入 Phase 1。"
+        },
+        {
+          "id": "PROMO-001",
+          "title": "Execute reviewed iTestAgent promotion guide",
+          "story": "PROMO-001",
+          "status": "in_progress",
+          "last_updated": "2026-08-24T22:40:20-05:00",
+          "documents_required": [
+            "AGENTS.md",
+            "docs/05-planning/promotion-plan-approval.json"
+          ],
+          "dependencies": [],
+          "test_file": null,
+          "notes": "guideSha256=1a819784354fa40bd5c9aac3cff3f5690fcc9540f16629549c3495eaa2599156; guideUrl=/Users/logansu/Desktop/报告/iTestAgent 先行版能力迁移与开发执行指南（featmvp-e2e-validation → 可推广版本）.md; targetBunLockSha256=332573df8c10d39fb7d45f29a9343fc4f110921709ffb06ea8ff40e6239f0cce"
         }
       ]
     },
@@ -1034,7 +1048,7 @@
             "3.15"
           ],
           "test_file": null,
-          "notes": "Task 5.2 complete. FlowReplayEngine (packages/itestagent-flow/src/replay.ts) with checkTargetCompatibility (ADR-011) + replayFlow (18 action types mapped to DeviceBackend, safetyGate R7, locator resolution, evidence collection, abort signal). 51 new tests in replay.test.ts (2289 total, all pass). CLI: --execute flag + dynamic backend import with dry-run fallback. G3: typecheck 0, lint 0. G4: 2289 pass. G5/G5-SIM: deferred — requires connected device. PR #57 merged to dev-1.0 (2026-07-30).",
+          "notes": "Task 5.2 complete. FlowReplayEngine (packages/itestagent-flow/src/replay.ts) with checkTargetCompatibility (ADR-011) + replayFlow (18 action types mapped to DeviceBackend, safetyGate R7, locator resolution, evidence collection, abort signal). 51 new tests in replay.test.ts (2289 total, all pass). CLI: --execute flag + dynamic backend import with dry-run fallback. G3: typecheck 0, lint 0. G4: 2289 pass. G5/G5-SIM: deferred — requires connected device. PR #57 merged to dev-1.0 (2026-07-30)."
         },
         {
           "id": "5.3",

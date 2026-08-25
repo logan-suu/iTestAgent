@@ -1,0 +1,9 @@
+{
+  "approved": true,
+  "approvedAt": "2026-08-24T22:40:20-05:00",
+  "baseSha": "73c99fbcc237cafc13279a322616ee0b5b97ff62",
+  "guideSha256": "1a819784354fa40bd5c9aac3cff3f5690fcc9540f16629549c3495eaa2599156",
+  "guideUrl": "/Users/logansu/Desktop/报告/iTestAgent 先行版能力迁移与开发执行指南（featmvp-e2e-validation → 可推广版本）.md",
+  "scope": "B00-B42",
+  "targetBunLockSha256": "332573df8c10d39fb7d45f29a9343fc4f110921709ffb06ea8ff40e6239f0cce"
+}
