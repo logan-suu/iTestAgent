@@ -1,0 +1,7 @@
+docs/06-verification/migration/B10.json
+docs/06-verification/migration/allowlists/B10-files.txt
+packages/itestagent-project-analyzer/src/profile-generator.ts
+packages/itestagent-project-analyzer/src/profile-inference.ts
+packages/itestagent-project-analyzer/src/profile-io.ts
+packages/itestagent-project-analyzer/test/profile-generator.test.ts
+schemas/project-profile.schema.json

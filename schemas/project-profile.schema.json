@@ -1,8 +1,8 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://itestagent.dev/schemas/project-profile.schema.json",
   "title": "ProjectProfile",
-  "description": "iTestAgent Project Profile — deterministic + inferred facts about an iOS project. Source: 架构设计文档 §6.1 + 数据流全链路 §5. Stored at ~/.itestagent/projects/<project-hash>/project-profile.json",
+  "description": "iTestAgent Project Profile — deterministic + inferred facts about an iOS project. Source: architecture design doc §6.1 + data-flow doc §5. Stored at ~/.itestagent/projects/<project-hash>/project-profile.json",
   "type": "object",
   "required": ["schemaVersion", "projectHash", "app", "targets", "testAssets", "features", "suggestedSmoke"],
   "additionalProperties": false,
@@ -27,24 +27,23 @@
         "workspace": { "type": "string" },
         "project": { "type": "string" },
         "scheme": { "type": "string" }
-      },
-      "required": []
+      }
     },
     "targets": {
       "type": "array",
       "description": "List of build targets (app/test/extension). Deterministic.",
       "items": {
-        "$ref": "#/$defs/TargetProfile"
+        "$ref": "#/definitions/TargetProfile"
       }
     },
     "testAssets": {
-      "$ref": "#/$defs/TestAssetsProfile"
+      "$ref": "#/definitions/TestAssetsProfile"
     },
     "features": {
       "type": "array",
-      "description": "Inferred feature candidates. Must carry evidence + confidence (R4: 不自动断定核心链路).",
+      "description": "Inferred feature candidates. Must carry evidence + confidence (R4: core paths are never auto-finalized).",
       "items": {
-        "$ref": "#/$defs/FeatureCandidate"
+        "$ref": "#/definitions/CandidateLink"
       }
     },
     "suggestedSmoke": {
@@ -53,7 +52,7 @@
       "items": { "type": "string" }
     }
   },
-  "$defs": {
+  "definitions": {
     "TargetProfile": {
       "type": "object",
       "additionalProperties": false,
@@ -86,7 +85,7 @@
       },
       "required": ["hasXCUITest", "hasScheme"]
     },
-    "FeatureCandidate": {
+    "CandidateLink": {
       "type": "object",
       "description": "Inferred feature. MUST include evidence + confidence (R4).",
       "additionalProperties": false,
@@ -122,7 +121,7 @@
         },
         "confirmed": {
           "type": "boolean",
-          "description": "Whether the user has confirmed this candidate in the TUI (US-3.3 AC3: only confirmed links enter TestPlan/Flow). Default false.",
+          "description": "Whether the user has confirmed this candidate in the TUI (AC3: only confirmed links enter TestPlan/Flow). Default false.",
           "default": false
         },
         "displayOrder": {
@@ -130,6 +129,11 @@
           "description": "User-controlled display ordering; lower = higher priority. Default 0 (insertion order).",
           "minimum": 0,
           "default": 0
+        },
+        "expectedOutcomes": {
+          "type": "array",
+          "description": "Profile-inferred expected outcomes for this feature (US-11.1 AC1 tier 2). Each string describes an expected result, e.g. 'home screen should appear'. Used by AssertionEvaluator as tier-2 assertions when no user assertions exist.",
+          "items": { "type": "string" }
         }
       },
       "required": ["name", "evidence", "confidence"]
