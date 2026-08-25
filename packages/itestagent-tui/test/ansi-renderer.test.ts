@@ -16,17 +16,31 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import {
+  CHAT_PROMPT,
+  effectiveColumns,
+  separatorLine as layoutSeparatorLine,
+} from '../src/ansi-layout.js';
+import {
+  type FrameWriteTarget,
+  clearScreen,
+  renderFrame,
+  renderScreen,
+} from '../src/renderers/ansi-renderer-frame.js';
 import { createAnsiRenderer } from '../src/renderers/ansi-renderer.js';
 import { type Message, type TuiShellState, createInitialState } from '../src/tui-shell.js';
 import {
   CLEAR_SCREEN,
   DOUBLE_PROMPT,
   EMPTY_STATE_HINT,
+  HEADER_TITLE,
   MAX_SEPARATOR_WIDTH,
   MODE_HINT_LINES,
+  SEPARATOR_CHAR,
   SETUP_PANEL,
   buildEmptyChatFrame,
   emptyMessageLineTail,
+  headerWorkspaceLine,
   messageLine,
   separatorLine,
 } from './fixtures/ansi-renderer-characterization.js';
@@ -297,5 +311,130 @@ describe('terminal width behavior', () => {
         // ignore restore failure
       }
     }
+  });
+});
+
+// ── B27: extracted layout module (src/ansi-layout.ts) ─────────────────
+
+describe('ansi-layout', () => {
+  it('exposes the same separator computation the renderer has always used', () => {
+    expect(layoutSeparatorLine(undefined)).toBe(separatorLine(MAX_SEPARATOR_WIDTH));
+    expect(layoutSeparatorLine(120)).toBe(SEPARATOR_CHAR.repeat(80));
+    expect(layoutSeparatorLine(20)).toBe(SEPARATOR_CHAR.repeat(20));
+  });
+
+  it('effectiveColumns falls back to 80 for undefined and zero widths', () => {
+    expect(effectiveColumns(undefined)).toBe(MAX_SEPARATOR_WIDTH);
+    expect(effectiveColumns(0)).toBe(MAX_SEPARATOR_WIDTH);
+    expect(effectiveColumns(20)).toBe(20);
+    expect(effectiveColumns(200)).toBe(200);
+  });
+
+  it('keeps the chat prompt constant in sync with the characterization lock', () => {
+    expect(CHAT_PROMPT).toBe('> ');
+  });
+});
+
+// ── B27: extracted frame module (src/renderers/ansi-renderer-frame.ts) ──
+
+/** Minimal write target capturing every chunk, mirroring process.stdout.write. */
+function makeFakeWriter(): { chunks: string[]; target: FrameWriteTarget } {
+  const chunks: string[] = [];
+  return {
+    chunks,
+    target: {
+      write: (chunk: string) => {
+        chunks.push(chunk);
+        return true;
+      },
+    },
+  };
+}
+
+describe('renderFrame (extracted from ansi-renderer render())', () => {
+  it('returns the frame lines without any escape-sequence framing or prompt', () => {
+    const lines = renderFrame(chatStateWith([msg('user', 'hello')]));
+    expect(Array.isArray(lines)).toBe(true);
+    expect(lines[0]).toBe(HEADER_TITLE);
+    expect(lines[1]).toBe(headerWorkspaceLine('/test/ws'));
+    expect(lines[2]).toBe(separatorLine(MAX_SEPARATOR_WIDTH));
+    expect(lines).toContain(messageLine('user', 'hello'));
+    expect(lines).not.toContain('> ');
+  });
+
+  it('matches the fixture-built body of the empty chat frame byte for byte', () => {
+    const lines = renderFrame({ ...createInitialState('/test/ws'), mode: 'chat' });
+    const expectedBody = buildEmptyChatFrame('/test/ws')
+      .replace(CLEAR_SCREEN, '')
+      .replace(DOUBLE_PROMPT, '');
+    expect(`${lines.map((l) => `${l}\r\n`).join('')}`).toBe(expectedBody);
+  });
+
+  it('emits mode hint lines for candidate_review and plan_review', () => {
+    expect(
+      renderFrame({
+        ...createInitialState('/test/ws'),
+        mode: 'candidate_review',
+        messages: [msg('assistant', 'paths')],
+      }),
+    ).toContain(MODE_HINT_LINES.candidate_review);
+    expect(
+      renderFrame({
+        ...createInitialState('/test/ws'),
+        mode: 'plan_review',
+        messages: [msg('assistant', 'plan')],
+      }),
+    ).toContain(MODE_HINT_LINES.plan_review);
+  });
+
+  it('renders the setup panel steps exactly as characterized', () => {
+    const lines = renderFrame(setupState(1));
+    expect(lines).toContain(SETUP_PANEL.header);
+    expect(lines).toContain(SETUP_PANEL.steps[1].field);
+    expect(lines).toContain(SETUP_PANEL.steps[1].hiddenNote);
+  });
+});
+
+describe('renderScreen / clearScreen (stdout writing)', () => {
+  it('clearScreen writes exactly the clear-screen sequence', () => {
+    const { chunks, target } = makeFakeWriter();
+    clearScreen(target);
+    expect(chunks).toEqual([CLEAR_SCREEN]);
+  });
+
+  it('writes CLEAR_SCREEN first, one CRLF-terminated chunk per line, then the prompt', () => {
+    const { chunks, target } = makeFakeWriter();
+    renderScreen(chatStateWith([msg('user', 'hi')]), target);
+    expect(chunks[0]).toBe(CLEAR_SCREEN);
+    expect(chunks[chunks.length - 1]).toBe(CHAT_PROMPT);
+    for (const chunk of chunks.slice(1, -1)) {
+      expect(chunk.endsWith('\r\n')).toBe(true);
+    }
+    const joined = chunks.join('');
+    expect(joined.endsWith(`${CHAT_PROMPT}`)).toBe(true);
+    expect(joined.startsWith(CLEAR_SCREEN)).toBe(true);
+  });
+
+  it('suppresses the prompt entirely (writes "") for setup mode', () => {
+    const { chunks, target } = makeFakeWriter();
+    renderScreen(setupState(0), target);
+    expect(chunks[chunks.length - 1]).toBe('');
+    expect(chunks).not.toContain('> ');
+  });
+
+  it('defaults to process.stdout when no write target is given', () => {
+    const captured: string[] = [];
+    const previous = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown) => {
+      captured.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      renderScreen(chatStateWith([msg('user', 'default-out')]));
+    } finally {
+      process.stdout.write = previous;
+    }
+    expect(captured[0]).toBe(CLEAR_SCREEN);
+    expect(captured.join('')).toContain(messageLine('user', 'default-out'));
   });
 });
