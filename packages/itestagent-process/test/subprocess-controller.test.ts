@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { spawn } from '../src/subprocess-controller.js';
-import type { SubprocessHandle } from '../src/subprocess-controller.js';
+import type { SubprocessHandle } from '../src/subprocess-types.js';
 
 // ─── Helpers ────────────────────────────────────────────────
 

@@ -1,0 +1,93 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B06",
+  "baseCommit": "b1baac78ed59efd05460232ad8cea476a7a145b4",
+  "stagedTreeHash": "21fa79c8e2a6cb7d90f917cc1f100af338d23153",
+  "baselineMode": "red",
+  "baselineDigest": "eeacd0adbe7da4acc93cb2d254898fef26d9debce118b0a3915ab70964c29c66",
+  "greenCommand": "bun run batch:test -- B06",
+  "greenExit": 0,
+  "payloadFiles": {
+    "bun.lock": {
+      "sha256": "7bf15333d31cbd502d06bfc3f043b64533a5e84b22814555dd8b34083eed6db2",
+      "bytes": 101935
+    },
+    "docs/06-verification/migration/allowlists/B06-files.txt": {
+      "sha256": "772fcf9c6486e99800ae0c28c40a2df6c9d22bec437225d67ed12e740571ef08",
+      "bytes": 1312
+    },
+    "docs/decisions/ADR-023-process-ownership-boundary.md": {
+      "sha256": "af0649fb7c9685b799ae5d362a1d7224c4a45dd8f8ba47e170b9e2d9cdfc3495",
+      "bytes": 4640
+    },
+    "packages/itestagent-process/package.json": {
+      "sha256": "654e97432dde926dd8ad47e0063f2b23ae576f0ed18f488ec37e7b525163d825",
+      "bytes": 450
+    },
+    "packages/itestagent-process/src/index.ts": {
+      "sha256": "7cf6c34e747c18aa0f031764c838e001de1a681fabfcbeca1d43852995b0c8fb",
+      "bytes": 1196
+    },
+    "packages/itestagent-process/src/owned-process-group-cleanup.ts": {
+      "sha256": "9790742ca4a580b4b339dc309b1b3439ac9f00e0a7fee0f79ad5a58fab271322",
+      "bytes": 2036
+    },
+    "packages/itestagent-process/src/owned-process-group-identity.ts": {
+      "sha256": "c3805254552f63a97bb7d16a6c6d869a21fdf85e3d68d0e8e039596f65ec2456",
+      "bytes": 902
+    },
+    "packages/itestagent-process/src/owned-process-group-reaping.ts": {
+      "sha256": "f8164056bcd6a64e0b7ed18b3a533fc9be53a02923c15a502bf1f91dc19ebda1",
+      "bytes": 1136
+    },
+    "packages/itestagent-process/src/owned-process-group-system.ts": {
+      "sha256": "1b83ba239e1218fd6d26e94e8fff0e13baa83947122bff6a53c71d3b59ebcdce",
+      "bytes": 2526
+    },
+    "packages/itestagent-process/src/owned-process-group.ts": {
+      "sha256": "53e3bea83cdcb2855c179ba6134abdca71b9fbd530dc8b066a66b9ca5727de54",
+      "bytes": 4637
+    },
+    "packages/itestagent-process/src/subprocess-controller.ts": {
+      "sha256": "bd1eb70a42450c19cb2ef44ec2f3879eb8a07f01f3e8caaed8831c012d9fd22b",
+      "bytes": 2831
+    },
+    "packages/itestagent-process/src/subprocess-spawn.ts": {
+      "sha256": "c467d18f7e32d34b62d218d95b54db0917204e4b5ccdc412298f15d9cee0b784",
+      "bytes": 1733
+    },
+    "packages/itestagent-process/src/subprocess-types.ts": {
+      "sha256": "f3e17e83391792135e6b448c7cf89c715c0afd1d3f0d7e613dbe1e46ac0520b5",
+      "bytes": 2093
+    },
+    "packages/itestagent-process/test/owned-process-group-permission-race.test.ts": {
+      "sha256": "06a500590ffddbf1440bd3deb2abceb0961d6c93ba4a1b6a2ea9b519a34356a5",
+      "bytes": 5021
+    },
+    "packages/itestagent-process/test/owned-process-group-race.test.ts": {
+      "sha256": "9b0eb86f57bf5a20d087ac9f66218cd49181f2a97caf1f3df42a171f45d850d8",
+      "bytes": 5515
+    },
+    "packages/itestagent-process/test/owned-process-group-system.test.ts": {
+      "sha256": "5a88f4a181091004e4c95600a1f76158c4c994cd433837df12156534bd4888b8",
+      "bytes": 4861
+    },
+    "packages/itestagent-process/test/owned-process-group.test.ts": {
+      "sha256": "737a4d09ef17e8f91d511e474ff323f9049df7e5d87857dbb981e1626f37f9fe",
+      "bytes": 6405
+    },
+    "packages/itestagent-process/test/subprocess-controller.test.ts": {
+      "sha256": "04a69cd5a145c3ea2d9f4e6c7d2a2373f9dfe42cdf9967eada0b32110cdb638f",
+      "bytes": 11730
+    },
+    "packages/itestagent-process/tsconfig.json": {
+      "sha256": "de2f58eafcf0942eaa2d897a894e14fa61852b58fa29a32d32424443d8568702",
+      "bytes": 143
+    },
+    "tests/integration/phase1/phase1-subprocess-lifecycle.test.ts": {
+      "sha256": "0ed0b947fd82f4b413bca69ffe6882c9c589743d480f8c53eca9e2a44c642d47",
+      "bytes": 5752
+    }
+  },
+  "rollbackTag": "promo/b06-process-leaf"
+}

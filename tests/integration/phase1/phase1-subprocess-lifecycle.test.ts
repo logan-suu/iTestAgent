@@ -2,7 +2,7 @@
  * phase1-subprocess-lifecycle.test.ts — Integration test for subprocess controller.
  *
  * Cross-package chain under test:
- *   SubprocessController (itestagent-server) → Bun.spawn (Bun runtime)
+ *   SubprocessController (itestagent-process, ADR-023) → Bun.spawn (Bun runtime)
  *   → OS process (real shell commands) → signal handling → exit tracking
  *
  * Verifies:
@@ -16,8 +16,8 @@
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
-import { spawn } from 'itestagent-server';
-import type { SubprocessHandle } from 'itestagent-server';
+import { spawn } from 'itestagent-process';
+import type { SubprocessHandle } from 'itestagent-process';
 
 // ─── Suite ────────────────────────────────────────────────
 

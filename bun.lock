@@ -58,6 +58,9 @@
     "packages/itestagent-backends/device-mock": {
       "name": "itestagent-device-mock",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+      },
     },
     "packages/itestagent-backends/performance-instrumentsmcp": {
       "name": "itestagent-backends-performance-instrumentsmcp",
@@ -113,6 +116,10 @@
         "itestagent-contracts": "workspace:*",
         "yaml": "^2.7.0",
       },
+    },
+    "packages/itestagent-process": {
+      "name": "itestagent-process",
+      "version": "0.0.1",
     },
     "packages/itestagent-project-analyzer": {
       "name": "itestagent-project-analyzer",
@@ -660,6 +667,8 @@
     "itestagent-engine": ["itestagent-engine@workspace:packages/itestagent-engine"],
 
     "itestagent-flow": ["itestagent-flow@workspace:packages/itestagent-flow"],
+
+    "itestagent-process": ["itestagent-process@workspace:packages/itestagent-process"],
 
     "itestagent-project-analyzer": ["itestagent-project-analyzer@workspace:packages/itestagent-project-analyzer"],
 
