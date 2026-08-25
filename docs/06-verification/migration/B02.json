@@ -1,0 +1,29 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B02",
+  "baseCommit": "f1e1f3055043957765af761059f6648e927f0803",
+  "stagedTreeHash": "6b4f12fa22891303420261ea7801839dc1d3705b",
+  "baselineMode": "red",
+  "baselineDigest": "a9794564ce357e0ee816bee1019063c2abe3f6e77dd343ff91aebf37cbfd85da",
+  "greenCommand": "bun run batch:test -- B02",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B02-files.txt": {
+      "sha256": "16e0a8c3f040cab2bd7453e667acd96d9c8ff2fb6f843f73d18e114695a69ff7",
+      "bytes": 322
+    },
+    "packages/itestagent-contracts/test/config.test.ts": {
+      "sha256": "708ddafffcfbf1565c30bf0269703be88b3bcd04aa7607050c25dae1049bcb54",
+      "bytes": 9226
+    },
+    "packages/itestagent-contracts/test/json-schema-parity.test.ts": {
+      "sha256": "ebeb6d2cbdb8a268127d21e262148fcf206b3e9fe5f9f905110d73eb756b59d9",
+      "bytes": 9143
+    },
+    "schemas/config.schema.json": {
+      "sha256": "e7211a87bc8c39ce382f03fd20e59f9f8f8d126c6042cb7ab1b1f73ac93c1108",
+      "bytes": 3560
+    }
+  },
+  "rollbackTag": "promo/b02-contracts-config"
+}

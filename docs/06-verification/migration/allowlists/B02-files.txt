@@ -1,0 +1,7 @@
+docs/06-verification/migration/B02.json
+docs/06-verification/migration/allowlists/B02-files.txt
+packages/itestagent-contracts/src/config.ts
+packages/itestagent-contracts/src/index.ts
+packages/itestagent-contracts/test/config.test.ts
+packages/itestagent-contracts/test/json-schema-parity.test.ts
+schemas/config.schema.json

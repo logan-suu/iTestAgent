@@ -2,85 +2,88 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://itestagent.dev/schemas/config.schema.json",
   "title": "iTestAgent Configuration",
-  "description": "iTestAgent 配置文件 schema（对应 US-18.2 AC2：使用 JSONC，支持 $schema）",
+  "description": "Published JSON Schema for the iTestAgent configuration file (itestagent.jsonc). Runtime source of truth: ItestAgentConfigSchema in packages/itestagent-contracts/src/config.ts (US-18.1, US-18.2; AGENTS.md §5 data contracts; ADR-011 device targetKind model). Parity is enforced by packages/itestagent-contracts/test/json-schema-parity.test.ts.",
   "type": "object",
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "description": "配置 schema 版本（AGENTS.md §5 数据契约：产物必须带 schemaVersion）",
+      "description": "Config schema version (AGENTS.md §5 data contracts: artifacts carry schemaVersion).",
       "default": "1.0"
     },
     "$schema": {
       "type": "string",
-      "description": "JSON Schema 引用路径（US-18.2 AC2）"
+      "description": "JSONC $schema reference (US-18.2 AC2)."
     },
     "model": {
       "type": "object",
-      "description": "模型配置（US-18.1 AC2：仅需本地依赖 + OpenAI-compatible 模型 API Key）",
+      "description": "Model config (US-18.1 AC2: local dependencies plus an OpenAI-compatible model API key). apiKeyRef stores only a Keychain key or environment variable name; plaintext API keys are never persisted (R6 / US-18.2 AC3).",
       "properties": {
         "provider": {
           "type": "string",
-          "description": "OpenAI-compatible provider 名称（如 openai、anthropic）",
+          "description": "OpenAI-compatible provider name (e.g. \"openai\", \"anthropic\").",
           "default": "openai"
         },
         "baseURL": {
           "type": "string",
-          "description": "自定义 API base URL（OpenAI-compatible 端点）"
+          "description": "Custom API base URL (OpenAI-compatible endpoint)."
         },
         "apiKeyRef": {
           "type": "string",
-          "description": "API Key reference name (Keychain key or environment variable name). Plaintext API Key is never stored (R6 / US-18.2 AC3). Credential access is handled by task 1.10."
+          "description": "API key reference name (Keychain key or environment variable name); never the plaintext key (R6 / US-18.2 AC3)."
         },
         "model": {
           "type": "string",
-          "description": "Model name (e.g., gpt-4o, claude-3-5-sonnet)"
+          "description": "Model name (e.g. \"gpt-4o\", \"claude-3-5-sonnet\")."
         }
       },
       "additionalProperties": false
     },
     "device": {
       "type": "object",
-      "description": "Device configuration (ADR-011: physical/simulator dual-domain).",
+      "description": "Device config (ADR-011: first-class physical and Simulator support; backend selection configured independently per targetKind with same-type fallback).",
       "properties": {
         "preferredBackends": {
           "type": "object",
-          "description": "Preferred DeviceBackend per target kind (ADR-011: targetKind-aware backend selection).",
+          "description": "Per-targetKind preferred backend list (highest priority first).",
           "properties": {
             "physical": {
               "type": "array",
-              "items": { "type": "string", "enum": ["appium", "mobile-mcp", "mock"] },
-              "description": "Backend preference order for physical devices.",
-              "default": ["appium"]
+              "description": "Preferred backends for physical devices.",
+              "items": {
+                "type": "string",
+                "enum": ["appium", "mobile-mcp", "mock"]
+              }
             },
             "simulator": {
               "type": "array",
-              "items": { "type": "string", "enum": ["appium", "mock"] },
-              "description": "Backend preference order for simulator devices.",
-              "default": ["appium"]
+              "description": "Preferred backends for simulators.",
+              "items": {
+                "type": "string",
+                "enum": ["appium", "mock"]
+              }
             }
-          },
-          "additionalProperties": false
+          }
+        },
+        "allowCrossTargetFallback": {
+          "type": "boolean",
+          "description": "Whether cross-targetKind fallback is allowed (default false; requires user confirmation per ADR-011).",
+          "default": false
         }
       },
       "additionalProperties": false
     },
     "tui": {
       "type": "object",
-      "description": "TUI 配置（技术选型 §5：OpenTUI 目标主线 / Ink 已验证 fallback）",
+      "description": "TUI config (tech selection §5: OpenTUI+SolidJS target mainline, Ink verified fallback).",
       "properties": {
         "framework": {
           "type": "string",
           "enum": ["opentui", "ink"],
-          "description": "TUI 框架",
+          "description": "TUI framework.",
           "default": "opentui"
         }
       },
       "additionalProperties": false
-    },
-    "allowCrossTargetFallback": {
-      "type": "boolean",
-      "description": "Allow cross-target fallback (e.g. physical→simulator when no physical device available). Default: false (ADR-011).",
-      "default": false
     }
   },
   "additionalProperties": false
