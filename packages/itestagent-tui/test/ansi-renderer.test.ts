@@ -11,25 +11,29 @@
  * of ansi-renderer.ts (including quirks such as the double prompt written by
  * `update()`) so that later refactors have a regression net. It intentionally
  * does NOT call `start()`, which blocks waiting on SIGINT/stdin.
+ *
+ * All expected bytes live in ./fixtures/ansi-renderer-characterization.ts.
  */
 
 import { describe, expect, it } from 'bun:test';
 import { createAnsiRenderer } from '../src/renderers/ansi-renderer.js';
 import { type Message, type TuiShellState, createInitialState } from '../src/tui-shell.js';
+import {
+  CLEAR_SCREEN,
+  DOUBLE_PROMPT,
+  EMPTY_STATE_HINT,
+  MAX_SEPARATOR_WIDTH,
+  MODE_HINT_LINES,
+  SETUP_PANEL,
+  buildEmptyChatFrame,
+  emptyMessageLineTail,
+  messageLine,
+  separatorLine,
+} from './fixtures/ansi-renderer-characterization.js';
 
-// ── ANSI constants mirroring src/renderers/ansi-renderer.ts ────────────
-const CSI = '\x1b[';
-const RESET = '\x1b[0m';
-const DIM = '\x1b[2m';
-const BOLD = '\x1b[1m';
-const CYAN = '\x1b[36m';
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const RED = '\x1b[31m';
-
-/** Same separator computation as the renderer: `Math.min(cols, 80)`. */
+/** Same separator computation as the renderer: `'─'.repeat(min(cols||80, 80))`. */
 function expectedSeparator(): string {
-  return '─'.repeat(Math.min(process.stdout.columns || 80, 80));
+  return separatorLine(process.stdout.columns || MAX_SEPARATOR_WIDTH);
 }
 
 // ── stdout capture helpers ─────────────────────────────────────────────
@@ -86,18 +90,9 @@ describe('createAnsiRenderer', () => {
 
 describe('update() frame rendering', () => {
   it('renders the exact frame for an empty chat state', () => {
-    const sep = expectedSeparator();
-    const frameLines = [
-      `${BOLD}iTestAgent v0.0.1${RESET}`, // header
-      `${DIM}/test/ws${RESET}`, // workspace
-      sep, // top separator
-      `${DIM}Type a message and press Enter.${RESET}`, // empty hint
-      '', // blank line
-      sep, // bottom separator
-    ];
     // clearScreen() + each line + CRLF + the renderScreen prompt + the
     // second prompt appended by update().
-    const expected = `${CSI}2J${CSI}H${frameLines.map((line) => `${line}\r\n`).join('')}> > `;
+    const expected = buildEmptyChatFrame('/test/ws');
 
     const out = renderUpdate({ ...createInitialState('/test/ws'), mode: 'chat' });
     expect(out).toBe(expected);
@@ -105,7 +100,7 @@ describe('update() frame rendering', () => {
 
   it('always starts with a clear-screen sequence', () => {
     const out = renderUpdate({ ...createInitialState('/test/ws'), mode: 'chat' });
-    expect(out.startsWith(`${CSI}2J${CSI}H`)).toBe(true);
+    expect(out.startsWith(CLEAR_SCREEN)).toBe(true);
   });
 
   it('emits a clear-screen + full frame on every update call', () => {
@@ -116,21 +111,21 @@ describe('update() frame rendering', () => {
     });
     const joined = chunks.join('');
     // Two clear-screen sequences => the screen was fully re-rendered twice.
-    const clearScreenCount = joined.split(`${CSI}2J${CSI}H`).length - 1;
+    const clearScreenCount = joined.split(CLEAR_SCREEN).length - 1;
     expect(clearScreenCount).toBe(2);
   });
 
   it('omits the empty-state hint once at least one message exists', () => {
     const out = renderUpdate(chatStateWith([msg('user', 'hello')]));
-    expect(out).not.toContain('Type a message and press Enter.');
-    expect(out).toContain(`[${GREEN}YOU${RESET}] hello`);
+    expect(out).not.toContain(EMPTY_STATE_HINT);
+    expect(out).toContain(messageLine('user', 'hello'));
   });
 
   it('wraps every line with CRLF and renders the double prompt for chat mode', () => {
     const out = renderUpdate(chatStateWith([msg('user', 'hi')]));
     const lines = out.split('\r\n');
     expect(lines.length).toBeGreaterThan(3);
-    expect(out.endsWith('> > ')).toBe(true);
+    expect(out.endsWith(DOUBLE_PROMPT)).toBe(true);
   });
 });
 
@@ -147,30 +142,30 @@ describe('message rendering', () => {
     const out = renderUpdate(state);
     // Order must be preserved.
     const expected =
-      `[${GREEN}YOU${RESET}] who are you\r\n` +
-      `[${CYAN} AI${RESET}] iTestAgent here\r\n` +
-      `[${RED}ERR${RESET}] boom\r\n` +
-      `[${DIM}SYS${RESET}] note\r\n`;
+      `${messageLine('user', 'who are you')}\r\n` +
+      `${messageLine('assistant', 'iTestAgent here')}\r\n` +
+      `${messageLine('error', 'boom')}\r\n` +
+      `${messageLine('system', 'note')}\r\n`;
     expect(out).toContain(expected);
   });
 
   it('renders the message text verbatim (no wrapping or truncation)', () => {
     const longText = 'a'.repeat(500);
     const out = renderUpdate(chatStateWith([msg('user', longText)]));
-    expect(out).toContain(`[${GREEN}YOU${RESET}] ${longText}`);
+    expect(out).toContain(messageLine('user', longText));
     // The renderer never wraps: the entire message lives on a single line.
     expect(out.split('\r\n').filter((l) => l.includes('a'.repeat(50)))).toHaveLength(1);
   });
 
   it('renders an empty message text as a trailing-space bracket', () => {
     const out = renderUpdate(chatStateWith([msg('system', '')]));
-    expect(out).toContain(`[${DIM}SYS${RESET}] \r\n`);
+    expect(out).toContain(emptyMessageLineTail('system'));
   });
 
   it('falls back to the dim SYS prefix for unknown message types', () => {
     const unknown = msg('user', 'x') as Message;
     const out = renderUpdate(chatStateWith([{ ...unknown, type: 'mystery' as Message['type'] }]));
-    expect(out).toContain(`[${DIM}SYS${RESET}] x`);
+    expect(out).toContain(messageLine('mystery', 'x'));
   });
 });
 
@@ -183,9 +178,7 @@ describe('mode indicators', () => {
       mode: 'candidate_review',
       messages: [msg('assistant', 'paths found')],
     });
-    expect(out).toContain(
-      `${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`,
-    );
+    expect(out).toContain(MODE_HINT_LINES.candidate_review);
   });
 
   it('renders the plan_review hint line', () => {
@@ -194,9 +187,7 @@ describe('mode indicators', () => {
       mode: 'plan_review',
       messages: [msg('assistant', 'plan ready')],
     });
-    expect(out).toContain(
-      `${YELLOW}[Plan Review]${RESET} j/k to navigate, Enter to confirm, q to cancel`,
-    );
+    expect(out).toContain(MODE_HINT_LINES.plan_review);
   });
 
   it('renders no mode-specific block for recording_review', () => {
@@ -241,43 +232,43 @@ function setupState(step: number, overrides: Partial<TuiShellState> = {}): TuiSh
 describe('setup mode panel', () => {
   it('renders the First-Time Setup header (bold + cyan) with dim subtitle', () => {
     const out = renderUpdate(setupState(0));
-    expect(out).toContain(`${BOLD}${CYAN}First-Time Setup${RESET}`);
-    expect(out).toContain(`${DIM}Configure your AI provider to get started.${RESET}`);
-    expect(out).toContain(`${DIM}Ctrl+C to exit setup at any time.${RESET}`);
+    expect(out).toContain(SETUP_PANEL.header);
+    expect(out).toContain(SETUP_PANEL.subtitle);
+    expect(out).toContain(SETUP_PANEL.exitHint);
   });
 
   it('step 0 renders the API Base URL field with the default', () => {
     const out = renderUpdate(setupState(0));
-    expect(out).toContain(`${BOLD}API Base URL${RESET}`);
-    expect(out).toContain(`${DIM}Default: https://api.example.com/v1${RESET}`);
-    expect(out).toContain('Press Enter to accept default, or type a custom URL.');
+    expect(out).toContain(SETUP_PANEL.steps[0].field);
+    expect(out).toContain(SETUP_PANEL.steps[0].defaultLine('https://api.example.com/v1'));
+    expect(out).toContain(SETUP_PANEL.steps[0].hint);
   });
 
   it('step 1 renders the API Key field and hides the base URL', () => {
     const out = renderUpdate(setupState(1));
-    expect(out).toContain(`${BOLD}API Key${RESET}`);
-    expect(out).toContain(`${DIM}Paste your API key (input is hidden):${RESET}`);
+    expect(out).toContain(SETUP_PANEL.steps[1].field);
+    expect(out).toContain(SETUP_PANEL.steps[1].hiddenNote);
     expect(out).not.toContain('API Base URL');
     expect(out).not.toContain('Model Name');
   });
 
   it('step 2 renders the Model Name field with the default', () => {
     const out = renderUpdate(setupState(2));
-    expect(out).toContain(`${BOLD}Model Name${RESET}`);
-    expect(out).toContain(`${DIM}Default: gpt-4o-mini${RESET}`);
-    expect(out).toContain('Press Enter to accept default, or type a custom model name.');
+    expect(out).toContain(SETUP_PANEL.steps[2].field);
+    expect(out).toContain(SETUP_PANEL.steps[2].defaultLine('gpt-4o-mini'));
+    expect(out).toContain(SETUP_PANEL.steps[2].hint);
   });
 
   it('renders a setup error in red on the current step', () => {
     const out = renderUpdate(setupState(1, { setupError: 'Invalid API key' }));
-    expect(out).toContain(`${RED}Invalid API key${RESET}`);
+    expect(out).toContain(SETUP_PANEL.errorLine('Invalid API key'));
   });
 
   it('suppresses the renderScreen prompt but update() still appends one', () => {
     const out = renderUpdate(setupState(0));
     // renderScreen writes '' for setup; only update() appends '> '.
     expect(out.endsWith('> ')).toBe(true);
-    expect(out).not.toContain('> > ');
+    expect(out).not.toContain(DOUBLE_PROMPT);
   });
 });
 
@@ -287,15 +278,15 @@ describe('terminal width behavior', () => {
   it('caps the separator at 80 columns regardless of a wider terminal', () => {
     // columns is undefined in the test env → renderer falls back to 80.
     const out = renderUpdate({ ...createInitialState('/test/ws'), mode: 'chat' });
-    expect(out).toContain(`${'─'.repeat(80)}\r\n`);
+    expect(out).toContain(`${separatorLine(MAX_SEPARATOR_WIDTH)}\r\n`);
   });
 
   it('clamps the separator to the available columns when narrower than 80', () => {
     try {
       Object.defineProperty(process.stdout, 'columns', { value: 20, configurable: true });
       const out = renderUpdate({ ...createInitialState('/test/ws'), mode: 'chat' });
-      expect(out).toContain(`${'─'.repeat(20)}\r\n`);
-      expect(out).not.toContain(`${'─'.repeat(21)}\r\n`);
+      expect(out).toContain(`${separatorLine(20)}\r\n`);
+      expect(out).not.toContain(`${separatorLine(21)}\r\n`);
     } finally {
       try {
         Object.defineProperty(process.stdout, 'columns', {
