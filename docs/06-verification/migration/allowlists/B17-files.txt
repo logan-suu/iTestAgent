@@ -1,0 +1,13 @@
+docs/06-verification/migration/B17.json
+docs/06-verification/migration/allowlists/B17-files.txt
+packages/itestagent-cli/package.json
+packages/itestagent-cli/src/cli.ts
+packages/itestagent-cli/src/commands/config.ts
+packages/itestagent-cli/src/config/hidden-secret-input.ts
+packages/itestagent-cli/src/config/loader.ts
+packages/itestagent-cli/src/public-error.ts
+packages/itestagent-cli/test/cli-safe-errors.test.ts
+packages/itestagent-cli/test/cli.test.ts
+packages/itestagent-cli/test/config-loader.test.ts
+packages/itestagent-cli/test/config-secret-safety.test.ts
+packages/itestagent-cli/test/hidden-secret-input.test.ts

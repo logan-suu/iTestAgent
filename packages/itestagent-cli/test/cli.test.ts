@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { describe, expect, it, test } from 'bun:test';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import { createProgram } from '../src/cli.js';
@@ -124,4 +124,14 @@ test('rerun with non-existent run exits with error', () => {
   expect(result.exitCode).toBe(1);
   const stderr = result.stderr.toString();
   expect(stderr).toContain('Error');
+});
+
+// ─── B17 seam: public error surface ───────────────────────────────
+
+describe('B17 seam: public error surface', () => {
+  it('maps unknown errors to a generic safe message', async () => {
+    const { toPublicMessage, PublicCliError } = await import('../src/public-error.js');
+    expect(toPublicMessage(new Error('internal /Users/x secret'))).not.toContain('/Users');
+    expect(toPublicMessage(new PublicCliError('explicit failure'))).toBe('explicit failure');
+  });
 });

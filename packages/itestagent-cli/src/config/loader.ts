@@ -1,3 +1,9 @@
+/**
+ * Config loading/merging entry — B17 module split note: command handlers
+ * moved to ../commands/config.ts and the hidden secret reader to
+ * ./hidden-secret-input.ts; this module stays the single config loading,
+ * merging and credential-resolution entry.
+ */
 import { readFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
