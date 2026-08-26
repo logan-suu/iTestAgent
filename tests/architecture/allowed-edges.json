@@ -118,5 +118,9 @@
   {
     "from": "itestagent-tui",
     "to": "itestagent-project-analyzer"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-backends-device-appium"
   }
 ]

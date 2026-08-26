@@ -139,3 +139,19 @@ export type {
 export { MVP_TEST_PLAN_FIELDS, missingMvpTestPlanFields } from './mvp-test-plan-fields.js';
 export { PLAN_FILENAME, saveTestPlanFile, loadTestPlanFile } from './durable-test-plan.js';
 export type { DurableTestPlanDeps } from './durable-test-plan.js';
+
+// ─── B15 module split: MVP run coordination + physical/simulator adapters ──
+export { createMvpRunCoordinator } from './mvp-run-coordinator.js';
+export type { MvpRunCoordinatorDeps, MvpRunResult } from './mvp-run-coordinator.js';
+export { createPhysicalMvpCleanup } from './physical-mvp-cleanup.js';
+export type { PhysicalMvpCleanupSteps } from './physical-mvp-cleanup.js';
+export { createPhysicalMvpAdapter } from './physical-mvp-adapter.js';
+export type { PhysicalMvpAdapterDeps, PhysicalDeviceHandle } from './physical-mvp-adapter.js';
+export { createPhysicalMvpRunCoordinator } from './physical-mvp-run-coordinator.js';
+export type {
+  PhysicalMvpRunCoordinatorDeps,
+  PhysicalMvpRunResult,
+} from './physical-mvp-run-coordinator.js';
+export { createSimulatorMvpAdapter } from './simulator-mvp-adapter.js';
+export type { SimulatorMvpAdapterDeps } from './simulator-mvp-adapter.js';
+export { resolveMvpRunId } from './physical-mvp-run-support.js';
