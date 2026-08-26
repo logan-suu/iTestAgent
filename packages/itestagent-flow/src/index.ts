@@ -1,6 +1,7 @@
 export { compileFlow } from './compiler.js';
 export { generateDraft, type DraftOptions, type DraftResult } from './draft-generator.js';
 export {
+  FLOW_SCHEMA_VERSION,
   parseFlowV2,
   safeParseFlowV2,
   type FlowStepV2,
@@ -32,3 +33,13 @@ export {
   passedStep,
   skippedStep,
 } from './replay-result.js';
+
+// B08 module split: step dispatcher, UI-tree redaction, evidence writer.
+export { executeStep } from './replay-step.js';
+export { redactUiTreeXml, type UiTreeRedactionResult } from './ui-tree-redactor.js';
+export {
+  EVIDENCE_MANIFEST_FILENAME,
+  collectStepEvidence,
+  writeEvidenceManifest,
+  type EvidenceManifestWriteResult,
+} from './replay-evidence-writer.js';

@@ -6,6 +6,11 @@
  *
  * US-9.2 AC2: Supports itestagent run flow <flowId> replay.
  * R5: No silent degradation — not_exportable / locator_not_found explicitly marked.
+ *
+ * B08 module split: this stays the single home of result SHAPES and step
+ * factories; execution concerns live in the sibling modules
+ * (replay-types/locator/action-utils/interaction/observation/assertion/
+ * step/engine/evidence-writer, ui-tree-redactor).
  */
 import type { ArtifactRef } from 'itestagent-contracts';
 

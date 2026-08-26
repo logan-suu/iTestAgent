@@ -913,3 +913,19 @@ describe('replay-result helpers', () => {
     expect(s.durationMs).toBe(0);
   });
 });
+
+// ─── B08: ui-tree-redactor module boundary ────────────────────────
+
+describe('ui-tree-redactor module boundary (B08)', () => {
+  test('exposes redactUiTreeXml with count semantics through the split module', async () => {
+    const { redactUiTreeXml } = await import('../src/ui-tree-redactor.js');
+    const xml =
+      '<XCUIElementTypeSecureTextField name="pw" value="hunter2" x="0" y="0" width="8" height="8" />';
+    const result = redactUiTreeXml(xml);
+    expect(result.redactionCount).toBe(1);
+    expect(result.xml).not.toContain('hunter2');
+    // Structure and non-sensitive attributes are preserved.
+    expect(result.xml).toContain('name="pw"');
+    expect(result.xml).toContain('value="••••••"');
+  });
+});

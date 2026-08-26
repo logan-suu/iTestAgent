@@ -10,6 +10,9 @@
  */
 import { z } from 'zod';
 
+/** Canonical Flow schemaVersion literal (B08: extracted for parity tests). */
+export const FLOW_SCHEMA_VERSION = 'itestagent.flow.v2';
+
 // ─── Locator (normalized, not Appium-specific) ────────────────────
 
 /**
@@ -110,7 +113,7 @@ export type ValidatedTarget = z.infer<typeof ValidatedTargetSchema>;
  */
 export const FlowV2Schema = z
   .object({
-    schemaVersion: z.literal('itestagent.flow.v2'),
+    schemaVersion: z.literal(FLOW_SCHEMA_VERSION),
     flowId: z.string().min(1),
     source: z.enum(['agent-recorded', 'user-authored', 'imported-draft']),
     status: z.enum(['draft', 'confirmed', 'deprecated']),
