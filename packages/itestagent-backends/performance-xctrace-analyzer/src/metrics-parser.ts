@@ -1,6 +1,9 @@
 /**
  * metrics-parser — parse xctrace export XML data into PerformanceMetrics.
  *
+ * B21 module split: nested sysmon frame parsing lives in
+ * xctrace-sysmon-parser; shared XML helpers in xctrace-xml.
+ *
  * AGENTS.md R5: all metrics from xctrace are approximate unless proven otherwise.
  *   - memoryPeakMB: always approximate (sampled, not peak)
  *   - hitchesSummary: from hitches_summary schema data

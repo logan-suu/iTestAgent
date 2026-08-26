@@ -1,6 +1,9 @@
 /**
  * xctrace-toc-parser — parses xcrun xctrace export --toc output.
  *
+ * B21 module split: shared XML helpers live in xctrace-xml; export-node
+ * extraction in xctrace-export.
+ *
  * AGENTS.md R5: metrics not exportable are explicitly marked not_exportable;
  * unknown schemas are not crash-causing.
  *

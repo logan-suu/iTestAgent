@@ -171,3 +171,15 @@ describe('getKnownSchemasForVersion', () => {
     expect(schemas).toContain('App Launch');
   });
 });
+
+// ─── B21 seam: leaks summary parser ────────────────────────────────
+
+describe('B21 seam: leaks report parser', () => {
+  it('parses the standard zero-leak line through the split module', async () => {
+    const mod = await import('../src/xctrace-leaks-parser.js');
+    expect(mod.parseLeaksReport('0 leaks totaling 0 bytes')).toEqual({
+      leakCount: 0,
+      totalLeakedBytes: 0,
+    });
+  });
+});

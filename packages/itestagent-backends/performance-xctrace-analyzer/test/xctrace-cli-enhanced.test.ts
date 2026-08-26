@@ -199,3 +199,12 @@ App Launch                               |
     expect(result.notExportable.some((n) => n.metric === 'hangs')).toBe(true);
   });
 });
+
+// ─── B21 seam: shared XML helpers ──────────────────────────────────
+
+describe('B21 seam: shared XML extraction helpers', () => {
+  it('extracts attributes through the split module', async () => {
+    const mod = await import('../src/xctrace-xml.js');
+    expect(mod.extractAttribute('<row key="a" value="b">', 'key')).toBe('a');
+  });
+});

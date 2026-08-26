@@ -56,3 +56,22 @@ export type {
   BaselineCompareInput,
   BaselineDelta,
 } from 'itestagent-contracts';
+
+// ─── B21 module split: xml helpers, sysmon/export/leaks parsers, recorder ──
+export {
+  extractAttribute,
+  findOpeningTags,
+} from './xctrace-xml.js';
+export { parseSysmonFrames, sumSampleCounts } from './xctrace-sysmon-parser.js';
+export type { SysmonFrame } from './xctrace-sysmon-parser.js';
+export { extractNodesByTag } from './xctrace-export.js';
+export type { XctraceExportNode } from './xctrace-export.js';
+export { parseLeaksReport } from './xctrace-leaks-parser.js';
+export type { LeaksSummary } from './xctrace-leaks-parser.js';
+export { createXctraceRecorder } from './xctrace-recorder.js';
+export type {
+  XctraceProcessRunner,
+  XctraceRecordOptions,
+  XctraceRecordTemplate,
+  XctraceRecorderDeps,
+} from './xctrace-recorder.js';

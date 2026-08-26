@@ -1,0 +1,138 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B21",
+  "baseCommit": "0be089961f297689e5923fb7bf99c26eac1f47e9",
+  "stagedTreeHash": "8f29777995883f94a2d5b385fdef907750aefdaa",
+  "baselineMode": "red",
+  "baselineDigest": "09388604b5b43545a004f64229b287b98974d345c78e63cb6d9d31a38b4dda83",
+  "greenCommand": "bun run batch:test -- B21",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 0be089961f297689e5923fb7bf99c26eac1f47e9 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B21",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B21-files.txt": {
+      "sha256": "0abf03ab7dd8bdd6e50df66da96d4d27da6e0822e4848c49c3c2df8dc350504c",
+      "bytes": 1904
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/index.ts": {
+      "sha256": "83c7036ea2a204cc3ce8bc075e8955a5f261f1fee0e7a026bf22a19fe5d8e4ba",
+      "bytes": 2011
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/metrics-parser.ts": {
+      "sha256": "68d70a72c890f0815518fbb787343ca9a51700eb4fa3e26f8df450d400f3938d",
+      "bytes": 11069
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-cli.ts": {
+      "sha256": "e899d53f669f5d75ca50fc4b7997c1c2c76cfc6ca7c892fc9619035505c94c18",
+      "bytes": 12751
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-export.ts": {
+      "sha256": "d9ca3a325e0b43ccac5bad88344883f458db4ffaafda06bc52c23908ff4fb670",
+      "bytes": 1117
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-leaks-parser.ts": {
+      "sha256": "1cbfffb7ebb6788f2ef1f3bc28726b7bba7af80b326606e6153ecff37cdcb494",
+      "bytes": 906
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-performance-backend.ts": {
+      "sha256": "87f1b09a48f1f1d78ebd2290f60a3ab5a0159c1f2636a97b9e657f1f2fa8f5a6",
+      "bytes": 13656
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-recorder.ts": {
+      "sha256": "b5df48450607ee30adcc2a3e912c1605d5b7ba96cd8e07ec9fde2eda93ddb63d",
+      "bytes": 2208
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-sysmon-parser.ts": {
+      "sha256": "0ae360b2f6421bdd5637097a33e9831c6d97bf1fcc8040244173937f82df3975",
+      "bytes": 2122
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-toc-parser.ts": {
+      "sha256": "0babec5e816129b89c565fb67f0b8748e6748d42b6a6fe764b469870410ff876",
+      "bytes": 10652
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-version-compat.ts": {
+      "sha256": "edbf86a9317f9e609438cf143e29c5cc65d869b83835d9f9f4beae1d22f49afe",
+      "bytes": 6851
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-xml.ts": {
+      "sha256": "b7b0f5fcf83a698cedefaa0b789bb79aa7268a988a4a9233698f8a3cf96b15af",
+      "bytes": 808
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/metrics-parser.test.ts": {
+      "sha256": "774d77279f89ba15a514141b518266aa5a933b030d829ec81be071cc4e992b7a",
+      "bytes": 16431
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-cli-enhanced.test.ts": {
+      "sha256": "d2b4c283288090f1781cf83e235157673ac6f334a7cb29041d7931015605f96a",
+      "bytes": 8800
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-export.test.ts": {
+      "sha256": "a949c28551c079f4fc4cd25cb0026644f2535718e5f15f3d6776221f32197762",
+      "bytes": 1255
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-leaks-parser.test.ts": {
+      "sha256": "ae3dda99b4c5abb3e8d8f1b9e804910de3079202a493115f1de55befbfea2e57",
+      "bytes": 1017
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-performance-backend.test.ts": {
+      "sha256": "73f9e30e9053f84e9873b72d3e0fd83734bcc386d9ec28ce2e5a4a3ec99a0809",
+      "bytes": 27879
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-recorder.test.ts": {
+      "sha256": "b9a0aeec8600f59f3e306eb695e5b47696acc3f90f55ef45374972fdb856df69",
+      "bytes": 1824
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-sysmon-parser.test.ts": {
+      "sha256": "08d1bc46ab931bf5d7ca4689fd576ee6ab48a19e76552c2249b2e570db6515f1",
+      "bytes": 2576
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-toc-parser.test.ts": {
+      "sha256": "66f93fdea58f1953ea0a9d05d7668507c33966b17bb765b5746d36b6e6a5bbf6",
+      "bytes": 14547
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-version-compat.test.ts": {
+      "sha256": "d93010a47a00aa5f87636e4aa1b90c16a93bdb89d882415cc57248608d5d0a85",
+      "bytes": 7000
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/xctrace-xml.test.ts": {
+      "sha256": "daa433807378dd0e99a21fa8aa7a786cb413ce47e26eddee70617fb5530af3a2",
+      "bytes": 1632
+    }
+  },
+  "rollbackTag": "promo/b21-xctrace-generic"
+}

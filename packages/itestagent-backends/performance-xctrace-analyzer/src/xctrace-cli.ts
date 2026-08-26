@@ -1,6 +1,8 @@
 /**
  * xctrace-cli — thin wrapper around xcrun xctrace commands.
  *
+ * B21 module split: shared XML helpers live in xctrace-xml.
+ *
  * AGENTS.md R2: wraps Apple official xctrace CLI, does not re-implement.
  * AGENTS.md R5: metrics from xctrace are marked approximate where uncertain.
  *

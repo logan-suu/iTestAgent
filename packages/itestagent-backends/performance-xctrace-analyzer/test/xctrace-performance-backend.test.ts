@@ -828,3 +828,24 @@ describe('compareBaseline with BaselineStore (task 4.6)', () => {
     expect(simDelta.targetKind).toBe('simulator');
   });
 });
+
+// ─── B21 seam: trace recorder available to the backend ─────────────
+
+describe('B21 seam: trace recorder module', () => {
+  it('exposes the record wrapper with pinned args', async () => {
+    const mod = await import('../src/xctrace-recorder.js');
+    const calls: Array<{ cmd: string; args: string[] }> = [];
+    const recorder = mod.createXctraceRecorder({
+      runner: async (cmd: string, args: string[]) => {
+        calls.push({ cmd, args });
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+    await recorder.record({
+      deviceId: 'DEV-FIXTURE',
+      template: 'cpu',
+      outputTracePath: '/fixture/t.trace',
+    });
+    expect(calls[0]?.args).toContain('record');
+  });
+});
