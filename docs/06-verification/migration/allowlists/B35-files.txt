@@ -1,0 +1,15 @@
+docs/06-verification/migration/B35.json
+docs/06-verification/migration/allowlists/B35-files.txt
+packages/itestagent-cli/test/pty-cleanup-deadline.test.ts
+tests/integration/phase5/bounded-child.test.ts
+tests/integration/phase5/helpers/bounded-child.ts
+tests/integration/phase5/helpers/physical-mvp-loop-test-support.ts
+tests/integration/phase5/helpers/physical_mvp_pty_core.py
+tests/integration/phase5/helpers/physical_mvp_pty_driver.py
+tests/integration/phase5/helpers/physical_mvp_pty_protocol.py
+tests/integration/phase5/helpers/pty-pressure-capacity.ts
+tests/integration/phase5/helpers/pty-pressure-test-support.ts
+tests/integration/phase5/helpers/pty_pressure_capacity.py
+tests/integration/phase5/physical-device-mvp-loop.test.ts
+tests/integration/phase5/pty-phase-order.test.ts
+tests/integration/phase5/pty-pressure-capacity.test.ts

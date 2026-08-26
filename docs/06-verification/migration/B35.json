@@ -1,0 +1,106 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B35",
+  "baseCommit": "86ab741f3ed9a70274d59e813cc160040947ed4e",
+  "stagedTreeHash": "e03010f48f418f80e5620dd575a637918d4db634",
+  "baselineMode": "red",
+  "baselineDigest": "0d4cd22f5cfd08b717754b869ced84346f351e985845ebc7dd6d6afec7994207",
+  "greenCommand": "bun run batch:test -- B35",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 86ab741f3ed9a70274d59e813cc160040947ed4e --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B35",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B35-files.txt": {
+      "sha256": "86168a1a6827b6cd4902313bd5268c0bf74661c74adec3b74446ab5964b6e8a5",
+      "bytes": 838
+    },
+    "packages/itestagent-cli/test/pty-cleanup-deadline.test.ts": {
+      "sha256": "e9a887024db3c836e42957b1070ce1ec2acc683a17a9bb405895522f2d381ae1",
+      "bytes": 218
+    },
+    "tests/integration/phase5/bounded-child.test.ts": {
+      "sha256": "a8359c8baf8cadcde41aa37c17b74745f72cf74a268ffac8a6f142abd5c29e5f",
+      "bytes": 269
+    },
+    "tests/integration/phase5/helpers/bounded-child.ts": {
+      "sha256": "ea6753a731b734eed97972a046dee3fa6dd435f19e607bc780d2c6fd2ae1abd1",
+      "bytes": 195
+    },
+    "tests/integration/phase5/helpers/physical-mvp-loop-test-support.ts": {
+      "sha256": "562136633c4941a5f00d35b4511e1a101f212a353eab68566106814ead9c7b51",
+      "bytes": 148
+    },
+    "tests/integration/phase5/helpers/physical_mvp_pty_core.py": {
+      "sha256": "d724e45f2a201a56613f85fa5e4979ea144d05a11feb423c89b7e6bfa04d403b",
+      "bytes": 108
+    },
+    "tests/integration/phase5/helpers/physical_mvp_pty_driver.py": {
+      "sha256": "89a627052d981dab537104e56ddf5a2d5244704970fa5d28fcaba1254c87987e",
+      "bytes": 112
+    },
+    "tests/integration/phase5/helpers/physical_mvp_pty_protocol.py": {
+      "sha256": "3e10bf4904ad2fcc7f76c74f43d0959ba80ad7b9938e58aaea439e01358ba5e8",
+      "bytes": 116
+    },
+    "tests/integration/phase5/helpers/pty-pressure-capacity.ts": {
+      "sha256": "c1662f4e4be78d708c0ede826649e3d965dab334dad40c34a32e4855025ae366",
+      "bytes": 222
+    },
+    "tests/integration/phase5/helpers/pty-pressure-test-support.ts": {
+      "sha256": "1942ebc712b760c85d38c7a93563fa426ed8cbc38e2b12c5a714981ac4cc647b",
+      "bytes": 156
+    },
+    "tests/integration/phase5/helpers/pty_pressure_capacity.py": {
+      "sha256": "77771add90ee15a45b87d3989bcdbc0f926fd1b2ffd8bbd54423b0cb33ca79cb",
+      "bytes": 130
+    },
+    "tests/integration/phase5/physical-device-mvp-loop.test.ts": {
+      "sha256": "2522ee5878bf9e62a0e868725d5170463fc6c2491747bccde0cad2655c734439",
+      "bytes": 298
+    },
+    "tests/integration/phase5/pty-phase-order.test.ts": {
+      "sha256": "d253c120b01e214a533b4c374088a27f52c99bd7838cc717b555011a3f149589",
+      "bytes": 271
+    },
+    "tests/integration/phase5/pty-pressure-capacity.test.ts": {
+      "sha256": "59e10eca703295276027928d7e9a7ab2fd079012851155076897c4b32d20811c",
+      "bytes": 307
+    }
+  },
+  "rollbackTag": "promo/b35-phase5-pty-race"
+}
