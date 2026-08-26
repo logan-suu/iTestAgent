@@ -374,3 +374,13 @@ describe('Phase 5: Rerun Pipeline', () => {
     expect(parsed.success).toBe(true);
   });
 });
+
+// ─── B25: explain-rerun command seam ───────────────────────────────
+
+describe('B25 explain-rerun seam', () => {
+  it('exposes the explain/rerun command helpers', async () => {
+    const mod = await import('../../../packages/itestagent-cli/src/commands/explain-rerun.js');
+    expect(typeof mod.explainRun).toBe('function');
+    expect(typeof mod.rerunFailed).toBe('function');
+  });
+});

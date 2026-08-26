@@ -475,3 +475,14 @@ describe('B33 migration alignment', () => {
     expect(result.ok).toBe(true);
   });
 });
+
+// ─── B25: run-flow-validation command seam ─────────────────────────
+
+describe('B25 run-flow-validation seam', () => {
+  it('exposes the flow validation command helper', async () => {
+    const mod = await import(
+      '../../../packages/itestagent-cli/src/commands/run-flow-validation.js'
+    );
+    expect(typeof mod.validateFlowCommand).toBe('function');
+  });
+});

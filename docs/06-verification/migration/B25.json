@@ -1,0 +1,78 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B25",
+  "baseCommit": "ce88e63adc16c4a8383ffd4d4cbdeb93e03fa1a2",
+  "stagedTreeHash": "a0a1b7d7b863a5ad65fd78cd8cea066fb997f08d",
+  "baselineMode": "red",
+  "baselineDigest": "963a60bf873ff695bc52dd494cb3157db4e13d9d8ac04c11502ae538f2003f11",
+  "greenCommand": "bun run batch:test -- B25",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base ce88e63adc16c4a8383ffd4d4cbdeb93e03fa1a2 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B25",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B25-files.txt": {
+      "sha256": "94d340bb3af6170a0c53046e278ab78b10610419fea682a2397001051b3a7f44",
+      "bytes": 441
+    },
+    "packages/itestagent-cli/src/commands/explain-rerun.ts": {
+      "sha256": "55a4ce1c463daa957eaed94644c24934c0b540640a4b0678e9bb126b4081ac0b",
+      "bytes": 580
+    },
+    "packages/itestagent-cli/src/commands/run-flow-validation.ts": {
+      "sha256": "9fbdf0b8008c1f47fabaa99e3ee2793dd1006fcdb11e15b6308136bdb9fcf3f5",
+      "bytes": 364
+    },
+    "tests/integration/cross-phase/cross-phase-p3-p5-flow-replay.test.ts": {
+      "sha256": "cfbd2814b74cd373ee6ac093b7d328ae6f9d5b9a71ff549d3986c8ddf440b9af",
+      "bytes": 17678
+    },
+    "tests/integration/phase5/phase5-draft-generation.test.ts": {
+      "sha256": "05a3b9ef6e62ed8c15d174aa1c720ba9faabac9b590741f64791ad5ada0fea11",
+      "bytes": 8338
+    },
+    "tests/integration/phase5/phase5-explain-rerun.test.ts": {
+      "sha256": "4eb0428a67cfe9f4d4f641f39bf75fedaa4766cbfb3c9d746856201111f563e7",
+      "bytes": 12041
+    },
+    "tests/integration/phase5/phase5-flow-replay.test.ts": {
+      "sha256": "89dfebf20e852b239eaee9e0217c7e84a90827c6d2f6afaba9f007649651ec6e",
+      "bytes": 9461
+    }
+  },
+  "rollbackTag": "promo/b25-cli-command-tail"
+}
