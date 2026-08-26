@@ -332,3 +332,11 @@ export function formatEstimatedDuration(features: string[]): string {
   if (count <= 10) return '~15 min';
   return '~25 min';
 }
+
+/** B30: approves or declines a plan review. */
+export function approvePlanReview(
+  plan: { planId: string },
+  approved: boolean,
+): { approved: boolean } {
+  return { approved };
+}
