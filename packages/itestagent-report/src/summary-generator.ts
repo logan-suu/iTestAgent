@@ -3,6 +3,9 @@ import type { ReportSynthesizerInput } from './types.js';
 /**
  * Generate a human-readable summary.md markdown string.
  *
+ * B09 module split: report text sanitization lives in report-sanitizer;
+ * replay outcomes are adapted via replay-to-report-adapter.
+ *
  * AC3: summary.md must contain 结论 / 失败原因 / 关键指标 / 证据路径 / 下一步命令.
  */
 export function generateSummary(input: ReportSynthesizerInput): string {

@@ -1,0 +1,106 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B09",
+  "baseCommit": "4f40cf219d12e5b00dc977738e7b71c87c1f9a4c",
+  "stagedTreeHash": "5c7f226d29d15d230144c061f8625e69e8525c66",
+  "baselineMode": "red",
+  "baselineDigest": "82b06fc83b5babe3456288e6fde24293e5cf27c0323c165e2db7166b692d1ab3",
+  "greenCommand": "bun run batch:test -- B09",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 4f40cf219d12e5b00dc977738e7b71c87c1f9a4c --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B09",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B09-files.txt": {
+      "sha256": "50c0618f0cbc6676ea18e85fe3cbb3d5fab0dc177cdbf78ab740fa399a3736fa",
+      "bytes": 789
+    },
+    "packages/itestagent-report/package.json": {
+      "sha256": "5ef946dd97209c017c7fd8d402d8a15537fcfe8b2e4d0631fe8565b04135a406",
+      "bytes": 452
+    },
+    "packages/itestagent-report/src/index.ts": {
+      "sha256": "dcf4f03291afc7cf650734e9e653acd670870a8e2edb1f9bd437f4f33872f604",
+      "bytes": 809
+    },
+    "packages/itestagent-report/src/replay-to-report-adapter.ts": {
+      "sha256": "861212e7642a96915e233792e132f251e059ec02bf31cde00cbccac77047961e",
+      "bytes": 1519
+    },
+    "packages/itestagent-report/src/report-sanitizer.ts": {
+      "sha256": "347414fb2a6ad8058947d1803ca9f3d89348749eb32de96a4847e286c114aa29",
+      "bytes": 1508
+    },
+    "packages/itestagent-report/src/report-validator.ts": {
+      "sha256": "a7b357e1eade9fabe969979f619ba17533776f5a0588fddf10933a2924f64a7c",
+      "bytes": 1788
+    },
+    "packages/itestagent-report/src/summary-generator.ts": {
+      "sha256": "4e14770bfdf91eeee9b4363c9d201689ec42f2b8166984f6a2d442aa8b75b577",
+      "bytes": 9609
+    },
+    "packages/itestagent-report/src/synthesizer.ts": {
+      "sha256": "88eef740830fc3a911a00ab6fbe4ff238e3baed5308f056d8454adfc33af6e17",
+      "bytes": 5108
+    },
+    "packages/itestagent-report/src/types.ts": {
+      "sha256": "18138db526776be2d12c42f454e62a9005dc7e6ddd60b7d44edc590bbb191d04",
+      "bytes": 2635
+    },
+    "packages/itestagent-report/test/replay-to-report-adapter.test.ts": {
+      "sha256": "fad73a61d2b7932fbf39949405ba7149d5e5b0ef6ec226b228e801d07f09f7bd",
+      "bytes": 2403
+    },
+    "packages/itestagent-report/test/report-sanitizer-context.test.ts": {
+      "sha256": "814de74bb6a14d45d2d72e14fe7cc7438713fcfbbec6a75bec9ed143bf6b9b9e",
+      "bytes": 1746
+    },
+    "packages/itestagent-report/test/report-trio-atomicity.test.ts": {
+      "sha256": "824130ca4a2726f9954e5d3e84a3a83cf8cf2999214d6c6f21a32eb651f38430",
+      "bytes": 1752
+    },
+    "packages/itestagent-report/test/report-validator-dangling-ref.test.ts": {
+      "sha256": "278521f4af205e502cd90001940a7d0d7d9fafe165e5ff6b153ab99409cf8dfe",
+      "bytes": 1748
+    },
+    "packages/itestagent-report/test/synthesizer.test.ts": {
+      "sha256": "67a5a28fbfdd192c567112741112503ea89b8f1e0255dffdfbeb76d8ae0ac564",
+      "bytes": 19995
+    }
+  },
+  "rollbackTag": "promo/b09-report-validation"
+}
