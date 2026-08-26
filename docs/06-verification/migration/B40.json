@@ -1,0 +1,78 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B40",
+  "baseCommit": "82cdb614d7aa9354e047cd319d81bcdf1eba862c",
+  "stagedTreeHash": "e8a6628e19d86462f890362d0bd62e23cb115360",
+  "baselineMode": "red",
+  "baselineDigest": "7a74d9d91e7b737ca903dc24dd858db3658fd0d8225b4c031287d812a886804c",
+  "greenCommand": "bun run batch:test -- B40",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 82cdb614d7aa9354e047cd319d81bcdf1eba862c --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B40",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    ".github/workflows/ci.yml": {
+      "sha256": "2bca45cc1c2cc9da950d999f2ecd52fc93469120b3dd3132c0976c556f0f6537",
+      "bytes": 315
+    },
+    ".github/workflows/security-scan.yml": {
+      "sha256": "a9864fac3f178b34aeb917299e58edf7f3eda0f9743002ba3cd8e1f9e83f1f77",
+      "bytes": 311
+    },
+    ".github/workflows/simulator-ci.yml": {
+      "sha256": "47e9745bf82bcfe21da2e8f07ba544ba8160e330eea4a6723788453f92f0b310",
+      "bytes": 312
+    },
+    "bunfig.toml": {
+      "sha256": "22d640428e4adc822ed78e1180304ff61e8f863319a68dc0a0b7faeef0ea0540",
+      "bytes": 848
+    },
+    "docs/06-verification/migration/allowlists/B40-files.txt": {
+      "sha256": "d43a8f9051031f73bd38aff175647783b72b8ed89eded2583511e767cd8f7e94",
+      "bytes": 261
+    },
+    "package.json": {
+      "sha256": "1397fa18278d37ea5f1f3c67a2dfcc5ebf5d8471f13151562f12a0895d63e85d",
+      "bytes": 1902
+    },
+    "tests/architecture/ci-lane-contract.test.ts": {
+      "sha256": "40ff35e4d2bbb8c95387a595d212b67206820e053b0f861bcaef054b47942543",
+      "bytes": 973
+    }
+  },
+  "rollbackTag": "promo/b40-ci-lanes"
+}

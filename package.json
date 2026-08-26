@@ -23,7 +23,8 @@
     "batch:test": "bun scripts/run-batch-tests.ts",
     "batch:allowlist": "bun scripts/verify-batch-allowlist.ts",
     "evidence:generate": "bun scripts/generate-evidence.ts",
-    "evidence:verify": "bun scripts/verify-evidence.ts"
+    "evidence:verify": "bun scripts/verify-evidence.ts",
+    "test:unit": "bun test packages"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
