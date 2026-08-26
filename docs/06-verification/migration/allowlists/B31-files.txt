@@ -1,0 +1,13 @@
+docs/06-verification/migration/B31.json
+docs/06-verification/migration/allowlists/B31-files.txt
+packages/itestagent-tui/src/memory-run-routing.ts
+packages/itestagent-tui/src/physical-run.ts
+packages/itestagent-tui/src/run-completion-presentation.ts
+packages/itestagent-tui/src/startup-brand.ts
+packages/itestagent-tui/test/memory-run-routing-errors.test.ts
+packages/itestagent-tui/test/physical-run-lifecycle.test.ts
+packages/itestagent-tui/test/run-completion-presentation.test.ts
+packages/itestagent-tui/test/run-completion-renderer-parity.test.ts
+packages/itestagent-tui/test/startup-brand.test.ts
+tests/integration/phase5/tui-brand-outcomes-evidence-generator.test.ts
+tests/integration/phase5/tui-brand-outcomes-visual.test.ts
