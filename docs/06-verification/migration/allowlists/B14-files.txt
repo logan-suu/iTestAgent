@@ -1,0 +1,7 @@
+docs/06-verification/migration/B14.json
+docs/06-verification/migration/allowlists/B14-files.txt
+packages/itestagent-engine/src/durable-test-plan.ts
+packages/itestagent-engine/src/index.ts
+packages/itestagent-engine/src/mvp-test-plan-fields.ts
+packages/itestagent-engine/src/test-plan-compiler.ts
+packages/itestagent-engine/test/test-plan-compiler.test.ts

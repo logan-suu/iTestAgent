@@ -1,3 +1,8 @@
+/**
+ * Intent→TestPlan compiler — B14 module split note: MVP field gating lives in
+ * mvp-test-plan-fields and plan.yaml persistence in durable-test-plan; this
+ * module stays the Intent+Profile→TestPlan compiler plus YAML helpers.
+ */
 import type { Intent } from 'itestagent-contracts';
 import {
   type AssertionPolicy,

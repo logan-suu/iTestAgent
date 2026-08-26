@@ -134,3 +134,8 @@ export type {
   LlmExplainFn,
   FailureExplainerOptions,
 } from './explanation/index.js';
+
+// ─── B14 module split: MVP field gating + durable plan persistence ──
+export { MVP_TEST_PLAN_FIELDS, missingMvpTestPlanFields } from './mvp-test-plan-fields.js';
+export { PLAN_FILENAME, saveTestPlanFile, loadTestPlanFile } from './durable-test-plan.js';
+export type { DurableTestPlanDeps } from './durable-test-plan.js';

@@ -379,3 +379,45 @@ describe('compileTestPlan', () => {
     });
   });
 });
+
+// ─── B14: mvp-test-plan-fields + durable-test-plan ───────────────
+
+describe('B14: mvp-test-plan-fields', () => {
+  it('reports no missing fields for a compiled MVP plan', async () => {
+    const mod = await import('../src/mvp-test-plan-fields.js');
+    const plan = compileTestPlan(makeIntent(), makeProfile(), { runId: 'run_b14' });
+    expect(mod.missingMvpTestPlanFields(plan)).toEqual([]);
+  });
+
+  it('flags a plan whose required features are empty', async () => {
+    const mod = await import('../src/mvp-test-plan-fields.js');
+    const plan = compileTestPlan(makeIntent(), makeProfile(), { runId: 'run_b14' });
+    const incomplete = {
+      ...plan,
+      execution: { ...plan.execution, features: [] },
+    } as unknown as TestPlan;
+    expect(mod.missingMvpTestPlanFields(incomplete)).toContain('execution.features');
+  });
+});
+
+describe('B14: durable-test-plan', () => {
+  it('round-trips a plan through injected fs', async () => {
+    const mod = await import('../src/durable-test-plan.js');
+    const plan = compileTestPlan(makeIntent(), makeProfile(), { runId: 'run_durable' });
+    const store = new Map<string, string>();
+    const deps = {
+      writeFile: async (p: string, c: string) => {
+        store.set(p, c);
+      },
+      readFile: async (p: string) => {
+        const value = store.get(p);
+        if (value === undefined) throw new Error('ENOENT');
+        return value;
+      },
+    };
+    const saved = await mod.saveTestPlanFile('/fixture/runs/run_durable', plan, deps);
+    expect(saved.path.endsWith('plan.yaml')).toBe(true);
+    const loaded = await mod.loadTestPlanFile('/fixture/runs/run_durable', deps);
+    expect(loaded.runId).toBe('run_durable');
+  });
+});
