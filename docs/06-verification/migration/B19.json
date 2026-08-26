@@ -1,0 +1,190 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B19",
+  "baseCommit": "dde65fdd1f816b222781e9f8be7ffe4300a0b939",
+  "stagedTreeHash": "2fd98f693a42396f62d814619c30b5e78273c9e0",
+  "baselineMode": "red",
+  "baselineDigest": "bdfa144d2aa7ae7909e9add41dc40124558eed95234a5a5778c198324e3a76ff",
+  "greenCommand": "bun run batch:test -- B19",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base dde65fdd1f816b222781e9f8be7ffe4300a0b939 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B19",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B19-files.txt": {
+      "sha256": "660623bf55697191f094f3411da614667d0d4bc340f8f956c43a4b55055b613b",
+      "bytes": 2050
+    },
+    "packages/itestagent-cli/src/physical-app-source-probes.ts": {
+      "sha256": "fb70e4ceab551d7b1f6fe4299691a37cf965c4b678731dde94903cb41fc6d795",
+      "bytes": 228
+    },
+    "packages/itestagent-cli/src/physical-app-source-runtime.ts": {
+      "sha256": "259b934da2933a2397f540f0506d3959c5fd8c1a596780633857bb8bcafd892f",
+      "bytes": 247
+    },
+    "packages/itestagent-cli/src/physical-app-source.ts": {
+      "sha256": "b6eaf6ae2197a1ce5666035c6d1fd57794b9bc237421a40325e4ea86efcb5475",
+      "bytes": 255
+    },
+    "packages/itestagent-cli/src/physical-artifact-store.ts": {
+      "sha256": "31ce8b94cd15fef1b5a761708c010f194563cbddf50f50fe454cc7643016bf5e",
+      "bytes": 195
+    },
+    "packages/itestagent-cli/src/physical-aut-runtime.ts": {
+      "sha256": "c258a1d543d878fa6a874c3f5e0eda5e2be66a3d11922c89e0c75615a5771fc9",
+      "bytes": 225
+    },
+    "packages/itestagent-cli/src/physical-mvp-composition.ts": {
+      "sha256": "57ce44d6f7c89749db785ff64ed9328980bf6c5f4e02d664946631b0850c44ce",
+      "bytes": 356
+    },
+    "packages/itestagent-cli/src/physical-mvp-factory.ts": {
+      "sha256": "4c73bf9bb0f1fc3e7fea10f9042c04109e632d3384bb37e5a93ed1c9f8e25db0",
+      "bytes": 234
+    },
+    "packages/itestagent-cli/src/physical-mvp-options.ts": {
+      "sha256": "415b9285d1bae07dbad1cf2d046b0eaf8c394548d792524d03aaf8c76fb11114",
+      "bytes": 243
+    },
+    "packages/itestagent-cli/src/physical-mvp-production-types.ts": {
+      "sha256": "5928acee519caca45926a4745fd835a2dcd5d9921b469c112c168d5e2b5c08ef",
+      "bytes": 125
+    },
+    "packages/itestagent-cli/src/physical-mvp-production.ts": {
+      "sha256": "3ada6f05a1e37170953b96c8c813d3642e6059bae80f5fed7715af6662a882ab",
+      "bytes": 158
+    },
+    "packages/itestagent-cli/src/physical-mvp-replay.ts": {
+      "sha256": "457e0495c9adda76a2d8cea91ce63a1da041a41e39c7375fd0d0bf4ee7adc90c",
+      "bytes": 216
+    },
+    "packages/itestagent-cli/src/physical-mvp-runtime-types.ts": {
+      "sha256": "6352ebfa42f7c490e709d0ff04aeab88e2f9edf9b3a97272f3732000baa5b756",
+      "bytes": 135
+    },
+    "packages/itestagent-cli/src/physical-mvp-runtime.ts": {
+      "sha256": "10dd04437fa57ce042d08e01b1cde8ec17e8710957a03c37e12adbfee2edb406",
+      "bytes": 293
+    },
+    "packages/itestagent-cli/src/physical-plan-writer.ts": {
+      "sha256": "633f8b68f58dfa6cfe9e214d44ff588465ff3bd81c567d400b1511358c47d9bd",
+      "bytes": 647
+    },
+    "packages/itestagent-cli/src/physical-provisioning-runtime.ts": {
+      "sha256": "53fbaf596f9d9ca4a4714b9fcb98a620144c33da727669a7dea9c2ea58839e93",
+      "bytes": 283
+    },
+    "packages/itestagent-cli/src/physical-report-context.ts": {
+      "sha256": "39063c0b6a86c236858910b150750ee8cc422e82837af70b4d9e50d3608e279e",
+      "bytes": 258
+    },
+    "packages/itestagent-cli/src/physical-route-c-probes.ts": {
+      "sha256": "bfe3a904a92706f22073b001e10301b2cdb5c03e982ddc3dde4d4305fe38a566",
+      "bytes": 218
+    },
+    "packages/itestagent-cli/src/physical-route-c-provisioning.ts": {
+      "sha256": "eb114a17fcc8572ee98090da2643a4e4fc16f65b79e40ba7351ae4b077733258",
+      "bytes": 359
+    },
+    "packages/itestagent-cli/src/physical-route-c-resolution.ts": {
+      "sha256": "d5ffa50d3a1f42d59f62a31412e775c75085ef7e961e8d9f49554518f204de93",
+      "bytes": 353
+    },
+    "packages/itestagent-cli/src/physical-route-c-signing.ts": {
+      "sha256": "fdc63f05db4bba7d841f514a9c7699a27b8184bd822e7b29b50cc0a0adca76be",
+      "bytes": 251
+    },
+    "packages/itestagent-cli/src/physical-route-c-types.ts": {
+      "sha256": "c3363eb262e03e1b860618c3cef589e60784cc6a51d5cce16a8e89077bd18da5",
+      "bytes": 125
+    },
+    "packages/itestagent-cli/src/physical-wda-signing.ts": {
+      "sha256": "476c139ff0b69af2e2102800eaf2277b136dd867b9167585aa8637f5481b78e2",
+      "bytes": 229
+    },
+    "packages/itestagent-cli/src/provisioning-profile-coverage.ts": {
+      "sha256": "4c31d8f4d934062d1681bf1265208dcc6b7dfb4bb01de63ddde0c9fbbbdbbe7e",
+      "bytes": 241
+    },
+    "packages/itestagent-cli/src/signing-certificate-team.ts": {
+      "sha256": "a187fd6ad6465d8c92a2b21809faeda43e55e26a6ea89a388c43cc49ddd8295a",
+      "bytes": 225
+    },
+    "packages/itestagent-cli/test/physical-app-source-probes.test.ts": {
+      "sha256": "7d3e464b13d16bfab14c06eb61561db3f83341a3626ccb2ec4769aa7152b8c78",
+      "bytes": 296
+    },
+    "packages/itestagent-cli/test/physical-app-source.test.ts": {
+      "sha256": "1ce25d50f22d3750ba79f26c6f00643cd9f4e18cd27fb59604856bd16297927b",
+      "bytes": 336
+    },
+    "packages/itestagent-cli/test/physical-mvp-composition.test.ts": {
+      "sha256": "26d4b57c9874af16c1c7ab34202815fcdd01816785e8bbe5d91c7acaf3f160bc",
+      "bytes": 341
+    },
+    "packages/itestagent-cli/test/physical-mvp-default-integration.test.ts": {
+      "sha256": "ca36840f80db7f1d987a2d16a1e54f802f44b9ca5f66cfe2804395d9a20196d2",
+      "bytes": 347
+    },
+    "packages/itestagent-cli/test/physical-mvp-options.test.ts": {
+      "sha256": "e1599b234173282a0753e3ad4a7dbf64e069751cc26a9d7e7bb5ac5e0545b087",
+      "bytes": 272
+    },
+    "packages/itestagent-cli/test/physical-plan-writer.test.ts": {
+      "sha256": "65d130c745a955762cee2f27b7ce483e17892a21a458c591f7677cc13e31bf1e",
+      "bytes": 553
+    },
+    "packages/itestagent-cli/test/physical-route-c-probes.test.ts": {
+      "sha256": "1788ec2072b14d7ede55175156eae793d534ece31e19df75e116db7b08f638bb",
+      "bytes": 282
+    },
+    "packages/itestagent-cli/test/physical-route-c-resolution.test.ts": {
+      "sha256": "f60e2a328fe0ce90586d91f8a76bad29a4f8e9a9be76bc39e045d0a1256ad067",
+      "bytes": 293
+    },
+    "packages/itestagent-cli/test/physical-route-c-signing-team.test.ts": {
+      "sha256": "2e2d025ab50e7cff2b555ad4c4c6246f9369768004fe4aa839cf7bc24c055854",
+      "bytes": 302
+    },
+    "packages/itestagent-cli/test/physical-wda-signing.test.ts": {
+      "sha256": "f3637df14ab8b5cd93bf5b85e7e714acb462363e3c1e06f39e25781a1f541a56",
+      "bytes": 287
+    }
+  },
+  "rollbackTag": "promo/b19-cli-physical-route-c"
+}
