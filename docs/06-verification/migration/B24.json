@@ -1,0 +1,202 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B24",
+  "baseCommit": "07a36383373a3dbcad6d2658d727de1755be0bed",
+  "stagedTreeHash": "3ea559a436b3dead96ad320650d5131b2dbd961b",
+  "baselineMode": "red",
+  "baselineDigest": "ae4e8fcc98a4b7afcce14703df3207d36f795738d1b1859eb5451af39de3ec44",
+  "greenCommand": "bun run batch:test -- B24",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 07a36383373a3dbcad6d2658d727de1755be0bed --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B24",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B24-files.txt": {
+      "sha256": "35725805f2044cab7383a8d57b84a8dcf9d057fd4fdf0609648b029b95f0d620",
+      "bytes": 2178
+    },
+    "packages/itestagent-cli/src/feed-memory-connectivity.ts": {
+      "sha256": "9dfbcd9fc119a52746e1c032c8ae96f42d49fdbe4725950550a85ce58ac5f349",
+      "bytes": 188
+    },
+    "packages/itestagent-cli/src/feed-memory-default-runtime-support.ts": {
+      "sha256": "ad679d2060b4b1ee4b4377fd5e7b80039736f3a1e583124ad1cd9303f07764d6",
+      "bytes": 155
+    },
+    "packages/itestagent-cli/src/feed-memory-default-runtime-types.ts": {
+      "sha256": "53dbe1fa6d5a68556cbe2aeaf6cacfff7f1ce4985ce525e629e26d8e10640b5a",
+      "bytes": 118
+    },
+    "packages/itestagent-cli/src/feed-memory-default-runtime.ts": {
+      "sha256": "420b137629d1e51f761708333773063d18f2c6b3f6df3234766af98f713a8a92",
+      "bytes": 161
+    },
+    "packages/itestagent-cli/src/feed-memory-diagnosis.ts": {
+      "sha256": "4b0760c42e3ce03ae6887d83e194a8b152d80b250b35f98c6c7f203f9a76b601",
+      "bytes": 170
+    },
+    "packages/itestagent-cli/src/feed-memory-error.ts": {
+      "sha256": "1b5b8ab016f13ec976fe06c515af8189e5d0fe8dcd854c5ffa3bb51774b362eb",
+      "bytes": 194
+    },
+    "packages/itestagent-cli/src/feed-memory-flows.ts": {
+      "sha256": "10aebd81783a8ba98d9e51ea30f8fe546a5409b49f0932f07b496eeefa7a5d97",
+      "bytes": 178
+    },
+    "packages/itestagent-cli/src/feed-memory-metrics.ts": {
+      "sha256": "c2a17b0f5f8c8fb42c7d9d6b2e12d3f11073ccf18c89cc5bbdeabb3761e3b790",
+      "bytes": 191
+    },
+    "packages/itestagent-cli/src/feed-memory-phase.ts": {
+      "sha256": "8109d16a5a3252dda7484281630fe254941af7b05ece39394d17db037989e30b",
+      "bytes": 186
+    },
+    "packages/itestagent-cli/src/feed-memory-production-defaults.ts": {
+      "sha256": "7e42a88ed435ae9b734b2b7f4d43b2dc62625b0297fc388d42e1a420e708e50b",
+      "bytes": 148
+    },
+    "packages/itestagent-cli/src/feed-memory-production.ts": {
+      "sha256": "034cd5c0ecbc5eba912c627e814065f24987aa317a960b459234712053db1f3b",
+      "bytes": 185
+    },
+    "packages/itestagent-cli/src/feed-memory-profile.ts": {
+      "sha256": "7b38c92b4d7dd2542d4ce867d0cd926ed55c4ae9e51fb286547e1cde06a55a61",
+      "bytes": 171
+    },
+    "packages/itestagent-cli/src/feed-memory-progress-log.ts": {
+      "sha256": "92d42e52a9e79c2007b641896b07cf01c198d7840ce1cbcbd2e317699f038e0e",
+      "bytes": 158
+    },
+    "packages/itestagent-cli/src/feed-memory-report-input.ts": {
+      "sha256": "85972becaa578e3b53ad1a43821b4059b71800321f710e0f708cacae8e255c31",
+      "bytes": 186
+    },
+    "packages/itestagent-cli/src/feed-memory-report.ts": {
+      "sha256": "faae575f53750542bc7a62acf3478429e5abb4760f6c512e711ca1d792115475",
+      "bytes": 180
+    },
+    "packages/itestagent-cli/src/feed-memory-result.ts": {
+      "sha256": "1b04ff53e0785cac03ec68cbf79c12b55e57f85c3a7a4bd064ce50ce38b573db",
+      "bytes": 164
+    },
+    "packages/itestagent-cli/src/feed-memory-run-identity.ts": {
+      "sha256": "d4af174db9b62634141eb35c4706bb5a7d866f3efc6fc9da5b21b1f67fb16f96",
+      "bytes": 192
+    },
+    "packages/itestagent-cli/src/feed-memory-runtime-cleanup.ts": {
+      "sha256": "6b3abf33d1e58412dda5f556df82f3f55a08e6ad667517c2053bc56b313b3daf",
+      "bytes": 172
+    },
+    "packages/itestagent-cli/src/feed-memory-runtime-deps.ts": {
+      "sha256": "7c8f6bd0d3f5d5d6a3fac91e782b121a3fa26f0368c20814b86c13cc8ab169f6",
+      "bytes": 177
+    },
+    "packages/itestagent-cli/src/feed-memory-runtime.ts": {
+      "sha256": "22b58c44512c6319a3f3c6484cdab7470bc98128e6fe013a93c8daf42d733fd9",
+      "bytes": 134
+    },
+    "packages/itestagent-cli/src/feed-memory-sampling.ts": {
+      "sha256": "1bdd7226f0df1c54ac639c89409a78506ee37aba64b7a7dc05628b680a4467bf",
+      "bytes": 202
+    },
+    "packages/itestagent-cli/src/feed-memory-session.ts": {
+      "sha256": "c5b35343a4acc09cdb2b258e1e6a54b5a2f18cf10b8fef5b4fd48e8f5276b025",
+      "bytes": 167
+    },
+    "packages/itestagent-cli/src/feed-memory-timeline.ts": {
+      "sha256": "59058040efd901da09fba6fc42f25f579d84c36cc7c9c2da8d3d6583ccec9683",
+      "bytes": 168
+    },
+    "packages/itestagent-cli/src/feed-memory-ui-signature.ts": {
+      "sha256": "ab4ef448dd41353859e82b6fc68adc9ac8a93a8a0be460b1b1de8ecdf560089f",
+      "bytes": 154
+    },
+    "packages/itestagent-cli/src/feed-memory-verdict.ts": {
+      "sha256": "d37f0061fd19b01131ad73364090b02acd8968144899bb38170912be5edaa605",
+      "bytes": 188
+    },
+    "packages/itestagent-cli/src/feed-memory-wda-recovery.ts": {
+      "sha256": "1033d0e65da2e3dbf1499fd5515c1557ba5a378e6d0c06eccaa169dc456c8db5",
+      "bytes": 197
+    },
+    "packages/itestagent-cli/src/feed-memory-xctrace-runtime.ts": {
+      "sha256": "23a077e7dcf632107f4851283aa5fe290e7ef0eaae718299d83d3146b24b185e",
+      "bytes": 198
+    },
+    "packages/itestagent-cli/test/feed-memory-default-runtime.test.ts": {
+      "sha256": "3143c582aa58e6d50c8032a0d66c40a4971db9303cb6773d8621d91a59d3e14f",
+      "bytes": 333
+    },
+    "packages/itestagent-cli/test/feed-memory-flows.test.ts": {
+      "sha256": "72c48f2c3a00f0803e502a9fe74e861cc899af8d3acc60608540ea7f727ed923",
+      "bytes": 298
+    },
+    "packages/itestagent-cli/test/feed-memory-orchestration.test.ts": {
+      "sha256": "e39ce0ff130a6fb4d1001262b25771e69b26628bb2c1bbe73c1169c6c6d91ccc",
+      "bytes": 306
+    },
+    "packages/itestagent-cli/test/feed-memory-production.test.ts": {
+      "sha256": "70a6731ec0dd2ebcee68e3a4f8f5b59f57e88990625a4cefee479ebc78665a4f",
+      "bytes": 318
+    },
+    "packages/itestagent-cli/test/feed-memory-profile-cleanup.test.ts": {
+      "sha256": "21b7c1711b9e5024e046ab9e742451ba4da7a005c479986e82985daaf7a79b78",
+      "bytes": 313
+    },
+    "packages/itestagent-cli/test/feed-memory-report.test.ts": {
+      "sha256": "63d05a4ba1074af77c79ab50dfe290c86a5d23f0fb9d9e745919ea80af285c03",
+      "bytes": 315
+    },
+    "packages/itestagent-cli/test/feed-memory-run-identity.test.ts": {
+      "sha256": "b0624e62ed6f07ebc90974b42ff842445955141cd756eae3b822793a83af8e77",
+      "bytes": 323
+    },
+    "packages/itestagent-cli/test/feed-memory-runtime-cleanup.test.ts": {
+      "sha256": "21b7c1711b9e5024e046ab9e742451ba4da7a005c479986e82985daaf7a79b78",
+      "bytes": 313
+    },
+    "packages/itestagent-cli/test/feed-memory-runtime.test.ts": {
+      "sha256": "e963b6b6febbc97119aee3584e884d285c1ff17c75db8af82a8b482bc36d0f4f",
+      "bytes": 274
+    },
+    "packages/itestagent-cli/test/feed-memory-session.test.ts": {
+      "sha256": "e67b2d75baf41577f81a27d89f95a19f9dcad2ca8bcadfb0fc950c6cd0543ab1",
+      "bytes": 303
+    }
+  },
+  "rollbackTag": "promo/b24-cli-feed-memory"
+}
