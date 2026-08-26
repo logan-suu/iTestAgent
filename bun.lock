@@ -44,6 +44,8 @@
       "name": "itestagent-backends-device-appium",
       "version": "0.0.1",
       "dependencies": {
+        "itestagent-contracts": "workspace:*",
+        "itestagent-process": "workspace:*",
         "webdriverio": "9.29.1",
       },
     },

@@ -74,3 +74,14 @@ export { createAppiumDeviceBackend } from './composition-root.js';
 export type { ProductionAppiumConfig, AppiumBackendAssembly } from './composition-root.js';
 
 export { redactError, redactErrorMessage } from './redactor.js';
+
+// ─── B13 module split: process/liveness/session/wda handles ──
+export { isProcessAlive } from './appium-process-liveness.js';
+export type { ProcessSignalFn } from './appium-process-liveness.js';
+export { parseActiveBundleId } from './wda-active-application.js';
+export { createAppiumProcessManager } from './appium-process-manager.js';
+export type { AppiumProcessHandle, AppiumProcessManagerDeps } from './appium-process-manager.js';
+export { createAppiumSessionLifecycle } from './appium-session-lifecycle.js';
+export type { AppiumSessionLifecycleDeps } from './appium-session-lifecycle.js';
+export { createOwnedWdaProcess } from './owned-wda-processes.js';
+export type { OwnedWdaProcess, OwnedWdaProcessDeps } from './owned-wda-processes.js';

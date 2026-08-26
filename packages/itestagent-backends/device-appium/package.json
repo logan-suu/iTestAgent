@@ -7,6 +7,8 @@
   "types": "src/index.ts",
   "description": "DeviceBackend implementation — Appium/WDA (ADR-012: WdaManager owns WDA lifecycle, Appium handles WebDriver session only)",
   "dependencies": {
+    "itestagent-contracts": "workspace:*",
+    "itestagent-process": "workspace:*",
     "webdriverio": "9.29.1"
   },
   "scripts": {

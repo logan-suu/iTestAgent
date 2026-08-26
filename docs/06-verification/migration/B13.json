@@ -1,0 +1,122 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B13",
+  "baseCommit": "e603679f185359b9fb82b16e90bdb9f8abf1b217",
+  "stagedTreeHash": "cf75dbb25a29ae5ab10a16755188cc56dd43fcd0",
+  "baselineMode": "red",
+  "baselineDigest": "2b6cd31e9b5691074cd3aa78979a7a87375c64d41566c6ffc33f18a459b07d12",
+  "greenCommand": "bun run batch:test -- B13",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base e603679f185359b9fb82b16e90bdb9f8abf1b217 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B13",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "bun.lock": {
+      "sha256": "3520385754bf0e4c5b0e4d40e4dddd41cc22bf6a884f4f4cbf846b167b312f30",
+      "bytes": 102027
+    },
+    "docs/06-verification/migration/allowlists/B13-files.txt": {
+      "sha256": "36500262969eb443400cfe0e80c29be3d26ebd6caaee5c2ff93b96c2ff8242ff",
+      "bytes": 1303
+    },
+    "packages/itestagent-backends/device-appium/package.json": {
+      "sha256": "b5fb1585b90a55b6b48d5fcd34fc8041d4f0ead510567e0f346483a9049ede99",
+      "bytes": 553
+    },
+    "packages/itestagent-backends/device-appium/src/appium-capabilities.ts": {
+      "sha256": "3296e8daa20e9794d05dd706abb59921f8989499c7507d2e71cae4ce59918be6",
+      "bytes": 14466
+    },
+    "packages/itestagent-backends/device-appium/src/appium-process-liveness.ts": {
+      "sha256": "fc3ac5d5aca53fde7b15956c9f70819cb62f2fbc957689756a003453a71e8519",
+      "bytes": 686
+    },
+    "packages/itestagent-backends/device-appium/src/appium-process-manager.ts": {
+      "sha256": "2763bc7018a0f3e9001dabd226020c072ad17a226decff41ef2be7e678375ea8",
+      "bytes": 1184
+    },
+    "packages/itestagent-backends/device-appium/src/appium-session-lifecycle.ts": {
+      "sha256": "8fa23a27c770296f9f6ca780884f0e62d5eda878f4a7fac174c087f2883708cc",
+      "bytes": 924
+    },
+    "packages/itestagent-backends/device-appium/src/index.ts": {
+      "sha256": "fa32d7525721333f3a1e6ec4ae70ee328b4f89a0ac386a57d948b189ec485bb4",
+      "bytes": 3491
+    },
+    "packages/itestagent-backends/device-appium/src/owned-wda-processes.ts": {
+      "sha256": "fa67b89c32c791d9f5225ec873d7659c7029ab67db87cd67f272aa920655e77b",
+      "bytes": 1012
+    },
+    "packages/itestagent-backends/device-appium/src/wda-active-application.ts": {
+      "sha256": "1b30c2fa0c8317cb31a62788e25ed75d710262cea957cd8f874d98d730ef3f1b",
+      "bytes": 659
+    },
+    "packages/itestagent-backends/device-appium/test/appium-capabilities.test.ts": {
+      "sha256": "90651d003f64a9abbc6c8089a072867ca3343957d4b2b40ad256834abc9b7f07",
+      "bytes": 10870
+    },
+    "packages/itestagent-backends/device-appium/test/appium-process-liveness.test.ts": {
+      "sha256": "c374b12c38c7dd43ecd145f8ce9197f9ee701407eed96af601ef3c7a53836eb9",
+      "bytes": 541
+    },
+    "packages/itestagent-backends/device-appium/test/appium-process-manager-timeout.test.ts": {
+      "sha256": "a33c156d7e7fd8fa3cee1010c656db7c0bd580e0bc287f9e00ca49dd826f3ee9",
+      "bytes": 565
+    },
+    "packages/itestagent-backends/device-appium/test/appium-process-manager.test.ts": {
+      "sha256": "2f4b1e6dc90d9ebfe193990ce95efac6e55c3d3ca23522c3380d774ad032ee6d",
+      "bytes": 651
+    },
+    "packages/itestagent-backends/device-appium/test/appium-session-lifecycle-abort.test.ts": {
+      "sha256": "ac4eff6880742220896f29608694abbe5a4e57b782490117164ee947cc4b5e3b",
+      "bytes": 615
+    },
+    "packages/itestagent-backends/device-appium/test/appium-session-lifecycle.test.ts": {
+      "sha256": "3bc47074e72dedd86334f89715c39bd8e0a47c9a765f4d01ea2932688766c542",
+      "bytes": 452
+    },
+    "packages/itestagent-backends/device-appium/test/composition-root-wda-mode.test.ts": {
+      "sha256": "cf77cdc13ca1f584c86150c56d405cb355b16867e70a617ebeb9c368f7ab81c5",
+      "bytes": 517
+    },
+    "packages/itestagent-backends/device-appium/test/wda-active-application.test.ts": {
+      "sha256": "ffd5fa208960c04ca7276ae28fe7a9efcb9d43a39ac784117b58aefa1e2f2a5a",
+      "bytes": 487
+    }
+  },
+  "rollbackTag": "promo/b13-device-appium"
+}

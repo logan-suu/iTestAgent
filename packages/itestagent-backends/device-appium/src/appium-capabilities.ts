@@ -1,4 +1,10 @@
 /**
+ *
+ * B13 module split: Appium server/process/session/wda handles live in
+ * appium-process-manager / appium-session-lifecycle / owned-wda-processes /
+ * appium-process-liveness / wda-active-application; this module stays the
+ * capability vocabulary.
+
  * Appium W3C capabilities builders for physical and simulator iOS targets.
  *
  * Physical: three mutually exclusive WDA startup modes (Phase 3 Gate 4.1).
