@@ -1,0 +1,16 @@
+docs/06-verification/migration/B32.json
+docs/06-verification/migration/allowlists/B32-files.txt
+packages/itestagent-tui/src/feed-memory-analysis-deps.ts
+packages/itestagent-tui/src/feed-memory-analysis-failure.ts
+packages/itestagent-tui/src/feed-memory-analysis-review.ts
+packages/itestagent-tui/src/feed-memory-device-selection.ts
+packages/itestagent-tui/src/feed-memory-plan-format.ts
+packages/itestagent-tui/src/feed-memory-plan-review.ts
+packages/itestagent-tui/test/feed-memory-analysis-deps.test.ts
+packages/itestagent-tui/test/feed-memory-analysis-failure.test.ts
+packages/itestagent-tui/test/feed-memory-completion-notice-sanitization.test.ts
+packages/itestagent-tui/test/feed-memory-device-selection.test.ts
+packages/itestagent-tui/test/feed-memory-gate-blocks-llm.test.ts
+packages/itestagent-tui/test/feed-memory-plan-review.test.ts
+packages/itestagent-tui/test/feed-memory-routing.test.ts
+packages/itestagent-tui/test/feed-memory-selected-device-session.test.ts
