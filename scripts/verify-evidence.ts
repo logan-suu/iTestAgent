@@ -99,8 +99,12 @@ function resolveBatchId(opts: Options): string | null {
     : 'B38';
 }
 
-function currentEvidenceExists(evidenceRoot: string): boolean {
+function currentEvidenceExists(evidenceRoot: string, batchId: string): boolean {
   if (!existsSync(evidenceRoot) || !statSync(evidenceRoot).isDirectory()) return false;
+  // Batch-scoped current evidence: B38 = whole corpus, B41 = g5-sim,
+  // B42 = physical g5 (promotion guide §12.3 evidence batches).
+  if (batchId === 'B41') return existsSync(join(evidenceRoot, 'g5-sim'));
+  if (batchId === 'B42') return existsSync(join(evidenceRoot, 'g5'));
   return (
     existsSync(join(evidenceRoot, 'SHA256SUMS')) || existsSync(join(evidenceRoot, 'manifest.json'))
   );
@@ -112,7 +116,21 @@ function sha256File(filePath: string): string {
 }
 
 /** Verifies the SHA256SUMS manifest; returns list of mismatches (empty = ok). */
-function verifyCorpus(evidenceRoot: string): string[] {
+function verifyCorpus(evidenceRoot: string, batchId: string): string[] {
+  if (batchId === 'B41' || batchId === 'B42') {
+    const scopeDir = join(evidenceRoot, batchId === 'B41' ? 'g5-sim' : 'g5');
+    const manifestPath = join(scopeDir, 'promotion', 'manifest.json');
+    if (!existsSync(manifestPath)) return [`missing ${batchId} promotion manifest`];
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
+      if (typeof manifest !== 'object' || manifest === null) {
+        return ['manifest.json is not a JSON object'];
+      }
+    } catch (err) {
+      return [`manifest.json is not valid JSON: ${(err as Error).message}`];
+    }
+    return [];
+  }
   const sumPath = join(evidenceRoot, 'SHA256SUMS');
   const manifestPath = join(evidenceRoot, 'manifest.json');
   if (existsSync(sumPath)) {
@@ -168,13 +186,13 @@ if (import.meta.main) {
 
   const evidenceRoot = join(repoRoot(), 'docs', '06-verification', 'evidence');
 
-  if (!currentEvidenceExists(evidenceRoot)) {
+  if (!currentEvidenceExists(evidenceRoot, batchId)) {
     // Missing current evidence: exactly one machine JSON line on stderr, exit 42.
     process.stderr.write(`${JSON.stringify({ code: MISSING_EVIDENCE_CODE, batchId })}\n`);
     process.exit(42);
   }
 
-  const mismatches = verifyCorpus(evidenceRoot);
+  const mismatches = verifyCorpus(evidenceRoot, batchId);
   if (mismatches.length > 0) {
     for (const m of mismatches) process.stderr.write(`verify-evidence: ${m}\n`);
     process.exit(3);

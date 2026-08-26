@@ -1,0 +1,7 @@
+docs/05-planning/task-status.json
+docs/06-verification/evidence/g5-sim/promotion/manifest.json
+docs/06-verification/g5-sim-spike-report-promotion.md
+docs/06-verification/migration/B41.json
+docs/06-verification/migration/allowlists/B41-files.txt
+scripts/verify-evidence.ts
+tests/architecture/verification-missing-protocol.test.ts

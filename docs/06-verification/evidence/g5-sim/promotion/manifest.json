@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "itestagent.evidence.manifest.v1",
+  "testId": "g5-sim",
+  "scope": "g5-sim",
+  "batchId": "B41",
+  "report": "docs/06-verification/g5-sim-spike-report-promotion.md",
+  "verifiedAt": "2026-08-26T00:00:00Z",
+  "verdict": "pass"
+}

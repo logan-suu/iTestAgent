@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B41",
+  "baseCommit": "4a23683472d620b6555183d91c04ac60803818f8",
+  "stagedTreeHash": "3bc649c8133a76b65ac47e836ba7c182e71cf284",
+  "baselineMode": "verification-missing",
+  "baselineDigest": "77311741cd5f85e89887ae03c208e01c455dcd952d41eba7a0f0f22126827e1b",
+  "greenCommand": "bun run batch:test -- B41",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 4a23683472d620b6555183d91c04ac60803818f8 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B41",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/05-planning/task-status.json": {
+      "sha256": "28011b8be062901a34e2904e529689a435a7321a2cf2720ef1ec38299ab65d07",
+      "bytes": 74330
+    },
+    "docs/06-verification/evidence/g5-sim/promotion/manifest.json": {
+      "sha256": "dbd5d2a2e9b3d0b18ae19404b2c1bad9955d75b6cf029780e1725ac36791c46a",
+      "bytes": 250
+    },
+    "docs/06-verification/g5-sim-spike-report-promotion.md": {
+      "sha256": "91e0aa21cdfae55a695ac062fdc38fc5fefe5cf05ab50fd3b9650e44a70876cc",
+      "bytes": 915
+    },
+    "docs/06-verification/migration/allowlists/B41-files.txt": {
+      "sha256": "71b7b1dc2855eb0b247585511dbb4d22621b3fd300307cc89fadf7ccbba97833",
+      "bytes": 329
+    },
+    "scripts/verify-evidence.ts": {
+      "sha256": "03b22a50a290312d3d6c6f7bff450587c7cd1ec4ceeb7f80b74049fb9dab6d7e",
+      "bytes": 7573
+    },
+    "tests/architecture/verification-missing-protocol.test.ts": {
+      "sha256": "7e3a10117d3447287eff22910615c34ea6462f58828d0cec6b31ac16994b7a6b",
+      "bytes": 4323
+    }
+  },
+  "rollbackTag": "promo/b41-g5-sim"
+}
