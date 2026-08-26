@@ -1,0 +1,7 @@
+docs/05-planning/deferred-items.json
+docs/05-planning/task-status.json
+docs/06-verification/evidence/g5/promotion/attestation.json
+docs/06-verification/g5-spike-report-promotion.md
+docs/06-verification/migration/B42.json
+docs/06-verification/migration/allowlists/B42-files.txt
+scripts/verify-evidence.ts

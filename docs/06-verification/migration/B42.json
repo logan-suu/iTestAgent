@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B42",
+  "baseCommit": "7c5bf6cd2ba0d849560d0891032ca3813e780469",
+  "stagedTreeHash": "062d1ee06a0efc520bbc60320775f2d0684a50ce",
+  "baselineMode": "verification-missing",
+  "baselineDigest": "647bd00c44e85850f837996d31db3e26931f2bf2ccbab8833c192b96bfc49f2c",
+  "greenCommand": "bun run batch:test -- B42",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 7c5bf6cd2ba0d849560d0891032ca3813e780469 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B42",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/05-planning/deferred-items.json": {
+      "sha256": "41343f2c881d64e668dc9b7fea33f127ee354626eced55cc992de82511e649d1",
+      "bytes": 39063
+    },
+    "docs/05-planning/task-status.json": {
+      "sha256": "f89cf88846a38d53e1d8751a441732bdda18299a8b5f33cf11e9f13468a42c08",
+      "bytes": 74330
+    },
+    "docs/06-verification/evidence/g5/promotion/attestation.json": {
+      "sha256": "4cd050f9e510a73336aab169eb502ef3e68dff21e310a86c9d50448c5df88f40",
+      "bytes": 439
+    },
+    "docs/06-verification/g5-spike-report-promotion.md": {
+      "sha256": "d1a9712148248585dc21501f2c556370fe70f8a167f78eb5999268abbf6c0817",
+      "bytes": 1046
+    },
+    "docs/06-verification/migration/allowlists/B42-files.txt": {
+      "sha256": "36fc9f65acf123b643a4718ccc4982b39576936322bcbfba595809faea3cb671",
+      "bytes": 304
+    },
+    "scripts/verify-evidence.ts": {
+      "sha256": "f93371885400e88044c35d630867375d95401667cdf80e3f2ba542b22fa2566f",
+      "bytes": 7819
+    }
+  },
+  "rollbackTag": "promo/b42-g5-physical"
+}

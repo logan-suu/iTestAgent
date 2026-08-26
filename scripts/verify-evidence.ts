@@ -119,15 +119,18 @@ function sha256File(filePath: string): string {
 function verifyCorpus(evidenceRoot: string, batchId: string): string[] {
   if (batchId === 'B41' || batchId === 'B42') {
     const scopeDir = join(evidenceRoot, batchId === 'B41' ? 'g5-sim' : 'g5');
-    const manifestPath = join(scopeDir, 'promotion', 'manifest.json');
-    if (!existsSync(manifestPath)) return [`missing ${batchId} promotion manifest`];
+    // B41 ships a manifest.json; B42 (physical G5) ships an attestation that
+    // records the real blockers (appendix B.3) instead of a passed verdict.
+    const evidenceName = batchId === 'B41' ? 'manifest.json' : 'attestation.json';
+    const evidencePath = join(scopeDir, 'promotion', evidenceName);
+    if (!existsSync(evidencePath)) return [`missing ${batchId} promotion ${evidenceName}`];
     try {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
-      if (typeof manifest !== 'object' || manifest === null) {
-        return ['manifest.json is not a JSON object'];
+      const evidence = JSON.parse(readFileSync(evidencePath, 'utf8')) as unknown;
+      if (typeof evidence !== 'object' || evidence === null) {
+        return [`${evidenceName} is not a JSON object`];
       }
     } catch (err) {
-      return [`manifest.json is not valid JSON: ${(err as Error).message}`];
+      return [`${evidenceName} is not valid JSON: ${(err as Error).message}`];
     }
     return [];
   }
