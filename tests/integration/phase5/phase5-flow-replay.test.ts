@@ -326,3 +326,12 @@ describe('B25 explain-rerun seam', () => {
     expect(typeof mod.rerunFailed).toBe('function');
   });
 });
+
+// ─── B34: phase5 harness seam ──────────────────────────────────────
+
+describe('B34 phase5 harness seam', () => {
+  it('reports the phase5 integration surface as coherent', async () => {
+    const mod = await import('../../../packages/itestagent-engine/src/phase5-harness.js');
+    expect(mod.phase5HarnessProbe().ok).toBe(true);
+  });
+});
