@@ -1,0 +1,15 @@
+docs/06-verification/migration/B16.json
+docs/06-verification/migration/allowlists/B16-files.txt
+packages/itestagent-engine/src/analysis/evidence-verifier.ts
+packages/itestagent-engine/src/analysis/instruction-analyzer.ts
+packages/itestagent-engine/src/analysis/project-analyzer.ts
+packages/itestagent-engine/src/analysis/source-scope.ts
+packages/itestagent-engine/src/feed-memory-intent.ts
+packages/itestagent-engine/src/index.ts
+packages/itestagent-engine/src/memory-profile-intent.ts
+packages/itestagent-engine/test/evidence-verifier.test.ts
+packages/itestagent-engine/test/feed-memory-intent.test.ts
+packages/itestagent-engine/test/instruction-analyzer.test.ts
+packages/itestagent-engine/test/memory-profile-intent.test.ts
+packages/itestagent-engine/test/project-analyzer.test.ts
+packages/itestagent-engine/test/source-scope.test.ts

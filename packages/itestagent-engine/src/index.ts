@@ -155,3 +155,17 @@ export type {
 export { createSimulatorMvpAdapter } from './simulator-mvp-adapter.js';
 export type { SimulatorMvpAdapterDeps } from './simulator-mvp-adapter.js';
 export { resolveMvpRunId } from './physical-mvp-run-support.js';
+
+// ─── B16 module split: analysis + intents ──
+export { verifyEvidenceRefs } from './analysis/evidence-verifier.js';
+export type { EvidenceVerifierInput, EvidenceVerifierIssue } from './analysis/evidence-verifier.js';
+export { analyzeInstruction } from './analysis/instruction-analyzer.js';
+export type { InstructionAnalysis, InstructionIntent } from './analysis/instruction-analyzer.js';
+export { summarizeProjectAssets } from './analysis/project-analyzer.js';
+export type { ProjectAssetsInput, ProjectAssetsSummary } from './analysis/project-analyzer.js';
+export { resolveSourceScope } from './analysis/source-scope.js';
+export type { SourceScope, SourceScopeInput } from './analysis/source-scope.js';
+export { buildFeedMemoryIntent } from './feed-memory-intent.js';
+export type { FeedMemoryIntent, FeedMemoryIntentInput } from './feed-memory-intent.js';
+export { buildMemoryProfileIntent } from './memory-profile-intent.js';
+export type { MemoryProfileIntent, MemoryProfileIntentOverrides } from './memory-profile-intent.js';
