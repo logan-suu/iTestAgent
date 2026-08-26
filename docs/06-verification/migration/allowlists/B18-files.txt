@@ -1,0 +1,15 @@
+docs/06-verification/migration/B18.json
+docs/06-verification/migration/allowlists/B18-files.txt
+packages/itestagent-cli/src/commands/doctor-devices.ts
+packages/itestagent-cli/src/devices/discover.ts
+packages/itestagent-cli/src/devices/format.ts
+packages/itestagent-cli/src/devices/healthcheck.ts
+packages/itestagent-cli/src/devices/physical-command.ts
+packages/itestagent-cli/src/devices/physical-device-details-parser.ts
+packages/itestagent-cli/src/devices/physical-discovery-error.ts
+packages/itestagent-cli/src/devices/physical-discovery-parser.ts
+packages/itestagent-cli/src/devices/physical-discovery.ts
+packages/itestagent-cli/src/doctor/checks/check-wda.ts
+packages/itestagent-cli/src/doctor/doctor.ts
+packages/itestagent-cli/test/devices/physical-discovery-xcode26.test.ts
+packages/itestagent-cli/test/doctor/doctor.test.ts

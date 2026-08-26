@@ -1,4 +1,6 @@
 /**
+ *
+ * B18 module split: WDA readiness check stays here; the doctor-devices command wiring lives in commands/doctor-devices.ts.
  * WebDriverAgent project readiness check — doctor physical readiness lane.
  *
  * US-1.2 AC1: pass/fail/manual three-state.

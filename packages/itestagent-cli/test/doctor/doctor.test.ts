@@ -268,3 +268,12 @@ describe('formatDualLaneReport', () => {
     expect(output).toContain('require manual action');
   });
 });
+
+// ─── B18 seam: doctor-devices command surface ─────────────────────
+
+describe('B18 seam: doctor-devices command surface', () => {
+  test('exposes the command registration module', async () => {
+    const mod = await import('../../src/commands/doctor-devices.js');
+    expect(typeof mod.registerDoctorDevicesCommands).toBe('function');
+  });
+});

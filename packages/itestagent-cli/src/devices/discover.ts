@@ -1,4 +1,6 @@
 /**
+ *
+ * B18 module split: physical parsing moved to physical-discovery-parser; this module stays the device discovery entry used by cli.ts.
  * Device discovery — list physical (devicectl) and Simulator (simctl) devices.
  *
  * US-2.1 AC3: data source xcrun devicectl list devices

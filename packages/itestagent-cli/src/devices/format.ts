@@ -1,4 +1,6 @@
 /**
+ *
+ * B18 module split: device formatting stays here; discovery parsing lives in physical-discovery-parser.
  * Device list and healthcheck formatter — terminal output.
  *
  * Follows the pattern from doctor/format.ts: ANSI color codes for terminal display.
