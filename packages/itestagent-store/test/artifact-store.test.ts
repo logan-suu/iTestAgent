@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createArtifactStore } from '../src/artifact-store.js';
+import { parseArtifactIndex } from 'itestagent-contracts';
+import { createArtifactStore, createPersistentArtifactStore } from '../src/artifact-store.js';
 
 describe('ArtifactStore', () => {
   let testRoot: string;
@@ -130,6 +132,37 @@ describe('ArtifactStore', () => {
       expect(readFileSync(join(testRoot, 'artifacts', ref.path)).equals(Buffer.from('hello'))).toBe(
         true,
       );
+    });
+  });
+
+  describe('integrity metadata (B07)', () => {
+    it('put computes sizeBytes and sha256 for materialized artifacts', async () => {
+      const data = Buffer.from('integrity-payload');
+      const ref = await artifactStore.put({ type: 'json', data });
+      expect(ref.sizeBytes).toBe(data.byteLength);
+      expect(ref.sha256).toBe(createHash('sha256').update(data).digest('hex'));
+    });
+
+    it('persistent store writes artifact-index.json atomically beside the run dir', async () => {
+      const runDir = join(testRoot, 'runs', 'run_b07_persist');
+      mkdirSync(join(runDir, 'artifacts'), { recursive: true });
+      const store = createPersistentArtifactStore(join(runDir, 'artifacts'), 'run_b07_persist');
+
+      await store.put({ type: 'text', data: Buffer.from('persist-me'), relatedStep: 'step-1' });
+
+      const indexPath = join(runDir, 'artifact-index.json');
+      expect(existsSync(indexPath)).toBe(true);
+      // Atomic write leaves no temp residue next to the index.
+      const leftovers = readdirSync(runDir).filter(
+        (name) => name !== 'artifact-index.json' && name !== 'artifacts',
+      );
+      expect(leftovers).toEqual([]);
+
+      const parsed = parseArtifactIndex(JSON.parse(readFileSync(indexPath, 'utf-8')));
+      const entry = parsed.artifacts[0];
+      expect(entry?.sha256).toBeDefined();
+      expect(entry?.sizeBytes).toBeGreaterThan(0);
+      expect(entry?.relatedStep).toBe('step-1');
     });
   });
 });

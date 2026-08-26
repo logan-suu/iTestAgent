@@ -319,4 +319,24 @@ describe('RunStore', () => {
       expect(rerun?.parentRunId).toBe('original-run');
     });
   });
+
+  describe('filesystem seam (B07)', () => {
+    it('insertRun + getRunDir agree on the on-disk run location', async () => {
+      const hash = await insertProject();
+      const store = createRunStore(db, testRoot);
+      await store.insertRun({
+        runId: 'run-seam-1',
+        projectHash: hash,
+        targetKind: 'physical',
+        status: 'created',
+      });
+
+      const runDir = store.getRunDir('run-seam-1');
+      expect(runDir.startsWith(join(testRoot, 'runs'))).toBe(true);
+      mkdirSync(runDir, { recursive: true });
+
+      const loaded = await store.findById('run-seam-1');
+      expect(loaded?.runId).toBe('run-seam-1');
+    });
+  });
 });
