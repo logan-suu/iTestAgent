@@ -1,0 +1,127 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B37",
+  "baseCommit": "5881ef8da5ecedd4f499812bdba97af47b82c31e",
+  "stagedTreeHash": "da9b6ef37b7ce0572d93af100aba97f30af2043f",
+  "baselineMode": "red",
+  "baselineDigest": "a4a9187c1110ecb07eaaef8bcc460ff10b3d6a1114298e2df4433582f5821b15",
+  "greenCommand": "bun run batch:test -- B37",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 5881ef8da5ecedd4f499812bdba97af47b82c31e --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B37",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "LOCK_INVARIANT",
+      "command": "bun scripts/verify-lock-invariant.ts --batch B37 --receipt /Users/logansu/dev/itestagent-promotion/.git/itestagent-receipts/B37-lock.sha256 --file bun.lock",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B37-files.txt": {
+      "sha256": "c52680977bd57c0168e414e8cc67247e7e858bcd4a807d5e0338a4ad426e7ecf",
+      "bytes": 1068
+    },
+    "docs/decisions/ADR-022-persisted-schema-migrations.md": {
+      "sha256": "f4e550dd7dd5e9ec4e448208a5b10959595583efcbb224984b33948d079992a6",
+      "bytes": 1633
+    },
+    "packages/itestagent-contracts/package.json": {
+      "sha256": "e01157d4b406856888d8810defea151f0f81e794a7fa56912ec8cf273ea70f9b",
+      "bytes": 547
+    },
+    "packages/itestagent-contracts/src/index.ts": {
+      "sha256": "0bd2223151f35f4be7913b731f59f64b3b98a84a3d245c86f0a24dc25be83d82",
+      "bytes": 10506
+    },
+    "packages/itestagent-contracts/src/migrations/artifact-index-v1.ts": {
+      "sha256": "9abd75cea19316fc82612bf7c25cbd66abdd63c4b37d077b160b460d7f28330d",
+      "bytes": 761
+    },
+    "packages/itestagent-contracts/src/migrations/config-v1.ts": {
+      "sha256": "0d0e17dc4434d4aac8433e1f88218968031a94e46fb08192e611d25c3fc72da4",
+      "bytes": 739
+    },
+    "packages/itestagent-contracts/src/migrations/index.ts": {
+      "sha256": "9cfaa5b72889ec2b1550b10bfa62c2b0bd483578b9ba2520c3395ea8474b6cd9",
+      "bytes": 350
+    },
+    "packages/itestagent-contracts/src/migrations/result-v1.ts": {
+      "sha256": "283f1dbdab3bff8c5a0101809839fee289dc316053d79a0123d2458af78a6faa",
+      "bytes": 684
+    },
+    "packages/itestagent-contracts/src/migrations/test-plan-v2.ts": {
+      "sha256": "8bf7a80124a31d31552ba302a7ed89f32298dc53f88a5d86b146799b67a6305d",
+      "bytes": 709
+    },
+    "packages/itestagent-contracts/src/migrations/types.ts": {
+      "sha256": "f31292bf4fba18a889bdc72cbe79d006af39f6a8c8f5808c9c6de78c5c3bb927",
+      "bytes": 237
+    },
+    "packages/itestagent-contracts/src/scenarios/registry-shadow-read.ts": {
+      "sha256": "94f2747697e29af5c173f693a68587ec42938f27e8322b812471af70c052fb9c",
+      "bytes": 461
+    },
+    "packages/itestagent-contracts/test/migrations-artifact-index.test.ts": {
+      "sha256": "c94eb4cdc2db856f2734b8ea1d91c9d476784298e5df2f7e81ca3b7bd3f95b9b",
+      "bytes": 333
+    },
+    "packages/itestagent-contracts/test/migrations-config.test.ts": {
+      "sha256": "7e236d673317a628641eea234a194674b86aa6e470f89614ffb00c8f4f825a96",
+      "bytes": 526
+    },
+    "packages/itestagent-contracts/test/migrations-result.test.ts": {
+      "sha256": "1a0bb5ce5a540fba16e6cabb77ea29021b6ec7d2e9a662533201e71f457de8ab",
+      "bytes": 388
+    },
+    "packages/itestagent-contracts/test/migrations-test-plan.test.ts": {
+      "sha256": "fe887fb4b5e67eeb7b1be860394fcf9d37eedde762cd4df3f4f3cca002bbda9e",
+      "bytes": 356
+    },
+    "packages/itestagent-contracts/test/registry-shadow-read.test.ts": {
+      "sha256": "a3fbc2c91058c80e047f7739b09606d78c63407b8880bd3720af786cf1b77a7c",
+      "bytes": 524
+    },
+    "packages/itestagent-report/src/report-validator.ts": {
+      "sha256": "88feb0ebfd4f202644d1572969b80de54f242f59a28027ab82c1f1176c446988",
+      "bytes": 2155
+    },
+    "packages/itestagent-store/src/run-store.ts": {
+      "sha256": "3ae145757f5897338845ba93b3fba726a0fcaeb21ce367aab906a8fd83dc962c",
+      "bytes": 4890
+    }
+  },
+  "rollbackTag": "promo/b37-persisted-migrations"
+}

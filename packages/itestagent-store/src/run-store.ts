@@ -131,3 +131,10 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
 export function createDefaultRunStore(db: DbClient): RunStore {
   return createRunStore(db, resolveStoreRoot());
 }
+
+// B37 (guide §10): legacy result read path via the compatibility reader.
+export function parseLegacyRunResult(raw: unknown): { ok: boolean } {
+  const migrated = migrateResultV1(raw);
+  return { ok: migrated.ok };
+}
+import { migrateResultV1 } from 'itestagent-contracts/migrations';

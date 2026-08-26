@@ -54,3 +54,11 @@ export function findDuplicateArtifactIds(
   }
   return issues;
 }
+
+// B37 (guide §10): report validator consults the result compatibility reader
+// so legacy result documents migrate before dangling-ref checks.
+export function validateResultWithCompatibility(raw: unknown): { ok: boolean } {
+  const migrated = migrateResultV1(raw);
+  return { ok: migrated.ok };
+}
+import { migrateResultV1 } from 'itestagent-contracts/migrations';
