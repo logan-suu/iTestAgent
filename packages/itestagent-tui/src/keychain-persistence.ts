@@ -138,7 +138,17 @@ export function authorizePersistence(
 /** Revokes an outstanding authorization; idempotent. */
 export function revokePersistence(authorization: PersistenceAuthorization): void {
   liveAuthorizations.delete(authorization);
+  revokedAuthorizations.add(authorization);
 }
+
+/**
+ * Authorizations explicitly revoked this session. Tracked separately from
+ * {@link liveAuthorizations} so the error contract can distinguish "this
+ * authorization was already spent" (`authorization_consumed`) from "the user
+ * withdrew consent" (`not_authorized` — equivalent to never having been
+ * authorized, R7).
+ */
+const revokedAuthorizations = new WeakSet<PersistenceAuthorization>();
 
 function checkAuthorization(
   authorization: PersistenceAuthorization | null | undefined,
@@ -151,9 +161,17 @@ function checkAuthorization(
     };
   }
   if (!liveAuthorizations.has(authorization)) {
+    // Distinguish "spent" from "revoked": a revoked authorization is
+    // equivalent to never having been authorized (user withdrew consent).
+    if (revokedAuthorizations.has(authorization)) {
+      return {
+        code: 'not_authorized',
+        message: 'Keychain persistence authorization was revoked',
+      };
+    }
     return {
       code: 'authorization_consumed',
-      message: 'Authorization was already used or revoked',
+      message: 'Authorization was already used',
     };
   }
   if (

@@ -158,17 +158,18 @@ mock.module('node:child_process', () => ({
 function selectiveReadFileSync(
   filePath: Parameters<typeof fsReal.readFileSync>[0],
   options?: Parameters<typeof fsReal.readFileSync>[1],
-): string {
+): string | Buffer {
   const key = typeof filePath === 'string' ? filePath : filePath.toString();
   if (key.includes(CONFIG_PATH_SUFFIX)) {
     throw Object.assign(new Error(`ENOENT: no such file or directory, open '${key}'`), {
       code: 'ENOENT',
     });
   }
-  // Callers under lock always pass an encoding ('utf-8'), so this normally
-  // returns a string; decode explicitly for the no-encoding Buffer branch.
-  const content = realReadFileSync(filePath, options as never);
-  return typeof content === 'string' ? content : content.toString('utf-8');
+  // Pass through the REAL return type untouched: later-loaded suites in the
+  // same process (Bun module mocks persist across files) rely on readFileSync
+  // returning a Buffer when no encoding is given (e.g. artifact byte
+  // comparisons via Buffer#equals).
+  return realReadFileSync(filePath, options as never);
 }
 
 mock.module('node:fs', () => ({

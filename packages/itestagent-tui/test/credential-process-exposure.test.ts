@@ -55,8 +55,14 @@ function scriptedSpawnOverride(
   captured.push(inv);
   const listeners = new Map<string, (...args: unknown[]) => void>();
   const emitClose = () => {
+    // Two microtask hops: data events queued by stdout/stderr `on` handlers
+    // (registered AFTER spawn returns) must be delivered BEFORE close, or the
+    // real runner settles with an empty buffer (same ordering guarantee as
+    // agent-session.test.ts's scripted spawn).
     queueMicrotask(() => {
-      listeners.get('close')?.(script.exitCode);
+      queueMicrotask(() => {
+        listeners.get('close')?.(script.exitCode);
+      });
     });
   };
   const child = {

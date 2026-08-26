@@ -31,6 +31,9 @@ beforeEach(async () => {
 
 const SECRET = 'itestagent-fake-secret-B28-mask-90fe21';
 
+/** A secret short enough to stay under MAX_MASKED_LENGTH (length-preserving range). */
+const SHORT_SECRET = 'itestagent-short-secret';
+
 function stateAtApiKeyStep(draft: string) {
   let s = controller.createInitialSetupState();
   s = controller.setupReducer(s, { type: 'start' }).state;
@@ -38,7 +41,10 @@ function stateAtApiKeyStep(draft: string) {
   s = controller.setupReducer(s, { type: 'submit' }).state;
   s = controller.setupReducer(s, { type: 'submit' }).state;
   s = controller.setupReducer(s, { type: 'submit' }).state;
+  // The draft only lands in apiKeyDraft on submit (reducer contract: input
+  // writes state.draft; submit commits it field-by-field).
   s = controller.setupReducer(s, { type: 'input', text: draft }).state;
+  s = controller.setupReducer(s, { type: 'submit' }).state;
   return s;
 }
 
@@ -50,8 +56,10 @@ describe('maskedDisplayValue', () => {
   });
 
   it('emits only the mask character, once per input character', () => {
-    const masked = panel.maskedDisplayValue(SECRET);
-    expect(masked.length).toBe(SECRET.length);
+    // Length-preserving guarantee holds within the cap; the over-cap case is
+    // the next test. SHORT_SECRET stays under MAX_MASKED_LENGTH.
+    const masked = panel.maskedDisplayValue(SHORT_SECRET);
+    expect(masked.length).toBe(SHORT_SECRET.length);
     for (const ch of masked) {
       expect(ch).toBe(panel.MASK_CHAR);
     }
