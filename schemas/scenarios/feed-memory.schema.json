@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itestagent.dev/schemas/scenarios/feed-memory.schema.json",
+  "title": "FeedMemoryScenario",
+  "description": "Feed Memory scenario pack contracts (B05). Product identity is injected; the shipped placeholder is intentionally non-product. Exported only via the itestagent-contracts/scenarios subpath.",
+  "type": "object",
+  "required": ["identity", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "identity": {
+      "type": "object",
+      "required": ["appBundleId"],
+      "additionalProperties": false,
+      "properties": {
+        "appBundleId": { "type": "string", "minLength": 1 },
+        "entryRoute": { "type": "string" }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["launch_app", "scroll_feed", "sample_memory", "terminate_app"] },
+          "roundIndex": { "type": "integer", "minimum": 0 },
+          "scrollIndex": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["kind", "roundIndex", "peakMB", "thresholdMB", "breached"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "const": "feed_memory_round" },
+        "roundIndex": { "type": "integer", "minimum": 0 },
+        "peakMB": { "type": "number", "minimum": 0 },
+        "thresholdMB": { "type": "number", "exclusiveMinimum": 0 },
+        "breached": { "type": "boolean" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["verdict", "roundsObserved", "breachedRounds"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "type": "string", "enum": ["passed", "regressed", "inconclusive"] },
+        "roundsObserved": { "type": "integer", "minimum": 0 },
+        "breachedRounds": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "worstPeakMB": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

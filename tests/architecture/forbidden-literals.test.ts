@@ -41,6 +41,21 @@ const GENERIC_SURFACE_DIRS: string[] = [
   'packages/itestagent-report/src',
 ];
 
+/**
+ * Scenario surfaces exempt from the GENERIC policy (guide §9 Stage 1):
+ * scenario contracts live behind their own subpath and carry scenario
+ * vocabulary BY DESIGN — they are not generic surface. Mirrors
+ * scripts/scan-forbidden-literals.ts.
+ */
+const GENERIC_SURFACE_EXCLUSIONS: string[] = [
+  'packages/itestagent-contracts/src/scenarios/',
+  'schemas/scenarios/',
+];
+
+function isExcludedScenarioSurface(file: string): boolean {
+  return GENERIC_SURFACE_EXCLUSIONS.some((dir) => file.startsWith(dir));
+}
+
 /** Collects text-bearing files under a directory (no node_modules/dist). */
 function collectFiles(dir: string): string[] {
   if (!statSync(dir, { throwIfNoEntry: false })) return [];
@@ -59,7 +74,10 @@ function genericSurfaceFiles(): string[] {
   const files: string[] = [];
   for (const dir of GENERIC_SURFACE_DIRS) {
     const abs = join(REPO_ROOT, dir);
-    for (const file of collectFiles(abs)) files.push(relative(REPO_ROOT, file));
+    for (const file of collectFiles(abs)) {
+      const rel = relative(REPO_ROOT, file);
+      if (!isExcludedScenarioSurface(rel)) files.push(rel);
+    }
   }
   return files.sort();
 }

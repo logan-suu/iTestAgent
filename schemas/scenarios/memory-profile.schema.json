@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itestagent.dev/schemas/scenarios/memory-profile.schema.json",
+  "title": "MemoryProfileScenario",
+  "description": "Parameterized memory-profile scenario pack contracts (B05). The historical fixed calibration values (20 MiB / 3 rounds) live here as data, never as core hard-codes. Exported only via the itestagent-contracts/scenarios subpath.",
+  "type": "object",
+  "required": ["params", "rounds"],
+  "additionalProperties": false,
+  "properties": {
+    "params": {
+      "type": "object",
+      "required": ["thresholdMB", "rounds", "samplesPerRound", "stabilizationMs"],
+      "additionalProperties": false,
+      "properties": {
+        "thresholdMB": { "type": "number", "exclusiveMinimum": 0 },
+        "rounds": { "type": "integer", "minimum": 1 },
+        "samplesPerRound": { "type": "integer", "minimum": 1 },
+        "stabilizationMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "calibrationDefaults": {
+      "description": "Historical calibration values served as data (guide §6.2).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "thresholdMB": { "const": 20 },
+        "rounds": { "const": 3 },
+        "samplesPerRound": { "const": 10 },
+        "stabilizationMs": { "const": 2000 }
+      }
+    },
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["roundIndex", "samplesRequested", "stabilizationMs"],
+        "additionalProperties": false,
+        "properties": {
+          "roundIndex": { "type": "integer", "minimum": 0 },
+          "samplesRequested": { "type": "integer", "minimum": 1 },
+          "stabilizationMs": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

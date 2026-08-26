@@ -83,7 +83,23 @@ function collectFiles(dir: string): string[] {
   return files;
 }
 
+/**
+ * Scenario surfaces exempt from the GENERIC literal policy (guide §9 Stage
+ * 1): scenario contracts live behind their own subpath and carry scenario
+ * vocabulary (e.g. "feed-memory") BY DESIGN — they are not generic surface.
+ */
+export const genericSurfaceExclusions: string[] = [
+  'packages/itestagent-contracts/src/scenarios/',
+  'schemas/scenarios/',
+];
+
+function isUnderExcludedScenarioSurface(file: string): boolean {
+  const normalized = `${file.replaceAll('/', sep)}${sep}`;
+  return genericSurfaceExclusions.some((dir) => normalized.startsWith(dir.replaceAll('/', sep)));
+}
+
 function isUnderGenericSurface(file: string): boolean {
+  if (isUnderExcludedScenarioSurface(file)) return false;
   const normalized = file.replaceAll('/', sep);
   return genericSurfaceDirs.some(
     (dir) => normalized === dir || normalized.startsWith(`${dir.replaceAll('/', sep)}${sep}`),
@@ -164,11 +180,13 @@ function main(): void {
     // Policy applies to changed files that live under a generic surface.
     targetFiles = changed.filter((f) => isUnderGenericSurface(f));
   } else {
-    // generic / all: scan the whole generic corpus.
+    // generic / all: scan the whole generic corpus (scenario subpaths exempt).
     for (const dir of genericSurfaceDirs) {
       const abs = join(repoRoot, dir);
       if (existsSync(abs)) {
-        for (const file of collectFiles(abs)) targetFiles.push(relative(repoRoot, file));
+        for (const file of collectFiles(abs)) {
+          if (!isUnderExcludedScenarioSurface(file)) targetFiles.push(relative(repoRoot, file));
+        }
       }
     }
   }

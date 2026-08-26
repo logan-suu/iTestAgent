@@ -1,0 +1,119 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B05",
+  "baseCommit": "bb46463c95aac68835823704273e16e2cba9faef",
+  "stagedTreeHash": "492d5ccea1e18274e05623b9985420257152a311",
+  "baselineMode": "red",
+  "baselineDigest": "2fbaec243d78b7be5af26f5000524a60ffb1c36498ef800467d5580d57a89edf",
+  "greenCommand": "bun run batch:test -- B05",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base bb46463c95aac68835823704273e16e2cba9faef --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B05",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "LOCK_INVARIANT",
+      "command": "bun scripts/verify-lock-invariant.ts --batch B05 --receipt /Users/logansu/dev/itestagent-promotion/.git/itestagent-receipts/B05-lock.sha256 --file bun.lock",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B05-files.txt": {
+      "sha256": "5fe389ebb7c717c8b77f9b7cfa10abea184beaf79c3b657cfbe876cbf0baa7f9",
+      "bytes": 886
+    },
+    "packages/itestagent-contracts/package.json": {
+      "sha256": "e064a22cb358eb4780c0102d27bcdd9507930fd94638a5291d3eb99ec03e6e06",
+      "bytes": 498
+    },
+    "packages/itestagent-contracts/src/analysis.ts": {
+      "sha256": "24d540a9311536f4c49037b8623da20b06d50bc7c55ff57be19da8f19078a859",
+      "bytes": 5011
+    },
+    "packages/itestagent-contracts/src/scenarios/feed-memory-outcomes.ts": {
+      "sha256": "84c5ffc3108375c04dc5ecf8f25ad181b1df18d6b05abc0b2d8179ce688b4c00",
+      "bytes": 1640
+    },
+    "packages/itestagent-contracts/src/scenarios/feed-memory.ts": {
+      "sha256": "dfd14165cd7fbf2c40cb24e6dfdcfe14427d24c9c74feaefc654cac04157e3ad",
+      "bytes": 2241
+    },
+    "packages/itestagent-contracts/src/scenarios/index.ts": {
+      "sha256": "fb6958a5b4b7df4e49514ff030ad1513d10b096e17d43dcd28c035c96ccb9e77",
+      "bytes": 1107
+    },
+    "packages/itestagent-contracts/src/scenarios/memory-profile.ts": {
+      "sha256": "9328ef0895a68b84ad401efc0f895b9388edfa3eb30d357f157af5990ae0b563",
+      "bytes": 2075
+    },
+    "packages/itestagent-contracts/test/analysis.test.ts": {
+      "sha256": "2ee7a69db1d8e98de2a529d3522dd38fad129686f92dce8d7c6fd383f036cc84",
+      "bytes": 3434
+    },
+    "packages/itestagent-contracts/test/feed-memory-outcomes.test.ts": {
+      "sha256": "9d6318c3f7c4cdac27209c4f1e52ce58eecf1bcf5a277e05a5fcddddcfe74641",
+      "bytes": 2012
+    },
+    "packages/itestagent-contracts/test/feed-memory.test.ts": {
+      "sha256": "822e230c547a9ba38a0da67abf5179a501fa91d010249c733d23a13ea402bdbf",
+      "bytes": 2574
+    },
+    "packages/itestagent-contracts/test/memory-profile.test.ts": {
+      "sha256": "5db0b2d8410e1e4953443cb48ac3b16cf4891e044e862fce82f961ec505a6df2",
+      "bytes": 2417
+    },
+    "packages/itestagent-contracts/test/scenario-isolation.test.ts": {
+      "sha256": "240b5ec2d21a1314fca13818042c27a043bfdf2154fc9ba6c41c8c251f554bce",
+      "bytes": 1964
+    },
+    "schemas/scenarios/feed-memory.schema.json": {
+      "sha256": "d1f4db9d3ddc0282f981e0ec119583c9209d1a681a2377661d70aa3a5cc96fa9",
+      "bytes": 2165
+    },
+    "schemas/scenarios/memory-profile.schema.json": {
+      "sha256": "797b12904282aa183b0a8d2e6616a9b6679ee8017e12c03d88b6237a6ded9120",
+      "bytes": 1795
+    },
+    "scripts/scan-forbidden-literals.ts": {
+      "sha256": "aec5014d30d7f15a902d4b46c84b2304d480440a025fc79a430250aba49eeb61",
+      "bytes": 7786
+    },
+    "tests/architecture/forbidden-literals.test.ts": {
+      "sha256": "fb12ef12397d916fafb5fae434cd16cf26e409bbb0d063413883d353be42a9d5",
+      "bytes": 6084
+    }
+  },
+  "rollbackTag": "promo/b05-contracts-scenarios"
+}
