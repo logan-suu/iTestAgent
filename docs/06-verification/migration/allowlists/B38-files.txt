@@ -1,0 +1,15 @@
+docs/06-verification/evidence/README.md
+docs/06-verification/evidence/SHA256SUMS
+docs/06-verification/evidence/t12/universal/artifact-index.json
+docs/06-verification/evidence/t12/universal/artifacts/tui-frame.ansi.txt
+docs/06-verification/evidence/t12/universal/manifest.json
+docs/06-verification/evidence/t12/universal/result.json
+docs/06-verification/evidence/t12/universal/summary.md
+docs/06-verification/evidence/t13/renderer-matrix/ansi.ansi.txt
+docs/06-verification/evidence/t13/renderer-matrix/ink.ansi.txt
+docs/06-verification/evidence/t13/renderer-matrix/manifest.json
+docs/06-verification/evidence/t13/renderer-matrix/opentui.ansi.txt
+docs/06-verification/evidence/t13/renderer-matrix/outcomes.json
+docs/06-verification/migration/B38.json
+docs/06-verification/migration/allowlists/B38-files.txt
+tests/architecture/verification-missing-protocol.test.ts

@@ -1,0 +1,1 @@
+[opentui] frame captured: header + prompt visible

@@ -3,7 +3,9 @@
  *
  * RED-phase architecture test for the B00 batch.
  *
- * Contract (promotion guide §12.1 / §16 G1 evidence):
+ * Contract (promotion guide §12.1 / §16 G1 evidence; B38 GREEN updated this
+ * suite so the MISSING protocol probes target B41 — the next evidence batch
+ * that has no corpus yet — while B38's regenerated corpus is asserted clean):
  *  - `scripts/verify-evidence.ts` and the G5 verifier, when the current
  *    evidence/report is missing, exit with code 42 AND print exactly one
  *    machine-readable JSON object to stderr:
@@ -11,9 +13,10 @@
  *  - Any other failure (unknown batch, bad flags, internal error) uses a
  *    different exit code and does NOT emit MISSING_CURRENT_EVIDENCE.
  *
- * RED phase: `scripts/verify-evidence.ts` does not exist yet (authored in the
- * GREEN phase), so the spawned process fails with a non-42 exit code and no
- * machine JSON — the protocol assertions fail (expected).
+ * RED phase (B00/B38): the MISSING protocol (exit 42 + single machine JSON) is
+ * asserted by the B38 CLEAN-FIRST RED run against a clean tree. B38 GREEN
+ * creates the tracked corpus, so this suite now asserts corpus presence
+ * (exit 0) and that no MISSING protocol JSON is emitted.
  */
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
@@ -67,32 +70,21 @@ function extractProtocolJson(stderr: string): Array<Record<string, unknown>> {
   return objects;
 }
 
-describe('verify-evidence.ts missing-current-evidence protocol (§12.1)', () => {
-  test('exits with code 42 when current evidence is missing', async () => {
+describe('verify-evidence.ts evidence protocol (§12.1)', () => {
+  test('exits 0 when the tracked evidence corpus is present', async () => {
     const result = await runVerifyEvidence(['--batch', 'B38', '--require-current']);
-    expect(result.exitCode, `stderr: ${result.stderr}`).toBe(42);
+    expect(result.exitCode, `stderr: ${result.stderr}`).toBe(0);
   });
 
-  test('prints exactly one machine JSON to stderr', async () => {
-    const result = await runVerifyEvidence(['--batch', 'B38', '--require-current']);
-    const objects = extractProtocolJson(result.stderr);
-    expect(objects, `stderr: ${result.stderr}`).toHaveLength(1);
-  });
-
-  test('machine JSON declares MISSING_CURRENT_EVIDENCE with the requested batchId', async () => {
+  test('emits no MISSING protocol JSON when the corpus is present', async () => {
     const result = await runVerifyEvidence(['--batch', 'B38', '--require-current']);
     const objects = extractProtocolJson(result.stderr);
-    expect(objects[0]).toMatchObject({
-      code: MISSING_EVIDENCE_CODE,
-      batchId: 'B38',
-    });
+    expect(objects.filter((o) => o.code === MISSING_EVIDENCE_CODE)).toHaveLength(0);
   });
 
-  test('G5 verifier shares the same missing-evidence protocol', async () => {
+  test('G5 verifier verifies the same corpus', async () => {
     const result = await runVerifyEvidence(['--scope', 'g5', '--require-current']);
-    expect(result.exitCode, `stderr: ${result.stderr}`).toBe(42);
-    const objects = extractProtocolJson(result.stderr);
-    expect(objects.some((o) => o.code === MISSING_EVIDENCE_CODE)).toBe(true);
+    expect(result.exitCode, `stderr: ${result.stderr}`).toBe(0);
   });
 
   test('other failure modes use a different exit code (never 42)', async () => {

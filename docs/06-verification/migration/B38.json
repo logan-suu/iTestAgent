@@ -1,0 +1,106 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B38",
+  "baseCommit": "9e1fec350411bbe5eee25704f1a9e30b0feccade",
+  "stagedTreeHash": "8d97a46613e77ce358aa8dcc47fc7494c5274b46",
+  "baselineMode": "verification-missing",
+  "baselineDigest": "0742209baee9d5107f81f6a4bd3e1cc30d82ccafd7c07f2cd302fdda436c5b43",
+  "greenCommand": "bun run batch:test -- B38",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 9e1fec350411bbe5eee25704f1a9e30b0feccade --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B38",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/evidence/README.md": {
+      "sha256": "1526c6029b5090ef6ca13c4454bcba543be716a5aa4b92b2cff1c14f549ec757",
+      "bytes": 495
+    },
+    "docs/06-verification/evidence/SHA256SUMS": {
+      "sha256": "3fdf705726f03093b061fef58132a867eed503153311edd05f6e93dc88e409b0",
+      "bytes": 988
+    },
+    "docs/06-verification/evidence/t12/universal/artifact-index.json": {
+      "sha256": "9c70043557f8bf8fb337593e934999c200efcf3ad21979be423575b49983b8d3",
+      "bytes": 164
+    },
+    "docs/06-verification/evidence/t12/universal/artifacts/tui-frame.ansi.txt": {
+      "sha256": "34df91cd1f65fbb4970ca7f4db0437ef8dfbac5388f78ce72710a17aec9303d3",
+      "bytes": 425
+    },
+    "docs/06-verification/evidence/t12/universal/manifest.json": {
+      "sha256": "b2865272d882c3360a1ad565ca413bed4f6bbe164a32da7e354f2777ac83b928",
+      "bytes": 275
+    },
+    "docs/06-verification/evidence/t12/universal/result.json": {
+      "sha256": "bf8b89c6b48fa34d66b28268a3bd29a690dc1f8ba3f3baaf22651e55a2d7d99f",
+      "bytes": 176
+    },
+    "docs/06-verification/evidence/t12/universal/summary.md": {
+      "sha256": "34cde8b8f09e199c607471bd5a6f0bb34983a1bf683331d06b613578e275766a",
+      "bytes": 164
+    },
+    "docs/06-verification/evidence/t13/renderer-matrix/ansi.ansi.txt": {
+      "sha256": "65fe8f75bceb06de11d58ee7f4099e4dc7813ba7b90e374c891a3f6bb0ac8c26",
+      "bytes": 47
+    },
+    "docs/06-verification/evidence/t13/renderer-matrix/ink.ansi.txt": {
+      "sha256": "5d6a2f1cb3acbe9bbdfaffa3d242335babc40d1e9d040bc6f054b1308e4bad40",
+      "bytes": 46
+    },
+    "docs/06-verification/evidence/t13/renderer-matrix/manifest.json": {
+      "sha256": "730e463ad94ed2c780f0d52ff8eeb3685ef6c78891fc89ff795f493df0dc9bac",
+      "bytes": 292
+    },
+    "docs/06-verification/evidence/t13/renderer-matrix/opentui.ansi.txt": {
+      "sha256": "90e13d5b0c850e4b2b780c6014ba095cf96e2003341ca8ccbaedd683db3135a5",
+      "bytes": 50
+    },
+    "docs/06-verification/evidence/t13/renderer-matrix/outcomes.json": {
+      "sha256": "28ac519d97ac203fa86c6018bd8d45eeea56e6af4546ecf39c68583f1390b524",
+      "bytes": 163
+    },
+    "docs/06-verification/migration/allowlists/B38-files.txt": {
+      "sha256": "96e85cd7b33928ce4ce30fe2096cb3ee25d866cd0e15f98f28b1594764bb15bc",
+      "bytes": 862
+    },
+    "tests/architecture/verification-missing-protocol.test.ts": {
+      "sha256": "4769b9c479eb08823e2881d25b106521b14c86bacbe0162af40f654f02b40f7e",
+      "bytes": 3836
+    }
+  },
+  "rollbackTag": "promo/b38-evidence-provenance"
+}

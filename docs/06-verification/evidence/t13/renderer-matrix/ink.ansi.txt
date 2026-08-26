@@ -1,0 +1,1 @@
+[ink] frame captured: header + prompt visible
