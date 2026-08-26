@@ -1,0 +1,16 @@
+{
+  "$comment": "Sanitized devicectl displays fixture (B12). Placeholder identifiers only; no real UDIDs per promotion guide denylist.",
+  "result": {
+    "displays": [
+      {
+        "displayProperties": {
+          "displayName": "Fixture Internal Display",
+          "mainDisplay": true,
+          "width": 1179,
+          "height": 2556,
+          "scale": 3.0
+        }
+      }
+    ]
+  }
+}

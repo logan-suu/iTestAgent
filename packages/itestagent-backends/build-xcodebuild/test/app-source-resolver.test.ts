@@ -299,3 +299,19 @@ describe('resolveAppSource - priority chain (AC2)', () => {
     }
   });
 });
+
+// ─── B12 seam: destination args helper ─────────────────────────────
+
+describe('B12 seam: destination args helper', () => {
+  it('maps BuildDestination shapes to xcodebuild destination args', async () => {
+    const { destinationArgs } = await import('../src/xcodebuild-driver-support.js');
+    expect(destinationArgs({ targetKind: 'physical', udid: 'UDID-FIXTURE-9' })).toEqual([
+      '-destination',
+      'platform=iOS,id=UDID-FIXTURE-9',
+    ]);
+    expect(destinationArgs({ targetKind: 'simulator', simulatorName: 'Fixture Sim' })).toEqual([
+      '-destination',
+      'platform=iOS Simulator,name=Fixture Sim',
+    ]);
+  });
+});

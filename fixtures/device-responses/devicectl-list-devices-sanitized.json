@@ -1,0 +1,41 @@
+{
+  "$comment": "Sanitized devicectl 506.6 list-devices fixture (B12). All identifiers are placeholders; no real UDIDs per promotion guide denylist.",
+  "result": {
+    "devices": [
+      {
+        "deviceProperties": {
+          "name": "FIXTURE-PHONE-01",
+          "udid": "UDID-FIXTURE-00000000000000000001"
+        },
+        "hardwareProperties": {
+          "marketingName": "iPhone Fixture Pro",
+          "productType": "iPhone14,5",
+          "osVersionNumber": "18.2",
+          "cpuType": "arm64e",
+          "deviceType": "iPhone"
+        },
+        "connectionProperties": {
+          "tunnelState": "connected",
+          "pairingState": "paired"
+        }
+      },
+      {
+        "deviceProperties": {
+          "name": "FIXTURE-PAD-01",
+          "udid": "UDID-FIXTURE-00000000000000000002"
+        },
+        "hardwareProperties": {
+          "marketingName": "iPad Fixture Air",
+          "productType": "iPad13,16",
+          "osVersionNumber": "18.2",
+          "cpuType": "arm64e",
+          "deviceType": "iPad"
+        },
+        "connectionProperties": {
+          "tunnelState": "unavailable",
+          "pairingState": "paired"
+        }
+      }
+    ]
+  }
+}

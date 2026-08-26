@@ -4,6 +4,10 @@ import { join, resolve } from 'node:path';
 /**
  * AppSourceResolver — App source decision engine (task 3.1).
  *
+ * B12 module split: destination mapping and build/test flows live in
+ * xcodebuild-driver-support / simulator-build / physical-build /
+ * xcodebuild-test-runner; this module stays source-resolution only.
+ *
  * Resolves how to obtain an .app bundle for device execution given a
  * strategy + workspace root + optional user-provided path.
  *

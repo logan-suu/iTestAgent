@@ -1,6 +1,10 @@
 /**
  * XcodebuildBuildDriver — BuildDriver interface implementation using xcodebuild + xcbeautify.
  *
+ * B12 module split: simulator/physical build flows and test running moved to
+ * simulator-build / physical-build / xcodebuild-test-runner; destination
+ * mapping lives in xcodebuild-driver-support.
+ *
  * Implements the 6-method BuildDriver contract (architecture §5.3):
  *   doctor / listSchemes / showBuildSettings / build / test / archive
  *
