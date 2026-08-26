@@ -1,0 +1,16 @@
+AGENTS.md
+docs/02-architecture/技术选型文档.md
+docs/02-architecture/数据流全链路技术说明文档.md
+docs/02-architecture/架构设计文档.md
+docs/03-implementation/开发避坑与关键注意点手册.md
+docs/05-planning/deferred-items.json
+docs/05-planning/task-status.json
+docs/06-verification/migration/B39.json
+docs/06-verification/migration/allowlists/B39-files.txt
+docs/INDEX.md
+docs/decisions/ADR-020-scenario-contract-transition.md
+docs/decisions/ADR-021-engine-device-appium-edge.md
+docs/decisions/ADR-022-persisted-schema-migrations.md
+docs/decisions/ADR-023-process-ownership-boundary.md
+scripts/run-batch-tests.ts
+scripts/verify-batch-allowlist.ts

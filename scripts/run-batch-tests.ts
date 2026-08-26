@@ -119,9 +119,8 @@ function testFiles(batch: string, repoRoot: string): string[] {
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith('#') && line.endsWith('.test.ts'))
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  if (files.length === 0) {
-    fail(`no *.test.ts files found in ${allowlistPath}`);
-  }
+  // Pure-documentation batches (e.g. B39 docs-truth) carry no test files;
+  // the caller decides RED/GREEN semantics for an empty file list.
   return files;
 }
 
@@ -155,8 +154,7 @@ function writeReceipt(repoRoot: string, receiptPath: string, payload: unknown): 
 }
 
 /** Runs `bun test <files>` via the current bun binary and returns the result. */
-function bunTestCmd(repoRoot: string, batch: string): { cmd: string[]; commandText: string } {
-  const files = testFiles(batch, repoRoot);
+function bunTestCmdFor(files: string[]): { cmd: string[]; commandText: string } {
   return { cmd: [process.execPath, 'test', ...files], commandText: `bun test ${files.join(' ')}` };
 }
 
@@ -218,13 +216,23 @@ async function main(): Promise<never> {
 
   let cmd: string[];
   let commandText: string;
+  let noBatchTests = false;
   if (isVerificationMissingBatch) {
     ({ cmd, commandText } = verifyEvidenceCmd(batch));
   } else {
-    ({ cmd, commandText } = bunTestCmd(repoRoot, batch));
+    const files = testFiles(batch, repoRoot);
+    noBatchTests = files.length === 0;
+    ({ cmd, commandText } = bunTestCmdFor(files));
   }
 
-  const result = await run(cmd, repoRoot);
+  let result: RunResult;
+  if (mode === 'red' && noBatchTests) {
+    // Pure-documentation batch with no test files: RED = no batch tests
+    // exist to verify (records a red baseline over the empty run).
+    result = { exitCode: 1, stdout: '', stderr: 'no batch tests' };
+  } else {
+    result = await run(cmd, repoRoot);
+  }
 
   // Expectation enforcement per mode.
   let baselineMode: Mode | undefined;

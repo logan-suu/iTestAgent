@@ -37,3 +37,7 @@ accepts it.
 ## References
 
 - ADR-010 (agent harness runtime boundary), ADR-012 (WDA lifecycle separation)
+
+## 迁移同步（B39）
+
+本 ADR 由 B15 引入、B33 验证（DEF-B15-001 已关闭）：engine → device-appium workspace 边已入 allowed-edges.json。

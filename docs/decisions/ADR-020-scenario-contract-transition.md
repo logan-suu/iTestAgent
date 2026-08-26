@@ -66,3 +66,7 @@ Adopt the guide §9 Stage 1 boundary, recorded here as the durable decision:
 
 - Promotion guide §9 (Scenario 边界与分阶段过渡), §10 (持久化迁移设计)
 - ADR-001 (de-risk MVP), ADR-005 (pluggable backends), ADR-012 (WDA lifecycle separation + G5 update)
+
+## 迁移同步（B39）
+
+本 ADR 由 B05/B36 落地：scenarios 子路径（`itestagent-contracts/scenarios`）承载场景 contracts 与 v3 codecs，root barrel 不导出 scenario symbols。

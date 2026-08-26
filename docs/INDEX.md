@@ -147,3 +147,9 @@
 本索引与 iTestAgent 全量规格文档协同维护。当文档目录或结构发生变化时，需同步更新本文件。
 
 **下次全面复审日期**：2026-08-01（与开发计划 Phase 0 结束同步）
+
+## 迁移索引（B39 同步）
+
+- 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
+- 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
+- ADR 记录：ADR-020~023

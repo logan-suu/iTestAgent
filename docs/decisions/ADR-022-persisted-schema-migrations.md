@@ -35,3 +35,7 @@ so old persisted variants can be read without in-place rewrites.
 ## References
 
 - Promotion guide §9 Stage 2A, §10; ADR-020 (scenario contract transition)
+
+## 迁移同步（B39）
+
+本 ADR 由 B37 落地：migrations 子路径导出 + LOCK_INVARIANT 门禁通过（lock byte-identical）。

@@ -38,7 +38,12 @@ function usage(message: string): never {
 }
 
 function runGit(args: string[]): { status: number; stdout: string; stderr: string } {
-  const result = Bun.spawnSync(['git', ...args], { stdout: 'pipe', stderr: 'pipe' });
+  // core.quotepath=false keeps UTF-8 paths (e.g. Chinese doc names) literal,
+  // so the allowlist comparison does not see git's octal escapes (B39).
+  const result = Bun.spawnSync(['git', '-c', 'core.quotepath=false', ...args], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
   return {
     status: result.exitCode ?? -1,
     stdout: result.stdout.toString(),
