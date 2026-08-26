@@ -1,0 +1,13 @@
+docs/06-verification/migration/B22.json
+docs/06-verification/migration/allowlists/B22-files.txt
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-leaks.ts
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-parsers.ts
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-pid.ts
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-runner.ts
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-runtime.ts
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-scenario.ts
+packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-types.ts
+packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-parsers.test.ts
+packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-pid.test.ts
+packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-runner.test.ts
+packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-scenario.test.ts
