@@ -147,6 +147,7 @@ export {
   TestResultSchema,
   ArchiveInputSchema,
   ArchiveResultSchema,
+  BuildDestinationSchema,
 } from './build-driver.js';
 
 export type {
@@ -160,6 +161,7 @@ export type {
   TestResult,
   ArchiveInput,
   ArchiveResult,
+  BuildDestination,
 } from './build-driver.js';
 
 export type { BuildDriver } from './build-driver.js';
@@ -255,10 +257,11 @@ export type {
   PerformanceBackend,
 } from './performance-backend.js';
 
-export { ArtifactInputSchema } from './store-driver.js';
+export { ArtifactInputSchema, StoredRunPlanInputSchema } from './store-driver.js';
 
 export type {
   ArtifactInput,
+  StoredRunPlanInput,
   StoreDriver,
   SecretStore,
   ArtifactStore,
@@ -338,7 +341,10 @@ export {
   ArtifactPolicySchema,
   PerformancePlanSchema,
   PermissionPolicyRefSchema,
+  XcuitestTargetSchema,
   TestPlanSchema,
+  TEST_PLAN_SCHEMA_VERSION,
+  TEST_PLAN_METRIC_VALUES,
   parseTestPlan,
   safeParseTestPlan,
 } from './test-plan.js';
@@ -356,8 +362,58 @@ export type {
   ArtifactPolicy,
   PerformancePlan,
   PermissionPolicyRef,
+  XcuitestTarget,
+  TestPlanMetric,
   TestPlan,
 } from './test-plan.js';
+
+// B04 (guide §11.3 "TestPlan/target execution"): cross-field validation,
+// MVP execution compiler, and the physical Route C/B contract vocabulary.
+export {
+  TEST_PLAN_VALIDATION_ISSUE_CODES,
+  validateTestPlan,
+  assertValidTestPlan,
+  TestPlanValidationError,
+} from './test-plan-validation.js';
+
+export type {
+  TestPlanValidationIssueCode,
+  TestPlanValidationIssue,
+} from './test-plan-validation.js';
+
+export {
+  MVP_EXECUTION_PATH_VALUES,
+  MvpExecutionPathSchema,
+  MvpDeviceSelectorSchema,
+  MvpExecutionInputSchema,
+  compileMvpExecution,
+  MvpCompilationError,
+} from './mvp-execution.js';
+
+export type {
+  MvpExecutionPath,
+  MvpDeviceSelector,
+  MvpExecutionInput,
+} from './mvp-execution.js';
+
+export {
+  PHYSICAL_ROUTE_VALUES,
+  PhysicalRouteSchema,
+  WDA_LIFECYCLE_ROLE_VALUES,
+  WdaLifecycleRoleSchema,
+  PhysicalIdentitySchema,
+  PHYSICAL_CONTRACT_ISSUE_CODES,
+  validatePhysicalMvpContract,
+} from './physical-mvp.js';
+
+export type {
+  PhysicalRoute,
+  WdaLifecycleRole,
+  PhysicalIdentity,
+  PhysicalMvpContractInput,
+  PhysicalMvpContractIssueCode,
+  PhysicalMvpContractIssue,
+} from './physical-mvp.js';
 
 export {
   AssertionConditionTypeSchema,

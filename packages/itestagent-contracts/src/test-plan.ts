@@ -14,6 +14,28 @@ import { TargetKindSchema } from './device-types.js';
  *   AC3: auditable, reproducible, re-runnable.
  */
 
+// ─── Vocabulary constants (single source for cross-module consistency) ──────
+
+/** Canonical schemaVersion literal for TestPlan documents (G2). */
+export const TEST_PLAN_SCHEMA_VERSION = 'itestagent.test-plan.v2';
+
+/**
+ * Plannable performance metric names (AGENTS.md §6: 主推 hitches/hangs/
+ * launch/memory/crash/duration; FPS 标 approximate; xctrace summary 实验性).
+ * Exported so mvp-execution and the published schema stay vocabulary-locked.
+ */
+export const TEST_PLAN_METRIC_VALUES = [
+  'launch_time',
+  'memory_peak',
+  'crash',
+  'test_duration',
+  'hitches',
+  'fps',
+  'xctrace_summary',
+] as const;
+
+export type TestPlanMetric = (typeof TEST_PLAN_METRIC_VALUES)[number];
+
 // ─── Device Selector (ADR-011 enhanced) ──────────────────────
 
 const PhysicalDeviceSelectorSchema = z.object({
@@ -92,15 +114,21 @@ export const TestDataPolicySchema = z.object({
 
 export type TestDataPolicy = z.infer<typeof TestDataPolicySchema>;
 
-const METRIC_VALUES = [
-  'launch_time',
-  'memory_peak',
-  'crash',
-  'test_duration',
-  'hitches',
-  'fps',
-  'xctrace_summary',
-] as const;
+const METRIC_VALUES = TEST_PLAN_METRIC_VALUES;
+
+/**
+ * Explicit XCUITest target override (B04, target-explicit principle).
+ * Presence of `scheme` is the contracts-layer signal that an XCUITest lane
+ * exists; engine compilation (B14) refines this with ProjectProfile facts.
+ */
+export const XcuitestTargetSchema = z
+  .object({
+    scheme: z.string().optional(),
+    configuration: z.string().optional(),
+  })
+  .strict();
+
+export type XcuitestTarget = z.infer<typeof XcuitestTargetSchema>;
 
 export const ExecutionPlanSchema = z.object({
   /** Execution path preference: auto (XCUITest if exists) | xcuitest | device_backend */
@@ -117,6 +145,8 @@ export const ExecutionPlanSchema = z.object({
   assertion: AssertionPolicySchema,
   /** Performance metrics to collect */
   metrics: z.array(z.enum(METRIC_VALUES)).optional(),
+  /** Explicit XCUITest target (scheme/configuration); optional, backward compatible */
+  xcuitest: XcuitestTargetSchema.optional(),
 });
 
 export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
@@ -185,7 +215,7 @@ export type PermissionPolicyRef = z.infer<typeof PermissionPolicyRefSchema>;
 export const TestPlanSchema = z
   .object({
     /** Schema version for forward-compat migrations (G2) */
-    schemaVersion: z.literal('itestagent.test-plan.v2'),
+    schemaVersion: z.literal(TEST_PLAN_SCHEMA_VERSION),
     /** Unique run identifier */
     runId: z.string().min(1),
     /** Reference path to the source Project Profile */

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TargetKindSchema } from './device-types.js';
 
 /**
  * iTestAgent BuildDriver 契约 — Build/Test/Archive 操作类型与 Zod schemas
@@ -9,6 +10,26 @@ import { z } from 'zod';
  * 技术选型 §9：BuildDriver MVP 默认使用 xcodebuild + fastlane（签名复杂时启用）。
  * AGENTS.md §3：Backend 之间不互调，由 engine 编排。
  */
+
+// ─── Build Destination (B04: target-explicit execution) ─────
+
+/**
+ * Explicit build/test destination (target-explicit principle, AGENTS.md §0.4).
+ * Physical lanes carry an optional UDID hint; simulator lanes name the target
+ * by simulatorName or simulatorId. Backends (B12 xcodebuild) translate this
+ * into tool-specific -destination strings; the engine never lets a backend
+ * guess the target.
+ */
+export const BuildDestinationSchema = z
+  .object({
+    targetKind: TargetKindSchema,
+    udid: z.string().optional(),
+    simulatorName: z.string().optional(),
+    simulatorId: z.string().optional(),
+  })
+  .strict();
+
+export type BuildDestination = z.infer<typeof BuildDestinationSchema>;
 
 // ─── Doctor ─────────────────────────────────────────────────
 
@@ -69,6 +90,7 @@ export const BuildInputSchema = z
     deviceId: z.string(),
     derivedDataPath: z.string().optional(),
     extraArgs: z.array(z.string()).optional(),
+    destination: BuildDestinationSchema.optional(),
   })
   .strict();
 
@@ -98,6 +120,7 @@ export const TestInputSchema = z
     testPlan: z.string().optional(),
     only: z.array(z.string()).optional(),
     skip: z.array(z.string()).optional(),
+    destination: BuildDestinationSchema.optional(),
   })
   .strict();
 
