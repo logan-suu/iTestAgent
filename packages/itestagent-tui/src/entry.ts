@@ -248,3 +248,8 @@ async function processAgentMessage(
   }
   return state;
 }
+
+/** B29: maps a thrown agent-session error to a readable message. */
+export function agentSessionErrorMessage(error: unknown): string {
+  return `Agent session error: ${error instanceof Error ? error.message : String(error)}`;
+}

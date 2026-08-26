@@ -277,3 +277,10 @@ function formatToolOutput(result: ToolResult): string {
     return String(result.output);
   }
 }
+
+import { retainMessages } from './message-retention.js';
+
+/** B29: caps a session transcript to the retention window. */
+export function retainSessionTranscript<T>(transcript: readonly T[], maxCount: number): T[] {
+  return retainMessages(transcript, maxCount);
+}

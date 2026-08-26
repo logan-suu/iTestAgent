@@ -1,0 +1,90 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B29",
+  "baseCommit": "ee504ea39bf28b72f47973c6fb481b499ed786f9",
+  "stagedTreeHash": "b1e27143896f47429b4a6d68ced3d4aace1ad98f",
+  "baselineMode": "red",
+  "baselineDigest": "5d8f2e31419fc239e42d0b62795da09e40b5563ade9e734c6b0c4b12d4a3ed66",
+  "greenCommand": "bun run batch:test -- B29",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base ee504ea39bf28b72f47973c6fb481b499ed786f9 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B29",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B29-files.txt": {
+      "sha256": "9a4122166f3287edee20693e058ab4106b231d50392f87cd5c5a4d974dbddc3c",
+      "bytes": 540
+    },
+    "packages/itestagent-tui/src/agent-patch.ts": {
+      "sha256": "5030de800f92674b18a0377cb8456a2674d5a2ec8c99df338af9d84faa34eec1",
+      "bytes": 340
+    },
+    "packages/itestagent-tui/src/agent-session.ts": {
+      "sha256": "b3231b2c266b9d358f9ce93ca4918e3ce03f20b1bb95a1ab44ceb18b940c9985",
+      "bytes": 8649
+    },
+    "packages/itestagent-tui/src/agent-stream.ts": {
+      "sha256": "bc59a1bdc464cd94bd622049babe0991ed46ccfd903a5969d2221d771b7dbf9d",
+      "bytes": 662
+    },
+    "packages/itestagent-tui/src/entry.ts": {
+      "sha256": "dd5d0566038d0876d84f6cd083e30e790c2415752ee39e0047713c8842e54589",
+      "bytes": 8777
+    },
+    "packages/itestagent-tui/src/message-retention.ts": {
+      "sha256": "ef9f6ef804ae0752b96706cda1a6216881d3505d4e30aa06154064fd32d7888b",
+      "bytes": 557
+    },
+    "packages/itestagent-tui/test/agent-session.test.ts": {
+      "sha256": "77a182ff52d75a4137da4de5455f3aca8fd27f5ee63e162b077a8ff08691a9b5",
+      "bytes": 18154
+    },
+    "packages/itestagent-tui/test/entry-agent-session-error.test.ts": {
+      "sha256": "5b224755097d6780d7d1847b7076da0579e1a725eb59cb45defbe7d8504f4013",
+      "bytes": 292
+    },
+    "packages/itestagent-tui/test/message-retention.test.ts": {
+      "sha256": "3e0835f43e072b4a5539692f74b911653b7b14d4773ba7d4edeb9eb49068c260",
+      "bytes": 536
+    },
+    "packages/itestagent-tui/test/tui-shell-retention.test.ts": {
+      "sha256": "2784b927edb0551fcaf6daca763eb0ec25583d673a7fa4371d6f10a41118d02a",
+      "bytes": 359
+    }
+  },
+  "rollbackTag": "promo/b29-tui-agent-session"
+}

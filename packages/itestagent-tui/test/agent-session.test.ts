@@ -443,3 +443,12 @@ describe('dispose', () => {
     expect(session.dispose()).toBeUndefined();
   });
 });
+
+// ─── B29 seam: session retention ───────────────────────────────────
+
+describe('B29 seam: session retention', () => {
+  it('retains the newest session transcript entries', async () => {
+    const mod = await import('../src/agent-session.js');
+    expect(mod.retainSessionTranscript(['a', 'b', 'c'], 2)).toEqual(['b', 'c']);
+  });
+});
