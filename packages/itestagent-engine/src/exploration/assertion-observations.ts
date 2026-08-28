@@ -127,10 +127,12 @@ export function observationsFromUiTrees(
           break;
         case 'element_text': {
           if (nodeAttrs === null) break;
+          // Empty-string attributes (value="") are common in XCUITest XML —
+          // fall through to the next attribute instead of losing the text.
           facts[`${target}_text`] =
-            extractAttrValue(nodeAttrs, 'value') ??
-            extractAttrValue(nodeAttrs, 'label') ??
-            extractAttrValue(nodeAttrs, 'name') ??
+            extractAttrValue(nodeAttrs, 'value') ||
+            extractAttrValue(nodeAttrs, 'label') ||
+            extractAttrValue(nodeAttrs, 'name') ||
             '';
           break;
         }

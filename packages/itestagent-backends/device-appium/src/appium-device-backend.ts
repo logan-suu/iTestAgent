@@ -313,6 +313,18 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
       this.screenSize = await this.driver.getScreenSize();
     } catch (error) {
+      // Roll back session state: createSession may have succeeded while a
+      // later setup step (getScreenSize) failed — leaving sessionActive=true
+      // would make every later call reuse a dead session (CodeRabbit #10).
+      if (this.sessionActive) {
+        try {
+          await this.driver.deleteSession();
+        } catch {
+          // Best-effort — the server may have already dropped it
+        }
+        this.sessionActive = false;
+        this.screenSize = null;
+      }
       // Clean up WDA if it was started during this attempt (external-url mode)
       if (this.wdaManager && this.targetKind === 'physical') {
         if (this.wdaStartupMode === 'external-url' && this.wdaManager.isRunning()) {

@@ -4,14 +4,14 @@
 import { describe, expect, it } from 'bun:test';
 import { type TunnelSpawnHandle, createIProxyTunnel } from '../src/iproxy-tunnel.js';
 
-const LIVE = new Promise<number>(() => {});
-
-function fakeSpawn(recorder: { cmds: string[][] }, exited: Promise<number> = LIVE) {
+function fakeSpawn(recorder: { cmds: string[][] }, exited?: Promise<number>) {
   return ((cmd: string[]) => {
     recorder.cmds.push(cmd);
     const handle: TunnelSpawnHandle = {
       pid: 4242,
-      exited,
+      // Per-handle exit promise (CodeRabbit #11): never resolves unless the
+      // test explicitly resolves it via deferredExit().
+      exited: exited ?? new Promise<number>(() => {}),
       kill() {},
     };
     return handle;
