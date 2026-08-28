@@ -72,7 +72,7 @@ function spawnDevices(args: string[]): {
 // no booted simulator and the cold scan exceeds any sane test timeout.
 const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
-test('devices --simulator-only does not throw (task 1.13)', () => {
+test.skipIf(IS_CI)('devices --simulator-only does not throw (task 1.13)', () => {
   const { exitCode, stderr } = spawnDevices(['devices', '--simulator-only']);
   // Accept any exit code — the key assertion is the process runs without throwing
   // exitCode=1 is normal when xcrun/simctl is not available
