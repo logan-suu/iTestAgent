@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      # B00 §12.1: the security gate tests assert core.hooksPath is configured.
+      - run: git config core.hooksPath .githooks
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
