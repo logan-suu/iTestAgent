@@ -8,10 +8,13 @@
  *   - AC4: Profile can be referenced (schema conformance)
  *   - R4:  Features carry evidence + confidence, never auto-finalize
  *   - R1:  app fields are deterministic from backend
+ *   - B10: published schemas/project-profile.schema.json exists (draft-07),
+ *     mirrors the runtime Zod schema, and generated profiles conform to it
+ *   - B10: profile-inference heuristic edge cases
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
@@ -32,6 +35,13 @@ import {
   saveProfile,
   saveProfileToProject,
 } from '../src/index.js';
+import {
+  confidenceForViewName,
+  extractKeywords,
+  inferFeatures,
+  inferSuggestedSmoke,
+  isAccountRelated,
+} from '../src/profile-inference.js';
 
 // ─── Fixture helpers ───────────────────────────────────────────────
 
@@ -424,5 +434,449 @@ describe('computeProjectHash', () => {
     const h1 = await computeProjectHash('/tmp/path-a');
     const h2 = await computeProjectHash('/tmp/path-b');
     expect(h1).not.toBe(h2);
+  });
+});
+
+// ─── published schema parity (guide §11.4: project-profile→B10) ────
+
+describe('published schemas/project-profile.schema.json', () => {
+  const SCHEMA_PATH = join(
+    import.meta.dir,
+    '..',
+    '..',
+    '..',
+    'schemas',
+    'project-profile.schema.json',
+  );
+
+  it('exists and is valid JSON', () => {
+    expect(existsSync(SCHEMA_PATH)).toBe(true);
+    expect(() => JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'))).not.toThrow();
+  });
+
+  it('is a draft-07 object schema with the expected identity headers', () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'));
+    expect(schema.$schema).toBe('http://json-schema.org/draft-07/schema#');
+    expect(schema.$id).toBe('https://itestagent.dev/schemas/project-profile.schema.json');
+    expect(schema.title).toBe('ProjectProfile');
+    expect(schema.type).toBe('object');
+  });
+
+  it('top-level properties and required list mirror ProjectProfileSchema exactly', () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'));
+
+    // additionalProperties: false → properties must enumerate the full Zod shape
+    expect(Object.keys(schema.properties).sort()).toEqual(
+      [
+        'app',
+        'features',
+        'projectHash',
+        'schemaVersion',
+        'suggestedSmoke',
+        'targets',
+        'testAssets',
+      ].sort(),
+    );
+    expect(schema.required.sort()).toEqual(
+      [
+        'app',
+        'features',
+        'projectHash',
+        'schemaVersion',
+        'suggestedSmoke',
+        'targets',
+        'testAssets',
+      ].sort(),
+    );
+    expect(schema.additionalProperties).toBe(false);
+
+    expect(schema.properties.schemaVersion.const).toBe('itestagent.project-profile.v1');
+    expect(schema.properties.projectHash.pattern).toBe('^[a-f0-9]{64}$');
+  });
+
+  it('definitions mirror the nested Zod schemas (Target/TestAssets/CandidateLink)', () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'));
+
+    expect(Object.keys(schema.definitions).sort()).toEqual([
+      'CandidateLink',
+      'TargetProfile',
+      'TestAssetsProfile',
+    ]);
+
+    const target = schema.definitions.TargetProfile;
+    expect(target.required.sort()).toEqual(['name', 'type'].sort());
+    expect(target.properties.type.enum).toEqual([
+      'app',
+      'test',
+      'extension',
+      'framework',
+      'watch',
+      'widget',
+    ]);
+
+    const testAssets = schema.definitions.TestAssetsProfile;
+    expect(testAssets.required.sort()).toEqual(['hasScheme', 'hasXCUITest'].sort());
+
+    const link = schema.definitions.CandidateLink;
+    expect(link.required.sort()).toEqual(['confidence', 'evidence', 'name'].sort());
+    expect(link.properties.evidence.minItems).toBe(1);
+    expect(link.properties.confidence.minimum).toBe(0);
+    expect(link.properties.confidence.maximum).toBe(1);
+    expect(link.properties.displayOrder.minimum).toBe(0);
+    expect(link.properties.testability.enum).toEqual([
+      'xcuitest',
+      'device_backend',
+      'mixed',
+      'unknown',
+    ]);
+    expect(link.properties.confirmed.default).toBe(false);
+    expect(link.properties.displayOrder.default).toBe(0);
+    expect(link.properties.expectedOutcomes).toBeDefined();
+    expect(link.properties.expectedOutcomes.items.type).toBe('string');
+  });
+
+  it('CandidateLink carries Zod defaults and expectedOutcomes (US-11.1 AC1 tier 2)', () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'));
+    const link = schema.definitions.CandidateLink;
+    expect(link.properties.confirmed.default).toBe(false);
+    expect(link.properties.displayOrder.default).toBe(0);
+    expect(link.properties.expectedOutcomes.type).toBe('array');
+  });
+});
+
+// ─── generated profile conforms to published schema shape ──────────
+
+describe('profile generation conforms to published schema shape', () => {
+  function expectFeatureConforms(f: {
+    name: unknown;
+    entry?: unknown;
+    keywords?: unknown;
+    testability?: unknown;
+    requiresAccount?: unknown;
+    evidence: unknown;
+    confidence: unknown;
+    confirmed?: unknown;
+    displayOrder?: unknown;
+    expectedOutcomes?: unknown;
+  }): void {
+    expect(typeof f.name).toBe('string');
+    if (f.entry !== undefined) expect(typeof f.entry).toBe('string');
+    if (f.keywords !== undefined) {
+      expect(Array.isArray(f.keywords)).toBe(true);
+      for (const k of f.keywords as string[]) expect(typeof k).toBe('string');
+    }
+    if (f.testability !== undefined) {
+      expect(['xcuitest', 'device_backend', 'mixed', 'unknown']).toContain(f.testability as string);
+    }
+    if (f.requiresAccount !== undefined) expect(typeof f.requiresAccount).toBe('boolean');
+    expect(Array.isArray(f.evidence)).toBe(true);
+    expect((f.evidence as string[]).length).toBeGreaterThanOrEqual(1);
+    for (const e of f.evidence as string[]) expect(typeof e).toBe('string');
+    expect(typeof f.confidence).toBe('number');
+    expect(f.confidence).toBeGreaterThanOrEqual(0);
+    expect(f.confidence).toBeLessThanOrEqual(1);
+    if (f.confirmed !== undefined) expect(typeof f.confirmed).toBe('boolean');
+    if (f.displayOrder !== undefined) {
+      expect(Number.isInteger(f.displayOrder)).toBe(true);
+      expect(f.displayOrder).toBeGreaterThanOrEqual(0);
+    }
+    if (f.expectedOutcomes !== undefined) {
+      expect(Array.isArray(f.expectedOutcomes)).toBe(true);
+      for (const o of f.expectedOutcomes as string[]) expect(typeof o).toBe('string');
+    }
+  }
+
+  it('mock-backend profile satisfies every top-level schema constraint', async () => {
+    const profile = await generateProjectProfile(createMockBackend(), '/fake/MyApp');
+
+    expect(Object.keys(profile).sort()).toEqual(
+      [
+        'app',
+        'features',
+        'projectHash',
+        'schemaVersion',
+        'suggestedSmoke',
+        'targets',
+        'testAssets',
+      ].sort(),
+    );
+    expect(profile.schemaVersion).toBe('itestagent.project-profile.v1');
+    expect(profile.projectHash).toMatch(/^[a-f0-9]{64}$/);
+
+    for (const key of Object.keys(profile.app)) {
+      expect(['name', 'bundleId', 'workspace', 'project', 'scheme']).toContain(key);
+    }
+
+    for (const t of profile.targets) {
+      expect(typeof t.name).toBe('string');
+      expect(['app', 'test', 'extension', 'framework', 'watch', 'widget']).toContain(t.type);
+      if (t.bundleId !== undefined) expect(typeof t.bundleId).toBe('string');
+    }
+
+    expect(typeof profile.testAssets.hasXCUITest).toBe('boolean');
+    expect(typeof profile.testAssets.hasScheme).toBe('boolean');
+    if (profile.testAssets.testTargets !== undefined) {
+      expect(Array.isArray(profile.testAssets.testTargets)).toBe(true);
+    }
+
+    for (const f of profile.features) expectFeatureConforms(f);
+
+    expect(Array.isArray(profile.suggestedSmoke)).toBe(true);
+    for (const s of profile.suggestedSmoke) expect(typeof s).toBe('string');
+  });
+
+  it('empty-project profile also conforms (empty arrays, no extra keys)', async () => {
+    const profile = await generateProjectProfile(createEmptyMockBackend(), '/fake/EmptyApp');
+
+    expect(Object.keys(profile).sort()).toEqual(
+      [
+        'app',
+        'features',
+        'projectHash',
+        'schemaVersion',
+        'suggestedSmoke',
+        'targets',
+        'testAssets',
+      ].sort(),
+    );
+    expect(profile.features).toEqual([]);
+    for (const f of profile.features) expectFeatureConforms(f);
+    expect(profile.suggestedSmoke).toEqual(['launch']);
+  });
+});
+
+// ─── profile-inference edge cases ──────────────────────────────────
+
+describe('confidenceForViewName', () => {
+  it('assigns 0.75 to well-known domain patterns (case-insensitive)', () => {
+    expect(confidenceForViewName('LoginViewController')).toBe(0.75);
+    expect(confidenceForViewName('LOGINViewController')).toBe(0.75);
+    expect(confidenceForViewName('PaymentFlowViewController')).toBe(0.75);
+    expect(confidenceForViewName('SettingsViewController')).toBe(0.75);
+  });
+
+  it('assigns 0.6 to common app patterns', () => {
+    expect(confidenceForViewName('HomeViewController')).toBe(0.6);
+    expect(confidenceForViewName('DashboardViewController')).toBe(0.6);
+    expect(confidenceForViewName('PhotoGalleryViewController')).toBe(0.6);
+  });
+
+  it('assigns 0.35 to delegate/protocol/helper patterns', () => {
+    expect(confidenceForViewName('SomeDelegateHandler')).toBe(0.35);
+    expect(confidenceForViewName('DataManager')).toBe(0.35);
+    expect(confidenceForViewName('AdapterFactory')).toBe(0.35);
+  });
+
+  it('assigns 0.5 to unknown names', () => {
+    expect(confidenceForViewName('MysteryViewController')).toBe(0.5);
+    expect(confidenceForViewName('Xyzabc')).toBe(0.5);
+  });
+
+  it('high-confidence patterns win over lower tiers regardless of order', () => {
+    expect(confidenceForViewName('LoginHelper')).toBe(0.75);
+    expect(confidenceForViewName('HomeManager')).toBe(0.6);
+  });
+});
+
+describe('extractKeywords', () => {
+  it('maps domain names to keywords', () => {
+    expect(extractKeywords('LoginViewController')).toEqual(['login']);
+    expect(extractKeywords('PaymentCheckoutViewController')).toEqual(['payment']);
+    expect(extractKeywords('CameraRollViewController')).toEqual(['media']);
+  });
+
+  it('collects multiple keywords in rule order', () => {
+    expect(extractKeywords('LoginSearchViewController')).toEqual(['login', 'search']);
+    expect(extractKeywords('ProfileSettingsViewController')).toEqual([
+      'profile',
+      'account',
+      'settings',
+    ]);
+  });
+
+  it('deduplicates overlapping rules', () => {
+    expect(extractKeywords('LoginSignInViewController')).toEqual(['login']);
+    expect(extractKeywords('RegisterSignUpViewController')).toEqual(['register', 'signup']);
+  });
+
+  it('returns empty array when no rule matches', () => {
+    expect(extractKeywords('MysteryViewController')).toEqual([]);
+  });
+});
+
+describe('isAccountRelated', () => {
+  it('flags account-bearing flows', () => {
+    for (const name of [
+      'LoginViewController',
+      'SignInView',
+      'SignupController',
+      'RegisterView',
+      'AuthGate',
+      'AccountPage',
+      'ProfileView',
+      'PaymentView',
+      'CheckoutController',
+      'OrderHistory',
+    ]) {
+      expect(isAccountRelated(name)).toBe(true);
+    }
+  });
+
+  it('does not flag public flows', () => {
+    expect(isAccountRelated('HomeViewController')).toBe(false);
+    expect(isAccountRelated('SearchViewController')).toBe(false);
+    expect(isAccountRelated('MysteryViewController')).toBe(false);
+  });
+});
+
+describe('inferFeatures', () => {
+  it('strips ViewController/Controller/View suffixes for readable names', () => {
+    const features = inferFeatures(
+      {
+        viewControllers: [
+          { name: 'LoginViewController', file: 'A.swift' },
+          { name: 'FooController', file: 'B.swift' },
+          { name: 'HomeView', file: 'C.swift' },
+        ],
+        storyboardRefs: [],
+      },
+      true,
+    );
+    expect(features.map((f) => f.name).sort()).toEqual(['Foo', 'Home', 'Login'].sort());
+  });
+
+  it('falls back to the full class name when stripping would empty it', () => {
+    const features = inferFeatures(
+      { viewControllers: [{ name: 'ViewController', file: 'A.swift' }], storyboardRefs: [] },
+      true,
+    );
+    expect(features[0]?.name).toBe('ViewController');
+    expect(features[0]?.entry).toBe('ViewController');
+  });
+
+  it('marks testability xcuitest only when the project has XCUITest', () => {
+    const withXcui = inferFeatures(
+      { viewControllers: [{ name: 'LoginViewController', file: 'A.swift' }], storyboardRefs: [] },
+      true,
+    );
+    const withoutXcui = inferFeatures(
+      { viewControllers: [{ name: 'LoginViewController', file: 'A.swift' }], storyboardRefs: [] },
+      false,
+    );
+    expect(withXcui[0]?.testability).toBe('xcuitest');
+    expect(withoutXcui[0]?.testability).toBe('device_backend');
+  });
+
+  it('omits keywords and requiresAccount when heuristics find nothing', () => {
+    const features = inferFeatures(
+      { viewControllers: [{ name: 'MysteryViewController', file: 'A.swift' }], storyboardRefs: [] },
+      true,
+    );
+    expect(features[0]?.keywords).toBeUndefined();
+    expect(features[0]?.requiresAccount).toBeUndefined();
+  });
+
+  it('adds storyboard candidates with basename names and storyboard evidence', () => {
+    const features = inferFeatures(
+      {
+        viewControllers: [],
+        storyboardRefs: ['Base.lproj/Main.storyboard', 'Onboarding.storyboard'],
+      },
+      false,
+    );
+    expect(features.length).toBe(2);
+    const main = features.find((f) => f.entry === 'Base.lproj/Main.storyboard');
+    expect(main?.name).toBe('Main');
+    expect(main?.confidence).toBe(0.3);
+    expect(main?.testability).toBe('device_backend');
+    expect(main?.evidence[0]).toBe('Storyboard: Base.lproj/Main.storyboard');
+    expect(features.find((f) => f.name === 'Onboarding')).toBeDefined();
+  });
+
+  it('deduplicates storyboard refs by entry path', () => {
+    const features = inferFeatures(
+      {
+        viewControllers: [],
+        storyboardRefs: ['Base.lproj/Main.storyboard', 'Base.lproj/Main.storyboard'],
+      },
+      false,
+    );
+    expect(features.length).toBe(1);
+  });
+
+  it('sorts by confidence descending and pins sequential displayOrder', () => {
+    const features = inferFeatures(
+      {
+        viewControllers: [
+          { name: 'SomeDelegateHandler', file: 'Low.swift' },
+          { name: 'LoginViewController', file: 'High.swift' },
+          { name: 'HomeViewController', file: 'Mid.swift' },
+        ],
+        storyboardRefs: ['Base.lproj/Main.storyboard'],
+      },
+      true,
+    );
+    expect(features.map((f) => f.confidence)).toEqual([0.75, 0.6, 0.35, 0.3]);
+    expect(features.map((f) => f.displayOrder)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('every produced feature carries at least one evidence entry (R4)', () => {
+    const features = inferFeatures(
+      {
+        viewControllers: [
+          { name: 'LoginViewController', file: 'A.swift' },
+          { name: 'MysteryViewController', file: 'B.swift' },
+        ],
+        storyboardRefs: ['Base.lproj/Main.storyboard'],
+      },
+      true,
+    );
+    for (const f of features) {
+      expect(f.evidence.length).toBeGreaterThanOrEqual(1);
+      expect(f.confirmed).toBe(false);
+    }
+  });
+});
+
+describe('inferSuggestedSmoke', () => {
+  it('always starts with the universal launch baseline', () => {
+    expect(inferSuggestedSmoke([])).toEqual(['launch']);
+  });
+
+  it('excludes features below 0.5 confidence', () => {
+    const smoke = inferSuggestedSmoke(
+      inferFeatures({ viewControllers: [], storyboardRefs: ['Base.lproj/Main.storyboard'] }, false),
+    );
+    expect(smoke).toEqual(['launch']);
+  });
+
+  it('includes high-confidence feature names without duplicates', () => {
+    const smoke = inferSuggestedSmoke(
+      inferFeatures(
+        {
+          viewControllers: [
+            { name: 'LoginViewController', file: 'A.swift' },
+            { name: 'Login', file: 'B.swift' },
+          ],
+          storyboardRefs: [],
+        },
+        true,
+      ),
+    );
+    expect(smoke.filter((s) => s === 'Login').length).toBe(1);
+    expect(smoke[0]).toBe('launch');
+    expect(smoke).toContain('Login');
+  });
+
+  it('caps suggestions at 8 entries', () => {
+    const vcs = Array.from({ length: 12 }, (_, i) => ({
+      name: `Login${i}ViewController`,
+      file: `F${i}.swift`,
+    }));
+    const smoke = inferSuggestedSmoke(
+      inferFeatures({ viewControllers: vcs, storyboardRefs: [] }, true),
+    );
+    expect(smoke.length).toBe(8);
+    expect(smoke[0]).toBe('launch');
   });
 });

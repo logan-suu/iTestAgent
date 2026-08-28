@@ -1,0 +1,97 @@
+[
+  {
+    "pkg": "itestagent-cli",
+    "specifier": "itestagent-flow",
+    "file": "packages/itestagent-cli/src/cli.ts"
+  },
+  {
+    "pkg": "itestagent-backends-device-appium",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/device-appium/src/composition-root.ts"
+  },
+  {
+    "pkg": "itestagent-backends-device-appium",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/device-appium/src/appium-device-backend.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/src/scan-sources.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/src/build-settings.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/src/discover.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/src/graph.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/src/index.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/src/scan-resources.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/test/scan-sources.test.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/test/build-settings.test.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/test/discover.test.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/test/graph.test.ts"
+  },
+  {
+    "pkg": "itestagent-backends-analyzer-xcodeproj",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/analyzer-xcodeproj/test/scan-resources.test.ts"
+  },
+  {
+    "pkg": "itestagent-device-mock",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/device-mock/src/fixtures.ts"
+  },
+  {
+    "pkg": "itestagent-device-mock",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/device-mock/src/mock-device-backend.ts"
+  },
+  {
+    "pkg": "itestagent-device-mock",
+    "specifier": "itestagent-contracts",
+    "file": "packages/itestagent-backends/device-mock/test/mock-device-backend.test.ts"
+  },
+  {
+    "pkg": "itestagent-backends-build-xcodebuild",
+    "specifier": "itestagent-backends-analyzer-xcodeproj",
+    "file": "packages/itestagent-backends/build-xcodebuild/test/app-source-resolver.test.ts"
+  },
+  {
+    "pkg": "itestagent-backends-performance-xctrace-analyzer",
+    "specifier": "itestagent-engine",
+    "file": "packages/itestagent-backends/performance-xctrace-analyzer/src/xctrace-performance-backend.ts"
+  }
+]

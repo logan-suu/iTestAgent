@@ -1,0 +1,8 @@
+docs/06-verification/migration/B25.json
+docs/06-verification/migration/allowlists/B25-files.txt
+packages/itestagent-cli/src/commands/explain-rerun.ts
+packages/itestagent-cli/src/commands/run-flow-validation.ts
+tests/integration/cross-phase/cross-phase-p3-p5-flow-replay.test.ts
+tests/integration/phase5/phase5-draft-generation.test.ts
+tests/integration/phase5/phase5-explain-rerun.test.ts
+tests/integration/phase5/phase5-flow-replay.test.ts

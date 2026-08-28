@@ -1,6 +1,8 @@
 /**
  * xctrace-version-compat — Xcode version detection and schema compatibility.
  *
+ * B21 module split: leaks report parsing lives in xctrace-leaks-parser.
+ *
  * Trap Handbook §6:
  *   - xctrace export XML schema changes across Xcode versions; id/ref parsing fragile
  *   - Xcode 26 introduces Deferred recording mode, parsing must be compatible

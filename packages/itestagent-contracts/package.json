@@ -5,6 +5,11 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scenarios": "./src/scenarios/index.ts",
+    "./migrations": "./src/migrations/index.ts"
+  },
   "description": "Zod schemas + Backend interfaces (DeviceBackend/PerformanceBackend/BuildDriver/StoreDriver/AgentRuntime)",
   "scripts": {
     "typecheck": "tsc --noEmit",

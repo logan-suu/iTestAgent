@@ -1,0 +1,105 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B27",
+  "baseCommit": "cf4db07fde74ae885db58176a126c161c9a777c0",
+  "stagedTreeHash": "5a1e359ab64a6749ff9f0e8c6b62bdf01133000d",
+  "baselineMode": "red",
+  "baselineDigest": "e24aa9ea881b33f0618a38cda41d4d104922b7a1f9b29822ab65f47c48edfd20",
+  "greenCommand": "bun run batch:test -- B27",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/B10.json": {
+      "sha256": "a330996dea9e4b33c8d1319040a765295100ea19f45b1d4a7a0de83b8259ac66",
+      "bytes": 1304
+    },
+    "docs/06-verification/migration/allowlists/B10-files.txt": {
+      "sha256": "f01f4eed54e7ba0f6f849bba897752f92428a0c50d1e54b43e6c8b6c36677438",
+      "bytes": 379
+    },
+    "docs/06-verification/migration/allowlists/B27-files.txt": {
+      "sha256": "8276d81161f91338f6229b7dabc3a01f322fa71c8a6eb9e98042a7603e2264ad",
+      "bytes": 1145
+    },
+    "packages/itestagent-project-analyzer/src/profile-generator.ts": {
+      "sha256": "52b72fd40a3a466f7d4f1674919082f3c019620d07dc9745399a6d0c5fcabc25",
+      "bytes": 4442
+    },
+    "packages/itestagent-project-analyzer/src/profile-inference.ts": {
+      "sha256": "aaec244f4d206e7859383806b05737e709ebc44ba09ae9ebf16a5bcbe02603eb",
+      "bytes": 6539
+    },
+    "packages/itestagent-project-analyzer/test/profile-generator.test.ts": {
+      "sha256": "53cda64571c872440753c431bf0e2fd543662ec2de8aa0764dd02f12232fe3d1",
+      "bytes": 32971
+    },
+    "packages/itestagent-tui/src/ansi-input.ts": {
+      "sha256": "67f262e74d002c65698021f80411c8b9ae5534b97a2ef68ad4d7bc0e79e97805",
+      "bytes": 2616
+    },
+    "packages/itestagent-tui/src/ansi-layout.ts": {
+      "sha256": "b6871df7dac5a796a8a03605aab7f504f428d9cabb303e47bac819a6ead257c2",
+      "bytes": 1848
+    },
+    "packages/itestagent-tui/src/index.ts": {
+      "sha256": "0ed8b87c3bf2c7d8395d23eb07793d7fd2a791586f6c6e42db29a6cffb50c3f2",
+      "bytes": 2504
+    },
+    "packages/itestagent-tui/src/keymap-registry.ts": {
+      "sha256": "c82e1bde7d1c67ff9493ab4ab37af9161c65839ec6ccc2887eff0252656c2cb5",
+      "bytes": 1849
+    },
+    "packages/itestagent-tui/src/renderer-selection.ts": {
+      "sha256": "0f5759ab881c5c5ecd59347a584e93df6df2140ab846964581d8d529347911ab",
+      "bytes": 2709
+    },
+    "packages/itestagent-tui/src/renderers/ansi-renderer-frame.ts": {
+      "sha256": "d0c953064bd23a07abf6da3e92c6d2ba29cb86e259412ec342b3d780ae50dbec",
+      "bytes": 4240
+    },
+    "packages/itestagent-tui/src/renderers/ansi-renderer.ts": {
+      "sha256": "0ca75a687127f3e1036af63f291a5ca581b426f4cff656254dd6f3c73cc4121c",
+      "bytes": 2587
+    },
+    "packages/itestagent-tui/src/renderers/opentui-footer.ts": {
+      "sha256": "009fc51c67b0d7298c097008ef9ccda9fb74aec589ad209f49ed57bed50d0094",
+      "bytes": 1470
+    },
+    "packages/itestagent-tui/src/renderers/opentui-key-dispatch.ts": {
+      "sha256": "e38f740d52caf4c3bd1b63072b1e685fc63e9f5c00b72c9ad766228fc29df3a3",
+      "bytes": 3326
+    },
+    "packages/itestagent-tui/src/renderers/opentui-renderer-lifecycle.ts": {
+      "sha256": "188d878e4d3793bb0f878ae9c4c80260379d4150c56d413504fab693197d229b",
+      "bytes": 2802
+    },
+    "packages/itestagent-tui/src/renderers/opentui-renderer.tsx": {
+      "sha256": "851fdf9077b3779b6a328b71ec643222a814ca76115f0d3981541d7f972213c9",
+      "bytes": 13456
+    },
+    "packages/itestagent-tui/test/ansi-input.test.ts": {
+      "sha256": "a8513da41bab475d2615aed05a32796d40ee7dac266fc4039f028c3a9e22c73b",
+      "bytes": 4920
+    },
+    "packages/itestagent-tui/test/ansi-renderer.test.ts": {
+      "sha256": "0cff071acb33ec1d5239009b813dcf0a8c6054445cb76eeff81eed0532c7bece",
+      "bytes": 16900
+    },
+    "packages/itestagent-tui/test/opentui-key-dispatch.test.ts": {
+      "sha256": "4c1ba5837b77843a3b39616f2ec48f09f3a7a4a7b38924794a5122152b225067",
+      "bytes": 8226
+    },
+    "packages/itestagent-tui/test/opentui-live-resize.test.ts": {
+      "sha256": "39e11433e11139c0127ed19a0c4818c96160a7453dab53acd150cc77316f72ef",
+      "bytes": 6650
+    },
+    "packages/itestagent-tui/test/renderer-selection.test.ts": {
+      "sha256": "e48dafd6a51e69fd9ee108eb0da6cf7f12bc16da995590938b7bd784e9cbdc31",
+      "bytes": 4505
+    },
+    "schemas/project-profile.schema.json": {
+      "sha256": "c99a231f4d326b89cd0435ac207e866c226a5b55dfcf0a86de7b765dfe355565",
+      "bytes": 5091
+    }
+  },
+  "rollbackTag": "promo/b27-tui-renderer-core"
+}

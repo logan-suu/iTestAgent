@@ -1,0 +1,61 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B03",
+  "baseCommit": "f0560340a9de558c154742528debb3a32f6a7bd6",
+  "stagedTreeHash": "58ef0db70b8978c412a8c6de24d818bfa753c4c0",
+  "baselineMode": "red",
+  "baselineDigest": "6f7ea6308f16428aff3003f1c95d66a047dc3f0369fdb497a933161593e3ebe9",
+  "greenCommand": "bun run batch:test -- B03",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B03-files.txt": {
+      "sha256": "4b9839e2c8b96de391f26ed70baf26f011c23f24afdf01e17f5900356c251c1c",
+      "bytes": 694
+    },
+    "packages/itestagent-contracts/src/artifact-index-contract.ts": {
+      "sha256": "c5c6101fe4afab53cf5d0cc2cbd2497f024f9fc36f7e95034a912844dc61eda8",
+      "bytes": 2289
+    },
+    "packages/itestagent-contracts/src/data-contracts.ts": {
+      "sha256": "6c8a534114569322c587e0b5b80ea55ff708eaac58a9fba8e83cd7e7d3b723af",
+      "bytes": 1424
+    },
+    "packages/itestagent-contracts/src/index.ts": {
+      "sha256": "44b4a554b4940780ed5f67886aadf47911b003732f0f0a98064d89935f4116a6",
+      "bytes": 8943
+    },
+    "packages/itestagent-contracts/src/json-schema-cross-field.ts": {
+      "sha256": "68c645a79cd07e8a04b12021ebc22f77e81c53d30466da74db1524bdfaea9fe5",
+      "bytes": 6306
+    },
+    "packages/itestagent-contracts/src/run-result-contracts.ts": {
+      "sha256": "91f53b1cc6fdef1266ca25fd4384077a1e2448d6612531425dfb088e241b6b33",
+      "bytes": 13060
+    },
+    "packages/itestagent-contracts/test/artifact-index-contract.test.ts": {
+      "sha256": "44713f6522bc5b026dbd10036eedcecb2a6a71378c402ca78d033265cebecfe9",
+      "bytes": 7366
+    },
+    "packages/itestagent-contracts/test/data-contracts.test.ts": {
+      "sha256": "c691f91594b854246e42da811cb96b81889a9eb2a78851af86cb6f14295bb574",
+      "bytes": 26890
+    },
+    "packages/itestagent-contracts/test/json-schema-parity.test.ts": {
+      "sha256": "833e8d8bf9f46ed45ceef41cee1f25dff6f06d105b94982919d11332081eab15",
+      "bytes": 24152
+    },
+    "packages/itestagent-contracts/test/run-result-duplicate-rejection.test.ts": {
+      "sha256": "532e5648e4654d42327b194155361462a1cc032aeed64d762eee790f9d48629c",
+      "bytes": 9911
+    },
+    "schemas/artifact-index.schema.json": {
+      "sha256": "b06563d0fb44f73dfe87577004da854e4442ca15ba0e71fe3bcab78db0921ac8",
+      "bytes": 2821
+    },
+    "schemas/result.schema.json": {
+      "sha256": "34f16d7fd3c408f0f3a60901d2898c9e9a7410d185705dc6447615be911efc0c",
+      "bytes": 11176
+    }
+  },
+  "rollbackTag": "promo/b03-contracts-result-artifact"
+}

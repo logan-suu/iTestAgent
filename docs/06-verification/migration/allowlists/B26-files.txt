@@ -1,0 +1,8 @@
+docs/06-verification/migration/B26.json
+docs/06-verification/migration/allowlists/B26-files.txt
+packages/itestagent-tui/test/agent-session.test.ts
+packages/itestagent-tui/test/ansi-renderer.test.ts
+packages/itestagent-tui/test/fixtures/agent-session-characterization.ts
+packages/itestagent-tui/test/fixtures/ansi-renderer-characterization.ts
+packages/itestagent-tui/test/fixtures/ink-renderer-characterization.ts
+packages/itestagent-tui/test/ink-renderer.test.ts

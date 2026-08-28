@@ -20,6 +20,21 @@ import {
   tuiShellReducer,
 } from '../tui-shell.js';
 import { CredentialPromptPanel } from './credential-prompt-panel.jsx';
+import {
+  CANDIDATE_EDITING_HINT,
+  CANDIDATE_REVIEW_FOOTER_HINTS,
+  FOOTER_CMD_LABEL,
+  PLAN_MODIFYING_HINT,
+  PLAN_REVIEW_FOOTER_HINTS,
+  candidateFooterStatus,
+  planFooterStatus,
+} from './opentui-footer.js';
+import { dispatchCandidateKey, dispatchPlanKey } from './opentui-key-dispatch.js';
+import {
+  type OpenTuiStateRef,
+  createOpenTuiLifecycle,
+  draftForEvent,
+} from './opentui-renderer-lifecycle.js';
 import { RecordingPanel } from './recording-panel.jsx';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────
@@ -64,7 +79,21 @@ function MessageList(props: { messages: readonly Message[] }): JSX.Element {
         <text opacity={0.5}>Type a message and press Enter to send. Ctrl+C to quit.</text>
       ) : (
         msgs.map((msg) => {
-          const prefix = msg.type === 'user' ? 'You' : msg.type === 'error' ? 'ERR' : 'Sys';
+          let prefix: string;
+          switch (msg.type) {
+            case 'user':
+              prefix = 'You';
+              break;
+            case 'assistant':
+              prefix = 'AI';
+              break;
+            case 'error':
+              prefix = 'ERR';
+              break;
+            default:
+              prefix = 'Sys';
+              break;
+          }
           return (
             // biome-ignore lint/correctness/useJsxKeyInIterable: OpenTUI uses id as element key
             <text id={msg.id}>
@@ -108,49 +137,12 @@ function CandidateReviewPanel(props: {
   const [cmd, setCmd] = createSignal('');
 
   const handleCommand = (value: string) => {
-    if (!value) return;
-    const key = value === ' ' ? ' ' : value.trim();
-    if (!key) return;
-
-    if (s().candidateEditMode) {
-      if (key === 'enter') {
-        handleEditSubmit();
-        return;
-      }
-      if (key === 'escape') {
-        dispatch({ type: 'candidate_edit_cancel' });
-        return;
-      }
-      for (const ch of key) {
-        dispatch({ type: 'candidate_edit_input', text: s().candidateEditDraft + ch });
-      }
-      return;
-    }
-
-    switch (key) {
-      case 'j':
-        dispatch({ type: 'candidate_navigate', direction: 'down' });
-        break;
-      case 'k':
-        dispatch({ type: 'candidate_navigate', direction: 'up' });
-        break;
-      case ' ':
-        dispatch({ type: 'candidate_toggle' });
-        break;
-      case 'e':
-        dispatch({ type: 'candidate_edit_start' });
-        break;
-      case 'A':
-        dispatch({ type: 'candidate_confirm_all' });
-        break;
-      case 'N':
-        dispatch({ type: 'candidate_unconfirm_all' });
-        break;
-      case 'q':
-        dispatch({ type: 'exit_candidate_review' });
-        break;
-      default:
-        break;
+    const result = dispatchCandidateKey(
+      { dispatch, editMode: s().candidateEditMode, editDraft: s().candidateEditDraft },
+      value,
+    );
+    if (result === 'edit-committed') {
+      setCmd('');
     }
   };
 
@@ -163,13 +155,6 @@ function CandidateReviewPanel(props: {
     setTimeout(() => setCmd(''), 0);
   };
 
-  const handleEditSubmit = () => {
-    if (s().candidateEditMode) {
-      dispatch({ type: 'candidate_edit_commit' });
-      setCmd('');
-    }
-  };
-
   const candidates = createMemo(() => s().candidates);
   const idx = createMemo(() => s().candidateIndex);
 
@@ -177,7 +162,7 @@ function CandidateReviewPanel(props: {
     <box flexDirection="column" flexGrow={1} padding={1}>
       <box borderStyle="double" padding={1} marginBottom={1}>
         <text>Candidate Core Paths — Review & Confirm</text>
-        <text opacity={0.5}>j/k:nav space:toggle e:edit A:all N:none q:done</text>
+        <text opacity={0.5}>{CANDIDATE_REVIEW_FOOTER_HINTS}</text>
       </box>
 
       <scrollbox flexGrow={1} padding={0}>
@@ -225,14 +210,17 @@ function CandidateReviewPanel(props: {
       </Show>
 
       <box borderStyle="rounded" padding={1} marginTop={1}>
-        <text
-          opacity={0.5}
-        >{`${candidates().filter((c) => c.confirmed).length}/${candidates().length} confirmed  `}</text>
+        <text opacity={0.5}>
+          {candidateFooterStatus(
+            candidates().filter((c) => c.confirmed).length,
+            candidates().length,
+          )}
+        </text>
         <Show when={s().candidateEditMode}>
-          <text opacity={0.5}>Editing — type name, then Enter to save. Escape to cancel </text>
+          <text opacity={0.5}>{CANDIDATE_EDITING_HINT}</text>
         </Show>
         <Show when={!s().candidateEditMode}>
-          <text opacity={0.5}>Cmd: </text>
+          <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
         </Show>
         <input
           focused={true}
@@ -263,44 +251,10 @@ function PlanReviewPanel(props: {
   const sectionIndex = () => s().planSectionIndex;
 
   const handleCommand = (value: string) => {
-    if (!value) return;
-    const key = value === ' ' ? ' ' : value.trim();
-    if (!key) return;
-
-    if (s().planModifyMode) {
-      if (key === 'enter') {
-        dispatch({ type: 'plan_modify_submit' });
-        return;
-      }
-      if (key === 'escape') {
-        dispatch({ type: 'plan_modify_cancel' });
-        return;
-      }
-      for (const ch of key) {
-        dispatch({ type: 'plan_modify_input', text: s().planModifyDraft + ch });
-      }
-      return;
-    }
-
-    switch (key) {
-      case 'j':
-        dispatch({ type: 'plan_navigate_section', direction: 'down' });
-        break;
-      case 'k':
-        dispatch({ type: 'plan_navigate_section', direction: 'up' });
-        break;
-      case 'm':
-        dispatch({ type: 'plan_start_modify' });
-        break;
-      case 'enter':
-        dispatch({ type: 'plan_confirm' });
-        break;
-      case 'q':
-        dispatch({ type: 'plan_cancel' });
-        break;
-      default:
-        break;
-    }
+    dispatchPlanKey(
+      { dispatch, editMode: s().planModifyMode, editDraft: s().planModifyDraft },
+      value,
+    );
   };
 
   const handleCmdInput = (value: string) => {
@@ -316,7 +270,7 @@ function PlanReviewPanel(props: {
     <box flexDirection="column" flexGrow={1} padding={1}>
       <box borderStyle="double" padding={1} marginBottom={1}>
         <text>TestPlan Review — Confirm, Modify or Cancel</text>
-        <text opacity={0.5}>j/k:nav m:modify Enter:start q:cancel</text>
+        <text opacity={0.5}>{PLAN_REVIEW_FOOTER_HINTS}</text>
       </box>
 
       <scrollbox flexGrow={1} padding={1}>
@@ -362,14 +316,12 @@ function PlanReviewPanel(props: {
       </Show>
 
       <box borderStyle="rounded" padding={1} marginTop={1}>
-        <text opacity={0.5}>{`Section ${sectionIndex() + 1}/${sections().length}  `}</text>
+        <text opacity={0.5}>{planFooterStatus(sectionIndex(), sections().length)}</text>
         <Show when={s().planModifyMode}>
-          <text opacity={0.5}>
-            Describe changes in natural language, then Enter to submit. Escape to cancel{' '}
-          </text>
+          <text opacity={0.5}>{PLAN_MODIFYING_HINT}</text>
         </Show>
         <Show when={!s().planModifyMode}>
-          <text opacity={0.5}>Cmd: </text>
+          <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
         </Show>
         <input focused={true} value={cmd()} onInput={handleCmdInput} placeholder="j/k/m/Enter/q" />
       </box>
@@ -382,17 +334,21 @@ function PlanReviewPanel(props: {
 function App(props: {
   initialState: TuiShellState;
   dispatch: (event: TuiShellEvent) => void;
+  setStateRef: OpenTuiStateRef;
 }): JSX.Element {
   const [state, setState] = createSignal<TuiShellState>(props.initialState);
   const [draft, setDraft] = createSignal('');
 
+  // Expose setState for external renderer.update() calls
+  props.setStateRef.current = (s: TuiShellState) => setState(s);
+
+  const s = (): TuiShellState => state();
+
   const wrappedDispatch = (event: TuiShellEvent) => {
     setState((prev) => tuiShellReducer(prev, event));
-    if (event.type === 'input') {
-      setDraft(event.text);
-    }
-    if (event.type === 'submit') {
-      setDraft('');
+    const nextDraft = draftForEvent(event);
+    if (nextDraft !== null) {
+      setDraft(nextDraft);
     }
     props.dispatch(event);
   };
@@ -407,19 +363,19 @@ function App(props: {
 
   return (
     <box flexDirection="column" padding={1}>
-      <Header workspace={state().workspace} deviceStatus={state().deviceStatus} />
+      <Header workspace={s().workspace} deviceStatus={s().deviceStatus} />
 
-      {state().mode === 'plan_review' ? (
+      {s().mode === 'plan_review' ? (
         <PlanReviewPanel state={state} dispatch={wrappedDispatch} />
-      ) : state().mode === 'candidate_review' ? (
+      ) : s().mode === 'candidate_review' ? (
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
-      ) : state().mode === 'recording_review' ? (
+      ) : s().mode === 'recording_review' ? (
         <RecordingPanel state={state} dispatch={wrappedDispatch} />
-      ) : state().mode === 'credential_prompt' ? (
+      ) : s().mode === 'credential_prompt' ? (
         <CredentialPromptPanel state={state} dispatch={wrappedDispatch} />
       ) : (
         <>
-          <MessageList messages={state().messages} />
+          <MessageList messages={s().messages} />
           <InputBar draft={draft()} setDraft={setDraft} onSubmit={handleSubmit} />
         </>
       )}
@@ -430,13 +386,26 @@ function App(props: {
 // ─── OpenTuiRenderer ───────────────────────────────────────────────────
 
 export function createOpenTuiRenderer(): TuiRenderer {
+  const lifecycle = createOpenTuiLifecycle();
+
   return {
     async start(initialState, dispatch) {
-      await otRender(() => <App initialState={initialState} dispatch={dispatch} />, {
-        stdout: process.stdout,
-        stdin: process.stdin,
-        exitOnCtrlC: true,
-      });
+      const detachResize = lifecycle.bind(process.stdout);
+      try {
+        await otRender(
+          () => <App initialState={initialState} dispatch={dispatch} setStateRef={lifecycle.ref} />,
+          {
+            stdout: process.stdout,
+            stdin: process.stdin,
+            exitOnCtrlC: true,
+          },
+        );
+      } finally {
+        detachResize();
+      }
+    },
+    update(state: TuiShellState) {
+      lifecycle.update(state);
     },
   };
 }

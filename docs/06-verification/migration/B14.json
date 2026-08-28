@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B14",
+  "baseCommit": "a95a1dd0a1b5a6aea0f17257c5294932c3697a55",
+  "stagedTreeHash": "4fc7ed0e56634939c292d8397508f1b88671dc13",
+  "baselineMode": "red",
+  "baselineDigest": "d0e5a67926c7179b944432e8bf439b9274069b7a7249fc0e9163f8a6ce8a864f",
+  "greenCommand": "bun run batch:test -- B14",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base a95a1dd0a1b5a6aea0f17257c5294932c3697a55 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B14",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B14-files.txt": {
+      "sha256": "b285d317404851962b77d09a551c6124867c7c7f7dd798b3e2929799e68f9010",
+      "bytes": 355
+    },
+    "packages/itestagent-engine/src/durable-test-plan.ts": {
+      "sha256": "9996233a884682509a849aacd43b380e27c3429c8efa453f828aa081bdead839",
+      "bytes": 1775
+    },
+    "packages/itestagent-engine/src/index.ts": {
+      "sha256": "7cd56527e9602337bf3d5f920c65dac3180d4657019efeafa1944989fa6665ed",
+      "bytes": 3207
+    },
+    "packages/itestagent-engine/src/mvp-test-plan-fields.ts": {
+      "sha256": "25fb08e87f9a27f16e4555ad994e71bf840125913539a2831b6256d5acd188fc",
+      "bytes": 1509
+    },
+    "packages/itestagent-engine/src/test-plan-compiler.ts": {
+      "sha256": "1e79b5b0e5945c5b3ba327d2892facd44f2b53d62aeec23cdd446f87b5ff5bde",
+      "bytes": 7913
+    },
+    "packages/itestagent-engine/test/test-plan-compiler.test.ts": {
+      "sha256": "e13ed618448acaccfdfbfd24f5593822258497e66aaaa573747e15cbdbb465af",
+      "bytes": 16785
+    }
+  },
+  "rollbackTag": "promo/b14-engine-core"
+}

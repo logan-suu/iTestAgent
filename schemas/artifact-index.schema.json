@@ -1,65 +1,61 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://itestagent.dev/schemas/artifact-index.schema.json",
-  "title": "ArtifactIndex",
-  "description": "iTestAgent artifact index — manifest of all artifacts produced by a run. Source: 架构设计文档 §6.6 + 数据流全链路 §12. Stored at ~/.itestagent/runs/<run_id>/artifact-index.json.",
+  "title": "iTestAgent Artifact Index",
+  "description": "Published JSON Schema for the iTestAgent artifact index file (artifact-index.json). Runtime source of truth: ArtifactIndexSchema in packages/itestagent-contracts/src/artifact-index-contract.ts (Architecture Design §6.6; AGENTS.md §5 data contracts). Parity is enforced by packages/itestagent-contracts/test/json-schema-parity.test.ts (B03). Unknown keys are stripped at runtime, so additional properties are not forbidden here.",
   "type": "object",
   "required": ["schemaVersion", "runId", "artifacts"],
-  "additionalProperties": false,
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "itestagent.artifact-index.v1"
+      "description": "Artifact-index schema version (AGENTS.md §5: artifacts carry schemaVersion)."
     },
-    "runId": { "type": "string" },
+    "runId": {
+      "type": "string",
+      "description": "Run this index belongs to. Must equal the runId of the paired result.json."
+    },
     "artifacts": {
       "type": "array",
-      "items": { "$ref": "#/$defs/ArtifactRef" }
-    }
-  },
-  "$defs": {
-    "ArtifactRef": {
-      "type": "object",
-      "description": "Reference to a single artifact file. Inherits from 架构 §6.4 ArtifactRef.",
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Stable identifier referenced by result.json artifactRefs[]."
-        },
-        "type": {
-          "type": "string",
-          "enum": ["screenshot", "video", "uitree", "log", "syslog", "crashlog", "trace", "xcresult", "json", "text"]
-        },
-        "path": {
-          "type": "string",
-          "description": "Relative path under runs/<run_id>/artifacts/."
-        },
-        "mimeType": { "type": "string" },
-        "sizeBytes": { "type": "number", "minimum": 0 },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "relatedStep": {
-          "type": "string",
-          "description": "Run step ID this artifact belongs to."
-        },
-        "backend": {
-          "type": "string",
-          "description": "Which backend produced this artifact."
-        },
-        "template": {
-          "type": "string",
-          "description": "For .trace artifacts: the Instruments template name, e.g. 'Time Profiler'."
-        },
-        "redactionStatus": {
-          "type": "string",
-          "enum": ["raw-local-only", "redacted", "safe"],
-          "description": "R6: 敏感数据不落盘明文. raw-local-only = stays on local machine only; redacted = scrubbed; safe = no sensitive content."
+      "description": "Metadata for every artifact collected during the run. Artifact ids must be unique within one index (enforced by json-schema-cross-field.ts).",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "path", "redactionStatus"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable artifact identifier, referenced by result.json artifactRefs[]."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "screenshot",
+              "video",
+              "uitree",
+              "log",
+              "crashlog",
+              "trace",
+              "xcresult",
+              "json",
+              "text"
+            ],
+            "description": "Artifact type."
+          },
+          "path": {
+            "type": "string",
+            "description": "Path relative to the run directory."
+          },
+          "mimeType": { "type": "string", "description": "MIME type (e.g. image/png)." },
+          "sizeBytes": { "type": "integer", "minimum": 0, "description": "File size in bytes." },
+          "sha256": { "type": "string", "description": "SHA-256 checksum of the file contents." },
+          "relatedStep": { "type": "string", "description": "Run step ID that produced this artifact." },
+          "backend": { "type": "string", "description": "Backend that produced this artifact." },
+          "redactionStatus": {
+            "type": "string",
+            "enum": ["raw-local-only", "redacted", "safe"],
+            "description": "R6 redaction state: raw-local-only stays on the local machine only; redacted has sensitive content scrubbed; safe contains no sensitive content."
+          }
         }
-      },
-      "required": ["id", "type", "path", "redactionStatus"]
+      }
     }
   }
 }

@@ -16,6 +16,7 @@
     "ai": "7.0.34",
     "itestagent-contracts": "workspace:*",
     "itestagent-project-analyzer": "workspace:*",
-    "yaml": "^2.7.0"
+    "yaml": "^2.7.0",
+    "itestagent-backends-device-appium": "workspace:*"
   }
 }

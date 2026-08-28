@@ -1,6 +1,9 @@
 /**
  * DevicectlOps — physical device app lifecycle operations via devicectl.
  *
+ * B12 module split: strict 506.6 output parsing lives in devicectl-output /
+ * devicectl-processes; this module keeps the spawn/lifecycle orchestration.
+ *
  * US-6.2 AC1: install .app via devicectl
  * US-6.2 AC4: launch / terminate / deep link after install
  *

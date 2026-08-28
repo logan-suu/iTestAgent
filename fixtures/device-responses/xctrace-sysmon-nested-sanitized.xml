@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sanitized xctrace sysmon trace excerpt (B12). Nested time-profile structure
+  with placeholder values; no real device/process identifiers per promotion
+  guide denylist. Used by store/report-side parsers for nested-sample
+  regression coverage.
+-->
+<trace-query-result>
+  <node xpath="com.apple.instruments.straceservices.types/record">
+    <row>
+      <attribute key="sample-count" value="42" />
+      <sub-frames>
+        <frame name="fixture_frame_root" addr="0xF1X7URE0001" sampleCount="20">
+          <frame name="fixture_frame_child_a" addr="0xF1X7URE0002" sampleCount="12" />
+          <frame name="fixture_frame_child_b" addr="0xF1X7URE0003" sampleCount="8">
+            <frame name="fixture_frame_leaf" addr="0xF1X7URE0004" sampleCount="6" />
+          </frame>
+        </frame>
+      </sub-frames>
+    </row>
+  </node>
+</trace-query-result>

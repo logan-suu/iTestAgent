@@ -1,3 +1,8 @@
+/**
+ * Report trio input/output types — B09 module split note: the sanitizer,
+ * validator and replay adapter live in sibling modules; this stays the
+ * shared type vocabulary.
+ */
 import type {
   BaselineDelta,
   ExecutionSummary,

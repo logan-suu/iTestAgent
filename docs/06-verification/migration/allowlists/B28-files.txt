@@ -1,0 +1,17 @@
+docs/06-verification/migration/B28.json
+docs/06-verification/migration/allowlists/B28-files.txt
+packages/itestagent-tui/src/api-key-loader.ts
+packages/itestagent-tui/src/credential-prompt.ts
+packages/itestagent-tui/src/keychain-persistence.ts
+packages/itestagent-tui/src/renderers/credential-prompt-panel.tsx
+packages/itestagent-tui/src/renderers/setup-panel.tsx
+packages/itestagent-tui/src/tui-setup-controller.ts
+packages/itestagent-tui/test/api-key-loader-result.test.ts
+packages/itestagent-tui/test/credential-prompt.test.ts
+packages/itestagent-tui/test/credential-persistence-authorization.test.ts
+packages/itestagent-tui/test/credential-process-exposure.test.ts
+packages/itestagent-tui/test/keychain-persistence.test.ts
+packages/itestagent-tui/test/keychain-access-control.test.ts
+packages/itestagent-tui/test/opentui-setup-mask.test.ts
+packages/itestagent-tui/test/opentui-setup-masked-field.test.ts
+packages/itestagent-tui/test/tui-shell-credential.test.ts

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "itestagent.artifact-index.v1",
+  "artifacts": [
+    { "id": "tui-frame", "type": "ansi-frame", "path": "artifacts/tui-frame.ansi.txt" }
+  ]
+}

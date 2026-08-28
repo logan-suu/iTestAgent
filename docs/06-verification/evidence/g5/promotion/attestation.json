@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "itestagent.evidence.attestation.v1",
+  "testId": "g5",
+  "scope": "g5",
+  "batchId": "B42",
+  "report": "docs/06-verification/g5-spike-report-promotion.md",
+  "verifiedAt": "2026-08-26T12:30:00Z",
+  "verdict": "attested",
+  "blockers": [
+    "AUT signing chain",
+    "independent WDA signing chain"
+  ],
+  "sourceTestEvidence": "packages/itestagent-cli/src/feed-memory-runtime.ts, physical-* modules (B19/B20/B24)"
+}

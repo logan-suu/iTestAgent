@@ -1,0 +1,11 @@
+docs/06-verification/migration/B29.json
+docs/06-verification/migration/allowlists/B29-files.txt
+packages/itestagent-tui/src/agent-patch.ts
+packages/itestagent-tui/src/agent-session.ts
+packages/itestagent-tui/src/agent-stream.ts
+packages/itestagent-tui/src/entry.ts
+packages/itestagent-tui/src/message-retention.ts
+packages/itestagent-tui/test/agent-session.test.ts
+packages/itestagent-tui/test/entry-agent-session-error.test.ts
+packages/itestagent-tui/test/message-retention.test.ts
+packages/itestagent-tui/test/tui-shell-retention.test.ts

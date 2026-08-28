@@ -1,0 +1,13 @@
+bun.lock
+docs/06-verification/migration/B11.json
+docs/06-verification/migration/allowlists/B11-files.txt
+packages/itestagent-backends/analyzer-xcodeproj/src/build-settings.ts
+packages/itestagent-backends/analyzer-xcodeproj/src/discover.ts
+packages/itestagent-backends/analyzer-xcodeproj/src/xcodebuild-exec.ts
+packages/itestagent-backends/analyzer-xcodeproj/test/pbxproj-parser.test.ts
+packages/itestagent-backends/analyzer-xcodeproj/test/xcodebuild-exec.test.ts
+packages/itestagent-backends/analyzer-xcresult/test/fixtures/mock.xcresult/README.md
+packages/itestagent-backends/device-mock/package.json
+packages/itestagent-backends/device-mock/src/fixtures.ts
+packages/itestagent-backends/device-mock/test/mock-device-backend-determinism.test.ts
+packages/itestagent-backends/device-mock/test/mock-device-backend.test.ts

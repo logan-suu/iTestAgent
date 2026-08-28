@@ -1128,3 +1128,22 @@ describe('build integration — injected deps', () => {
     expect(receivedOutput).toContain('error: something went wrong');
   });
 });
+
+// ─── B12 seam: xcodebuild test runner args ─────────────────────────
+
+describe('B12 seam: xcodebuild test runner', () => {
+  it('maps only-testing filters through the scheme prefix', async () => {
+    const { runXcodebuildTests } = await import('../src/xcodebuild-test-runner.js');
+    const calls: Array<{ cmd: string; args: string[] }> = [];
+    const runner = async (cmd: string, args: string[]) => {
+      calls.push({ cmd, args });
+      return { exitCode: 0, stdout: '', stderr: '' };
+    };
+    await runXcodebuildTests(
+      { projectRoot: '/fixture/project', scheme: 'FixtureScheme', only: ['LoginTests'] },
+      runner,
+    );
+    expect(calls[0]?.cmd).toBe('xcodebuild');
+    expect(calls[0]?.args).toContain('-only-testing:FixtureScheme/LoginTests');
+  });
+});

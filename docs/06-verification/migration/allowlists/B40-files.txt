@@ -1,0 +1,8 @@
+.github/workflows/ci.yml
+.github/workflows/security-scan.yml
+.github/workflows/simulator-ci.yml
+bunfig.toml
+docs/06-verification/migration/B40.json
+docs/06-verification/migration/allowlists/B40-files.txt
+package.json
+tests/architecture/ci-lane-contract.test.ts

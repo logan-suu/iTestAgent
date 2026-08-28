@@ -432,3 +432,13 @@ describe('parseRawMetrics — FPS approximate', () => {
     expect(metrics.fpsApproximate).toBeUndefined();
   });
 });
+
+// ─── B21 seam: sysmon tree totals feed metric summaries ────────────
+
+describe('B21 seam: sysmon totals available to metrics consumers', () => {
+  it('exposes recursive sample counting through the split module', async () => {
+    const mod = await import('../src/xctrace-sysmon-parser.js');
+    const xml = '<frame name="r" sampleCount="5"><frame name="c" sampleCount="7" /></frame>';
+    expect(mod.sumSampleCounts(mod.parseSysmonFrames(xml))).toBe(12);
+  });
+});

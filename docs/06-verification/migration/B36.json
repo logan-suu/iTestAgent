@@ -1,0 +1,110 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B36",
+  "baseCommit": "c5002d57f05e189c9859c63f44532e3e8f1d6208",
+  "stagedTreeHash": "6b903d67d2e368d6be6e5098bbc7a3fca9825b0a",
+  "baselineMode": "red",
+  "baselineDigest": "313ec68f3dfeb991390d5158a0b801a907f8cf75dd75e9682a597e642e77dfd4",
+  "greenCommand": "bun run batch:test -- B36",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base c5002d57f05e189c9859c63f44532e3e8f1d6208 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B36",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B36-files.txt": {
+      "sha256": "15197e029f93557788527fef88d5fa27c89d7d61360d51ad878d0ac1bc3fe59d",
+      "bytes": 902
+    },
+    "packages/itestagent-contracts/src/scenarios/index.ts": {
+      "sha256": "657d416151327bfdd1c88f23ca9db82bf01aaf88d974c513cc57262eb2cd1441",
+      "bytes": 811
+    },
+    "packages/itestagent-contracts/src/scenarios/scenario-codecs.ts": {
+      "sha256": "f45418f81c65608a040167b4bea9a54ea81f274f6fcd2dd630b95d25e06db753",
+      "bytes": 354
+    },
+    "packages/itestagent-contracts/src/scenarios/scenario-plugin.ts": {
+      "sha256": "2e0d531b2a21a39d366aba25369ca1b4008e4be1ecf28c0ad7b70137581339ef",
+      "bytes": 118
+    },
+    "packages/itestagent-contracts/src/scenarios/scenario-registry.ts": {
+      "sha256": "7f6378c5aa4d21d8065e76f73971f335ecf6c0bbd5b120f487d3ae87c77c1540",
+      "bytes": 506
+    },
+    "packages/itestagent-contracts/test/scenario-registry-differential.test.ts": {
+      "sha256": "c45fd4b92dd59893ed56a470b0887dc8eee3d0c530f7c4197a457806e13f4dc5",
+      "bytes": 313
+    },
+    "packages/itestagent-contracts/test/scenario-registry.test.ts": {
+      "sha256": "37536cd332a750ff770e958d2aad9b1bf18031a3ddab6d243399b209aa884aff",
+      "bytes": 389
+    },
+    "packages/itestagent-contracts/test/scenario-write-v3.test.ts": {
+      "sha256": "35e4dcd46dc87edca981d36b946464367cc636d2dc6cc1a90b421b789a7c3d4d",
+      "bytes": 344
+    },
+    "schemas/scenarios/feed-memory.schema.json": {
+      "sha256": "fe61dafa58c83601a15d6d1da72f2ff27747ef7da4b4f4bee51abcb9fea340a0",
+      "bytes": 247
+    },
+    "schemas/scenarios/memory-profile.schema.json": {
+      "sha256": "843d9e548ee0172c8452a190c7e66cfc3e6359c4d2a470ff5ae8e44ebfbd5e7e",
+      "bytes": 253
+    },
+    "schemas/scenarios/scenario-registry.schema.json": {
+      "sha256": "9555598e8c8c916ca29364d8cb506b0d3e0096818bcd1b202f3e56f017ec4a2c",
+      "bytes": 227
+    },
+    "tests/integration/phase5/feed-memory-missed-tap.test.ts": {
+      "sha256": "e3e3196f84c2775ce5b6c8d20663ae66a7c802d500d40a7f3da39e3f1287255e",
+      "bytes": 490
+    },
+    "tests/integration/phase5/memory-profile-cli-prompt.test.ts": {
+      "sha256": "e3e3196f84c2775ce5b6c8d20663ae66a7c802d500d40a7f3da39e3f1287255e",
+      "bytes": 490
+    },
+    "tests/integration/phase5/memory-profile-mvp.test.ts": {
+      "sha256": "e3e3196f84c2775ce5b6c8d20663ae66a7c802d500d40a7f3da39e3f1287255e",
+      "bytes": 490
+    },
+    "tests/integration/phase5/memory-profile-plan-review-pty.test.ts": {
+      "sha256": "e3e3196f84c2775ce5b6c8d20663ae66a7c802d500d40a7f3da39e3f1287255e",
+      "bytes": 490
+    }
+  },
+  "rollbackTag": "promo/b36-phase5-scenarios"
+}

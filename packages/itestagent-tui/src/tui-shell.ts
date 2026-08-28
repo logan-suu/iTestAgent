@@ -30,6 +30,7 @@ import { PLAN_SECTIONS, navigatePlanSection } from './plan-review.js';
 
 export type TuiShellMode =
   | 'chat'
+  | 'setup'
   | 'candidate_review'
   | 'plan_review'
   | 'recording_review'
@@ -41,7 +42,7 @@ export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 
 /** 一条消息。 */
 export interface Message {
   readonly id: string;
-  readonly type: 'user' | 'system' | 'error';
+  readonly type: 'user' | 'assistant' | 'system' | 'error';
   readonly text: string;
   readonly timestamp: number;
 }
@@ -86,6 +87,12 @@ export interface TuiShellState {
   readonly credentialResponses: ReadonlyMap<string, CredentialResponse>;
   readonly credentialCompleted: boolean;
   readonly credentialRememberToggled: boolean;
+  /** Setup wizard state (mode === 'setup'). */
+  readonly setupStep: number;
+  readonly setupProvider: string;
+  readonly setupBaseUrl: string;
+  readonly setupModel: string;
+  readonly setupError: string;
 }
 
 // ─── Events ────────────────────────────────────────────────────────────
@@ -144,7 +151,12 @@ export type TuiShellEvent =
   | { readonly type: 'credential_submit' }
   | { readonly type: 'credential_skip' }
   | { readonly type: 'credential_toggle_remember' }
-  | { readonly type: 'credential_confirm_all' };
+  | { readonly type: 'credential_confirm_all' }
+  // Stream delta event for LLM token streaming into TUI
+  | { readonly type: 'stream_delta'; readonly id: string; readonly text: string }
+  // Setup wizard events
+  | { readonly type: 'setup_start' }
+  | { readonly type: 'setup_complete' };
 
 // ─── Factory ───────────────────────────────────────────────────────────
 
@@ -187,6 +199,11 @@ export function createInitialState(workspace?: string): TuiShellState {
     credentialResponses: new Map(),
     credentialCompleted: false,
     credentialRememberToggled: false,
+    setupStep: 0,
+    setupProvider: '',
+    setupBaseUrl: '',
+    setupModel: '',
+    setupError: '',
   };
 }
 
@@ -241,6 +258,33 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       return {
         ...state,
         messages: [...state.messages, msg],
+      };
+    }
+
+    case 'stream_delta': {
+      const msgs = state.messages;
+      const last = msgs[msgs.length - 1];
+      // If the last message has the same stream id, append text to it
+      if (last && last.id === event.id) {
+        const updated: Message = {
+          ...last,
+          text: last.text + event.text,
+        };
+        return {
+          ...state,
+          messages: [...msgs.slice(0, -1), updated],
+        };
+      }
+      // Otherwise, start a new assistant message
+      const msg: Message = {
+        id: event.id,
+        type: 'assistant',
+        text: event.text,
+        timestamp: Date.now(),
+      };
+      return {
+        ...state,
+        messages: [...msgs, msg],
       };
     }
 
@@ -671,5 +715,13 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         mode: 'chat',
         credentialCompleted: true,
       };
+
+    // ── Setup wizard ──────────────────────────────────────────────
+
+    case 'setup_start':
+      return { ...state, mode: 'setup', setupStep: 0, setupError: '' };
+
+    case 'setup_complete':
+      return { ...state, mode: 'chat', setupStep: 0 };
   }
 }

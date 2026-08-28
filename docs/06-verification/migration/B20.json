@@ -1,0 +1,126 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B20",
+  "baseCommit": "8d60b327bd2fe31beb4f71d11053e3821de13d69",
+  "stagedTreeHash": "c06b52be9f1098744f1eed48c892e187253d2c06",
+  "baselineMode": "red",
+  "baselineDigest": "91ab1ed67f607cfabf4e7fcf11bacb82987ed51599a710d6da313bf738c23a60",
+  "greenCommand": "bun run batch:test -- B20",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 8d60b327bd2fe31beb4f71d11053e3821de13d69 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B20",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B20-files.txt": {
+      "sha256": "47d5016f7f71830cc16542f197bd1e6e269c1972d074559215ee379d8405a46e",
+      "bytes": 1139
+    },
+    "packages/itestagent-cli/src/simulator-mvp-factory.ts": {
+      "sha256": "ea5e42d286d1ec8dd0a91c4ea05938edac2bdd4ef2ea442603e0acb72a634379",
+      "bytes": 172
+    },
+    "packages/itestagent-cli/src/simulator-mvp-flow.ts": {
+      "sha256": "80402c2179ebeaa71a9ac7f6d863a0776d75b69c9e9f89c8f5ea7fe4aefb9745",
+      "bytes": 178
+    },
+    "packages/itestagent-cli/src/simulator-mvp-production-types.ts": {
+      "sha256": "6d59024d9b784adda75624d9e7796fe5dea7e9d24d81fb86201f90c8ecf1760b",
+      "bytes": 124
+    },
+    "packages/itestagent-cli/src/simulator-mvp-production.ts": {
+      "sha256": "77d4e0f49829d2708825ea278a17dadb5e1eb84bddf97647510f9d3299ec5e8f",
+      "bytes": 437
+    },
+    "packages/itestagent-cli/src/simulator-mvp-runtime-types.ts": {
+      "sha256": "ac637db96750360f8e43cd34edbb22bc85074d840fed612070576be020417300",
+      "bytes": 134
+    },
+    "packages/itestagent-cli/src/simulator-mvp-runtime.ts": {
+      "sha256": "8405ea5df7d8919a0b7fda0405d84e40516a6f2004b1f6dfd5bb9011be66c641",
+      "bytes": 138
+    },
+    "packages/itestagent-cli/src/simulator-mvp-workspace.ts": {
+      "sha256": "b6a5ff662e26498689ea240a0a6da107a17faa587032947ed399fda17f34940b",
+      "bytes": 164
+    },
+    "packages/itestagent-cli/src/simulator-report-context.ts": {
+      "sha256": "65925ffe15bf7109f925cef67b61b7266a6a636185f7f4544faa4f101c04ab7d",
+      "bytes": 204
+    },
+    "packages/itestagent-cli/src/simulator-runtime-artifacts.ts": {
+      "sha256": "8295aee2ee488136d60b7fa4b6e95ccbe7c9f559443d2c5e15001c67f85d3060",
+      "bytes": 195
+    },
+    "packages/itestagent-cli/src/simulator-runtime-environment.ts": {
+      "sha256": "ee4b62d05336a9fa095397b370d679fee89d8aa14b2f549bb0dd3033e1de7ea0",
+      "bytes": 191
+    },
+    "packages/itestagent-cli/src/simulator-selection.ts": {
+      "sha256": "525d7900616fd71a25fde2e88123e5fe5569101bbfad32cf452696f2c0d2435d",
+      "bytes": 469
+    },
+    "packages/itestagent-cli/test/simulator-mvp-factory.test.ts": {
+      "sha256": "bb88505b150c279c5d9d31ed808269f3538ed7e2f96ac99cadd063869e30954d",
+      "bytes": 299
+    },
+    "packages/itestagent-cli/test/simulator-mvp-production-drift.test.ts": {
+      "sha256": "4c30d01dc6ec3e9716fc416e69ec049b19431e19ddf39ed2c764aa8bd252e5e9",
+      "bytes": 338
+    },
+    "packages/itestagent-cli/test/simulator-mvp-production.test.ts": {
+      "sha256": "04e327cc529fee83134ec3210365d658a55176aa8dfd05423bca2ec63c484ed6",
+      "bytes": 288
+    },
+    "packages/itestagent-cli/test/simulator-mvp-runtime.test.ts": {
+      "sha256": "99a8981e66d27ed38de8f2beefe3db507ece6c7b8af71cbc08f68535ed08ac18",
+      "bytes": 282
+    },
+    "packages/itestagent-cli/test/simulator-mvp-workspace.test.ts": {
+      "sha256": "7aae21cda874d88369e2eb18d51a6737090816fa76858f5e60d2cecaa7e06ddc",
+      "bytes": 318
+    },
+    "packages/itestagent-cli/test/simulator-report-context.test.ts": {
+      "sha256": "1652a3a9f0752a7adc93a736afc2d3cc9ddc6db28c2906a9e1ace07a23fb2a90",
+      "bytes": 306
+    },
+    "packages/itestagent-cli/test/simulator-selection.test.ts": {
+      "sha256": "821c3ba8dcdc393128bfd3423ff6299732b4755b1f64eb42e1ec9b602c4aeec0",
+      "bytes": 427
+    }
+  },
+  "rollbackTag": "promo/b20-cli-simulator"
+}

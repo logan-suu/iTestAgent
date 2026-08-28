@@ -465,3 +465,24 @@ describe('P1→P5: RunStore parentRunId (rerun linking)', () => {
     expect(rerun?.parentRunId).toBe('original-run-p1p5');
   });
 });
+
+// ─── B33: migration alignment (integration foundation) ─────────────
+
+describe('B33 migration alignment', () => {
+  it('reports the migration-aligned contract surface as coherent', async () => {
+    const mod = await import('../../../packages/itestagent-engine/src/migration-alignment.js');
+    const result = await mod.checkMigrationAlignment();
+    expect(result.ok).toBe(true);
+  });
+});
+
+// ─── B25: run-flow-validation command seam ─────────────────────────
+
+describe('B25 run-flow-validation seam', () => {
+  it('exposes the flow validation command helper', async () => {
+    const mod = await import(
+      '../../../packages/itestagent-cli/src/commands/run-flow-validation.js'
+    );
+    expect(typeof mod.validateFlowCommand).toBe('function');
+  });
+});

@@ -1,0 +1,134 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B08",
+  "baseCommit": "257d7da36c62ba87bca10a6255d3a77412cbc9aa",
+  "stagedTreeHash": "65bb6ab9c306fa1e85bd66e50fb72a7d8169d12d",
+  "baselineMode": "red",
+  "baselineDigest": "98a13aa677619a564b891b2a3af654e57e6c4ae0b666be382f5081cf825c1e51",
+  "greenCommand": "bun run batch:test -- B08",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 257d7da36c62ba87bca10a6255d3a77412cbc9aa --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B08",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B08-files.txt": {
+      "sha256": "1d5dce94568a15ac518c0bfa936715cfd9597c1b1b7fe22cef0597fe6e6abc3e",
+      "bytes": 1056
+    },
+    "packages/itestagent-flow/package.json": {
+      "sha256": "816034c67a32357f7163e433a05964f1211d1dd83ad3f89689f380fbb58aeef5",
+      "bytes": 466
+    },
+    "packages/itestagent-flow/src/index.ts": {
+      "sha256": "1b017717cc7ffa8373d64f63a137243923f3be000c0be46566b90b3daf21d530",
+      "bytes": 1271
+    },
+    "packages/itestagent-flow/src/replay-action-utils.ts": {
+      "sha256": "1e9df0d4d06aa5a1b5a1687cfc6692a9a6b04bf27bd7c0143679e410e57e9bd7",
+      "bytes": 1655
+    },
+    "packages/itestagent-flow/src/replay-assertion.ts": {
+      "sha256": "5ed0e917fa2002c403ed58463cc5e535477fd567276db330344db540e5267226",
+      "bytes": 3658
+    },
+    "packages/itestagent-flow/src/replay-engine.ts": {
+      "sha256": "815deab2e0cef10684979bd932f036f23f16ee7c03b8fef6615a9e57b2905ac3",
+      "bytes": 4477
+    },
+    "packages/itestagent-flow/src/replay-evidence-writer.ts": {
+      "sha256": "363f1f6a3bb54beda8c06a1dd3a5a54e52eaa2f637e70d621d7371f1affe1144",
+      "bytes": 2789
+    },
+    "packages/itestagent-flow/src/replay-interaction.ts": {
+      "sha256": "4a5d1ba7b4a0183d85e04297ce7c4505df5a968cde1249249a1d900c8599fd48",
+      "bytes": 6933
+    },
+    "packages/itestagent-flow/src/replay-locator.ts": {
+      "sha256": "9b50953fd9f3bfdc4ddde209369596e5e9189a3a0eb4fcd05d7dad7a2f561767",
+      "bytes": 6905
+    },
+    "packages/itestagent-flow/src/replay-observation.ts": {
+      "sha256": "a1363d8b72fad607c9bcef0579e304e138fcf8a033303ebb5cfd5efea443c320",
+      "bytes": 4209
+    },
+    "packages/itestagent-flow/src/replay-result.ts": {
+      "sha256": "831c260ba35a9ab5df21e9bab84660f73b0d8e657626cc606cd5b0d8010e38ef",
+      "bytes": 5865
+    },
+    "packages/itestagent-flow/src/replay-step.ts": {
+      "sha256": "f66e1f36c435bb7b349dd13b0ca52ef7257d40ad1231decaa6e61caf85c62cb9",
+      "bytes": 5396
+    },
+    "packages/itestagent-flow/src/replay-types.ts": {
+      "sha256": "3816db61a6be1cba77868e045acccb63737b149ae8ec4af0e3f8e850900dc578",
+      "bytes": 1858
+    },
+    "packages/itestagent-flow/src/replay.ts": {
+      "sha256": "950de6ceaa227bcbf3a302407b3a222ec5bdefae95840f699297e7f6af0a69c1",
+      "bytes": 1121
+    },
+    "packages/itestagent-flow/src/schema.ts": {
+      "sha256": "b79cd66c72c680c7b5aaa50e65579cfa9ac6f305fd5ec2f2eb43bac012781036",
+      "bytes": 5638
+    },
+    "packages/itestagent-flow/src/ui-tree-redactor.ts": {
+      "sha256": "f42d066f5f6776b46acfb1c8d102f535ead0fd50efe604a2bd7ac0dc42a31322",
+      "bytes": 1523
+    },
+    "packages/itestagent-flow/test/replay-evidence-writer.test.ts": {
+      "sha256": "1b26ea396217fd3e6c291699c6cbb6050bd7caf411fee85c1738305dc0471b95",
+      "bytes": 4657
+    },
+    "packages/itestagent-flow/test/replay-step-complete.test.ts": {
+      "sha256": "721eff23f73d79c8d2522d3255d106be02b2203de1cdc3a267ff3b9844b4f8d7",
+      "bytes": 7698
+    },
+    "packages/itestagent-flow/test/replay.test.ts": {
+      "sha256": "c5c3603fd3c15dd95c5dc1f9bdfb493430f9233ec69472464ce50e146502517f",
+      "bytes": 33548
+    },
+    "packages/itestagent-flow/test/schema.test.ts": {
+      "sha256": "9d6bbe21a3aeaf23667c74af502d68d77a52086c923ca333bace5f6735d86d2e",
+      "bytes": 10008
+    },
+    "packages/itestagent-flow/test/simulator-fixture-flow.test.ts": {
+      "sha256": "68fa4d868c419bfc7623086fe628650ced4c02b1bd326c9c2b6816d46f27f1a9",
+      "bytes": 3778
+    }
+  },
+  "rollbackTag": "promo/b08-flow-replay"
+}

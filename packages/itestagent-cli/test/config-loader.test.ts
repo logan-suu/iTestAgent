@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -157,4 +157,14 @@ test('loadConfig marks all three sources correctly', async () => {
 
   const projectRootSource = sources.find((s) => s.path === join(tempProject, 'itestagent.jsonc'));
   expect(projectRootSource?.exists).toBe(false);
+});
+
+// ─── B17 seam: loader stays the single config entry ───────────────
+
+describe('B17 seam: loader entry points intact', () => {
+  it('still exposes loadConfig/getDefaultConfig after the safety split', async () => {
+    const mod = await import('../src/config/loader.js');
+    expect(typeof mod.loadConfig).toBe('function');
+    expect(typeof mod.getDefaultConfig).toBe('function');
+  });
 });

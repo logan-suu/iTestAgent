@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "itestagent.evidence.manifest.v1",
+  "testId": "t12",
+  "testName": "TUI universal frame",
+  "renderer": "opentui",
+  "capturedAt": "2026-08-26T00:00:00Z",
+  "files": ["result.json", "summary.md", "artifact-index.json", "artifacts/tui-frame.ansi.txt"]
+}

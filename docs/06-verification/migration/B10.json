@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B10",
+  "baseCommit": "cf4db07fde74ae885db58176a126c161c9a777c0",
+  "stagedTreeHash": "553779d72d6c851d5b1932855faf9dd23bbcc68c",
+  "baselineMode": "red",
+  "baselineDigest": "d5453dc35f214c256e13bb20e4b7fa7baf7e8c5cf56df7bab57cd54fbc596ef0",
+  "greenCommand": "bun run batch:test -- B10",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B10-files.txt": {
+      "sha256": "f01f4eed54e7ba0f6f849bba897752f92428a0c50d1e54b43e6c8b6c36677438",
+      "bytes": 379
+    },
+    "packages/itestagent-project-analyzer/src/profile-generator.ts": {
+      "sha256": "52b72fd40a3a466f7d4f1674919082f3c019620d07dc9745399a6d0c5fcabc25",
+      "bytes": 4442
+    },
+    "packages/itestagent-project-analyzer/src/profile-inference.ts": {
+      "sha256": "aaec244f4d206e7859383806b05737e709ebc44ba09ae9ebf16a5bcbe02603eb",
+      "bytes": 6539
+    },
+    "packages/itestagent-project-analyzer/test/profile-generator.test.ts": {
+      "sha256": "53cda64571c872440753c431bf0e2fd543662ec2de8aa0764dd02f12232fe3d1",
+      "bytes": 32971
+    },
+    "schemas/project-profile.schema.json": {
+      "sha256": "c99a231f4d326b89cd0435ac207e866c226a5b55dfcf0a86de7b765dfe355565",
+      "bytes": 5091
+    }
+  },
+  "rollbackTag": "promo/b10-project-analyzer"
+}

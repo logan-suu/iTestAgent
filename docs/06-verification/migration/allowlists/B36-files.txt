@@ -1,0 +1,16 @@
+docs/06-verification/migration/B36.json
+docs/06-verification/migration/allowlists/B36-files.txt
+packages/itestagent-contracts/src/scenarios/index.ts
+packages/itestagent-contracts/src/scenarios/scenario-codecs.ts
+packages/itestagent-contracts/src/scenarios/scenario-plugin.ts
+packages/itestagent-contracts/src/scenarios/scenario-registry.ts
+packages/itestagent-contracts/test/scenario-registry-differential.test.ts
+packages/itestagent-contracts/test/scenario-registry.test.ts
+packages/itestagent-contracts/test/scenario-write-v3.test.ts
+schemas/scenarios/feed-memory.schema.json
+schemas/scenarios/memory-profile.schema.json
+schemas/scenarios/scenario-registry.schema.json
+tests/integration/phase5/feed-memory-missed-tap.test.ts
+tests/integration/phase5/memory-profile-cli-prompt.test.ts
+tests/integration/phase5/memory-profile-mvp.test.ts
+tests/integration/phase5/memory-profile-plan-review-pty.test.ts

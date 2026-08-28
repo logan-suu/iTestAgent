@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# pre-push -- git pre-push hook installed via `git config core.hooksPath .githooks`
+# (B00 GREEN step, guide §12.1). Delegates the quarantine gate to
+# scripts/quarantine-pre-push.sh, passing stdin (the git pre-push ref lines)
+# straight through.
+#
+# The gate rejects any push whose local or remote ref matches
+# refs/quarantine/**, including the ref input produced by `git push --all` and
+# `git push --mirror` whenever a quarantine ref exists locally (guide §17:
+# "永久禁止 git push --mirror、git push --all 或显式 push refs/quarantine/**").
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+exec bash "$ROOT/scripts/quarantine-pre-push.sh"

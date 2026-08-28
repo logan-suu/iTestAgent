@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it, test } from 'bun:test';
 import { mkdtempSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -555,5 +555,15 @@ describe('ReportSynthesizer', () => {
       expect(result.baselineDelta).toBeUndefined();
       expect(result.explanation).toBeUndefined();
     });
+  });
+});
+
+// ─── B09 seam: sanitizer available to report writers ───────────────
+
+describe('B09 seam: report sanitizer module', () => {
+  it('exposes default-rule text sanitization', async () => {
+    const mod = await import('../src/report-sanitizer.js');
+    const result = mod.sanitizeReportText('udid 12345678-1234567890ABCDEF');
+    expect(result.redactions).toBe(1);
   });
 });

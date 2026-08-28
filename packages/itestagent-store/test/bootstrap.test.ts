@@ -61,6 +61,14 @@ describe('bootstrap', () => {
       expect(result).toBe(storeRoot);
     });
 
+    it('exposes STORE_DIRS consistent with the created tree (B07 seam)', () => {
+      const storeRoot = join(testRoot, '.itestagent-seam');
+      initStore(storeRoot);
+      for (const dir of STORE_DIRS) {
+        expect(existsSync(join(storeRoot, dir))).toBe(true);
+      }
+    });
+
     it('is idempotent — calling twice does not throw', () => {
       const storeRoot = join(testRoot, '.itestagent');
       initStore(storeRoot);

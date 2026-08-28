@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "itestagent.result.v2",
+  "runId": "t12-universal",
+  "status": "passed",
+  "device": "simulator",
+  "summary": "TUI universal frame rendered correctly"
+}

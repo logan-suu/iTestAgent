@@ -1,0 +1,12 @@
+docs/06-verification/migration/B01.json
+docs/06-verification/migration/allowlists/B01-files.txt
+packages/itestagent-contracts/src/device-action-inputs.ts
+packages/itestagent-contracts/src/device-artifacts.ts
+packages/itestagent-contracts/src/device-identity.ts
+packages/itestagent-contracts/src/device-runtime.ts
+packages/itestagent-contracts/src/device-types.ts
+packages/itestagent-contracts/src/index.ts
+packages/itestagent-contracts/test/build-driver.test.ts
+packages/itestagent-contracts/test/device-types.test.ts
+packages/itestagent-contracts/test/launch-app-input.test.ts
+packages/itestagent-contracts/test/public-api-superset.test.ts

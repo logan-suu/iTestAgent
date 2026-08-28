@@ -1,0 +1,12 @@
+# Sanitized devicectl device details fixture (text fallback format, B12).
+# All identifiers are placeholders; no real UDIDs per promotion guide denylist.
+Device:
+  Name: FIXTURE-PHONE-01
+  UDID: UDID-FIXTURE-00000000000000000001
+Hardware:
+  MarketingName: iPhone Fixture Pro
+  ProductType: iPhone14,5
+  OSVersionNumber: 18.2
+Connection:
+  TunnelState: connected
+  PairingState: paired

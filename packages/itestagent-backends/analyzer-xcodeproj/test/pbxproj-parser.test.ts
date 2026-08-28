@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'bun:test';
-import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { classifyProductType, isUnitTest, isXCUITest, parsePbxproj } from '../src/pbxproj-parser';
 
 const FIXTURE_DIR = resolve(import.meta.dir, 'fixtures');
+
+function withTempPbxproj(content: string, fn: (path: string) => void): void {
+  const dir = mkdtempSync(resolve(tmpdir(), 'pbxproj-test-'));
+  try {
+    const path = resolve(dir, 'project.pbxproj');
+    writeFileSync(path, content, 'utf-8');
+    fn(path);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 describe('parsePbxproj', () => {
   it('parses a valid project.pbxproj and extracts target info', () => {
@@ -83,19 +95,62 @@ describe('parsePbxproj', () => {
   it('returns empty targets when pbxproj has no PBXNativeTarget section', () => {
     const pbxprojWithNoTargets =
       '// !$*UTF8*$!\n{\n\tarchiveVersion = 1;\n\tobjects = {\n};\n\trootObject = 7627B99262ADE7B14DDB4D37;\n}\n';
-    const tmpPath = resolve(FIXTURE_DIR, 'empty-project.pbxproj');
-    writeFileSync(tmpPath, pbxprojWithNoTargets, 'utf-8');
-
-    try {
+    withTempPbxproj(pbxprojWithNoTargets, (tmpPath) => {
       const result = parsePbxproj(tmpPath);
       expect(result).not.toBeNull();
       if (result) {
         expect(result.targets).toEqual([]);
         expect(result.rootObject).toBe('7627B99262ADE7B14DDB4D37');
       }
-    } finally {
-      unlinkSync(tmpPath);
-    }
+    });
+  });
+
+  it('returns empty rootObject when pbxproj has no rootObject key', () => {
+    const pbxprojWithoutRoot = '// !$*UTF8*$!\n{\n\tarchiveVersion = 1;\n\tobjects = {\n};\n}\n';
+    withTempPbxproj(pbxprojWithoutRoot, (tmpPath) => {
+      const result = parsePbxproj(tmpPath);
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.rootObject).toBe('');
+        expect(result.targets).toEqual([]);
+      }
+    });
+  });
+
+  it('returns null when the path is a directory (unreadable as file)', () => {
+    const result = parsePbxproj(FIXTURE_DIR);
+    expect(result).toBeNull();
+  });
+
+  it('resolves targets to no dependency names when dependency UUIDs are dangling', () => {
+    const danglingDepPbxproj = `// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	objects = {
+/* Begin PBXNativeTarget section */
+		AABBCCDDEEFF001122334455 /* MyApp */ = {
+			isa = PBXNativeTarget;
+			name = MyApp;
+			productName = MyApp;
+			productType = "com.apple.product-type.application";
+			dependencies = (
+				EEEEFFFF0000111122223334 /* PBXTargetDependency */,
+			);
+		};
+/* End PBXNativeTarget section */
+	};
+	rootObject = 7627B99262ADE7B14DDB4D37;
+}
+`;
+    withTempPbxproj(danglingDepPbxproj, (tmpPath) => {
+      const result = parsePbxproj(tmpPath);
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.targets).toHaveLength(1);
+        expect(result.targets[0]?.name).toBe('MyApp');
+        expect(result.targets[0]?.dependencyTargetNames).toEqual([]);
+      }
+    });
   });
 });
 
@@ -103,11 +158,14 @@ describe('classifyProductType', () => {
   it('classifies app product type', () => {
     expect(classifyProductType('com.apple.product-type.application')).toBe('app');
     expect(classifyProductType('com.apple.product-type.application.watchapp2')).toBe('app');
+    expect(classifyProductType('com.apple.product-type.application.watchapp')).toBe('app');
   });
 
   it('classifies framework product type', () => {
     expect(classifyProductType('com.apple.product-type.framework')).toBe('framework');
+    expect(classifyProductType('com.apple.product-type.framework.static')).toBe('framework');
     expect(classifyProductType('com.apple.product-type.library.static')).toBe('framework');
+    expect(classifyProductType('com.apple.product-type.library.dynamic')).toBe('framework');
   });
 
   it('classifies test product type', () => {
@@ -118,10 +176,14 @@ describe('classifyProductType', () => {
   it('classifies bundle product type', () => {
     expect(classifyProductType('com.apple.product-type.bundle')).toBe('bundle');
     expect(classifyProductType('com.apple.product-type.app-extension')).toBe('bundle');
+    expect(classifyProductType('com.apple.product-type.watchkit2-extension')).toBe('bundle');
+    expect(classifyProductType('com.apple.product-type.tv-app-extension')).toBe('bundle');
+    expect(classifyProductType('com.apple.product-type.xcode-extension')).toBe('bundle');
   });
 
   it('classifies unknown as other', () => {
     expect(classifyProductType('com.apple.product-type.tool')).toBe('other');
+    expect(classifyProductType('not-a-real-product-type')).toBe('other');
     expect(classifyProductType('')).toBe('other');
   });
 });

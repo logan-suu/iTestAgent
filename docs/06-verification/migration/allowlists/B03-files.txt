@@ -1,0 +1,13 @@
+docs/06-verification/migration/B03.json
+docs/06-verification/migration/allowlists/B03-files.txt
+packages/itestagent-contracts/src/artifact-index-contract.ts
+packages/itestagent-contracts/src/data-contracts.ts
+packages/itestagent-contracts/src/index.ts
+packages/itestagent-contracts/src/json-schema-cross-field.ts
+packages/itestagent-contracts/src/run-result-contracts.ts
+packages/itestagent-contracts/test/artifact-index-contract.test.ts
+packages/itestagent-contracts/test/data-contracts.test.ts
+packages/itestagent-contracts/test/json-schema-parity.test.ts
+packages/itestagent-contracts/test/run-result-duplicate-rejection.test.ts
+schemas/artifact-index.schema.json
+schemas/result.schema.json

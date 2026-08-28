@@ -16,4 +16,6 @@ export interface TuiRenderer {
    * 返回 Promise，resolve 时表示用户退出（quit 事件后）。
    */
   start(state: TuiShellState, dispatch: (event: TuiShellEvent) => void): Promise<void>;
+  /** Push a new state to the renderer from outside (e.g. streaming agent responses). */
+  update(state: TuiShellState): void;
 }

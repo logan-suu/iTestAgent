@@ -1,0 +1,8 @@
+docs/06-verification/migration/B34.json
+docs/06-verification/migration/allowlists/B34-files.txt
+packages/itestagent-engine/src/phase5-harness.ts
+tests/integration/phase5/phase5-draft-generation.test.ts
+tests/integration/phase5/phase5-explain-rerun.test.ts
+tests/integration/phase5/phase5-flow-replay.test.ts
+tests/integration/phase5/phase5-schema-contracts.test.ts
+tests/integration/phase5/physical-authorization-persistence.test.ts

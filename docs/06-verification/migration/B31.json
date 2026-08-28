@@ -1,0 +1,98 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B31",
+  "baseCommit": "00d9ff355be2984ab4a055085d5b1186b2b8653c",
+  "stagedTreeHash": "e687bc1989c62078d05499a8978d801838d8f413",
+  "baselineMode": "red",
+  "baselineDigest": "d6f780fe93cb52965230ce571c4f37e38c93c28022b966d083532b2edbcaec0b",
+  "greenCommand": "bun run batch:test -- B31",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 00d9ff355be2984ab4a055085d5b1186b2b8653c --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B31",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B31-files.txt": {
+      "sha256": "5aa71a03c6164fd6809f786db9ba3e60245123665ce5296302e252d93ced442a",
+      "bytes": 731
+    },
+    "packages/itestagent-tui/src/memory-run-routing.ts": {
+      "sha256": "047ed3d3c95cd059cef52843593c43718ef8f047662a9eca25d3d241c1fd6617",
+      "bytes": 188
+    },
+    "packages/itestagent-tui/src/physical-run.ts": {
+      "sha256": "3a4f6cd683e58da03e562606a615a771be1aa7727e257f6d53c9263ee3f78c3c",
+      "bytes": 178
+    },
+    "packages/itestagent-tui/src/run-completion-presentation.ts": {
+      "sha256": "96fedeecbd62c49c0ecaa71e7151201c8931e5f2c5bebe2611659f3d615359bf",
+      "bytes": 306
+    },
+    "packages/itestagent-tui/src/startup-brand.ts": {
+      "sha256": "75f6654eb05bfb3859a5ab51a5f151c4c2410efef74c745ce8fdb5cadbf3f7a6",
+      "bytes": 217
+    },
+    "packages/itestagent-tui/test/memory-run-routing-errors.test.ts": {
+      "sha256": "3c043f21f4c246060e65505aa7136483bebde872425e9518a7def3a74e1ce8c8",
+      "bytes": 290
+    },
+    "packages/itestagent-tui/test/physical-run-lifecycle.test.ts": {
+      "sha256": "4c4eaebc80cfa0f7d24d15e8d38f27fe9c76070361d9517355923181cde7c647",
+      "bytes": 268
+    },
+    "packages/itestagent-tui/test/run-completion-presentation.test.ts": {
+      "sha256": "80e1724b7a9df053bec51e7ab92aea8a1309e93092a49f7c20d3824f56db448f",
+      "bytes": 303
+    },
+    "packages/itestagent-tui/test/run-completion-renderer-parity.test.ts": {
+      "sha256": "f34af8391709484766e7e4145143dd0255202749c7c12d9dfa7e09a857c8aed4",
+      "bytes": 307
+    },
+    "packages/itestagent-tui/test/startup-brand.test.ts": {
+      "sha256": "5a99d39a4166d0cb45d9fd903bb58079059aaf25708d9a3856abe7484a4bf589",
+      "bytes": 276
+    },
+    "tests/integration/phase5/tui-brand-outcomes-evidence-generator.test.ts": {
+      "sha256": "964fe4a777bb502a17972e939e44a3cd6ead00e70e5e0c1fb1af6056179cb7f3",
+      "bytes": 464
+    },
+    "tests/integration/phase5/tui-brand-outcomes-visual.test.ts": {
+      "sha256": "7653e341ccc1b3d9c03b5d36ccb46a922b0f2629720a4f6fd87aae139318fd1f",
+      "bytes": 450
+    }
+  },
+  "rollbackTag": "promo/b31-tui-run-routing"
+}

@@ -278,3 +278,20 @@ describe('FlowV2Schema', () => {
     expect(result.success).toBe(true);
   });
 });
+
+// ─── B08: FLOW_SCHEMA_VERSION constant + published parity ─────────
+
+describe('FLOW_SCHEMA_VERSION constant (B08)', () => {
+  it('matches the canonical literal and the published schema document', async () => {
+    const { FLOW_SCHEMA_VERSION } = await import('../src/schema.js');
+    expect(FLOW_SCHEMA_VERSION).toBe('itestagent.flow.v2');
+
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const publishedPath = join(import.meta.dir, '..', '..', '..', 'schemas', 'flow.schema.json');
+    const published = JSON.parse(readFileSync(publishedPath, 'utf-8')) as Record<string, unknown>;
+    // Published document carries the same canonical version literal (G1 spot-check).
+    expect(typeof published.$id).toBe('string');
+    expect(JSON.stringify(published)).toContain(FLOW_SCHEMA_VERSION);
+  });
+});

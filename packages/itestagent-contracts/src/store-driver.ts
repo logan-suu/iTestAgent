@@ -45,6 +45,27 @@ export const ArtifactInputSchema = z.object({
 
 export type ArtifactInput = z.infer<typeof ArtifactInputSchema>;
 
+// ─── StoredRunPlanInput (B04: S3 plan.yaml persistence) ─────
+
+/**
+ * Input contract for persisting the compiled TestPlan as a run's plan.yaml
+ * (Data Flow Specification §6: stored at ~/.itestagent/runs/<run_id>/plan.yaml;
+ * AC3 auditable/reproducible/re-runnable). Data-only contract: store
+ * implementations (B07) adopt it without the StoreDriver interface changing.
+ * The YAML payload is the canonical serialization — writers never store
+ * non-canonical variants (§10 writer-canonical-only).
+ */
+export const StoredRunPlanInputSchema = z.object({
+  /** Unique run identifier; determines runs/<runId>/plan.yaml */
+  runId: z.string().min(1),
+  /** Canonical TestPlan YAML text */
+  planYaml: z.string().min(1),
+  /** Reference path to the source Project Profile (AC4) */
+  projectProfileRef: z.string().min(1),
+});
+
+export type StoredRunPlanInput = z.infer<typeof StoredRunPlanInputSchema>;
+
 // ─── StoreDriver ────────────────────────────────────────────
 
 /**

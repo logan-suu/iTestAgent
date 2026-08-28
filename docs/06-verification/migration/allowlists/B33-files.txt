@@ -1,0 +1,7 @@
+docs/06-verification/migration/B33.json
+docs/06-verification/migration/allowlists/B33-files.txt
+packages/itestagent-engine/src/migration-alignment.ts
+tests/integration/cross-phase/cross-phase-p1-p3-harness.test.ts
+tests/integration/cross-phase/cross-phase-p3-p5-flow-replay.test.ts
+tests/integration/phase1/phase1-subprocess-lifecycle.test.ts
+tests/integration/phase1/phase1-tui-contracts.test.ts

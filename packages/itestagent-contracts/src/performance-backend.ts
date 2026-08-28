@@ -34,6 +34,8 @@ export const TraceRecordInputSchema = z.object({
   template: z.enum(['cpu', 'hangs', 'memory', 'launch', 'all']).optional(),
   /** 录制时长（秒），正整数 */
   durationSeconds: z.number().int().positive().optional(),
+  /** 执行目标类型（可选；B04 对齐 ADR-011 baseline 分域隔离，物理/Simulator 录制分域） */
+  targetKind: TargetKindSchema.optional(),
 });
 
 export type TraceRecordInput = z.infer<typeof TraceRecordInputSchema>;

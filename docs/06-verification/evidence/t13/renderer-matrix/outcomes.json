@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "itestagent.evidence.outcomes.v1",
+  "testId": "t13",
+  "renderers": ["ansi", "ink", "opentui"],
+  "allRendered": true,
+  "verdict": "pass"
+}

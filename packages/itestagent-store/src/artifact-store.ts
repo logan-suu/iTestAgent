@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, relative } from 'node:path';
 import type {
   ArtifactIndex,
@@ -6,6 +6,8 @@ import type {
   ArtifactRef,
   ArtifactStore,
 } from 'itestagent-contracts';
+import { writeArtifactIndex } from './artifact-index-writer.js';
+import { measureFileSha256 } from './artifact-integrity.js';
 
 type InternalArtifactRef = ArtifactRef & { _id: string };
 
@@ -80,11 +82,21 @@ export function createArtifactStore(artifactsRoot: string): ArtifactStore {
         destPath = input.path ?? join(artifactsRoot, `${id}${ext}`);
       }
 
+      // Integrity (B07): every materialized artifact carries its byte size
+      // and SHA-256 so the artifact-index trio stays auditable. External
+      // paths that were not copied into the store are measured as-is when
+      // they exist; dangling references stay unmeasured rather than guessed.
+      const sizeBytes = existsSync(destPath) ? statSync(destPath).size : undefined;
+      const sha256 =
+        sizeBytes !== undefined && sizeBytes > 0 ? await measureFileSha256(destPath) : undefined;
+
       const ref: ArtifactRef = {
         id,
         type: input.type,
         path: relative(artifactsRoot, destPath),
         mimeType,
+        sizeBytes,
+        sha256,
         relatedStep: input.relatedStep,
         redactionStatus: 'raw-local-only',
       };
@@ -144,29 +156,20 @@ export function createPersistentArtifactStore(artifactsRoot: string, runId: stri
    * Write the current artifact-index.json to disk.
    */
   function flushIndex(): void {
+    const artifacts: ArtifactIndex['artifacts'] = [];
+    for (const entry of artifactIndex.values()) {
+      const { _id, ...ref } = entry;
+      artifacts.push(ref);
+    }
     const index: ArtifactIndex = {
       schemaVersion: '1.0',
       runId,
-      artifacts: [],
+      artifacts,
     };
 
-    for (const entry of artifactIndex.values()) {
-      const { _id, ...ref } = entry;
-      index.artifacts.push({
-        id: ref.id,
-        type: ref.type,
-        path: ref.path,
-        mimeType: ref.mimeType,
-        sizeBytes: ref.sizeBytes,
-        sha256: ref.sha256,
-        relatedStep: ref.relatedStep,
-        backend: ref.backend,
-        redactionStatus: ref.redactionStatus,
-      });
-    }
-
-    const indexPath = join(artifactsRoot, '..', 'artifact-index.json');
-    writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+    // B07: canonical atomic write (temp + rename) — readers never observe a
+    // torn artifact-index.json, and the written bytes are digest-verified.
+    writeArtifactIndex(join(artifactsRoot, '..'), index);
   }
 
   return {

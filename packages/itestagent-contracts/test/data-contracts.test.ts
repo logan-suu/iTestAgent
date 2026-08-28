@@ -674,3 +674,211 @@ test('BaselineCompareInputSchema requires targetKind for domain isolation', () =
     }),
   ).toThrow();
 });
+
+// ─── B03 characterization additions ──────────────────────────────────────────
+// Lock CURRENT strip/reject semantics so later batches cannot silently change
+// the runtime contract that schemas/result.schema.json mirrors.
+
+test('RunResultSchema strips unknown keys instead of rejecting them', () => {
+  const raw = JSON.parse(
+    JSON.stringify({
+      schemaVersion: '2.0',
+      runId: 'run-strip-001',
+      status: 'passed',
+      projectProfileRef: '~/.itestagent/projects/abc/profile.json',
+      device: {
+        udid: 'DEV-STRIP-001',
+        name: 'Test iPhone',
+        model: 'iPhone15,2',
+        osVersion: '18.2',
+        targetKind: 'physical',
+      },
+      execution: {
+        totalSteps: 1,
+        completedSteps: 1,
+        failedSteps: 0,
+        skippedSteps: 0,
+        durationMs: 1000,
+        startTime: '2026-08-25T10:00:00.000Z',
+        endTime: '2026-08-25T10:00:01.000Z',
+        targetKind: 'physical',
+        backendUsed: 'appium',
+        deviceId: 'DEV-STRIP-001',
+      },
+      cases: [],
+      metrics: {},
+      environment: {
+        targetKind: 'physical',
+        representativeOfPhysicalDevice: true,
+        comparisonScope: 'physical_only',
+      },
+      artifactRefs: [],
+      someFutureField: 'kept-out',
+    }),
+  ) as Record<string, unknown>;
+  const parsed = RunResultSchema.parse(raw);
+  expect((parsed as unknown as Record<string, unknown>).someFutureField).toBeUndefined();
+});
+
+test('RunResultSchema rejects non-integer or negative execution counters', () => {
+  const base = {
+    schemaVersion: '2.0',
+    runId: 'run-bad-counter',
+    status: 'passed',
+    projectProfileRef: 'profile.json',
+    device: {
+      udid: 'U',
+      name: 'N',
+      model: 'M',
+      osVersion: '18.2',
+      targetKind: 'physical',
+    },
+    execution: {
+      totalSteps: 1,
+      completedSteps: 1,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 1000,
+      startTime: '2026-08-25T10:00:00.000Z',
+      endTime: '2026-08-25T10:00:01.000Z',
+      targetKind: 'physical',
+      backendUsed: 'appium',
+      deviceId: 'U',
+    },
+    cases: [],
+    metrics: {},
+    environment: {
+      targetKind: 'physical',
+      representativeOfPhysicalDevice: true,
+      comparisonScope: 'physical_only',
+    },
+    artifactRefs: [],
+  };
+  expect(() =>
+    RunResultSchema.parse({ ...base, execution: { ...base.execution, totalSteps: 1.5 } }),
+  ).toThrow();
+  expect(() =>
+    RunResultSchema.parse({ ...base, execution: { ...base.execution, durationMs: -1 } }),
+  ).toThrow();
+});
+
+test('RunResultSchema rejects a device targetKind outside physical|simulator', () => {
+  expect(() =>
+    RunResultSchema.parse({
+      schemaVersion: '2.0',
+      runId: 'run-bad-targetkind',
+      status: 'passed',
+      projectProfileRef: 'profile.json',
+      device: {
+        udid: 'U',
+        name: 'N',
+        model: 'M',
+        osVersion: '18.2',
+        targetKind: 'emulator',
+      },
+      execution: {
+        totalSteps: 1,
+        completedSteps: 1,
+        failedSteps: 0,
+        skippedSteps: 0,
+        durationMs: 1000,
+        startTime: '2026-08-25T10:00:00.000Z',
+        endTime: '2026-08-25T10:00:01.000Z',
+        targetKind: 'physical',
+        backendUsed: 'appium',
+        deviceId: 'U',
+      },
+      cases: [],
+      metrics: {},
+      environment: {
+        targetKind: 'physical',
+        representativeOfPhysicalDevice: true,
+        comparisonScope: 'physical_only',
+      },
+      artifactRefs: [],
+    }),
+  ).toThrow();
+});
+
+test('RunResultSchema rejects an environment missing any required field', () => {
+  const fullEnvironment = {
+    targetKind: 'physical',
+    representativeOfPhysicalDevice: true,
+    comparisonScope: 'physical_only',
+  };
+  for (const omit of ['targetKind', 'representativeOfPhysicalDevice', 'comparisonScope'] as const) {
+    const partial = { ...fullEnvironment };
+    delete partial[omit];
+    expect(() =>
+      RunResultSchema.parse({
+        schemaVersion: '2.0',
+        runId: 'run-bad-env',
+        status: 'passed',
+        projectProfileRef: 'profile.json',
+        device: {
+          udid: 'U',
+          name: 'N',
+          model: 'M',
+          osVersion: '18.2',
+          targetKind: 'physical',
+        },
+        execution: {
+          totalSteps: 1,
+          completedSteps: 1,
+          failedSteps: 0,
+          skippedSteps: 0,
+          durationMs: 1000,
+          startTime: '2026-08-25T10:00:00.000Z',
+          endTime: '2026-08-25T10:00:01.000Z',
+          targetKind: 'physical',
+          backendUsed: 'appium',
+          deviceId: 'U',
+        },
+        cases: [],
+        metrics: {},
+        environment: partial,
+        artifactRefs: [],
+      }),
+    ).toThrow();
+  }
+});
+
+test('FailureExplanationSchema rejects a confidence outside high|medium|low', () => {
+  expect(() =>
+    FailureExplanationSchema.parse({
+      explanationType: 'flaky',
+      summary: 'Rerun passed',
+      evidence: ['art-1'],
+      confidence: 'certain',
+    }),
+  ).toThrow();
+});
+
+test('ExecutionSummarySchema rejects a mode outside xcuitest|device_backend', () => {
+  expect(() =>
+    ExecutionSummarySchema.parse({
+      totalSteps: 1,
+      completedSteps: 1,
+      failedSteps: 0,
+      skippedSteps: 0,
+      durationMs: 1000,
+      startTime: '2026-08-25T10:00:00.000Z',
+      endTime: '2026-08-25T10:00:01.000Z',
+      mode: 'manual',
+      targetKind: 'physical',
+      backendUsed: 'appium',
+      deviceId: 'U',
+    }),
+  ).toThrow();
+});
+
+test('PerformanceMetricsSchema rejects a hitchesSummary outside low|medium|high|inconclusive', () => {
+  expect(() => PerformanceMetricsSchema.parse({ hitchesSummary: 'none' })).toThrow();
+});
+
+test('parseRunResult and parseArtifactIndex throw on non-object input', () => {
+  expect(() => parseRunResult(null)).toThrow();
+  expect(() => parseRunResult('nope')).toThrow();
+  expect(() => parseArtifactIndex(42)).toThrow();
+  expect(() => parseArtifactIndex(undefined)).toThrow();
+});

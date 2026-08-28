@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "itestagent.evidence.manifest.v1",
+  "testId": "t13",
+  "testName": "Renderer cross-evaluation matrix",
+  "renderers": ["ansi", "ink", "opentui"],
+  "capturedAt": "2026-08-26T00:00:00Z",
+  "files": ["ansi.ansi.txt", "ink.ansi.txt", "opentui.ansi.txt", "outcomes.json"]
+}

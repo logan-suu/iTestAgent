@@ -1,0 +1,130 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B15",
+  "baseCommit": "225e2735c4bdfe922d7520c975b75c234dba5c67",
+  "stagedTreeHash": "a2e34a9a96d51f89a20eef02e0316f2f62417817",
+  "baselineMode": "red",
+  "baselineDigest": "a7a436424e3cdc14d0f14ab43ece42c74f02af673797c991ca3c630ac0aa26a8",
+  "greenCommand": "bun run batch:test -- B15",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 225e2735c4bdfe922d7520c975b75c234dba5c67 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B15",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "bun.lock": {
+      "sha256": "5e4620a1e591e80e2f19b0543c89169585705b20545840eb928cfa868fdfe33e",
+      "bytes": 102087
+    },
+    "docs/05-planning/deferred-items.json": {
+      "sha256": "2c5f0447e5b34adca36e44276b95da65c3948a35249fd35175ffd5f8afad1710",
+      "bytes": 38604
+    },
+    "docs/06-verification/migration/allowlists/B15-files.txt": {
+      "sha256": "582e1cfc8ace9d3f9f6cefab9e0692f314bf2c7f588b682b78b0b4e3e658ee46",
+      "bytes": 1104
+    },
+    "docs/decisions/ADR-021-engine-device-appium-edge.md": {
+      "sha256": "ac6d2b520d11194641641fe723f472fdccf5506d982e23f3e0f0b90e5ca5cc28",
+      "bytes": 1717
+    },
+    "packages/itestagent-engine/package.json": {
+      "sha256": "c8fc9dd050a7c57b170ea2ce1d2f59cf31a8413e5794f501ad565e4791961e54",
+      "bytes": 591
+    },
+    "packages/itestagent-engine/src/index.ts": {
+      "sha256": "8c4e1c7e30bda2d1701848d6ddaef929ee135e6d36e99dd45fa96e1cdafc6c9d",
+      "bytes": 4171
+    },
+    "packages/itestagent-engine/src/mvp-run-coordinator.ts": {
+      "sha256": "33a37b9120e2d104e80668fc4a9ba4fbf043826fd5914984f8e826ef72f84a06",
+      "bytes": 1226
+    },
+    "packages/itestagent-engine/src/physical-mvp-adapter.ts": {
+      "sha256": "e4114dca5900b34510c050ea375f497b04dd13bacfe1c7370e7ff0231f29ee57",
+      "bytes": 687
+    },
+    "packages/itestagent-engine/src/physical-mvp-cleanup.ts": {
+      "sha256": "251b39c8880707c88c6cd0d2a2253b9c91ae6f40e6d7cdb378d4c02573cee0df",
+      "bytes": 846
+    },
+    "packages/itestagent-engine/src/physical-mvp-run-coordinator.ts": {
+      "sha256": "a4225c05fc70751f4699639088e8288b5c7ee0542dbac233d5885f253737c316",
+      "bytes": 932
+    },
+    "packages/itestagent-engine/src/physical-mvp-run-support.ts": {
+      "sha256": "ebd38da62d7a10fa2c25dc084b987e4681117b4391cfd6ed806207475f27308b",
+      "bytes": 339
+    },
+    "packages/itestagent-engine/src/simulator-mvp-adapter.ts": {
+      "sha256": "7ad1f1d826d854a3679fb13a3860ac765c40d5c9472180447d1934077bffa49a",
+      "bytes": 529
+    },
+    "packages/itestagent-engine/test/mvp-run-coordinator-security.test.ts": {
+      "sha256": "69b3ba85ae246ff3fd5996f7608aa8d5df9af62ecf38c3c1502a517376616d73",
+      "bytes": 523
+    },
+    "packages/itestagent-engine/test/mvp-run-coordinator-timeout.test.ts": {
+      "sha256": "d0d439c69f6222fe24d596b711a9840b2fc494c5113a46e276df77d3968c8db6",
+      "bytes": 581
+    },
+    "packages/itestagent-engine/test/mvp-run-coordinator.test.ts": {
+      "sha256": "0a57894c8c5ade1c48df84caf857368942a781305ed98f9d15468383d71f878a",
+      "bytes": 686
+    },
+    "packages/itestagent-engine/test/physical-mvp-adapter.test.ts": {
+      "sha256": "4382fd208ac631b2bd240ebcf5d0f10872d2c935cbdc478100ecd4b8b4a59e49",
+      "bytes": 437
+    },
+    "packages/itestagent-engine/test/physical-mvp-cleanup.test.ts": {
+      "sha256": "31429e6a41f913cad2acbd76dc4a00fe53f1b7d558953c09521602f911519ffd",
+      "bytes": 769
+    },
+    "packages/itestagent-engine/test/physical-mvp-run-coordinator.test.ts": {
+      "sha256": "4101bff9573ed8d98429fde555522114f71e611a998c539338033b135d860e89",
+      "bytes": 636
+    },
+    "packages/itestagent-engine/test/simulator-mvp-adapter.test.ts": {
+      "sha256": "863dedf11031cc6f326c9762599ce1312da77db99b2875e3a04945ae33af5449",
+      "bytes": 403
+    },
+    "tests/architecture/allowed-edges.json": {
+      "sha256": "9b6723acce6d2e75cc39aa955afd2b7e22ab57d6ea793911ed5bb4747d2e19d9",
+      "bytes": 2498
+    }
+  },
+  "rollbackTag": "promo/b15-engine-target-execution"
+}

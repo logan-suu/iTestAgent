@@ -1,6 +1,8 @@
 /**
  * XctracePerformanceBackend — PerformanceBackend implementation using xcrun xctrace.
  *
+ * B21 module split: the recording wrapper lives in xctrace-recorder.
+ *
  * Implements the 5-method PerformanceBackend contract (architecture §5.2):
  *   recordTrace / exportTrace / summarizeTrace / symbolicate / compareBaseline
  *

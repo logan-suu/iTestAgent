@@ -1,0 +1,12 @@
+docs/06-verification/migration/B07.json
+docs/06-verification/migration/allowlists/B07-files.txt
+packages/itestagent-store/src/artifact-index-writer.ts
+packages/itestagent-store/src/artifact-integrity.ts
+packages/itestagent-store/src/artifact-store.ts
+packages/itestagent-store/src/index.ts
+packages/itestagent-store/test/artifact-index-writer.test.ts
+packages/itestagent-store/test/artifact-store.test.ts
+packages/itestagent-store/test/bootstrap-isolation.test.ts
+packages/itestagent-store/test/bootstrap.test.ts
+packages/itestagent-store/test/run-store-files.test.ts
+packages/itestagent-store/test/run-store.test.ts

@@ -1,0 +1,94 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B07",
+  "baseCommit": "6763c520a91ee713e1bede83dd47fb47a1120685",
+  "stagedTreeHash": "8e9a5ce830481ead5521c2d7f56cd4d8e7e6eb5b",
+  "baselineMode": "red",
+  "baselineDigest": "1ad0137dee1a66a7912c9118b8adb752a2543a92e77e94cc74dad0e18ec7c022",
+  "greenCommand": "bun run batch:test -- B07",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 6763c520a91ee713e1bede83dd47fb47a1120685 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B07",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B07-files.txt": {
+      "sha256": "534606c1ccf0b72b2010e18cef082526147fd09510a3f89249b8f7691e81fe30",
+      "bytes": 617
+    },
+    "packages/itestagent-store/src/artifact-index-writer.ts": {
+      "sha256": "1172e2de4ca0ea9ac8acf6e06c65b14db9696f1329fd20d7a27f3a9e588f6cd3",
+      "bytes": 2611
+    },
+    "packages/itestagent-store/src/artifact-integrity.ts": {
+      "sha256": "8f99c75b80e4f056917829b544a902c88a4e5567cf469fbea61c3e0c1f7726a4",
+      "bytes": 1994
+    },
+    "packages/itestagent-store/src/artifact-store.ts": {
+      "sha256": "706240623b0018d3e8284b62ab28ee0ea01fe4180bcb0b97804041b091daa11e",
+      "bytes": 6442
+    },
+    "packages/itestagent-store/src/index.ts": {
+      "sha256": "0328624d12081763d4c12fe1dc057ec99c86ea49d7bd58be3e6cc79f13791e5b",
+      "bytes": 1660
+    },
+    "packages/itestagent-store/test/artifact-index-writer.test.ts": {
+      "sha256": "5492daf48885311ed50f5dafd800c1bd1d70b965da4576a98b4a2f49ae8b4b2b",
+      "bytes": 4526
+    },
+    "packages/itestagent-store/test/artifact-store.test.ts": {
+      "sha256": "89fd56534343b44c950c8de048d7b4858217cf1d29cb1c22a66b78920cff3be3",
+      "bytes": 6549
+    },
+    "packages/itestagent-store/test/bootstrap-isolation.test.ts": {
+      "sha256": "67e3222d9e760b1510afec8ee0dd2301e7a4947364f78200be58b96607edbf35",
+      "bytes": 2587
+    },
+    "packages/itestagent-store/test/bootstrap.test.ts": {
+      "sha256": "9c62ab02b848abb847ac19464ddfd2d2611879666f1fa38219a1e335413de278",
+      "bytes": 3456
+    },
+    "packages/itestagent-store/test/run-store-files.test.ts": {
+      "sha256": "65af67e84684caddac0412a770afa3ce9518c874f939cb9a38ea8e3993e1cb47",
+      "bytes": 4959
+    },
+    "packages/itestagent-store/test/run-store.test.ts": {
+      "sha256": "ef81197809cf83d8368a3033fedc28e11d0b151d1ddc860562c00ad0c3a90c1b",
+      "bytes": 10884
+    }
+  },
+  "rollbackTag": "promo/b07-store-artifacts"
+}

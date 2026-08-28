@@ -1,0 +1,78 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B34",
+  "baseCommit": "181a8c89230a2819d2a3dfc03d4c4c503191ecab",
+  "stagedTreeHash": "7c912c3bf97514cdef18ce7289f632cff19828fa",
+  "baselineMode": "red",
+  "baselineDigest": "5003a3ac1c2bda093f7ad4d752807bcd4a5242c67b903950a854cf2734b3217a",
+  "greenCommand": "bun run batch:test -- B34",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 181a8c89230a2819d2a3dfc03d4c4c503191ecab --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B34",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B34-files.txt": {
+      "sha256": "ea7c4305a1f0677f6ef6e7dc48da321573679eff223d662cf7c50f4c44a65fca",
+      "bytes": 433
+    },
+    "packages/itestagent-engine/src/phase5-harness.ts": {
+      "sha256": "97f482b0aec61ec29f892e322b4126fb7af4b20a92dcf2ccab1b67940e6cdb29",
+      "bytes": 441
+    },
+    "tests/integration/phase5/phase5-draft-generation.test.ts": {
+      "sha256": "7f8e2ec8dc247603bb20878430aa85101fb0f27a1fa8986005b26094f5ca865c",
+      "bytes": 8763
+    },
+    "tests/integration/phase5/phase5-explain-rerun.test.ts": {
+      "sha256": "1acb727b8f36a261f858ce54ffcacbca4d9ecce034bdfddab0c4578e512bea61",
+      "bytes": 12466
+    },
+    "tests/integration/phase5/phase5-flow-replay.test.ts": {
+      "sha256": "c3c1406f312f723f062b89288d930628d632b17875ec992e25b5329d69f3457a",
+      "bytes": 9886
+    },
+    "tests/integration/phase5/phase5-schema-contracts.test.ts": {
+      "sha256": "c565a11d5643ca9ce8f980378d2a2c8c05dd51b9e802c7446298754439f3fbd8",
+      "bytes": 16262
+    },
+    "tests/integration/phase5/physical-authorization-persistence.test.ts": {
+      "sha256": "c2d02ba144ffef251ae0e0876dc4d21b498585521f7114712fce3192e382cf79",
+      "bytes": 474
+    }
+  },
+  "rollbackTag": "promo/b34-phase5-harness"
+}

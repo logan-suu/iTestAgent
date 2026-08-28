@@ -334,3 +334,12 @@ describe('generateExportXPaths', () => {
     expect(xpaths.length).toBe(1); // deduplicated
   });
 });
+
+// ─── B21 seam: opening-tag scanner ─────────────────────────────────
+
+describe('B21 seam: opening-tag scanner', () => {
+  it('scans tags through the shared xml module', async () => {
+    const mod = await import('../src/xctrace-xml.js');
+    expect(mod.findOpeningTags('<a/><a/>', 'a')).toHaveLength(2);
+  });
+});

@@ -1,0 +1,98 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B22",
+  "baseCommit": "b1f3353478ba68ccd75a2034ab144d0493b84bd2",
+  "stagedTreeHash": "133dcff8842b771209c4235f6037ccff0cb65d41",
+  "baselineMode": "red",
+  "baselineDigest": "59d6ed3f21cd3faac1b3e6c75c4fd30e8baa23c2908dcda53b8d1567bfd319ef",
+  "greenCommand": "bun run batch:test -- B22",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base b1f3353478ba68ccd75a2034ab144d0493b84bd2 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B22",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B22-files.txt": {
+      "sha256": "69baaa79e5e8741979147130013c887292e506e41bc9d17deb529c1869c8cb1c",
+      "bytes": 1076
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-leaks.ts": {
+      "sha256": "4254f5974c6da580184fbf5fd7c1ae9a5db7bf131e9753c6946f2b275e18ff7e",
+      "bytes": 486
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-parsers.ts": {
+      "sha256": "87a34420c1d9e728a679c598598c7277bc086d0ceae9e9200363f1b6ca0d38ab",
+      "bytes": 1150
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-pid.ts": {
+      "sha256": "8c782d06786f54b7d395091d95aaaaae136378a02767b66ebacaa4731368a06b",
+      "bytes": 752
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-runner.ts": {
+      "sha256": "6f19dd7a0b5cee9a4dd633a57271eeb76acb151b97d9f371bdc6c0fc278d4c76",
+      "bytes": 1575
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-runtime.ts": {
+      "sha256": "9d9cf10b0399bfa3aea5e5d0320ccc8074bb7473e170c63e283ee5b94f1935a5",
+      "bytes": 1413
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-scenario.ts": {
+      "sha256": "faa0b3a43006a7f93dd7296f1922dab6b6552125350dcca80e0992600cf7828e",
+      "bytes": 1316
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/src/memory-profile-types.ts": {
+      "sha256": "d3df1a5bd85820f273f58cd900412aa8f86634e203f045d359712c8891ef5df5",
+      "bytes": 405
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-parsers.test.ts": {
+      "sha256": "9edb1567b6e98919231bedfec1d13d9f926fb9d7520e3438ebae61446d752a4d",
+      "bytes": 1027
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-pid.test.ts": {
+      "sha256": "f3fcdd672198e09c9eae24a39f316a56793098e3534806cd556b7315ba6fd7e3",
+      "bytes": 784
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-runner.test.ts": {
+      "sha256": "343b535d4e90a3af12c6e7f90092227b63f52ac2ad9cf18b89e4db9707da6194",
+      "bytes": 1299
+    },
+    "packages/itestagent-backends/performance-xctrace-analyzer/test/memory-profile-scenario.test.ts": {
+      "sha256": "07e5d4eb7c27f1722829c8e0780c97e93723344f7eaca59af1b03b65ef6ad484",
+      "bytes": 947
+    }
+  },
+  "rollbackTag": "promo/b22-memory-profile-core"
+}

@@ -421,3 +421,13 @@ describe('CP.4: ArtifactStore + Real DB (P1 store → P2/P3)', () => {
     expect(results.some((r) => r.targetKind === 'physical')).toBe(true);
   });
 });
+
+// ─── B33: migration alignment (integration foundation) ─────────────
+
+describe('B33 migration alignment', () => {
+  test('reports the migration-aligned contract surface as coherent', async () => {
+    const mod = await import('../../../packages/itestagent-engine/src/migration-alignment.js');
+    const result = await mod.checkMigrationAlignment();
+    expect(result.ok).toBe(true);
+  });
+});

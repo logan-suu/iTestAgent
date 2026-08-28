@@ -1,0 +1,45 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B11",
+  "baseCommit": "600a9aed9eb49daaa34fc996521ddae2838c5489",
+  "stagedTreeHash": "59ea6cb65726bd0cf1d0874910c54ed3a5d7eb14",
+  "baselineMode": "red",
+  "baselineDigest": "9aa6e009eec5dec3fb489a800bcbbb899f6dbe597410353b01dd825dc296ec31",
+  "greenCommand": "bun run batch:test -- B11",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B11-files.txt": {
+      "sha256": "2c1a7304890b8cca66230d23e628b5d2f0086ea531f889f8f525b5fd502ad500",
+      "bytes": 819
+    },
+    "packages/itestagent-backends/analyzer-xcodeproj/test/pbxproj-parser.test.ts": {
+      "sha256": "06cfb474a715406806ed157e5180fdb381a2aabf8adcfb82136baa389d97719b",
+      "bytes": 8185
+    },
+    "packages/itestagent-backends/analyzer-xcodeproj/test/xcodebuild-exec.test.ts": {
+      "sha256": "61085d43e59270f208697f60e57895c48cc877b4a6bd79df6296c937207c474e",
+      "bytes": 7957
+    },
+    "packages/itestagent-backends/analyzer-xcresult/test/fixtures/mock.xcresult/README.md": {
+      "sha256": "06c8d5b82fefe8ee0a7b972964e9a15e77c7c29642c548649d0e13b416dc592e",
+      "bytes": 1744
+    },
+    "packages/itestagent-backends/device-mock/package.json": {
+      "sha256": "eae5f329ab93d82daa922a5bb3af317abed4a4b9d0bdfa9b851ad2f0a6453a44",
+      "bytes": 400
+    },
+    "packages/itestagent-backends/device-mock/src/fixtures.ts": {
+      "sha256": "616631b623306f562ad5986bf1de2170b1a76bce491f312f30cc991c9cace121",
+      "bytes": 5141
+    },
+    "packages/itestagent-backends/device-mock/test/mock-device-backend-determinism.test.ts": {
+      "sha256": "a987c00ec2f8fa047b516d466cc5aa9229721d875f60c27cdffef20d4a9310f4",
+      "bytes": 7792
+    },
+    "packages/itestagent-backends/device-mock/test/mock-device-backend.test.ts": {
+      "sha256": "cc577d9514e73f360c185b2fc392febb0ce134bc8e8eaa814cbc2570189f58a2",
+      "bytes": 18225
+    }
+  },
+  "rollbackTag": "promo/b11-allowlisted-backends"
+}

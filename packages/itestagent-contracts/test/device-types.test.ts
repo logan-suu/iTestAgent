@@ -1,5 +1,24 @@
 import { expect, test } from 'bun:test';
 import {
+  LogCollectInputSchema as InputsLogCollectSchema,
+  PressButtonInputSchema as InputsPressButtonSchema,
+} from '../src/device-action-inputs.js';
+// B01: schemas moved into focused modules — validate them from their new homes.
+import {
+  ArtifactRefSchema as ArtifactsRefSchema,
+  TargetKindSchema as ArtifactsTargetKindSchema,
+  parseArtifactRef as parseArtifactRefFromArtifacts,
+} from '../src/device-artifacts.js';
+import {
+  BackendCapabilitiesSchema as IdentityCapsSchema,
+  DeviceTargetSchema as IdentityTargetSchema,
+} from '../src/device-identity.js';
+import {
+  CrashSummarySchema as RuntimeCrashSchema,
+  RecordingHandleSchema as RuntimeHandleSchema,
+  UiTreeSnapshotSchema as RuntimeUiTreeSchema,
+} from '../src/device-runtime.js';
+import {
   ActionResultSchema,
   AppInfoSchema,
   ArtifactRefSchema,
@@ -20,6 +39,7 @@ import {
   ScreenshotInputSchema,
   SwipeInputSchema,
   TapInputSchema,
+  TargetKindSchema,
   TerminateAppInputSchema,
   TypeTextInputSchema,
   UiTreeSnapshotSchema,
@@ -281,4 +301,84 @@ test('All input schemas parse valid inputs', () => {
     type: 'syslog',
   });
   expect(logCollect.type).toBe('syslog');
+});
+
+// ─── B01: moved schemas work from their new focused modules ──
+
+test('device-artifacts: TargetKindSchema accepts physical/simulator, rejects emulator', () => {
+  expect(ArtifactsTargetKindSchema.parse('physical')).toBe('physical');
+  expect(ArtifactsTargetKindSchema.parse('simulator')).toBe('simulator');
+  expect(() => ArtifactsTargetKindSchema.parse('emulator')).toThrow();
+});
+
+test('device-types re-exports are the identical objects from the focused modules', () => {
+  expect(ArtifactRefSchema).toBe(ArtifactsRefSchema);
+  expect(parseArtifactRef).toBe(parseArtifactRefFromArtifacts);
+  expect(BackendCapabilitiesSchema).toBe(IdentityCapsSchema);
+  expect(DeviceTargetSchema).toBe(IdentityTargetSchema);
+  expect(UiTreeSnapshotSchema).toBe(RuntimeUiTreeSchema);
+  expect(CrashSummarySchema).toBe(RuntimeCrashSchema);
+  expect(RecordingHandleSchema).toBe(RuntimeHandleSchema);
+  expect(LogCollectInputSchema).toBe(InputsLogCollectSchema);
+  expect(PressButtonInputSchema).toBe(InputsPressButtonSchema);
+});
+
+test('device-identity: BackendCapabilitiesSchema applies documented defaults', () => {
+  const parsed = IdentityCapsSchema.parse({
+    supportedTargetKinds: ['physical', 'simulator'],
+    features: ['tap', 'screenshot'],
+  });
+  expect(parsed.supportsUiTree).toBe(true);
+  expect(parsed.supportsScreenshot).toBe(true);
+  expect(parsed.supportsVideo).toBe(false);
+  expect(parsed.supportsCrashLogs).toBe(false);
+  expect(parsed.supportsLocation).toBe(false);
+  expect(parsed.supportsPush).toBe(false);
+});
+
+test('device-identity: DeviceTargetSchema requires deviceId', () => {
+  expect(IdentityTargetSchema.parse({ deviceId: 'device-1' }).deviceId).toBe('device-1');
+  expect(() => IdentityTargetSchema.parse({})).toThrow();
+});
+
+test('device-runtime: UiTreeSnapshotSchema enforces format enum', () => {
+  const ok = RuntimeUiTreeSchema.parse({
+    raw: '<app>...</app>',
+    format: 'xml',
+    capturedAt: '2026-08-25T00:00:00Z',
+  });
+  expect(ok.format).toBe('xml');
+  expect(() =>
+    RuntimeUiTreeSchema.parse({ raw: '{}', format: 'yaml', capturedAt: '2026-08-25T00:00:00Z' }),
+  ).toThrow();
+});
+
+test('device-runtime: RecordingHandleSchema requires handleId and startedAt', () => {
+  const ok = RuntimeHandleSchema.parse({ handleId: 'rec-1', startedAt: '2026-08-25T00:00:00Z' });
+  expect(ok.handleId).toBe('rec-1');
+  expect(() => RuntimeHandleSchema.parse({ handleId: 'rec-2' })).toThrow();
+  expect(() => RuntimeHandleSchema.parse({ startedAt: '2026-08-25T00:00:00Z' })).toThrow();
+});
+
+test('device-action-inputs: LogCollectInputSchema durationSeconds must be positive int', () => {
+  expect(
+    InputsLogCollectSchema.parse({ deviceId: 'd1', type: 'crashlog', durationSeconds: 30 })
+      .durationSeconds,
+  ).toBe(30);
+  expect(() =>
+    InputsLogCollectSchema.parse({ deviceId: 'd1', type: 'syslog', durationSeconds: 0 }),
+  ).toThrow();
+  expect(() =>
+    InputsLogCollectSchema.parse({ deviceId: 'd1', type: 'syslog', durationSeconds: -5 }),
+  ).toThrow();
+  expect(() =>
+    InputsLogCollectSchema.parse({ deviceId: 'd1', type: 'syslog', durationSeconds: 2.5 }),
+  ).toThrow();
+});
+
+test('device-action-inputs: PressButtonInputSchema enforces button enum', () => {
+  for (const button of ['home', 'back', 'volumeUp', 'volumeDown'] as const) {
+    expect(InputsPressButtonSchema.parse({ deviceId: 'd1', button }).button).toBe(button);
+  }
+  expect(() => InputsPressButtonSchema.parse({ deviceId: 'd1', button: 'lock' })).toThrow();
 });

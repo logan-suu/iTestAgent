@@ -623,3 +623,6 @@ MVP 边界   去风险 MVP：人在环路记录器 + 稳健性能趋势工具；
 ```
 
 一句话给 Agent：**先读规格、先理解项目、小步可验证、真机必实测、不确定就标注、危险操作先确认、命名用 itestagent-\*、能复用绝不自研。**
+## 迁移状态（B39 docs-truth）
+
+能力迁移批次 B00-B38 已全部合入 `feat/mvp-e2e-validation` 的推广分支（`feat/mvp-e2e-promotion`），W3-W13 各批次以 `promo/bXX-*` annotated tag 收尾。本文件随迁移完成同步：ADR-020/021/022/023 已记录，DEF-B15-001 已由 B33 验证关闭。后续 W14-W15（B40-B42）完成后执行 G6 收官。

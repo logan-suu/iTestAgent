@@ -1,0 +1,15 @@
+docs/06-verification/migration/B09.json
+docs/06-verification/migration/allowlists/B09-files.txt
+packages/itestagent-report/package.json
+packages/itestagent-report/src/index.ts
+packages/itestagent-report/src/replay-to-report-adapter.ts
+packages/itestagent-report/src/report-sanitizer.ts
+packages/itestagent-report/src/report-validator.ts
+packages/itestagent-report/src/summary-generator.ts
+packages/itestagent-report/src/synthesizer.ts
+packages/itestagent-report/src/types.ts
+packages/itestagent-report/test/replay-to-report-adapter.test.ts
+packages/itestagent-report/test/report-sanitizer-context.test.ts
+packages/itestagent-report/test/report-trio-atomicity.test.ts
+packages/itestagent-report/test/report-validator-dangling-ref.test.ts
+packages/itestagent-report/test/synthesizer.test.ts

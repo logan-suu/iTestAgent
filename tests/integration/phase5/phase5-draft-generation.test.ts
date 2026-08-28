@@ -227,3 +227,22 @@ describe('Phase 5: Draft Code Generation', () => {
     });
   });
 });
+
+// ─── B25: explain-rerun command seam ───────────────────────────────
+
+describe('B25 explain-rerun seam', () => {
+  it('exposes the explain/rerun command helpers', async () => {
+    const mod = await import('../../../packages/itestagent-cli/src/commands/explain-rerun.js');
+    expect(typeof mod.explainRun).toBe('function');
+    expect(typeof mod.rerunFailed).toBe('function');
+  });
+});
+
+// ─── B34: phase5 harness seam ──────────────────────────────────────
+
+describe('B34 phase5 harness seam', () => {
+  it('reports the phase5 integration surface as coherent', async () => {
+    const mod = await import('../../../packages/itestagent-engine/src/phase5-harness.js');
+    expect(mod.phase5HarnessProbe().ok).toBe(true);
+  });
+});

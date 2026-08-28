@@ -1,0 +1,326 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B00",
+  "baseCommit": "42fa22324d7182e79c215ed96d6ee232a462e512",
+  "stagedTreeHash": "3abac8ebfcbc86b4d8c33d21186dcd8a43c78a04",
+  "baselineMode": "red",
+  "baselineDigest": "e1ad2be5b4b464b53659409f643cb4caf8628e5cd40f845a09fac36037931c6d",
+  "greenCommand": "bun run batch:test -- B00",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 42fa22324d7182e79c215ed96d6ee232a462e512 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B00",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    ".githooks/pre-commit": {
+      "sha256": "e60903ebf060b0a6512ec358a830ad0f1b71b2954e0700c8b7dbd6fd102ab44a",
+      "bytes": 1535
+    },
+    ".githooks/pre-push": {
+      "sha256": "b08e5b65106ba3aaf63e089b3b7445e7f4fde4bb6e46f726dfdcd24b95a3aea5",
+      "bytes": 686
+    },
+    ".gitignore": {
+      "sha256": "06c08cd8acdcdd39dda60eb9d953860454cdb8fd727dd481a34a02d18f4ca23a",
+      "bytes": 654
+    },
+    ".gitleaks.toml": {
+      "sha256": "b365213b9c9a494eef2041855275e29897a3c75426a9ee0c0e176c815ed4f29f",
+      "bytes": 421
+    },
+    "bun.lock": {
+      "sha256": "c67f2021975f22d9b8e1df20ceb477c6e7d589b3556ab7634b6883d4e253aae2",
+      "bytes": 101660
+    },
+    "bunfig.toml": {
+      "sha256": "e0e37ea7f8f52a3b6f888d3255d7423be57d507ea9f4c93b7f347e0a3fe51c81",
+      "bytes": 770
+    },
+    "docs/06-verification/migration/README.md": {
+      "sha256": "d9bc63e290e400f8dc1c009676fa684784ad8db96884388758f09aa012a65bbf",
+      "bytes": 2007
+    },
+    "docs/06-verification/migration/allowlists/B00-files.txt": {
+      "sha256": "a372d388f487a2c2ef5b7ef12f494a5fb8dc303c2198b38278c0cd227b23b14d",
+      "bytes": 2613
+    },
+    "docs/06-verification/migration/manifest.schema.json": {
+      "sha256": "29c3b4aa207e8e972f393415c8bc56b96768fc4a6006def0189155de23130420",
+      "bytes": 3896
+    },
+    "package.json": {
+      "sha256": "0ebd400cbe80ced891a9f40e2ae8c4c158a669ad88bf0a0cdad303e20777930a",
+      "bytes": 1864
+    },
+    "packages/itestagent-tui/package.json": {
+      "sha256": "1cbfed9dac82f612095868b6c339746a1a60f9d16e92fdbe4c2975ab906f247d",
+      "bytes": 919
+    },
+    "packages/itestagent-tui/src/agent-session.ts": {
+      "sha256": "6e2c3af1b3fad2855f40e372520dec32b23aa877c550c830258f0b9adf5616a2",
+      "bytes": 8384
+    },
+    "packages/itestagent-tui/src/entry.ts": {
+      "sha256": "7cec4725a27171562da9cc85b5dddd0dfa331bdb6362b62bf299908315b9d34b",
+      "bytes": 8547
+    },
+    "packages/itestagent-tui/src/renderers/ansi-renderer.ts": {
+      "sha256": "74583d3b2e4412c619329f22bc39ad4c769f4f496ced6f0de82ae762e65ae9f7",
+      "bytes": 5899
+    },
+    "packages/itestagent-tui/src/renderers/ink-renderer.tsx": {
+      "sha256": "ecdb078855ea06bf6daea61a8b8290aa9e129acd24dd387ab0ea83801c559b03",
+      "bytes": 3095
+    },
+    "packages/itestagent-tui/src/renderers/opentui-renderer.tsx": {
+      "sha256": "bf721cdae7864f9655a31da436a502df2052fa22ec6d34643929967225707cb6",
+      "bytes": 15006
+    },
+    "packages/itestagent-tui/test/ansi-renderer.test.ts": {
+      "sha256": "f79fe120285dfd6d29a831fbe116a29527d4819888eb2bd2f7679a920fb851ae",
+      "bytes": 12453
+    },
+    "scripts/assert-verification-missing.ts": {
+      "sha256": "ac45f6bf160356ecb09ac0216fa6d71dce1ffb89adfb64165eef198b21a38b2b",
+      "bytes": 4922
+    },
+    "scripts/ci-shell-prelude.sh": {
+      "sha256": "faa3773fc1b76757264f6a12dc1f4eb89adb639abc7408710c8359c81132b934",
+      "bytes": 1062
+    },
+    "scripts/expected-batch-tag.ts": {
+      "sha256": "46017fcaaafe3f3ff82b1648fbb47fef05c49b310b4aeb49cee88cf053faa3b8",
+      "bytes": 2799
+    },
+    "scripts/generate-evidence.ts": {
+      "sha256": "1702b162ea274bc58c0ec8287552f47c9d34263453c797a6b70f193664605380",
+      "bytes": 2951
+    },
+    "scripts/quarantine-pre-push.sh": {
+      "sha256": "2cbd1078aee1aa14deaeda1395a919f29b08297530de9fce92d873b51e9d54c1",
+      "bytes": 1182
+    },
+    "scripts/read-baseline-receipt.ts": {
+      "sha256": "93910e3b93932a02c519d6f0b14a6ed2147eef7c885202fd085ebdbb20ee75de",
+      "bytes": 2584
+    },
+    "scripts/redact-secrets.ts": {
+      "sha256": "5ed2a328bc196c85e8b9fe5f80ced175ed50326756a6c8f3bc618e4278d5515a",
+      "bytes": 2546
+    },
+    "scripts/run-batch-tests.ts": {
+      "sha256": "9203c93d2d8cf1f9af36f280c0cd9582482af944b3a3eca1f5340e7623a76da9",
+      "bytes": 10347
+    },
+    "scripts/run-precommit-gates.ts": {
+      "sha256": "c237d6c41a1d0c7cc5a3e0bb56a600f80807c4272eb6223a99006cf7d612fdcc",
+      "bytes": 11532
+    },
+    "scripts/safe-file-read.py": {
+      "sha256": "982774dcd75c30db7bf8184b5f1f24e1aef3ab18e7c95f21233c3b6c489b3703",
+      "bytes": 5180
+    },
+    "scripts/safe-receipt.py": {
+      "sha256": "03047d71f136bdf1d09af4aab0a7ecfac76984d8bbdbb924b1ccafee33104be6",
+      "bytes": 12486
+    },
+    "scripts/scan-forbidden-literals.ts": {
+      "sha256": "8391931bd10e8f80e66c233f22ed136323dcfc3e1ebd4aae9d0f7553414ecca3",
+      "bytes": 7042
+    },
+    "scripts/schema-pair-registry.ts": {
+      "sha256": "7a18b4da6f96f61613768b5b696cb10d416767a00a7a0c50b1e4fe5511fc1d12",
+      "bytes": 2758
+    },
+    "scripts/validate-migration-manifest.ts": {
+      "sha256": "33cfdcea1234a4ea5e53dc05631b08b9967b43c920bf5458a7c5bf2ca46e5693",
+      "bytes": 17846
+    },
+    "scripts/verify-approved-lock.ts": {
+      "sha256": "a523f4375917ac646e0907f5c6aacbd5c8423868b872791b53e73f75c534e18e",
+      "bytes": 6633
+    },
+    "scripts/verify-authorized-path.py": {
+      "sha256": "9a9fd21cbed5b34ef3a6ee0c4223127ce27d73bc6f1412a7e2b3149048161769",
+      "bytes": 3726
+    },
+    "scripts/verify-batch-allowlist.ts": {
+      "sha256": "9205d516b72c9cceb6d1b4cd82897a5aa53f684797fd49a508343306d28b1319",
+      "bytes": 6083
+    },
+    "scripts/verify-batch-state.ts": {
+      "sha256": "1901cf62db81a0e1d1f7e5087c3993a6c2b163293bf53cd005b9b37fb1f0123b",
+      "bytes": 6929
+    },
+    "scripts/verify-bun-binary.sh": {
+      "sha256": "d56f08b07417dee155830d9e10e91e9c7a41773db22bd38fec7931d66e1974a5",
+      "bytes": 6804
+    },
+    "scripts/verify-dependency-graph.ts": {
+      "sha256": "07099663a9b8b208ceb816671e174bb6d89278cb13836ac37678e9195fc46d7e",
+      "bytes": 8758
+    },
+    "scripts/verify-evidence.ts": {
+      "sha256": "8fb879d21c5591d9291442777f986cb053df7c92ebfb58aa53dcd1556548b985",
+      "bytes": 6619
+    },
+    "scripts/verify-gitleaks-binary.sh": {
+      "sha256": "2b19f2d2a5a6e76cbe5f4f32f12cd9c67f7732a990ba81ee40fca54345673209",
+      "bytes": 5338
+    },
+    "scripts/verify-lock-invariant.ts": {
+      "sha256": "0180b21436fec62f8cb89a84e66a32cf7e288a53364aff0415641bffb72780ba",
+      "bytes": 2653
+    },
+    "scripts/verify-precommit-receipt.ts": {
+      "sha256": "e6437075f9453116dda55d1ada931c3c7a0087d31169f02f9e46690dd000804e",
+      "bytes": 7287
+    },
+    "scripts/verify-safe-path.ts": {
+      "sha256": "11b6da6f81d538890f143b246e1795066c41e8d99447b2de1cb05a035b8c483f",
+      "bytes": 7715
+    },
+    "scripts/write-migration-manifest.ts": {
+      "sha256": "ecd24490787a1b97af2e7d204c0c2e8cb440d06fea890b1823afff5276be46e6",
+      "bytes": 10107
+    },
+    "tests/architecture/allowed-edges.json": {
+      "sha256": "cd66c254c1b377fdd6eeb90fb9f004d9b001b4cdbd6a99180e1baf1e431fba8a",
+      "bytes": 2410
+    },
+    "tests/architecture/bunfig-policy.test.ts": {
+      "sha256": "5f3eda67a3adacb5952890f639dd88beaedc19b53bc874f5110639460d738049",
+      "bytes": 5380
+    },
+    "tests/architecture/dependency-graph.test.ts": {
+      "sha256": "953722c365834d8e4f9d3bd098b784d3ad1b2efb7f4e1c43da56d86d461b6f44",
+      "bytes": 12973
+    },
+    "tests/architecture/fixtures/known-baseline-edges.json": {
+      "sha256": "3fbbd4c6d76130399b0c79cdf41758669224a91e05b7b216953f0c9728750865",
+      "bytes": 4
+    },
+    "tests/architecture/fixtures/known-undeclared-imports.json": {
+      "sha256": "5845873f4fa252a4675a35bcb807bcca1a0d5ae4af727e16fe9cc3d4d6533920",
+      "bytes": 3464
+    },
+    "tests/architecture/forbidden-literals.test.ts": {
+      "sha256": "ecc6192c6d5d827cf1f95e33dc99e075bc9d043d8fa5cd1e285806fde19b2ed4",
+      "bytes": 5492
+    },
+    "tests/architecture/schema-parity-gate.test.ts": {
+      "sha256": "46d71b33d266a66915a752d41e4dd806c09dac0259f25bda71d0a020ddd6f2b5",
+      "bytes": 10855
+    },
+    "tests/architecture/verification-missing-protocol.test.ts": {
+      "sha256": "4993379adfeecc69ea707d28d62fb80e05cacec6b70cba4e2b0331dd2b591ef7",
+      "bytes": 4068
+    },
+    "tests/security/approved-lock.test.ts": {
+      "sha256": "11f6a6cd21c0069680849469d8f9056948dacaaf6a00928593a751254f7166e1",
+      "bytes": 5830
+    },
+    "tests/security/bun-binary-integrity.test.ts": {
+      "sha256": "cb9fee625ee58a53628d3e755dcb654b0aafe228c192a71e9e062eea4d97d767",
+      "bytes": 8978
+    },
+    "tests/security/fixtures/README.md": {
+      "sha256": "b0b8d6fd3cd9b2957a666fa78bee813285f4833557a4aa115e52b6835490a26d",
+      "bytes": 878
+    },
+    "tests/security/fixtures/lock-missing-integrity.json": {
+      "sha256": "ac6c010767e283e34f7ee6719485c617e9b239c542c257fda6e87ea17580447c",
+      "bytes": 264
+    },
+    "tests/security/fixtures/lock-not-bound.json": {
+      "sha256": "c2392200b52e4ae3761c428b2e763ad51a5fe6ffa185e7a3b052c0b6b77feb8b",
+      "bytes": 294
+    },
+    "tests/security/fixtures/lock-private-registry.json": {
+      "sha256": "a1e6697fbb852b653424a29c7668c92e91dcf47d7116dd81992a9c6f2d3bd2f8",
+      "bytes": 333
+    },
+    "tests/security/fixtures/lock-unlocked-direct.json": {
+      "sha256": "f6b8f964de1c1c5e7764491f3567536c6f12162824c5ae08ca5b82f980279bc0",
+      "bytes": 316
+    },
+    "tests/security/fixtures/lock-valid.json": {
+      "sha256": "72b07e7855c67c198ae90fdb26305e530aa345dbcc08b5711769961a2ca2d3a1",
+      "bytes": 281
+    },
+    "tests/security/fixtures/receipt-g7-false.json": {
+      "sha256": "91f99001de3dc77d2e1c6de2a7320608fc109a56a855af7e722dfcd68ce7c4e7",
+      "bytes": 107
+    },
+    "tests/security/fixtures/receipt-valid-shape.json": {
+      "sha256": "ec1e60a257e216f8f6803a5f11693994bfa141cf5d21e6e726366bf2034adc1f",
+      "bytes": 106
+    },
+    "tests/security/gitleaks-binary-integrity.test.ts": {
+      "sha256": "c8992402e93cbd8452d4b2b13fb0e35e6457f0f96dcb0e1086b72be876f8f5df",
+      "bytes": 7856
+    },
+    "tests/security/gitleaks-scope.test.ts": {
+      "sha256": "7250a2c9d5f838f8d797a4767e0239cb62c9f8fc7c347876310a731727c6b12e",
+      "bytes": 5757
+    },
+    "tests/security/no-secret-echo.test.ts": {
+      "sha256": "e5341966693b1fd90b587493e5d6bcf1f4bef88b388f9c1b091c5e35480bff39",
+      "bytes": 4260
+    },
+    "tests/security/precommit-receipt.test.ts": {
+      "sha256": "99637203f99fffd0de9e4e2c08456da24fb68f330aa92ee3e9a420a52392aac6",
+      "bytes": 10556
+    },
+    "tests/security/quarantine-pre-push.test.ts": {
+      "sha256": "4f0c27675c078ece638c62a2c74e19f2d096c090843bad54412530d46968bed6",
+      "bytes": 7756
+    },
+    "tests/security/safe-file-read-race.test.ts": {
+      "sha256": "38e5079a0af5802732e505dbc6e1f0cc8ab4f9301f298a14291b5d1be8216481",
+      "bytes": 8131
+    },
+    "tests/security/safe-file-read.test.ts": {
+      "sha256": "a33529e016bdb93a7a36a7edc1c561cf801d15b3c95a2e1d3d47f60a65db9447",
+      "bytes": 10974
+    },
+    "tests/security/verify-authorized-path.test.ts": {
+      "sha256": "8dbae6d5bb80207d79f57d44bbebae420bfe0dbd5350a8a55ba5cd0e91778e4d",
+      "bytes": 5674
+    }
+  },
+  "rollbackTag": "promo/b00-baseline-green"
+}

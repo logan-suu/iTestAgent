@@ -59,6 +59,8 @@ export const ProjectGraphSchema = z
     hasXCUITests: z.boolean(),
     /** 是否存在 Unit Test target */
     hasUnitTests: z.boolean(),
+    /** XCUITest target 名称列表（可选；B04 target-explicit 执行的目标来源） */
+    xcuitestTargets: z.array(z.string()).optional(),
   })
   .strict();
 

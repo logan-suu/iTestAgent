@@ -1,0 +1,154 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B12",
+  "baseCommit": "5864b617e5c31d2aaef4cc4ea7e7b9ed313b4a26",
+  "stagedTreeHash": "3961cf3c6c59ecb852c962adc149d8c6c4050cd8",
+  "baselineMode": "red",
+  "baselineDigest": "dcc6fecdf3e98d1b6d0b7a9fd77add190bdce7b8d393bf2494f18892b9ba1d1d",
+  "greenCommand": "bun run batch:test -- B12",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 5864b617e5c31d2aaef4cc4ea7e7b9ed313b4a26 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B12",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B12-files.txt": {
+      "sha256": "b8eeb2273e6e7047b844be0adb1edec63f5cd063f579a4581ad08fa1a509d598",
+      "bytes": 1884
+    },
+    "fixtures/device-responses/devicectl-details-sanitized.txt": {
+      "sha256": "ed86c87cfb3bb496fdb2ed365e6773267f7e1ff4d3e7f41a13b3bde498589b4c",
+      "bytes": 385
+    },
+    "fixtures/device-responses/devicectl-displays-sanitized.json": {
+      "sha256": "9d90cbcad86c072c2e86b776f561036e2e0827e72ab45bc94c0710d1ae9397f1",
+      "bytes": 396
+    },
+    "fixtures/device-responses/devicectl-list-devices-sanitized.json": {
+      "sha256": "6fff49b69089e7e2f5318e5416a88722d1f9bf7c51cf9e3ff01d8ac0b308bba3",
+      "bytes": 1186
+    },
+    "fixtures/device-responses/xctrace-sysmon-nested-sanitized.xml": {
+      "sha256": "b04ed7d939f479125a7b015e7617574fc523f557e8f617a83dd703800fb7f6b1",
+      "bytes": 897
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/app-source-resolver.ts": {
+      "sha256": "3c2625f92d35d946f199b5bffb7d3a46bba6b4c820d3aa6746bf920ab28311ea",
+      "bytes": 6791
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/devicectl-ops.ts": {
+      "sha256": "b29f913283fdb254e5eff0ccc7034ec9b4eccf27bc958fc954a1ddccc9d84715",
+      "bytes": 11437
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/devicectl-output.ts": {
+      "sha256": "39b39ac7909067fbdcb439fafe30ec37976282baede5f25d9c31127923b324d1",
+      "bytes": 2076
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/devicectl-processes.ts": {
+      "sha256": "119ed5429bab202a0fe9929b91675ff52959565c3732b3ef274217c5d104ca8b",
+      "bytes": 6146
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/index.ts": {
+      "sha256": "9d8b956942495ed74f11073965fe7b0ce04ff1f247f5e76a6129f7f7f72d3dfa",
+      "bytes": 2197
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/physical-build.ts": {
+      "sha256": "62e0dafa10f7ede9b13a910b3a06e5b97fcea76962be690e83e34b1d4d9ef8e6",
+      "bytes": 2517
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/simctl-ops.ts": {
+      "sha256": "e9e812ff31169484cdf1a43dc4b8fa6afa7f8ee5168b60b246f4108c9adafbd8",
+      "bytes": 3825
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/simulator-build.ts": {
+      "sha256": "8513b369934411908e344429f7b40985a0503a2d2323a8ad752e2af732691f3c",
+      "bytes": 2510
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/xcodebuild-build-driver.ts": {
+      "sha256": "9240d5ea5a0d535dedc6dd27d4e5fe31bad2b0abe04bdf50bef8032e1bd73be1",
+      "bytes": 19280
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/xcodebuild-driver-support.ts": {
+      "sha256": "d8af1bd02c00371f2bf8447f2336bf680e43dc49625fa575ac8c688ae40022ce",
+      "bytes": 1209
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/xcodebuild-process-types.ts": {
+      "sha256": "8f42886e23dc508703be68dfbb6e468c5fba65ffbc69b65ab2a9d351ffffe850",
+      "bytes": 1041
+    },
+    "packages/itestagent-backends/build-xcodebuild/src/xcodebuild-test-runner.ts": {
+      "sha256": "23067dc82893b568254a3a0a677a95fac63c072939ebc5beef56f73c3e160803",
+      "bytes": 1577
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/app-source-resolver.test.ts": {
+      "sha256": "59b1f4d26040769d82a29ae26333a5efca140b56866c752f22b2a8afc1651865",
+      "bytes": 10342
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/devicectl-ops.test.ts": {
+      "sha256": "c73cd55be7c80de70e4d02f6cc9076f4a4c848357a63a74b8db5a0877395e3f6",
+      "bytes": 12511
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/devicectl-processes.test.ts": {
+      "sha256": "20927c62c5fca3e3342ae08c78a4dc862be1eaddc9a7bb663ee216e6f902a266",
+      "bytes": 4374
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/package-api.test.ts": {
+      "sha256": "5828121c6392df07df1844d1432505a5a291b9bd8fc8558f781a17fcce213405",
+      "bytes": 1155
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/physical-build-artifact.test.ts": {
+      "sha256": "6a9f061b13748c6f08c3b3645aedbe6208df7546d7e2bf75401669b3fc0267ed",
+      "bytes": 3840
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/simctl-ops-process.test.ts": {
+      "sha256": "62bc4e81663b61ac1b721198337d44447693901719930dda4cf1bbf3f00db30d",
+      "bytes": 2133
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/simctl-ops.test.ts": {
+      "sha256": "88c0a22409ae6ccc5dfa3a9116b643f93cbd9da9b661bb207cec749e8adc05bc",
+      "bytes": 3897
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/simulator-build.test.ts": {
+      "sha256": "ff4d85182849f51852406e0f529b82edf88497e584f010b4517b12e15fc55c27",
+      "bytes": 3713
+    },
+    "packages/itestagent-backends/build-xcodebuild/test/xcodebuild-build-driver.test.ts": {
+      "sha256": "2f0dfc8415a1e8393da2e44862cc05e4c211b049f604cc899e69a232b7aea97b",
+      "bytes": 38087
+    }
+  },
+  "rollbackTag": "promo/b12-build-xcodebuild"
+}

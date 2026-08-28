@@ -53,16 +53,26 @@ export {
   ArtifactTypeSchema,
   RedactionStatusSchema,
   ArtifactRefSchema,
+  parseArtifactRef,
+} from './device-artifacts.js';
+
+export {
   DeviceInfoSchema,
   DeviceSnapshotSchema,
   DeviceTargetSchema,
   HealthCheckResultSchema,
   BackendCapabilitiesSchema,
   AppInfoSchema,
+} from './device-types.js';
+
+export {
   ActionResultSchema,
   UiTreeSnapshotSchema,
   CrashSummarySchema,
   RecordingHandleSchema,
+} from './device-runtime.js';
+
+export {
   LaunchAppInputSchema,
   TerminateAppInputSchema,
   TapInputSchema,
@@ -73,8 +83,7 @@ export {
   ScreenshotInputSchema,
   RecordingInputSchema,
   LogCollectInputSchema,
-  parseArtifactRef,
-} from './device-types.js';
+} from './device-action-inputs.js';
 
 export {
   ToolCallSchema,
@@ -96,16 +105,25 @@ export type {
   ArtifactType,
   RedactionStatus,
   ArtifactRef,
+} from './device-artifacts.js';
+
+export type {
   DeviceInfo,
   DeviceSnapshot,
   DeviceTarget,
   HealthCheckResult,
   BackendCapabilities,
   AppInfo,
+} from './device-types.js';
+
+export type {
   ActionResult,
   UiTreeSnapshot,
   CrashSummary,
   RecordingHandle,
+} from './device-runtime.js';
+
+export type {
   LaunchAppInput,
   TerminateAppInput,
   TapInput,
@@ -116,7 +134,7 @@ export type {
   ScreenshotInput,
   RecordingInput,
   LogCollectInput,
-} from './device-types.js';
+} from './device-action-inputs.js';
 
 export {
   BuildDoctorResultSchema,
@@ -129,6 +147,7 @@ export {
   TestResultSchema,
   ArchiveInputSchema,
   ArchiveResultSchema,
+  BuildDestinationSchema,
 } from './build-driver.js';
 
 export type {
@@ -142,6 +161,7 @@ export type {
   TestResult,
   ArchiveInput,
   ArchiveResult,
+  BuildDestination,
 } from './build-driver.js';
 
 export type { BuildDriver } from './build-driver.js';
@@ -237,15 +257,19 @@ export type {
   PerformanceBackend,
 } from './performance-backend.js';
 
-export { ArtifactInputSchema } from './store-driver.js';
+export { ArtifactInputSchema, StoredRunPlanInputSchema } from './store-driver.js';
 
 export type {
   ArtifactInput,
+  StoredRunPlanInput,
   StoreDriver,
   SecretStore,
   ArtifactStore,
 } from './store-driver.js';
 
+// B03 (guide §11.4 "result+artifact-index→B03"): the data-contracts schemas
+// live in focused modules now; data-contracts.ts re-exports them for
+// backwards compatibility.
 export {
   RunStatusSchema,
   PerformanceMetricsSchema,
@@ -254,11 +278,9 @@ export {
   FailureExplanationSchema,
   RunStepSchema,
   RunResultSchema,
-  ArtifactIndexSchema,
   DEFAULT_SCHEMA_VERSION,
   parseRunResult,
-  parseArtifactIndex,
-} from './data-contracts.js';
+} from './run-result-contracts.js';
 
 export type {
   RunStatus,
@@ -268,8 +290,24 @@ export type {
   FailureExplanation,
   RunStep,
   RunResult,
-  ArtifactIndex,
-} from './data-contracts.js';
+} from './run-result-contracts.js';
+
+export { ArtifactIndexSchema, parseArtifactIndex } from './artifact-index-contract.js';
+
+export type { ArtifactIndex } from './artifact-index-contract.js';
+
+export {
+  CrossFieldValidationError,
+  assertValidRunResultArtifactIndexPair,
+  findDuplicateArtifactIds,
+  findDuplicateArtifactRefs,
+  findDuplicateCaseIds,
+  findUnresolvedArtifactRefs,
+  parseValidatedRunResultPair,
+  validateRunResultArtifactIndexPair,
+} from './json-schema-cross-field.js';
+
+export type { CrossFieldIssue } from './json-schema-cross-field.js';
 
 export {
   ScopeSchema,
@@ -303,7 +341,10 @@ export {
   ArtifactPolicySchema,
   PerformancePlanSchema,
   PermissionPolicyRefSchema,
+  XcuitestTargetSchema,
   TestPlanSchema,
+  TEST_PLAN_SCHEMA_VERSION,
+  TEST_PLAN_METRIC_VALUES,
   parseTestPlan,
   safeParseTestPlan,
 } from './test-plan.js';
@@ -321,8 +362,58 @@ export type {
   ArtifactPolicy,
   PerformancePlan,
   PermissionPolicyRef,
+  XcuitestTarget,
+  TestPlanMetric,
   TestPlan,
 } from './test-plan.js';
+
+// B04 (guide §11.3 "TestPlan/target execution"): cross-field validation,
+// MVP execution compiler, and the physical Route C/B contract vocabulary.
+export {
+  TEST_PLAN_VALIDATION_ISSUE_CODES,
+  validateTestPlan,
+  assertValidTestPlan,
+  TestPlanValidationError,
+} from './test-plan-validation.js';
+
+export type {
+  TestPlanValidationIssueCode,
+  TestPlanValidationIssue,
+} from './test-plan-validation.js';
+
+export {
+  MVP_EXECUTION_PATH_VALUES,
+  MvpExecutionPathSchema,
+  MvpDeviceSelectorSchema,
+  MvpExecutionInputSchema,
+  compileMvpExecution,
+  MvpCompilationError,
+} from './mvp-execution.js';
+
+export type {
+  MvpExecutionPath,
+  MvpDeviceSelector,
+  MvpExecutionInput,
+} from './mvp-execution.js';
+
+export {
+  PHYSICAL_ROUTE_VALUES,
+  PhysicalRouteSchema,
+  WDA_LIFECYCLE_ROLE_VALUES,
+  WdaLifecycleRoleSchema,
+  PhysicalIdentitySchema,
+  PHYSICAL_CONTRACT_ISSUE_CODES,
+  validatePhysicalMvpContract,
+} from './physical-mvp.js';
+
+export type {
+  PhysicalRoute,
+  WdaLifecycleRole,
+  PhysicalIdentity,
+  PhysicalMvpContractInput,
+  PhysicalMvpContractIssueCode,
+  PhysicalMvpContractIssue,
+} from './physical-mvp.js';
 
 export {
   AssertionConditionTypeSchema,
@@ -404,3 +495,7 @@ export type {
 } from './baseline-store.js';
 
 export { createId } from './ids.js';
+
+// B37 (guide §9 Stage 2A): persisted schema migration types (generic only —
+// scenario symbols stay behind the scenarios subpath, ADR-020).
+export type { MigrationIssue, MigrationResult } from './migrations/types.js';

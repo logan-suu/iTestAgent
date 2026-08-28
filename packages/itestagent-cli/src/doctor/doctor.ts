@@ -1,3 +1,6 @@
+/**
+ * B18 module split: doctor orchestration stays here; the doctor-devices command wiring lives in commands/doctor-devices.ts.
+ */
 import { checkAppium } from './checks/check-appium.js';
 import { checkCommandLineTools } from './checks/check-clt.js';
 import { checkPhysicalDevice } from './checks/check-device-physical.js';

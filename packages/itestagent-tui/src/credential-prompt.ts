@@ -14,6 +14,11 @@
  * R6: Sensitive data never logged, persisted in plaintext, or included in reports.
  */
 import type { CredentialKind, CredentialRequest, CredentialResponse } from 'itestagent-contracts';
+import {
+  KEYCHAIN_ACCESS_CONTROL,
+  type KeychainTarget,
+  PERSISTENCE_CONFIRMATION_TOKEN,
+} from './keychain-persistence.js';
 
 // ─── Public API ──────────────────────────────────────────────
 
@@ -101,4 +106,45 @@ export function validateCredentialInput(
   }
 
   return { valid: true };
+}
+
+// ─── Persistence authorization notice (guide §6.4) ──────────
+
+/** Shell-safe double-quoted fragment for revocation commands. */
+function shellQuote(value: string): string {
+  return `"${value.replace(/(["$`\\])/g, '\\$1')}"`;
+}
+
+/**
+ * Format the revocation command for a persisted Keychain item.
+ *
+ * Part of the §6.4 confirmation disclosure: the user must see HOW to undo
+ * the persistence before agreeing to it.
+ */
+export function formatRevocationCommand(service: string, account: string): string {
+  return `security delete-generic-password -s ${shellQuote(service)} -a ${shellQuote(account)}`;
+}
+
+/**
+ * Format the full persistence authorization notice shown BEFORE any save.
+ *
+ * §6.4: every first save must display scope/service/account/revocation and
+ * obtain an explicit interactive confirmation. The notice never receives —
+ * and therefore can never leak — the secret itself.
+ */
+export function formatPersistenceAuthorizationNotice(
+  target: Pick<KeychainTarget, 'service' | 'account'>,
+): readonly string[] {
+  const scopeLine =
+    KEYCHAIN_ACCESS_CONTROL.synchronizable === false && KEYCHAIN_ACCESS_CONTROL.deviceLocal === true
+      ? 'Scope: device-local Keychain item (non-sync, when-unlocked access control).'
+      : 'Scope: Keychain item.';
+  return [
+    'Saving to the macOS Keychain is a high-risk operation and requires your explicit confirmation.',
+    scopeLine,
+    `Service: ${target.service}`,
+    `Account: ${target.account}`,
+    `Revoke later with: ${formatRevocationCommand(target.service, target.account)}`,
+    `Type "${PERSISTENCE_CONFIRMATION_TOKEN}" to confirm, or deny to keep this credential memory-only.`,
+  ];
 }

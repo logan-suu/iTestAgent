@@ -1,0 +1,94 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B39",
+  "baseCommit": "8f0c9b07845114903af514b2f95fba891c59bff2",
+  "stagedTreeHash": "22468c615af96a4633c18a1a75b6ee17e0167102",
+  "baselineMode": "red",
+  "baselineDigest": "85a28b1a1fe4df42985bf88a2dcfc76d81ba0971ce2915b653e82c70014fb5d7",
+  "greenCommand": "bun run batch:test -- B39",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 8f0c9b07845114903af514b2f95fba891c59bff2 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B39",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "AGENTS.md": {
+      "sha256": "cd4a7d8d472ef65ef163e5965d51ed883db14907d0d508819a97d52a8c61d64c",
+      "bytes": 32899
+    },
+    "docs/05-planning/deferred-items.json": {
+      "sha256": "b6d9379ec1170ef7aa2b5c95219b4f1f236952cdef2e1f7d0e8cb9cf72c5fcfe",
+      "bytes": 38657
+    },
+    "docs/05-planning/task-status.json": {
+      "sha256": "40a0383b9e0b7fadcbbf2763d5e4d57a30c3dd92eb772758dfdb5b274116c7d8",
+      "bytes": 74320
+    },
+    "docs/06-verification/migration/allowlists/B39-files.txt": {
+      "sha256": "4674f7c70588c9ca2b8209a7ff20973d1cb619be722b9e8f0ab6bdb87e580f0c",
+      "bytes": 676
+    },
+    "docs/INDEX.md": {
+      "sha256": "df7f908ff0b0ed39babf309a94d5814ebe3c45e0ac02b35417610e727a4a5a86",
+      "bytes": 11240
+    },
+    "docs/decisions/ADR-020-scenario-contract-transition.md": {
+      "sha256": "9354a747430e7785ba4f7c55dc46a82a01c59608352260b1a59341d3d10bc651",
+      "bytes": 4013
+    },
+    "docs/decisions/ADR-021-engine-device-appium-edge.md": {
+      "sha256": "0213780491f090b0a9e30f120dc8e706a84f5f50ca071b2f617b69dfc38f4160",
+      "bytes": 1876
+    },
+    "docs/decisions/ADR-022-persisted-schema-migrations.md": {
+      "sha256": "d75fac0967f5295e00a705f99b5e6147daeeba221cce3e7f73970f53debbd6cf",
+      "bytes": 1770
+    },
+    "docs/decisions/ADR-023-process-ownership-boundary.md": {
+      "sha256": "eb162853b67d5a9313e40c6b070bc808b13c2d1ce6efde7da28bdaab6baf7cd1",
+      "bytes": 1361
+    },
+    "scripts/run-batch-tests.ts": {
+      "sha256": "7fbea8a79c41a514fa5486c99daf3dd22daf52ccc9cf23ae902361016ca41ee8",
+      "bytes": 10734
+    },
+    "scripts/verify-batch-allowlist.ts": {
+      "sha256": "f4910c74392609bdd67d5e0e90a15d45aa39fa0fe51564ad4c0f7a5ab8afa0c9",
+      "bytes": 6275
+    }
+  },
+  "rollbackTag": "promo/b39-docs-truth"
+}

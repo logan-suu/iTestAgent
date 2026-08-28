@@ -1,0 +1,17 @@
+docs/06-verification/migration/B05.json
+docs/06-verification/migration/allowlists/B05-files.txt
+packages/itestagent-contracts/package.json
+packages/itestagent-contracts/src/analysis.ts
+packages/itestagent-contracts/src/scenarios/feed-memory-outcomes.ts
+packages/itestagent-contracts/src/scenarios/feed-memory.ts
+packages/itestagent-contracts/src/scenarios/index.ts
+packages/itestagent-contracts/src/scenarios/memory-profile.ts
+packages/itestagent-contracts/test/analysis.test.ts
+packages/itestagent-contracts/test/feed-memory-outcomes.test.ts
+packages/itestagent-contracts/test/feed-memory.test.ts
+packages/itestagent-contracts/test/memory-profile.test.ts
+packages/itestagent-contracts/test/scenario-isolation.test.ts
+schemas/scenarios/feed-memory.schema.json
+schemas/scenarios/memory-profile.schema.json
+scripts/scan-forbidden-literals.ts
+tests/architecture/forbidden-literals.test.ts

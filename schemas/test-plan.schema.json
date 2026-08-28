@@ -178,6 +178,15 @@
             "type": "string",
             "enum": ["launch_time", "memory_peak", "crash", "test_duration", "hitches", "fps", "xctrace_summary"]
           }
+        },
+        "xcuitest": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Explicit XCUITest target override (target-explicit principle). Presence of scheme signals an XCUITest lane at the contracts layer.",
+          "properties": {
+            "scheme": { "type": "string" },
+            "configuration": { "type": "string" }
+          }
         }
       },
       "required": ["prefer", "fallback", "features", "testData", "assertion"]

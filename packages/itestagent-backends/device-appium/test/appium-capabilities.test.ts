@@ -264,3 +264,14 @@ describe('buildPhysicalCapabilities — common options', () => {
     expect(caps['appium:webDriverAgentUrl']).toBeUndefined();
   });
 });
+
+// ─── B13 seam: WDA active-application parser ───────────────────────
+
+describe('B13 seam: WDA active-application parser', () => {
+  it('parses the active bundle id from a status payload', async () => {
+    const mod = await import('../src/wda-active-application.js');
+    expect(mod.parseActiveBundleId('{"value":{"activeApp":"com.example.fixture"}}')).toBe(
+      'com.example.fixture',
+    );
+  });
+});

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-07-29T16:30:00.000Z",
+  "last_updated": "2026-08-26T12:30:00Z",
   "items": [
     {
       "id": "DEF-001",
@@ -491,6 +491,31 @@
       "created_at": "2026-07-29T00:00:00.000Z",
       "notes": "Deferred from PR #54 review. The compat overload was added in Phase R-4 to preserve backward compatibility with existing callers in integration and unit tests. A full migration to explicit new API requires coordinated changes across session-manager, run-state-machine tests, integration tests (phase1, cross-phase, CP.3), and TUI contracts tests.",
       "resolved_at": "2026-07-30T23:30:00.000Z"
+    },
+    {
+      "id": "DEF-B15-001",
+      "source": "self-check",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": "B15",
+      "severity": "minor",
+      "item": "engine-to-device-appium edge needs integration verification in B33",
+      "detail": "B15 introduces the itestagent-engine -> itestagent-backends/device-appium workspace edge. The coordinator composes injected adapters; the end-to-end physical/simulator MVP run lane must be verified in the W6 B33 cross-phase integration (ADR-021).",
+      "target_phase": 6,
+      "status": "resolved",
+      "created_at": "2026-08-26T15:35:22.000Z",
+      "resolved_by": "B33",
+      "resolved_on": "2026-08-26"
+    },
+    {
+      "id": "DEF-G5-001",
+      "title": "Physical G5 blocked by AUT and independent WDA signing chains",
+      "detail": "B42 attestation records the physical G5 blockers (AUT signing chain, independent WDA signing chain) per appendix B.3; completion requires real-iPhone spike once signing is unblocked.",
+      "status": "open",
+      "source": "B42",
+      "target_phase": "W15"
     }
   ]
 }

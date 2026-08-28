@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FeedMemoryScenario",
+  "type": "object",
+  "properties": {
+    "kind": { "const": "feed-memory" },
+    "runId": { "type": "string" }
+  },
+  "required": ["kind", "runId"]
+}

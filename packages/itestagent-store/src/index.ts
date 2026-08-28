@@ -6,6 +6,17 @@ export { initStore, resolveStoreRoot, STORE_DIRS } from './bootstrap.js';
 export { createDb, type DbClient } from './db.js';
 export { createStoreDriver } from './store-driver.js';
 export { createArtifactStore, createPersistentArtifactStore } from './artifact-store.js';
+export {
+  measureBufferSha256,
+  measureFileSha256,
+  measureFileSyncSha256,
+  verifyFileSha256,
+} from './artifact-integrity.js';
+export {
+  ARTIFACT_INDEX_FILENAME,
+  writeArtifactIndex,
+  type ArtifactIndexWriteResult,
+} from './artifact-index-writer.js';
 export { createBaselineStore } from './baseline-store.js';
 export type { FileSystem } from './baseline-store.js';
 export { createRunStore, createDefaultRunStore } from './run-store.js';

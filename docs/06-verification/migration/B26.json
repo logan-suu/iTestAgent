@@ -1,0 +1,41 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B26",
+  "baseCommit": "d5814e05812facfff3fdb107eb42ed624fec95c3",
+  "stagedTreeHash": "aa4026a4d00dd38022ee10ed595587aac44ff23a",
+  "baselineMode": "characterization",
+  "baselineDigest": "988c1edf52cd5c15aad42f5475ebe611ccbfb20d235659ee92d65fe19a8570fe",
+  "greenCommand": "bun run batch:test -- B26",
+  "greenExit": 0,
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B26-files.txt": {
+      "sha256": "5e865d12ec53c275bf256c0d6c96cf2d5381e0907c6d682dd148ab7de480569a",
+      "bytes": 463
+    },
+    "packages/itestagent-tui/test/agent-session.test.ts": {
+      "sha256": "03bdf006e2f1f84af7c0166f2eaafc067f484fa5c388ea2bb21bc585a65656f7",
+      "bytes": 17706
+    },
+    "packages/itestagent-tui/test/ansi-renderer.test.ts": {
+      "sha256": "5fed793f13edceeee29c4e41ba68571d4ac0f2cc3fa16b25189030677382b0a0",
+      "bytes": 11900
+    },
+    "packages/itestagent-tui/test/fixtures/agent-session-characterization.ts": {
+      "sha256": "e951fa292ad1f1ff7c3840e4ee15fd60f452515fa10270cebc943e9951becf09",
+      "bytes": 8903
+    },
+    "packages/itestagent-tui/test/fixtures/ansi-renderer-characterization.ts": {
+      "sha256": "c61a65dfa042acad1c2b77459b2c3b785f44ceac7c5320bbaf02393b17b30a32",
+      "bytes": 5620
+    },
+    "packages/itestagent-tui/test/fixtures/ink-renderer-characterization.ts": {
+      "sha256": "c14d2f990758cc5da6f7114b902cbc06c24450e541d89d3cab0591b439a21bb7",
+      "bytes": 3946
+    },
+    "packages/itestagent-tui/test/ink-renderer.test.ts": {
+      "sha256": "f8a00247f4c73d18d899ba4adcbbfea5f987853f222fa09c2c2c2d438585927e",
+      "bytes": 9888
+    }
+  },
+  "rollbackTag": "promo/b26-tui-characterization"
+}

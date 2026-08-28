@@ -1,4 +1,6 @@
 /**
+ *
+ * B18 module split: healthcheck stays here; discovery parsing lives in physical-discovery-parser.
  * Device healthcheck — verify device readiness before execution.
  *
  * US-2.2 AC1: auto healthcheck before execution:

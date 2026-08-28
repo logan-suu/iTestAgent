@@ -1,0 +1,16 @@
+docs/06-verification/migration/B30.json
+docs/06-verification/migration/allowlists/B30-files.txt
+packages/itestagent-tui/src/ansi-plan-frame.ts
+packages/itestagent-tui/src/memory-profile-plan-review.ts
+packages/itestagent-tui/src/physical-plan-review.ts
+packages/itestagent-tui/src/plan-review-intent.ts
+packages/itestagent-tui/src/plan-review-port-selection.ts
+packages/itestagent-tui/src/plan-review.ts
+packages/itestagent-tui/src/renderers/plan-review-panel.tsx
+packages/itestagent-tui/src/simulator-plan-review.ts
+packages/itestagent-tui/src/tui-plan-review-port.ts
+packages/itestagent-tui/test/memory-profile-plan-review.test.ts
+packages/itestagent-tui/test/plan-review.test.ts
+packages/itestagent-tui/test/simulator-plan-review.test.ts
+packages/itestagent-tui/test/tui-plan-review-port.test.ts
+packages/itestagent-tui/test/tui-shell-plan.test.ts

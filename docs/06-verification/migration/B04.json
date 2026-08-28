@@ -1,0 +1,126 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B04",
+  "baseCommit": "908632bbc3faeb701b920910e6bd5b25a0b85fbd",
+  "stagedTreeHash": "7acd563ebb863a97cdd18c99cd9a1b0b3f7264fc",
+  "baselineMode": "red",
+  "baselineDigest": "d7fafc28df525f5debe53a11fbd8c7663bd29a72cf719fa975d297ba62573db8",
+  "greenCommand": "bun run batch:test -- B04",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base 908632bbc3faeb701b920910e6bd5b25a0b85fbd --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B04",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B04-files.txt": {
+      "sha256": "a3b6c7f1339b544050961f34fdcf50f55febae5c9f6f2b0279338987897ea7fb",
+      "bytes": 1080
+    },
+    "docs/decisions/ADR-020-scenario-contract-transition.md": {
+      "sha256": "8bca5fce8bfa96d74f2d74cac4afb5187e5e3f58c4cd6eceaa9c6c2c7fca37c4",
+      "bytes": 3819
+    },
+    "packages/itestagent-contracts/src/build-driver.ts": {
+      "sha256": "31e6f54203acbcb4cba53a4ddced6ae79c5fb36c8cc2bd304335deb00a90d573",
+      "bytes": 6371
+    },
+    "packages/itestagent-contracts/src/index.ts": {
+      "sha256": "c687e731860b5648e45c7e68ef6901824fd0a1c875b8396af4d74474511eec32",
+      "bytes": 10282
+    },
+    "packages/itestagent-contracts/src/mvp-execution.ts": {
+      "sha256": "35b38e4d78b936044c44298f81eca2be02a21cb121fd77a2fb9ace37d1179bb4",
+      "bytes": 5276
+    },
+    "packages/itestagent-contracts/src/performance-backend.ts": {
+      "sha256": "875bbd5ab88861f5e51832c5b8942acc53381d2ee7af29b5d9f2ab99a8bb1dd2",
+      "bytes": 8364
+    },
+    "packages/itestagent-contracts/src/physical-mvp.ts": {
+      "sha256": "ab0a9bb91eff4a5fc9f901ccc4b22bb201d6113734f636f4140e7847c75a5c29",
+      "bytes": 3241
+    },
+    "packages/itestagent-contracts/src/project-analyzer-backend.ts": {
+      "sha256": "00e2dd38110a01ce30df2a4b7d8337382b5905eec8ef4478b462f93f60f5e754",
+      "bytes": 6977
+    },
+    "packages/itestagent-contracts/src/store-driver.ts": {
+      "sha256": "c5f026091d076540140751d47aefdb6467d512dc432c61c894d99c09b70e2c22",
+      "bytes": 4228
+    },
+    "packages/itestagent-contracts/src/test-plan-validation.ts": {
+      "sha256": "5f773495212d07f89700c81eb4ee8c2096fad5d600dd50c26b565e5bb3417af6",
+      "bytes": 5656
+    },
+    "packages/itestagent-contracts/src/test-plan.ts": {
+      "sha256": "af6bd1e7e7d0e5bfcf6544337578a8303985b41b2c9aa937a09356662bb909c6",
+      "bytes": 9913
+    },
+    "packages/itestagent-contracts/test/mvp-execution.test.ts": {
+      "sha256": "684dddb98b1ff31621877e28a5314d80c34fa5bb9ac351b7da92dc72eb4f6327",
+      "bytes": 6227
+    },
+    "packages/itestagent-contracts/test/test-plan.component-schemas.test.ts": {
+      "sha256": "c7dd11ecae9fc71a958f496a42ffcb82aa2f1e5deb5a9e979776637950c1089a",
+      "bytes": 9366
+    },
+    "packages/itestagent-contracts/test/test-plan.fixture.ts": {
+      "sha256": "164098307a1d8845e26db479c023c89cc553090e5af9536757a0bc3a30c4bc85",
+      "bytes": 5187
+    },
+    "packages/itestagent-contracts/test/test-plan.mvp-consistency.test.ts": {
+      "sha256": "6733517c1f5bca68e9831eb59ed5e11ebf3425a108b1fa49d13e10c8aeec8178",
+      "bytes": 7984
+    },
+    "packages/itestagent-contracts/test/test-plan.mvp-execution.test.ts": {
+      "sha256": "91520d5c0718e051203b99c691d09c0d2b64fa8d2e38b2fcb5ce14d6faf22656",
+      "bytes": 2978
+    },
+    "packages/itestagent-contracts/test/test-plan.root.test.ts": {
+      "sha256": "51f3c0baecedcace70150d8238bb47810b68e8d8641c0812377497e96ae296dc",
+      "bytes": 5659
+    },
+    "packages/itestagent-contracts/test/test-plan.test.ts": {
+      "sha256": "2a30c091c525e9a236ef6f020c4e7e76a0eafdec6857437674f224bf52dd33b3",
+      "bytes": 1434
+    },
+    "schemas/test-plan.schema.json": {
+      "sha256": "17624ccc1aa909c7b5c24dcd7d66a650a1099dfba84caa9b44b2bfc45fc503c1",
+      "bytes": 9416
+    }
+  },
+  "rollbackTag": "promo/b04-contracts-test-plan"
+}

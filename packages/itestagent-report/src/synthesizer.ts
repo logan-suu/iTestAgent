@@ -1,3 +1,8 @@
+/**
+ * Report synthesizer — B09 module split note: report text sanitization lives in
+ * report-sanitizer and trio validation in report-validator; this module stays
+ * the three-piece synthesis engine.
+ */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 

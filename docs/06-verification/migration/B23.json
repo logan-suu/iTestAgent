@@ -1,0 +1,166 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B23",
+  "baseCommit": "d04eb153ea0aa13c56cd5d1e633e553a1f1aa0ff",
+  "stagedTreeHash": "694c2e5cbfe614b26347eab49bfce4857727241b",
+  "baselineMode": "red",
+  "baselineDigest": "34fff9465ad59584422d33d5fdf7c9be3007c4a8ca58fb7772b26cf34d86ab6f",
+  "greenCommand": "bun run batch:test -- B23",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base d04eb153ea0aa13c56cd5d1e633e553a1f1aa0ff --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B23",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B23-files.txt": {
+      "sha256": "7d3d7a7f17aebf361d16b79be0752367befd51af2893181874e0b59e46b4d3ad",
+      "bytes": 1789
+    },
+    "packages/itestagent-cli/src/memory-profile-appium-derived-data.ts": {
+      "sha256": "4abdc73f917792ade5fe0ed2d20d20ba4321b6a86c9b4e172718a55f21bac747",
+      "bytes": 213
+    },
+    "packages/itestagent-cli/src/memory-profile-appium.ts": {
+      "sha256": "adf05e3f6b0d67a1b4882add5072b806215eed6c606a47d42993fb246b68c6da",
+      "bytes": 168
+    },
+    "packages/itestagent-cli/src/memory-profile-artifacts.ts": {
+      "sha256": "59481fc7b6c0cf0b74680518184b11308e91b2873d4d279ffc77c1e7c67d5b2f",
+      "bytes": 196
+    },
+    "packages/itestagent-cli/src/memory-profile-debug-signing.ts": {
+      "sha256": "147866ee3d7d093b98b1f602ce3c507535695514d4a7165433784cb7a4f132b6",
+      "bytes": 203
+    },
+    "packages/itestagent-cli/src/memory-profile-default-runtime.ts": {
+      "sha256": "1e6f4167583e0e2f19a7ade507183626077551bf459b90944748ed9bab9d3789",
+      "bytes": 143
+    },
+    "packages/itestagent-cli/src/memory-profile-factory.ts": {
+      "sha256": "82f1db9e313f00a7813c17309dc13972c24019f342b5b35a2bb0fc2f310e9cbe",
+      "bytes": 181
+    },
+    "packages/itestagent-cli/src/memory-profile-markers.ts": {
+      "sha256": "f56268b62b32e2874c7aee6332780c329b710f57aae1dfacc8598f37823ade13",
+      "bytes": 150
+    },
+    "packages/itestagent-cli/src/memory-profile-preparation.ts": {
+      "sha256": "b610b360d990c2ec948bd5f4efb00403d9f09bdee96c7f2350e0f0a0b45508cc",
+      "bytes": 172
+    },
+    "packages/itestagent-cli/src/memory-profile-production-types.ts": {
+      "sha256": "fb58606bc600d51214620fd09e1c8f07b6b2335a2202294c28169fd7e9c8bcb6",
+      "bytes": 129
+    },
+    "packages/itestagent-cli/src/memory-profile-production.ts": {
+      "sha256": "15d273fb5cf8341d02d1f905c978d7e8f46888433abfa0199c173084d4ce6ed1",
+      "bytes": 194
+    },
+    "packages/itestagent-cli/src/memory-profile-report-context.ts": {
+      "sha256": "092e08f0a794ef43e96027818a0ba2e074cc3e32152aea4eaa18e8301c5aa69b",
+      "bytes": 193
+    },
+    "packages/itestagent-cli/src/memory-profile-run-root.ts": {
+      "sha256": "9e2fe481730018f0ff557987a01b8c067ed45306d4a7ac5cc2efd4d5b4d6f2b0",
+      "bytes": 200
+    },
+    "packages/itestagent-cli/src/memory-profile-runner-ports.ts": {
+      "sha256": "03c2972d782cb0159dbefe82a0486725a6a4f19736d5d59a92a8952fd17004c1",
+      "bytes": 178
+    },
+    "packages/itestagent-cli/src/memory-profile-runtime-build.ts": {
+      "sha256": "06e7349c648665f455e8dad59882ac29b8449d2cf51d0ffe6cfa2b8598025292",
+      "bytes": 183
+    },
+    "packages/itestagent-cli/src/memory-profile-runtime-cleanup.ts": {
+      "sha256": "46b8c23ca1f7ec738a85b40f29c6de92685a33f11e35301381e0dc49cad1a576",
+      "bytes": 404
+    },
+    "packages/itestagent-cli/src/memory-profile-runtime-types.ts": {
+      "sha256": "3c52788b26ae1629da041263135bf1ef76c0c1c4290ccf050eaf43ceeb9de266",
+      "bytes": 142
+    },
+    "packages/itestagent-cli/src/memory-profile-runtime.ts": {
+      "sha256": "25ffbcf23e74b3901a138a9af33f1fdac04366250993137019c36c9d93e291a1",
+      "bytes": 147
+    },
+    "packages/itestagent-cli/src/memory-profile-transient-build.ts": {
+      "sha256": "cfcc762420ba7a3f5476a526479a1c5424fbb347d8441dcf96007c1daa4a590a",
+      "bytes": 187
+    },
+    "packages/itestagent-cli/test/memory-profile-appium.test.ts": {
+      "sha256": "0a040ac342c4e840dc82d8a68b55180fb9dd2cc956786742243677ada6978e10",
+      "bytes": 287
+    },
+    "packages/itestagent-cli/test/memory-profile-debug-signing.test.ts": {
+      "sha256": "1426c4d4fde2c052f4b1885cbc4e36868329888b4c8f8017cd57e54977a8664b",
+      "bytes": 300
+    },
+    "packages/itestagent-cli/test/memory-profile-default-runtime.test.ts": {
+      "sha256": "628999f0af97b85b6a6ca7b7bdf7d402f8063e48b7802daab10d481abb8fde3a",
+      "bytes": 306
+    },
+    "packages/itestagent-cli/test/memory-profile-factory.test.ts": {
+      "sha256": "ccd7c2ce9853e32808b66f382d475f58fc1cf4dac4547e6cb57db2e62733e6b5",
+      "bytes": 324
+    },
+    "packages/itestagent-cli/test/memory-profile-production.test.ts": {
+      "sha256": "87625fe54987703ee5865b60cbd4243d76246a47a3b3d8a360483ac8c9fc87b3",
+      "bytes": 330
+    },
+    "packages/itestagent-cli/test/memory-profile-report-context.test.ts": {
+      "sha256": "7834dbae9d7522fcdcccdbce3f0d53fe08ab1e754d0cd0b2572be44dcaf4b0df",
+      "bytes": 356
+    },
+    "packages/itestagent-cli/test/memory-profile-run-root.test.ts": {
+      "sha256": "33794a9d5d6165c67949de618790eb5c955201dabeec067c282d44e839844685",
+      "bytes": 319
+    },
+    "packages/itestagent-cli/test/memory-profile-runner-ports.test.ts": {
+      "sha256": "0b2f4a7ad0323076f85d9adb172f15822051de77921b612d998791e8d24a7fdf",
+      "bytes": 296
+    },
+    "packages/itestagent-cli/test/memory-profile-runtime.test.ts": {
+      "sha256": "f4ce4799b0b67e32795df48d934f7691f32e8108af414ff88963b6ea4340a5f9",
+      "bytes": 322
+    },
+    "packages/itestagent-cli/test/memory-profile-transient-build.test.ts": {
+      "sha256": "0d1e5b173e9be6dff79d368fcbfdedb6c0d6b3121ba9130854e66015a8fea98e",
+      "bytes": 308
+    }
+  },
+  "rollbackTag": "promo/b23-cli-memory-profile"
+}

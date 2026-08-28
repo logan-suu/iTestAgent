@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 1,
+  "batchId": "B33",
+  "baseCommit": "a9f3226ed1f83fa27c0b6c3a758fabc0268fdeb4",
+  "stagedTreeHash": "7e50b6840703c53986376e03721a59657d2fd772",
+  "baselineMode": "red",
+  "baselineDigest": "ef098a7ea86ded16bf167f8ff984ed09e8790b8ca4f76f21feb6378df7d5956a",
+  "greenCommand": "bun run batch:test -- B33",
+  "greenExit": 0,
+  "gateCommands": [
+    {
+      "name": "G1",
+      "command": "bun test tests/architecture/schema-parity-gate.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G2",
+      "command": "bun scripts/scan-forbidden-literals.ts --base a9f3226ed1f83fa27c0b6c3a758fabc0268fdeb4 --index --scope changed",
+      "exit": 0
+    },
+    {
+      "name": "G3",
+      "command": "bun ci --ignore-scripts && bun run typecheck && bun run lint && bun run build",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun scripts/run-batch-tests.ts B33",
+      "exit": 0
+    },
+    {
+      "name": "G4",
+      "command": "bun run test:ci",
+      "exit": 0
+    },
+    {
+      "name": "G4b",
+      "command": "bun test tests/architecture/dependency-graph.test.ts tests/architecture/forbidden-literals.test.ts tests/architecture/bunfig-policy.test.ts",
+      "exit": 0
+    },
+    {
+      "name": "G7",
+      "command": "bun run gate:g7",
+      "exit": 0
+    }
+  ],
+  "payloadFiles": {
+    "docs/06-verification/migration/allowlists/B33-files.txt": {
+      "sha256": "1d62a9e45125f25b8dbd1eb83deb67c767173943a4fc529cf6b32317c45edd3c",
+      "bytes": 397
+    },
+    "packages/itestagent-engine/src/migration-alignment.ts": {
+      "sha256": "d944813b25da4b8b17aa855c4f6568593c68eecba016a1bd1bea6d0181b10886",
+      "bytes": 804
+    },
+    "tests/integration/cross-phase/cross-phase-p1-p3-harness.test.ts": {
+      "sha256": "d344eedff258d465efb942bbf59b4c1352f9461be356ec6104ac441a50c11be5",
+      "bytes": 17255
+    },
+    "tests/integration/cross-phase/cross-phase-p3-p5-flow-replay.test.ts": {
+      "sha256": "63f5edb95e4931765b55dd479d7ceb2e1aff4ed76d7af6914a75c5561d1c18ab",
+      "bytes": 17250
+    },
+    "tests/integration/phase1/phase1-subprocess-lifecycle.test.ts": {
+      "sha256": "cb5452b5496793fbd320a4eb9a91a8e99aa877d2128d30c55f96c2cabec90e87",
+      "bytes": 6180
+    },
+    "tests/integration/phase1/phase1-tui-contracts.test.ts": {
+      "sha256": "7a1f8115f04413b4c77777a1037f8544c2d03617730ccc956eac0ea84c3a55b3",
+      "bytes": 11135
+    }
+  },
+  "rollbackTag": "promo/b33-integration-foundation"
+}

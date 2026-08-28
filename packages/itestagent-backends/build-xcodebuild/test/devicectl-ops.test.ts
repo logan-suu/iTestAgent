@@ -316,3 +316,13 @@ describe('command arguments', () => {
     expect(capturedArgs).toContain('myapp://profile/1');
   });
 });
+
+// ─── B12 seam: strict devicectl parsers available ──────────────────
+
+describe('B12 seam: devicectl strict parsers', () => {
+  it('exposes the 506.6 alias table through the split module', async () => {
+    const mod = await import('../src/devicectl-processes.js');
+    expect(Array.isArray(mod.DEVICECTL_DEVICE_ALIASES.udid)).toBe(true);
+    expect(mod.DEVICECTL_DEVICE_ALIASES.udid).toContain('deviceProperties.udid');
+  });
+});
