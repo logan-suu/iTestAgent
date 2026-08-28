@@ -3,6 +3,10 @@ import type { ArtifactInput, ArtifactRef, ArtifactStore } from 'itestagent-contr
 import { EvidenceCollector } from '../../src/evidence/evidence-collector.js';
 import type { EvidenceOptions, EvidenceResult } from '../../src/evidence/types.js';
 
+// Simulator tests drive the real `xcrun simctl` binary; CI runners have no
+// booted simulator and cold xcrun invocations blow the per-test timeout.
+const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
 function mockArtifactStore(): ArtifactStore {
   const index = new Map<string, ArtifactRef>();
   return {
@@ -28,7 +32,7 @@ function mockArtifactStore(): ArtifactStore {
   };
 }
 
-test('EvidenceCollector collects screenshot on simulator failure', async () => {
+test.skipIf(IS_CI)('EvidenceCollector collects screenshot on simulator failure', async () => {
   const collector = new EvidenceCollector({ throwOnError: false });
   const artifactStore = mockArtifactStore();
 
@@ -49,7 +53,7 @@ test('EvidenceCollector collects screenshot on simulator failure', async () => {
   expect(summary.collectedCount).toBeGreaterThanOrEqual(0);
 });
 
-test('EvidenceCollector collects syslog on simulator failure', async () => {
+test.skipIf(IS_CI)('EvidenceCollector collects syslog on simulator failure', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 
@@ -68,7 +72,7 @@ test('EvidenceCollector collects syslog on simulator failure', async () => {
   expect(summary.results.some((r) => r.type === 'syslog')).toBe(true);
 });
 
-test('EvidenceCollector skips xcresult when path not provided', async () => {
+test.skipIf(IS_CI)('EvidenceCollector skips xcresult when path not provided', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 
@@ -86,7 +90,7 @@ test('EvidenceCollector skips xcresult when path not provided', async () => {
   expect(xcresultResult).toBeUndefined();
 });
 
-test('EvidenceCollector skips trace when path not provided', async () => {
+test.skipIf(IS_CI)('EvidenceCollector skips trace when path not provided', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 
@@ -104,7 +108,7 @@ test('EvidenceCollector skips trace when path not provided', async () => {
   expect(traceResult).toBeUndefined();
 });
 
-test('EvidenceCollector skips video when recordingActive is false', async () => {
+test.skipIf(IS_CI)('EvidenceCollector skips video when recordingActive is false', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 
@@ -123,7 +127,7 @@ test('EvidenceCollector skips video when recordingActive is false', async () => 
   expect(videoResult).toBeUndefined();
 });
 
-test('EvidenceCollector attempts video when recordingActive is true', async () => {
+test.skipIf(IS_CI)('EvidenceCollector attempts video when recordingActive is true', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 
@@ -182,7 +186,7 @@ test('EvidenceCollector handles error in throwOnError mode', async () => {
   expect(summary).toBeDefined();
 });
 
-test('EvidenceCollector returns summary with correct structure', async () => {
+test.skipIf(IS_CI)('EvidenceCollector returns summary with correct structure', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 
@@ -224,7 +228,7 @@ test('EvidenceResult has correct shape', () => {
   expect(result.artifact?.id).toBe('test-id');
 });
 
-test('EvidenceCollectionSummary counts correctly', async () => {
+test.skipIf(IS_CI)('EvidenceCollectionSummary counts correctly', async () => {
   const collector = new EvidenceCollector();
   const artifactStore = mockArtifactStore();
 

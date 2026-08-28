@@ -20,6 +20,5 @@ linker = "hoisted"
 # import renderer code (solves "Cannot find module 'react/jsx-dev-runtime'").
 preload = ["./node_modules/@opentui/solid/jsx-runtime.js"]
 
-[test]
 # Bun test runner policy: timeout guard for CI lanes.
 timeout = 30000

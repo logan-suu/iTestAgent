@@ -85,3 +85,14 @@ export { createAppiumSessionLifecycle } from './appium-session-lifecycle.js';
 export type { AppiumSessionLifecycleDeps } from './appium-session-lifecycle.js';
 export { createOwnedWdaProcess } from './owned-wda-processes.js';
 export type { OwnedWdaProcess, OwnedWdaProcessDeps } from './owned-wda-processes.js';
+
+// ─── G5 recipe: Mac→device usbmux tunnel for real-device WDA ──
+export { IProxyTunnel, createIProxyTunnel } from './iproxy-tunnel.js';
+export type {
+  IProxyTunnelDeps,
+  TunnelEnsureInput,
+  TunnelHealthResult,
+  TunnelSpawnFn,
+  TunnelSpawnHandle,
+  TunnelFetchFn,
+} from './iproxy-tunnel.js';
