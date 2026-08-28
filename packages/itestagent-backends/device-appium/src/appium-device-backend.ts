@@ -52,6 +52,7 @@ import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions, WdaStartupMode } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
+import type { IProxyTunnel } from './iproxy-tunnel.js';
 import { type RedactingLogger, createRedactingLogger, redactError } from './redactor.js';
 import type { WdaManager } from './wda-manager.js';
 
@@ -100,6 +101,13 @@ export interface AppiumDeviceBackendOptions {
    * Required when wdaStartupMode is 'external-url'.
    */
   webDriverAgentUrl?: string;
+  /**
+   * USB tunnel manager for real devices (G5 spike recipe): WDA listens on the
+   * device's localhost only, so Route B needs `iproxy` before waitForReady can
+   * reach 127.0.0.1. Optional — when omitted, an existing external tunnel is
+   * assumed (simulators never need one).
+   */
+  iproxyTunnel?: IProxyTunnel;
   /** WDA local port for WebDriverAgent communication (default: 8100). */
   wdaLocalPort?: number;
   /** MJPEG server port for video streaming (default: 9100). Required for parallel simulator sessions. */
@@ -196,6 +204,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       AppiumDeviceBackendOptions,
       | 'bundleId'
       | 'wdaBundleId'
+      | 'iproxyTunnel'
       | 'derivedDataPath'
       | 'wdaManager'
       | 'webDriverAgentUrl'
@@ -219,6 +228,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private readonly wdaStartupMode: WdaStartupMode;
   private driver: AppiumDriver;
   private readonly wdaManager: WdaManager | undefined;
+  private readonly iproxyTunnel: IProxyTunnel | undefined;
   private sessionActive = false;
   private sessionMutex: Promise<void> | null = null;
   private screenSize: AppiumScreenSize | null = null;
@@ -228,6 +238,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     this.driver = driver;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
+    this.iproxyTunnel = options.iproxyTunnel;
     this.wdaStartupMode = options.wdaStartupMode ?? 'preinstalled';
     this.opts = {
       udid: options.udid,
@@ -389,11 +400,35 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * Launches WDA → waits for /status ready → passes webDriverAgentUrl.
    */
   private async buildExternalUrlCaps(): Promise<Record<string, unknown>> {
+    // Attach mode: an explicit webDriverAgentUrl means WDA is already hosted
+    // (G5 recipe: xcodebuild test-without-building + external usbmux tunnel).
+    // No WdaManager lifecycle is required — Appium attaches to the live server.
+    if (this.opts.webDriverAgentUrl) {
+      return buildPhysicalCapabilities({
+        udid: this.opts.udid,
+        wdaLocalPort: this.opts.wdaLocalPort,
+        newCommandTimeout: 600,
+        wdaStartupMode: 'external-url',
+        webDriverAgentUrl: this.opts.webDriverAgentUrl,
+        bundleId: this.opts.bundleId,
+        deviceName: this.opts.deviceName || undefined,
+        platformVersion: this.opts.platformVersion || undefined,
+      }) as Record<string, unknown>;
+    }
+
     if (!this.wdaManager) {
       throw new Error(
         'wdaManager is required for external-url mode. Provide a WdaManager instance.',
       );
     }
+
+    // G5 recipe: real devices need the usbmux tunnel BEFORE waitForReady can
+    // reach 127.0.0.1 (WDA binds on the device's localhost only).
+    this.iproxyTunnel?.ensure({
+      udid: this.opts.udid,
+      localPort: this.opts.wdaLocalPort,
+      devicePort: 8100,
+    });
 
     // Launch WDA
     if (!this.wdaManager.isRunning()) {
@@ -475,10 +510,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }
     }
 
-    // Delete Appium session if active
+    // Delete Appium session if active. G5 finding: WDA teardown can hang on
+    // devicectl — bound by a 15s guard so callers never block forever.
     if (this.sessionActive) {
       try {
-        await this.driver.deleteSession();
+        await Promise.race([
+          this.driver.deleteSession(),
+          new Promise<void>((resolve) => setTimeout(resolve, 15_000)),
+        ]);
       } catch {
         // Best-effort cleanup — don't throw on delete failure
       }
@@ -495,6 +534,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
         // Best-effort WDA cleanup
       }
     }
+
+    // G5 recipe: tear down the usbmux tunnel with the session.
+    this.iproxyTunnel?.stop();
   }
 
   // ── Coordinate conversion ──────────────────────────────────────────

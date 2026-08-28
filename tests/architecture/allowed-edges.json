@@ -122,5 +122,9 @@
   {
     "from": "itestagent-engine",
     "to": "itestagent-backends-device-appium"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-store"
   }
 ]
