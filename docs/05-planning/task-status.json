@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-26T12:30:00Z",
+  "last_updated": "2026-08-28T13:23:42Z",
   "current_phase": 6,
   "phases": [
     {
@@ -111,15 +111,15 @@
           "id": "PROMO-001",
           "title": "Execute reviewed iTestAgent promotion guide",
           "story": "PROMO-001",
-          "status": "in_progress",
-          "last_updated": "2026-08-24T22:40:20-05:00",
+          "status": "done",
+          "last_updated": "2026-08-28T13:23:42Z",
           "documents_required": [
             "AGENTS.md",
             "docs/05-planning/promotion-plan-approval.json"
           ],
           "dependencies": [],
           "test_file": null,
-          "notes": "guideSha256=1a819784354fa40bd5c9aac3cff3f5690fcc9540f16629549c3495eaa2599156; guideUrl=/Users/logansu/Desktop/报告/iTestAgent 先行版能力迁移与开发执行指南（featmvp-e2e-validation → 可推广版本）.md; targetBunLockSha256=332573df8c10d39fb7d45f29a9343fc4f110921709ffb06ea8ff40e6239f0cce"
+          "notes": "guideSha256=1a819784354fa40bd5c9aac3cff3f5690fcc9540f16629549c3495eaa2599156; guideUrl=/Users/logansu/Desktop/报告/iTestAgent 先行版能力迁移与开发执行指南（featmvp-e2e-validation → 可推广版本）.md; targetBunLockSha256=332573df8c10d39fb7d45f29a9343fc4f110921709ffb06ea8ff40e6239f0cce; PR=https://github.com/logan-suu/iTestAgent/pull/62; mergedInto=dev-1.0; mergeCommit=7abb5d7afc67ad0969773b929b295a6674268c24; mergedAt=2026-08-28T13:22:18Z; scope=B00-B42 all 43 batches gate-verified (manifests under docs/06-verification/migration/, rollback tags promo/b00-*..promo/b42-* + wave tags); human-confirmed merge by logan-suu"
         }
       ]
     },
