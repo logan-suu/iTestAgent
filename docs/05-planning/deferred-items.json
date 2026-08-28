@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-08-28T11:30:12Z",
+  "last_updated": "2026-08-28T18:35:00Z",
   "items": [
     {
       "id": "DEF-001",
@@ -520,6 +520,38 @@
       "target_phase": "W15",
       "resolved_by": "signing unlock (G5 spike preconditions, dev-1.0)",
       "resolved_on": "2026-08-28T11:05:40Z"
+    },
+    {
+      "id": "DEF-029",
+      "source": "CodeRabbit",
+      "pr": 64,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/64",
+      "comment_id": 3882836985,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/64#discussion_r3882836985",
+      "task": "3.7c",
+      "severity": "major",
+      "item": "closeSession 15s Promise.race leaves deleteSession dangling (no cancellation)",
+      "detail": "In AppiumDeviceBackend.closeSession(), Promise.race([driver.deleteSession(), 15s timeout]) stops WAITING after 15s but does not cancel driver.deleteSession() itself. The method then marks sessionActive=false, stops WDA and the tunnel, while the stale deletion may still be in flight. A subsequent createSession() on the same driver instance could then interleave with the still-running deletion and corrupt session state. Proper fix requires driver-level cancellation (abort/timeout on the Appium client request) or invalidating the driver after a timed-out deletion — a cross-cutting lifecycle change. Accepted pragmatic risk: in current usage closeSession is the terminal teardown of a run's session lifecycle (one run = one session), so a follow-up createSession on the same backend instance is not exercised. Revisit when the engine adds rerun/re-session flows.",
+      "target_phase": 6,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-08-28T18:30:00.000Z"
+    },
+    {
+      "id": "DEF-030",
+      "source": "CodeRabbit",
+      "pr": 64,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/64",
+      "comment_id": 3882837071,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/64#discussion_r3882837071",
+      "task": "3.7c",
+      "severity": "major",
+      "item": "runRealDeviceExploration captures per-case UI trees only after all actions complete",
+      "detail": "runRealDeviceExploration() runs explorer.explore([...actions]) to completion and THEN captures a fresh UI tree per caseId via backend.getUiTree({udid}). getUiTree only receives a UDID (no caseId), so all captured trees are the same post-run final screen labeled as different cases; an assertion for an earlier screen is evaluated against the final screen. Proper fix requires associating actions with cases (ExplorationAction needs a caseId field in packages/itestagent-engine/src/exploration/types.ts) and checkpointing a tree capture after each case's actions inside DeviceExplorer — a schema + explorer design change beyond this PR's slice scope. Known limitation of the G5 recipe slice; documented here so the per-case semantics are not mistaken for per-screen assertions.",
+      "target_phase": 6,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-08-28T18:30:00.000Z"
     }
   ]
 }

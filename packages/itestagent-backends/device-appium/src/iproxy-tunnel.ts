@@ -86,11 +86,22 @@ export class IProxyTunnel {
 
     this.stop();
 
-    this.handle = this.spawnFn(
+    const handle = this.spawnFn(
       [this.iproxyPath, String(localPort), String(devicePort), '--udid', input.udid],
       { stdout: 'pipe', stderr: 'pipe', signal: this.signal },
     );
+    this.handle = handle;
     this.activeKey = key;
+
+    // Auto-invalidate on spontaneous exit so a dead tunnel is never reused.
+    const release = (): void => {
+      if (this.handle === handle) {
+        this.handle = null;
+        this.activeKey = null;
+      }
+    };
+    void handle.exited.then(release, release);
+
     return { localPort };
   }
 

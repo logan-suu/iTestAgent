@@ -323,6 +323,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
           }
         }
       }
+      // Release the usbmux tunnel too — it may hold the local WDA port
+      // after a failed attempt; the next attempt re-ensures it.
+      this.iproxyTunnel?.stop();
       throw error;
     }
   }

@@ -4,16 +4,26 @@
 import { describe, expect, it } from 'bun:test';
 import { type TunnelSpawnHandle, createIProxyTunnel } from '../src/iproxy-tunnel.js';
 
-function fakeSpawn(recorder: { cmds: string[][] }, exitCode = 0) {
+const LIVE = new Promise<number>(() => {});
+
+function fakeSpawn(recorder: { cmds: string[][] }, exited: Promise<number> = LIVE) {
   return ((cmd: string[]) => {
     recorder.cmds.push(cmd);
     const handle: TunnelSpawnHandle = {
       pid: 4242,
-      exited: Promise.resolve(exitCode),
+      exited,
       kill() {},
     };
     return handle;
   }) as never;
+}
+
+function deferredExit(): { exited: Promise<number>; exit: (code: number) => void } {
+  let exit!: (code: number) => void;
+  const exited = new Promise<number>((resolve) => {
+    exit = resolve;
+  });
+  return { exited, exit };
 }
 
 describe('IProxyTunnel', () => {
@@ -41,6 +51,26 @@ describe('IProxyTunnel', () => {
     expect(recorder.cmds).toHaveLength(1);
     tunnel.ensure({ udid: 'U2' });
     expect(recorder.cmds).toHaveLength(2);
+  });
+
+  it('invalidates the handle when the process exits on its own', async () => {
+    const recorder = { cmds: [] as string[][] };
+    const { exited, exit } = deferredExit();
+    const tunnel = createIProxyTunnel({
+      spawnFn: fakeSpawn(recorder, exited),
+      fetchFn: async () => new Response('{}', { status: 200 }),
+    });
+    tunnel.ensure({ udid: 'U1' });
+    expect(tunnel.isRunning()).toBe(true);
+
+    exit(1);
+    await exited;
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(tunnel.isRunning()).toBe(false);
+
+    tunnel.ensure({ udid: 'U1' });
+    expect(recorder.cmds).toHaveLength(2);
+    expect(tunnel.isRunning()).toBe(true);
   });
 
   it('healthCheck reports reachable when /status responds ok', async () => {

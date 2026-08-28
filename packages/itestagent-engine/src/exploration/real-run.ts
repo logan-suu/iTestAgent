@@ -115,6 +115,14 @@ export function createBackendToolDispatcher(
       }
       if (call.name === 'screenshot') {
         const ref = await backend.screenshot({ udid: args.deviceId });
+        if (!ref.path) {
+          // A capture failure must not surface as a successful artifact (R5).
+          return {
+            callId: call.id,
+            status: 'error',
+            output: { error: `Screenshot capture produced no artifact (id: ${ref.id})` },
+          };
+        }
         artifactRefs.push({ id: ref.id, type: 'screenshot', path: ref.path });
         return {
           callId: call.id,
@@ -142,11 +150,12 @@ export async function runRealDeviceExploration(
   const explorer = new DeviceExplorer(
     options.toolDispatcher,
     {
+      // Tuning overrides first — run identity must never be overridable.
+      ...options.exploration,
       deviceId: options.deviceId,
       bundleId: options.bundleId,
       targetKind: options.targetKind,
       runDir: options.runDir,
-      ...options.exploration,
     },
     options.artifactStore,
   );

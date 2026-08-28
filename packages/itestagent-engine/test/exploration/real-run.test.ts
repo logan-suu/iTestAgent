@@ -11,7 +11,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { UserAssertion } from 'itestagent-contracts';
 import type { ExplorerToolDispatcher } from '../../src/exploration/device-explorer.js';
-import { runRealDeviceExploration } from '../../src/exploration/real-run.js';
+import {
+  createBackendToolDispatcher,
+  runRealDeviceExploration,
+} from '../../src/exploration/real-run.js';
 
 const TREE = `<XCUIElementTypeApplication><XCUIElementTypeButton name="login_button" label="Log in" /></XCUIElementTypeApplication>`;
 
@@ -76,6 +79,30 @@ function userAssertion(): UserAssertion {
     ],
   };
 }
+
+describe('createBackendToolDispatcher', () => {
+  it('returns an error result and indexes nothing when a screenshot has an empty path', async () => {
+    const backend = {
+      async getUiTree() {
+        return { raw: '<XCUIElementTypeApplication />', format: 'xml', capturedAt: '' };
+      },
+      async launchApp() {
+        return { success: true as const, message: 'launched' };
+      },
+      async screenshot() {
+        return { id: 'screenshot_error_1', type: 'screenshot', path: '' };
+      },
+    };
+    const dispatcher = createBackendToolDispatcher(backend);
+    const result = await dispatcher.dispatch({
+      id: 'c1',
+      name: 'screenshot',
+      arguments: { deviceId: 'UDID-1' },
+    });
+    expect(result.status).toBe('error');
+    expect(dispatcher.getArtifactRefs()).toHaveLength(0);
+  });
+});
 
 describe('runRealDeviceExploration', () => {
   it('explodes actions, evaluates a satisfied user assertion to passed, and persists artifact-index', async () => {
