@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-28T13:23:42Z",
+  "last_updated": "2026-08-28T15:30:57Z",
   "current_phase": 6,
   "phases": [
     {
@@ -785,7 +785,7 @@
             "3.12"
           ],
           "test_file": "packages/itestagent-contracts/test/assertion-schema.test.ts, packages/itestagent-engine/test/assertion-evaluator.test.ts",
-          "notes": "PR #41 merged to dev-1.0 (2026-07-23). AssertionEvaluator (4-tier priority AC1-AC3), AssertionCondition/UserAssertion schemas, CandidateLink.expectedOutcomes for tier-2. 53 new tests (1555 total). AC4 TUI confirmation panel deferred to 3.17 (DEF-019).",
+          "notes": "PR #41 merged to dev-1.0 (2026-07-23). AssertionEvaluator (4-tier priority AC1-AC3), AssertionCondition/UserAssertion schemas, CandidateLink.expectedOutcomes for tier-2. 53 new tests (1555 total). AC4 TUI confirmation panel deferred to 3.17 (DEF-019); resolved by PR #63 https://github.com/logan-suu/iTestAgent/pull/63 (assertion-review TUI, DEF-019 closed).",
           "last_updated": "2026-07-23T18:00:00.000Z"
         },
         {
