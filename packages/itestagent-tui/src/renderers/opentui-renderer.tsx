@@ -9,6 +9,11 @@
 import { render as otRender } from '@opentui/solid';
 import type { JSX } from '@opentui/solid';
 import { For, Show, createMemo, createSignal } from 'solid-js';
+import {
+  ASSERTION_REVIEW_FOOTER_HINTS,
+  assertionFooterStatus,
+  formatAssertionSuggestions,
+} from '../assertion-review.js';
 import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
 import { PLAN_SECTIONS, formatPlanSections } from '../plan-review.js';
 import type { TuiRenderer } from '../renderer.js';
@@ -329,6 +334,75 @@ function PlanReviewPanel(props: {
   );
 }
 
+// ─── Sub-component: AssertionReviewPanel (US-11.1 AC4) ─────────────────────
+
+function AssertionReviewPanel(props: {
+  state: () => TuiShellState;
+  dispatch: (event: TuiShellEvent) => void;
+}): JSX.Element {
+  const s = props.state;
+  const dispatch = props.dispatch;
+  const [cmd, setCmd] = createSignal('');
+
+  const suggestions = createMemo(() => s().assertionSuggestions);
+  const idx = createMemo(() => s().assertionIndex);
+  const lines = createMemo(() => formatAssertionSuggestions(suggestions(), idx()));
+
+  const handleCmdInput = (value: string) => {
+    if (!value) {
+      setCmd('');
+      return;
+    }
+    const key = value[value.length - 1] ?? value;
+    if (key === 'j') dispatch({ type: 'assertion_navigate', direction: 'down' });
+    else if (key === 'k') dispatch({ type: 'assertion_navigate', direction: 'up' });
+    else if (key === ' ') dispatch({ type: 'assertion_confirm' });
+    else if (key === 'n') dispatch({ type: 'assertion_reject' });
+    else if (key === 'A') dispatch({ type: 'assertion_confirm_all' });
+    else if (key === 'q') dispatch({ type: 'exit_assertion_review' });
+    setTimeout(() => setCmd(''), 0);
+  };
+
+  return (
+    <box flexDirection="column" flexGrow={1} padding={1}>
+      <box borderStyle="double" padding={1} marginBottom={1}>
+        <text>Assertion Suggestions — Review Evidence & Confirm (US-11.1 AC4)</text>
+        <text opacity={0.5}>{ASSERTION_REVIEW_FOOTER_HINTS}</text>
+      </box>
+
+      <scrollbox flexGrow={1} padding={0}>
+        <box flexDirection="column">
+          <For each={lines()}>
+            {(line) => (
+              <text>
+                <span>{line}</span>
+              </text>
+            )}
+          </For>
+          <Show when={suggestions().length === 0}>
+            <text opacity={0.5}>No pending assertion suggestions.</text>
+          </Show>
+        </box>
+      </scrollbox>
+
+      <box borderStyle="rounded" padding={1} marginTop={1}>
+        <text opacity={0.5}>
+          {assertionFooterStatus(
+            s().assertionConfirmed.length,
+            s().assertionConfirmed.length + suggestions().length,
+          )}
+        </text>
+        <input
+          focused={true}
+          value={cmd()}
+          onInput={handleCmdInput}
+          placeholder="j/k/space/n/A/q"
+        />
+      </box>
+    </box>
+  );
+}
+
 // ─── App 根组件 ────────────────────────────────────────────────────────
 
 function App(props: {
@@ -371,6 +445,8 @@ function App(props: {
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : s().mode === 'recording_review' ? (
         <RecordingPanel state={state} dispatch={wrappedDispatch} />
+      ) : s().mode === 'assertion_review' ? (
+        <AssertionReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : s().mode === 'credential_prompt' ? (
         <CredentialPromptPanel state={state} dispatch={wrappedDispatch} />
       ) : (

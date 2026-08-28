@@ -3,6 +3,7 @@ import type {
   CredentialResponse,
   IntentParseResult,
   TestPlan,
+  UserAssertion,
 } from 'itestagent-contracts';
 /**
  * TuiShell — framework-independent ViewModel, State, Event, and reducer.
@@ -17,6 +18,12 @@ import type {
  * US-4.2 AC1：multi-turn dialog with intent clarification.
  */
 import type { CandidateLink } from 'itestagent-project-analyzer';
+import {
+  clampAssertionIndex,
+  confirmAllAssertions,
+  confirmAssertionAtIndex,
+  rejectAssertionAtIndex,
+} from './assertion-review.js';
 import {
   confirmAllCandidates,
   editCandidateNameAtIndex,
@@ -34,7 +41,8 @@ export type TuiShellMode =
   | 'candidate_review'
   | 'plan_review'
   | 'recording_review'
-  | 'credential_prompt';
+  | 'credential_prompt'
+  | 'assertion_review';
 
 /** 设备连接状态。当前为占位值，后续由 engine/server 驱动。 */
 export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 'busy';
@@ -87,6 +95,10 @@ export interface TuiShellState {
   readonly credentialResponses: ReadonlyMap<string, CredentialResponse>;
   readonly credentialCompleted: boolean;
   readonly credentialRememberToggled: boolean;
+  /** Assertion review state (US-11.1 AC4: assertion_review mode). */
+  readonly assertionSuggestions: readonly UserAssertion[];
+  readonly assertionConfirmed: readonly UserAssertion[];
+  readonly assertionIndex: number;
   /** Setup wizard state (mode === 'setup'). */
   readonly setupStep: number;
   readonly setupProvider: string;
@@ -115,6 +127,13 @@ export type TuiShellEvent =
   | { readonly type: 'candidate_edit_cancel' }
   | { readonly type: 'candidate_confirm_all' }
   | { readonly type: 'candidate_unconfirm_all' }
+  // Assertion review events (US-11.1 AC4)
+  | { readonly type: 'enter_assertion_review'; readonly suggestions: readonly UserAssertion[] }
+  | { readonly type: 'exit_assertion_review' }
+  | { readonly type: 'assertion_navigate'; readonly direction: 'up' | 'down' }
+  | { readonly type: 'assertion_confirm' }
+  | { readonly type: 'assertion_reject' }
+  | { readonly type: 'assertion_confirm_all' }
   // Intent events (US-4.2 AC1)
   | { readonly type: 'intent_parsed'; readonly result: IntentParseResult }
   | { readonly type: 'intent_clarify_response'; readonly text: string }
@@ -199,6 +218,9 @@ export function createInitialState(workspace?: string): TuiShellState {
     credentialResponses: new Map(),
     credentialCompleted: false,
     credentialRememberToggled: false,
+    assertionSuggestions: [],
+    assertionConfirmed: [],
+    assertionIndex: 0,
     setupStep: 0,
     setupProvider: '',
     setupBaseUrl: '',
@@ -382,6 +404,98 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
     case 'candidate_unconfirm_all': {
       const updated = unconfirmAllCandidates(state.candidates as CandidateLink[]);
       return { ...state, candidates: updated };
+    }
+
+    // ── Assertion review events (US-11.1 AC4) ─────────────────────
+
+    case 'enter_assertion_review':
+      return {
+        ...state,
+        mode: 'assertion_review',
+        assertionSuggestions: event.suggestions,
+        assertionConfirmed: [],
+        assertionIndex: 0,
+      };
+
+    case 'exit_assertion_review':
+      // Confirmed assertions survive the panel (engine consumes
+      // `assertionConfirmed` as tier-3 agentConfirmed); only the pending
+      // suggestions and cursor are cleared.
+      return {
+        ...state,
+        mode: 'chat',
+        assertionSuggestions: [],
+        assertionIndex: 0,
+      };
+
+    case 'assertion_navigate': {
+      const len = state.assertionSuggestions.length;
+      if (len === 0) return state;
+      const delta = event.direction === 'up' ? -1 : 1;
+      return {
+        ...state,
+        assertionIndex: clampAssertionIndex(state.assertionIndex + delta, len),
+      };
+    }
+
+    case 'assertion_confirm': {
+      const result = confirmAssertionAtIndex(state.assertionSuggestions, state.assertionIndex);
+      if (result.confirmed.length === 0) return state;
+      const confirmed = [...state.assertionConfirmed, ...result.confirmed];
+      const done = result.remaining.length === 0;
+      return {
+        ...state,
+        assertionSuggestions: result.remaining,
+        assertionConfirmed: confirmed,
+        assertionIndex: clampAssertionIndex(state.assertionIndex, result.remaining.length),
+        ...(done
+          ? {
+              mode: 'chat' as const,
+              messages: [
+                ...state.messages,
+                {
+                  id: makeId(),
+                  type: 'system' as const,
+                  text: `Assertion suggestions confirmed (${confirmed.length}). Promoted to tier-3 agent-confirmed assertions.`,
+                  timestamp: Date.now(),
+                },
+              ],
+            }
+          : {}),
+      };
+    }
+
+    case 'assertion_reject': {
+      const result = rejectAssertionAtIndex(state.assertionSuggestions, state.assertionIndex);
+      if (result.remaining.length === state.assertionSuggestions.length) return state;
+      const done = result.remaining.length === 0;
+      return {
+        ...state,
+        assertionSuggestions: result.remaining,
+        assertionIndex: clampAssertionIndex(state.assertionIndex, result.remaining.length),
+        ...(done ? { mode: 'chat' as const } : {}),
+      };
+    }
+
+    case 'assertion_confirm_all': {
+      if (state.assertionSuggestions.length === 0) return state;
+      const result = confirmAllAssertions(state.assertionSuggestions);
+      return {
+        ...state,
+        mode: 'chat',
+        assertionSuggestions: [],
+        assertionConfirmed: [...state.assertionConfirmed, ...result.confirmed],
+        assertionIndex: 0,
+        messages: [
+          ...state.messages,
+          {
+            id: makeId(),
+            type: 'system' as const,
+            text: `All assertion suggestions confirmed (${result.confirmed.length}). Promoted to tier-3 agent-confirmed assertions.`,
+            timestamp: Date.now(),
+          },
+        ],
+      };
     }
 
     // ── Intent events (US-4.2 AC1) ───────────────────────────
