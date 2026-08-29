@@ -49,19 +49,49 @@ function buildPrompt(ctx: SuggestionContext): string {
   ].join('\n');
 }
 
-/** Extracts the first JSON array from an LLM response (tolerates code fences). */
+/**
+ * Extracts the first complete JSON array from an LLM response (tolerates code
+ * fences). Uses a quote-aware balanced-bracket scan so trailing bracketed
+ * prose (e.g. "[1]", "[see notes]") cannot swallow a valid array the way a
+ * naive lastIndexOf(']') would.
+ */
 export function extractJsonArray(text: string): unknown[] | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = (fenced?.[1] ?? text).trim();
   const start = candidate.indexOf('[');
-  const end = candidate.lastIndexOf(']');
-  if (start === -1 || end === -1 || end <= start) return null;
-  try {
-    const parsed = JSON.parse(candidate.slice(start, end + 1)) as unknown;
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < candidate.length; i++) {
+    const ch = candidate[i] as string;
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === '[') {
+      depth++;
+    } else if (ch === ']') {
+      depth--;
+      if (depth === 0) {
+        try {
+          const parsed = JSON.parse(candidate.slice(start, i + 1)) as unknown;
+          return Array.isArray(parsed) ? parsed : null;
+        } catch {
+          return null;
+        }
+      }
+    }
   }
+  return null;
 }
 
 /**

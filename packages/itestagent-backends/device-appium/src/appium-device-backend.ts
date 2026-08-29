@@ -75,6 +75,20 @@ async function spawnAsync(
   return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
 }
 
+/**
+ * True when a driver error is provably a pre-dispatch element-lookup failure
+ * (no-such-element) — the click never reached the app, so a coordinate-tap
+ * fallback cannot double-fire. Anything else (post-click failure, session
+ * loss, network error) must propagate.
+ */
+function isElementLookupError(error: unknown): boolean {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  const parts: string[] = [];
+  if (error instanceof Error) parts.push(error.name, error.message);
+  if (cause instanceof Error) parts.push(cause.name, cause.message);
+  return /no such element|NoSuchElement/i.test(parts.join(' '));
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 /** Options for AppiumDeviceBackend construction. */
@@ -618,56 +632,61 @@ export class AppiumDeviceBackend implements DeviceBackend {
       // output goes through `--json-output <path>` (G5 finding; the bare flag
       // made physical discovery return [] forever).
       const tmpJson = join(tmpdir(), `itestagent-devlist-${process.pid}-${Date.now()}.json`);
-      const { exitCode } = await spawnAsync(
-        ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
-        signal,
-      );
-
-      if (exitCode !== 0 || !existsSync(tmpJson)) {
-        return [];
-      }
-
-      const parsed = JSON.parse(readFileSync(tmpJson, 'utf-8')) as {
-        result?: {
-          devices?: Array<{
-            connectionProperties?: {
-              tunnelState?: string;
-              transportType?: string;
-              pairingState?: string;
-            };
-            hardwareProperties?: { udid?: string; productType?: string };
-            deviceProperties?: { name?: string; osVersionNumber?: string };
-          }>;
-        };
-      };
-
-      const devices = parsed?.result?.devices ?? [];
       try {
-        rmSync(tmpJson, { force: true });
-      } catch {
-        // Best-effort temp cleanup
-      }
+        const { exitCode } = await spawnAsync(
+          ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
+          signal,
+        );
 
-      return devices
-        .filter((d) => {
-          const cp = d.connectionProperties;
-          if (!cp) return false;
-          // Xcode 26+: tunnel is lazy — accept any wired+paired device
-          if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
-          // Xcode <26: tunnel state is authoritative
-          if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
-          return false;
-        })
-        .map((d) => ({
-          udid: String(d.hardwareProperties?.udid ?? ''),
-          name: d.deviceProperties?.name,
-          model: d.hardwareProperties?.productType,
-          osVersion: d.deviceProperties?.osVersionNumber,
-          platform: 'ios' as const,
-          targetKind: 'physical' as const,
-          state: 'booted' as const,
-        }))
-        .filter((d) => d.udid !== '');
+        if (exitCode !== 0 || !existsSync(tmpJson)) {
+          return [];
+        }
+
+        const parsed = JSON.parse(readFileSync(tmpJson, 'utf-8')) as {
+          result?: {
+            devices?: Array<{
+              connectionProperties?: {
+                tunnelState?: string;
+                transportType?: string;
+                pairingState?: string;
+              };
+              hardwareProperties?: { udid?: string; productType?: string };
+              deviceProperties?: { name?: string; osVersionNumber?: string };
+            }>;
+          };
+        };
+
+        const devices = parsed?.result?.devices ?? [];
+
+        return devices
+          .filter((d) => {
+            const cp = d.connectionProperties;
+            if (!cp) return false;
+            // Xcode 26+: tunnel is lazy — accept any wired+paired device
+            if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
+            // Xcode <26: tunnel state is authoritative
+            if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
+            return false;
+          })
+          .map((d) => ({
+            udid: String(d.hardwareProperties?.udid ?? ''),
+            name: d.deviceProperties?.name,
+            model: d.hardwareProperties?.productType,
+            osVersion: d.deviceProperties?.osVersionNumber,
+            platform: 'ios' as const,
+            targetKind: 'physical' as const,
+            state: 'booted' as const,
+          }))
+          .filter((d) => d.udid !== '');
+      } finally {
+        // Best-effort temp cleanup — must run on every path (early returns,
+        // read/parse failures included) so the file never leaks.
+        try {
+          rmSync(tmpJson, { force: true });
+        } catch {
+          // Ignore cleanup failures
+        }
+      }
     } catch {
       return [];
     }
@@ -959,8 +978,14 @@ export class AppiumDeviceBackend implements DeviceBackend {
       try {
         await this.ensureSession();
         return await this.driver.tapElement(accId);
-      } catch {
-        // Fall through to the coordinate path
+      } catch (error) {
+        // Only fall through to the coordinate path when the element click
+        // provably never dispatched (element lookup failed). A post-click
+        // failure must not re-tap — the app may have already processed the
+        // first tap (double-tap risk).
+        if (!isElementLookupError(error)) {
+          return this.toActionResult(error, 'tap');
+        }
       }
     }
     try {

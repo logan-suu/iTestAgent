@@ -228,7 +228,9 @@ export class RealAppiumDriver implements AppiumDriver {
       await el.click();
       return { success: true, message: `Tapped element ~${accessibilityId}` };
     } catch (error) {
-      throw new AppiumDriverError('command_failed', `tapElement: ${sanitizeMessage(error)}`);
+      // cause preserved so callers can distinguish provably pre-dispatch
+      // failures (e.g. no-such-element) from post-click failures.
+      throw new AppiumDriverError('command_failed', `tapElement: ${sanitizeMessage(error)}`, error);
     }
   }
 

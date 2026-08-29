@@ -30,6 +30,16 @@ describe('extractJsonArray', () => {
     expect(extractJsonArray(text)).toHaveLength(2);
   });
 
+  it('parses the array when followed by bracketed prose', () => {
+    const text = '[{"a":1}] See [1] for details.';
+    expect(extractJsonArray(text)).toEqual([{ a: 1 }]);
+  });
+
+  it('does not treat brackets inside strings as array boundaries', () => {
+    const text = '[{"a":"x[1]y"}] note [2]';
+    expect(extractJsonArray(text)).toEqual([{ a: 'x[1]y' }]);
+  });
+
   it('returns null when no array exists', () => {
     expect(extractJsonArray('no json here')).toBeNull();
   });
