@@ -86,7 +86,10 @@ interface DevicectlDeviceEntry {
 }
 
 interface DevicectlListOutput {
+  /** Xcode 26.x shape: devices wrapped under `result`. */
   result?: { devices?: DevicectlDeviceEntry[] };
+  /** Older/some devicectl builds emit a root-level `devices` array. */
+  devices?: DevicectlDeviceEntry[];
 }
 
 /**
@@ -675,7 +678,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         return [];
       }
 
-      const devices = parsed?.result?.devices ?? [];
+      const devices = parsed?.result?.devices ?? parsed?.devices ?? [];
 
       return devices
         .filter((d) => {
@@ -783,7 +786,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         };
       }
 
-      const devices = parsed.result?.devices ?? [];
+      const devices = parsed.result?.devices ?? parsed.devices ?? [];
       const found = devices.some((d) => d.hardwareProperties?.udid === deviceId);
 
       if (!found) {

@@ -99,3 +99,10 @@ describe('suggestAssertions', () => {
     expect(result.reason).toContain('rate limited');
   });
 });
+
+describe('extractJsonArray regression (CodeRabbit round 2)', () => {
+  it('continues past a non-JSON bracketed prefix to the valid array', () => {
+    const text = 'See [notes] before [{"id":"s1"}]';
+    expect(extractJsonArray(text)).toEqual([{ id: 's1' }]);
+  });
+});

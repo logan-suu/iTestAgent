@@ -58,38 +58,47 @@ function buildPrompt(ctx: SuggestionContext): string {
 export function extractJsonArray(text: string): unknown[] | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = (fenced?.[1] ?? text).trim();
-  const start = candidate.indexOf('[');
-  if (start === -1) return null;
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < candidate.length; i++) {
-    const ch = candidate[i] as string;
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (ch === '\\') {
-        escaped = true;
-      } else if (ch === '"') {
-        inString = false;
+  // Scan forward through candidate "[" positions: a non-JSON bracketed prefix
+  // (e.g. "See [notes] before [...]) must not discard the valid array that
+  // follows (CodeRabbit round 2).
+  let start = candidate.indexOf('[');
+  while (start !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let closed = false;
+    for (let i = start; i < candidate.length; i++) {
+      const ch = candidate[i] as string;
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
       }
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-    } else if (ch === '[') {
-      depth++;
-    } else if (ch === ']') {
-      depth--;
-      if (depth === 0) {
-        try {
-          const parsed = JSON.parse(candidate.slice(start, i + 1)) as unknown;
-          return Array.isArray(parsed) ? parsed : null;
-        } catch {
-          return null;
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === '[') {
+        depth++;
+      } else if (ch === ']') {
+        depth--;
+        if (depth === 0) {
+          closed = true;
+          try {
+            const parsed = JSON.parse(candidate.slice(start, i + 1)) as unknown;
+            if (Array.isArray(parsed)) return parsed;
+          } catch {
+            // Not JSON — advance to the next "[" candidate.
+          }
+          break;
         }
       }
     }
+    if (!closed) break; // Unbalanced tail — nothing further can parse.
+    start = candidate.indexOf('[', start + 1);
   }
   return null;
 }
