@@ -206,6 +206,9 @@ class MockAppiumDriver implements AppiumDriver {
     if (this.config.tapError) throw this.config.tapError;
     return this.config.tapResult ?? DEFAULT_ACTION_SUCCESS;
   }
+  async tapElement(_accessibilityId: string): Promise<AppiumActionResult> {
+    return { success: true, message: 'tapped element (mock)' };
+  }
 
   async swipe(
     from: AppiumPoint,

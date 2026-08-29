@@ -219,6 +219,10 @@ export class DeviceExplorer {
         deviceId: this.options.deviceId,
         x: locatorResult.element.x,
         y: locatorResult.element.y,
+        // G5 finding: the accessibility identifier enables WDA's
+        // element-resolved tap, which registers on SwiftUI buttons where raw
+        // coordinate performActions do not.
+        accessibilityId: locatorResult.element.name,
       },
     });
 

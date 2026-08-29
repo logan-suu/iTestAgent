@@ -27,6 +27,8 @@ interface WdioClient {
   execute<T = unknown>(script: string, args?: unknown[]): Promise<T>;
   startRecordingScreen(options?: Record<string, unknown>): Promise<void>;
   stopRecordingScreen(): Promise<string>;
+  /** Element-resolved tap (G5 finding) — WDA clicks the element internally. */
+  $(selector: string): Promise<{ click(): Promise<void> }>;
 }
 
 type WdioRemoteFn = (options: Record<string, unknown>) => Promise<WdioClient>;
@@ -213,6 +215,22 @@ export class RealAppiumDriver implements AppiumDriver {
   }
 
   // ── Actions ────────────────────────────────────────────────────────
+
+  /**
+   * Element-based tap (G5 finding): raw coordinate performActions do not
+   * register on SwiftUI buttons in this setup — WDA's element-resolved click
+   * does. Used whenever the explorer has an accessibility identifier.
+   */
+  async tapElement(accessibilityId: string): Promise<AppiumActionResult> {
+    const c = this.requireClient();
+    try {
+      const el = await c.$(`~${accessibilityId}`);
+      await el.click();
+      return { success: true, message: `Tapped element ~${accessibilityId}` };
+    } catch (error) {
+      throw new AppiumDriverError('command_failed', `tapElement: ${sanitizeMessage(error)}`);
+    }
+  }
 
   async tap(point: AppiumPoint): Promise<AppiumActionResult> {
     const c = this.requireClient();

@@ -45,7 +45,7 @@ import type {
 
 import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
@@ -614,16 +614,20 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listPhysicalDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync(
-        ['xcrun', 'devicectl', 'list', 'devices', '--json'],
+      // Xcode 26.5: `devicectl list devices --json` does not exist — the JSON
+      // output goes through `--json-output <path>` (G5 finding; the bare flag
+      // made physical discovery return [] forever).
+      const tmpJson = join(tmpdir(), `itestagent-devlist-${process.pid}-${Date.now()}.json`);
+      const { exitCode } = await spawnAsync(
+        ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
         signal,
       );
 
-      if (exitCode !== 0 || !raw.trim()) {
+      if (exitCode !== 0 || !existsSync(tmpJson)) {
         return [];
       }
 
-      const parsed = JSON.parse(raw) as {
+      const parsed = JSON.parse(readFileSync(tmpJson, 'utf-8')) as {
         result?: {
           devices?: Array<{
             connectionProperties?: {
@@ -638,6 +642,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
 
       const devices = parsed?.result?.devices ?? [];
+      try {
+        rmSync(tmpJson, { force: true });
+      } catch {
+        // Best-effort temp cleanup
+      }
 
       return devices
         .filter((d) => {
@@ -938,7 +947,22 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── tap ─────────────────────────────────────────────────
 
-  async tap(input: TapInput, signal?: AbortSignal): Promise<ActionResult> {
+  async tap(
+    input: TapInput & { accessibilityId?: string },
+    signal?: AbortSignal,
+  ): Promise<ActionResult> {
+    // G5 finding: raw coordinate taps don't register on SwiftUI buttons in this
+    // setup — prefer WDA's element-resolved click when an accessibility
+    // identifier is available, fall back to coordinates.
+    const accId = (input as { accessibilityId?: string }).accessibilityId;
+    if (accId) {
+      try {
+        await this.ensureSession();
+        return await this.driver.tapElement(accId);
+      } catch {
+        // Fall through to the coordinate path
+      }
+    }
     try {
       await this.ensureSession();
 

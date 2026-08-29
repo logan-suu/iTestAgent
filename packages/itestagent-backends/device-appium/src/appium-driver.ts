@@ -291,6 +291,8 @@ export interface AppiumDriver {
    * @throws AppiumDriverError (session_not_found / command_failed)
    */
   tap(point: AppiumPoint): Promise<AppiumActionResult>;
+  /** Element-resolved tap — preferred over raw coordinates (G5 finding). */
+  tapElement(accessibilityId: string): Promise<AppiumActionResult>;
 
   /**
    * Swipe from one coordinate to another (pixels, NOT normalized).

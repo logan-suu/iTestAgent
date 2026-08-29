@@ -56,7 +56,12 @@ export type {
 } from './appium-capabilities.js';
 export { toRunnerBundleId, toBundleIdCanon } from './appium-capabilities.js';
 
-export { WdaManager } from './wda-manager.js';
+export { WdaManager, ensureFreshProfile } from './wda-manager.js';
+export type {
+  FreshProfileInput,
+  FreshProfileOps,
+  FreshProfileResult,
+} from './wda-manager.js';
 export type {
   WdaBuildOptions,
   WdaBuildResult,
