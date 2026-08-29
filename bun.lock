@@ -106,6 +106,8 @@
       "dependencies": {
         "@ai-sdk/openai": "4.0.17",
         "ai": "7.0.34",
+        "itestagent-backends-analyzer-xcresult": "workspace:*",
+        "itestagent-backends-build-xcodebuild": "workspace:*",
         "itestagent-backends-device-appium": "workspace:*",
         "itestagent-contracts": "workspace:*",
         "itestagent-project-analyzer": "workspace:*",

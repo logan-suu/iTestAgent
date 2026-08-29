@@ -7,6 +7,7 @@
  * Parse failures NEVER fabricate suggestions (R5) — they return an empty
  * list with a reason.
  */
+import { type LanguageModel, generateText } from 'ai';
 import type { UserAssertion } from 'itestagent-contracts';
 import { UserAssertionSchema } from 'itestagent-contracts';
 
@@ -156,4 +157,12 @@ export async function suggestAssertions(
   return dropped.length > 0
     ? { suggestions, reason: `dropped invalid: ${dropped.join(', ')}` }
     : { suggestions };
+}
+
+/** Real LLM provider — AI SDK generateText wrapped as the suggester's generate fn. */
+export function createAiSdkGenerateFn(model: LanguageModel): (prompt: string) => Promise<string> {
+  return async (prompt: string) => {
+    const { text } = await generateText({ model, prompt });
+    return text;
+  };
 }

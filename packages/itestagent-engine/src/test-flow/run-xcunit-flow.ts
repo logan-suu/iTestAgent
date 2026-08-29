@@ -1,3 +1,7 @@
+import type {
+  XcresultParseResult,
+  XcresultParserOptions,
+} from 'itestagent-backends-analyzer-xcresult';
 /**
  * XCUITest flow — engine composition over two backend components:
  *
@@ -25,13 +29,6 @@ export interface XcunitTestRunOutput {
   durationMs: number;
 }
 
-/** Minimal parse surface (mirrors XcresultParseResult). */
-export interface XcunitParseOptions {
-  xcresultPath: string;
-  includeAttachments?: boolean;
-  signal?: AbortSignal;
-}
-
 export interface XcunitFlowInput {
   /** Project/workspace directory passed as the child process cwd. */
   projectRoot: string;
@@ -53,23 +50,14 @@ export interface XcunitFlowDeps {
     only?: string[];
     extraArgs: string[];
   }): Promise<XcunitTestRunOutput>;
-  parse(options: XcunitParseOptions): Promise<XcunitParsedResult>;
-}
-
-/** Parsed result — structurally compatible with XcresultParseResult. */
-export interface XcunitParsedResult {
-  cases: Array<Record<string, unknown>>;
-  execution: Record<string, unknown>;
-  metrics: Record<string, unknown>;
-  attachments: Array<Record<string, unknown>>;
-  error?: string;
+  parse(options: XcresultParserOptions): Promise<XcresultParseResult>;
 }
 
 export interface XcunitFlowResult {
   exitCode: number;
   durationMs: number;
   /** Normalized parse result — null when the bundle was not produced. */
-  parsed: XcunitParsedResult | null;
+  parsed: XcresultParseResult | null;
   parseError?: string;
 }
 
@@ -92,7 +80,7 @@ export async function runXcunitFlow(
     extraArgs: ['-resultBundlePath', input.resultBundlePath],
   });
 
-  let parsed: XcunitParsedResult | null = null;
+  let parsed: XcresultParseResult | null = null;
   let parseError: string | undefined;
   try {
     parsed = await deps.parse({

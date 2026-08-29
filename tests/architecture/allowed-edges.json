@@ -36,6 +36,14 @@
     "to": "itestagent-backends-device-appium"
   },
   {
+    "from": "itestagent-engine",
+    "to": "itestagent-backends-build-xcodebuild"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-backends-analyzer-xcresult"
+  },
+  {
     "from": "itestagent-backends-device-appium",
     "to": "itestagent-process"
   },

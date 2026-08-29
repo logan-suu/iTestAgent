@@ -169,3 +169,21 @@ export { buildFeedMemoryIntent } from './feed-memory-intent.js';
 export type { FeedMemoryIntent, FeedMemoryIntentInput } from './feed-memory-intent.js';
 export { buildMemoryProfileIntent } from './memory-profile-intent.js';
 export type { MemoryProfileIntent, MemoryProfileIntentOverrides } from './memory-profile-intent.js';
+
+export { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
+export { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
+export type {
+  XcunitFlowInput,
+  XcunitFlowResult,
+} from './test-flow/run-xcunit-flow.js';
+export { runRealDeviceExploration, createBackendToolDispatcher } from './exploration/real-run.js';
+export type {
+  RealDeviceRunOptions,
+  RealDeviceRunResult,
+} from './exploration/real-run.js';
+export { suggestAssertions, createAiSdkGenerateFn } from './exploration/assertion-suggester.js';
+export type {
+  SuggestionContext,
+  SuggesterDeps,
+  SuggestionResult,
+} from './exploration/assertion-suggester.js';

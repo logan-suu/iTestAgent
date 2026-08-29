@@ -6,7 +6,15 @@ import { type XcunitFlowDeps, runXcunitFlow } from '../../src/test-flow/run-xcun
 
 const PARSED = {
   cases: [{ name: 'SampleAppTests.testExample', status: 'passed' }],
-  execution: { totalTests: 1, passed: 1, failed: 0, skipped: 0, targetNames: ['SampleAppTests'] },
+  execution: {
+    startTime: '2026-08-29T00:00:00Z',
+    endTime: '2026-08-29T00:01:00Z',
+    totalTests: 1,
+    passed: 1,
+    failed: 0,
+    skipped: 0,
+    targetNames: ['SampleAppTests'],
+  },
   metrics: { approximate: true },
   attachments: [],
 };
