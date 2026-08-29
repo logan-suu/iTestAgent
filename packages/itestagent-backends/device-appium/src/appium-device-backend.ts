@@ -75,6 +75,48 @@ async function spawnAsync(
   return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
 }
 
+interface DevicectlDeviceEntry {
+  connectionProperties?: {
+    tunnelState?: string;
+    transportType?: string;
+    pairingState?: string;
+  };
+  hardwareProperties?: { udid?: string; productType?: string };
+  deviceProperties?: { name?: string; osVersionNumber?: string };
+}
+
+interface DevicectlListOutput {
+  result?: { devices?: DevicectlDeviceEntry[] };
+}
+
+/**
+ * Runs `devicectl list devices` and returns its parsed JSON output, or null
+ * on failure. Xcode 26.5 dropped the bare `--json` flag — output must go
+ * through `--json-output <path>` (G5 finding). The temp file is cleaned up
+ * on every path (early returns and read/parse failures included).
+ */
+async function devicectlListDevicesJson(signal?: AbortSignal): Promise<DevicectlListOutput | null> {
+  const tmpJson = join(tmpdir(), `itestagent-devlist-${process.pid}-${Date.now()}.json`);
+  try {
+    const { exitCode } = await spawnAsync(
+      ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
+      signal,
+    );
+    if (exitCode !== 0 || !existsSync(tmpJson)) {
+      return null;
+    }
+    return JSON.parse(readFileSync(tmpJson, 'utf-8')) as DevicectlListOutput;
+  } catch {
+    return null;
+  } finally {
+    try {
+      rmSync(tmpJson, { force: true });
+    } catch {
+      // Ignore cleanup failures
+    }
+  }
+}
+
 /**
  * True when a driver error is provably a pre-dispatch element-lookup failure
  * (no-such-element) — the click never reached the app, so a coordinate-tap
@@ -628,65 +670,33 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listPhysicalDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     try {
-      // Xcode 26.5: `devicectl list devices --json` does not exist — the JSON
-      // output goes through `--json-output <path>` (G5 finding; the bare flag
-      // made physical discovery return [] forever).
-      const tmpJson = join(tmpdir(), `itestagent-devlist-${process.pid}-${Date.now()}.json`);
-      try {
-        const { exitCode } = await spawnAsync(
-          ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
-          signal,
-        );
-
-        if (exitCode !== 0 || !existsSync(tmpJson)) {
-          return [];
-        }
-
-        const parsed = JSON.parse(readFileSync(tmpJson, 'utf-8')) as {
-          result?: {
-            devices?: Array<{
-              connectionProperties?: {
-                tunnelState?: string;
-                transportType?: string;
-                pairingState?: string;
-              };
-              hardwareProperties?: { udid?: string; productType?: string };
-              deviceProperties?: { name?: string; osVersionNumber?: string };
-            }>;
-          };
-        };
-
-        const devices = parsed?.result?.devices ?? [];
-
-        return devices
-          .filter((d) => {
-            const cp = d.connectionProperties;
-            if (!cp) return false;
-            // Xcode 26+: tunnel is lazy — accept any wired+paired device
-            if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
-            // Xcode <26: tunnel state is authoritative
-            if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
-            return false;
-          })
-          .map((d) => ({
-            udid: String(d.hardwareProperties?.udid ?? ''),
-            name: d.deviceProperties?.name,
-            model: d.hardwareProperties?.productType,
-            osVersion: d.deviceProperties?.osVersionNumber,
-            platform: 'ios' as const,
-            targetKind: 'physical' as const,
-            state: 'booted' as const,
-          }))
-          .filter((d) => d.udid !== '');
-      } finally {
-        // Best-effort temp cleanup — must run on every path (early returns,
-        // read/parse failures included) so the file never leaks.
-        try {
-          rmSync(tmpJson, { force: true });
-        } catch {
-          // Ignore cleanup failures
-        }
+      const parsed = await devicectlListDevicesJson(signal);
+      if (!parsed) {
+        return [];
       }
+
+      const devices = parsed?.result?.devices ?? [];
+
+      return devices
+        .filter((d) => {
+          const cp = d.connectionProperties;
+          if (!cp) return false;
+          // Xcode 26+: tunnel is lazy — accept any wired+paired device
+          if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
+          // Xcode <26: tunnel state is authoritative
+          if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
+          return false;
+        })
+        .map((d) => ({
+          udid: String(d.hardwareProperties?.udid ?? ''),
+          name: d.deviceProperties?.name,
+          model: d.hardwareProperties?.productType,
+          osVersion: d.deviceProperties?.osVersionNumber,
+          platform: 'ios' as const,
+          targetKind: 'physical' as const,
+          state: 'booted' as const,
+        }))
+        .filter((d) => d.udid !== '');
     } catch {
       return [];
     }
@@ -764,26 +774,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
     signal?: AbortSignal,
   ): Promise<HealthCheckResult> {
     try {
-      const { stdout, exitCode } = await spawnAsync(
-        ['xcrun', 'devicectl', 'list', 'devices', '--json'],
-        signal,
-      );
+      const parsed = await devicectlListDevicesJson(signal);
 
-      if (exitCode !== 0) {
+      if (!parsed) {
         return {
           healthy: false,
           details: 'devicectl unavailable — ensure Xcode CLI tools are installed',
         };
       }
 
-      const parsed = JSON.parse(stdout) as {
-        result?: {
-          devices?: Array<{
-            hardwareProperties?: { udid?: string };
-          }>;
-        };
-      };
-      const devices = parsed?.result?.devices ?? [];
+      const devices = parsed.result?.devices ?? [];
       const found = devices.some((d) => d.hardwareProperties?.udid === deviceId);
 
       if (!found) {
