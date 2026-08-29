@@ -142,6 +142,51 @@ export interface WdaManagerOptions {
 
 // ─── Implementation ───────────────────────────────────────────────────────
 
+/** Fresh-profile routine input (7-day free-profile re-sign, G5 recipe). */
+export interface FreshProfileInput {
+  /** Hardware UDID for verification (devicectl app list). */
+  udid: string;
+  /** CoreDevice identifier for installation (devicectl install). */
+  deviceId: string;
+  /** WDA base bundle ID (no .xctrunner suffix). */
+  wdaBundleId: string;
+  /** Build options for the re-sign pipeline. */
+  buildOpts: WdaBuildOptions;
+  signal?: AbortSignal;
+  /** R7: device modification requires explicit user confirmation. */
+  confirmed?: boolean;
+}
+
+/** Injected verify/prepare operations (unit-testable composition). */
+export interface FreshProfileOps {
+  verify(): Promise<WdaPreinstallVerification>;
+  prepare(): Promise<WdaPreinstallVerification>;
+}
+
+export interface FreshProfileResult {
+  /** True when the profile was rebuilt/reinstalled, false when already fresh. */
+  refreshed: boolean;
+  verification: WdaPreinstallVerification;
+}
+
+/**
+ * Ensure the device has a fresh (non-expired) preinstalled WDA profile.
+ *
+ * Free-account profiles expire after 7 days (G5 finding) — this routine
+ * verifies first and only rebuilds/reinstalls when the profile is not ready.
+ * The R7 confirmation gate is enforced by prepare (propagated on failure).
+ */
+export async function ensureFreshProfile(
+  input: FreshProfileInput,
+  ops: FreshProfileOps,
+): Promise<FreshProfileResult> {
+  const initial = await ops.verify();
+  if (initial.ready) {
+    return { refreshed: false, verification: initial };
+  }
+  return { refreshed: true, verification: await ops.prepare() };
+}
+
 export class WdaManager {
   private runningProcess: Subprocess | null = null;
   private readonly stagingDir: string;
@@ -457,6 +502,18 @@ export class WdaManager {
     );
 
     return verification;
+  }
+
+  /**
+   * Fresh-profile routine (7-day free-profile re-sign, G5 recipe):
+   * verify → skip when ready → rebuild/reinstall (R7-gated) otherwise.
+   */
+  async ensureFreshProfile(input: FreshProfileInput): Promise<FreshProfileResult> {
+    return ensureFreshProfile(input, {
+      verify: () => this.verifyPreinstalledWDA(input.udid, input.wdaBundleId, input.signal),
+      prepare: () =>
+        this.preparePreinstalledWDA(input.buildOpts, input.deviceId, input.signal, input.confirmed),
+    });
   }
 
   /**

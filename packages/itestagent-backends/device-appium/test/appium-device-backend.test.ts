@@ -52,6 +52,8 @@ interface MockDriverConfig {
   activateAppError?: Error;
   tapResult?: AppiumActionResult;
   tapError?: Error;
+  tapElementResult?: AppiumActionResult;
+  tapElementError?: unknown;
   swipeResult?: AppiumActionResult;
   swipeError?: Error;
   typeTextResult?: AppiumActionResult;
@@ -112,6 +114,7 @@ class MockAppiumDriver implements AppiumDriver {
   // Track method calls for verification
   readonly calls: string[] = [];
   readonly taps: AppiumPoint[] = [];
+  readonly tappedElements: string[] = [];
   readonly swipes: Array<{ from: AppiumPoint; to: AppiumPoint; durationMs?: number }> = [];
   readonly typedTexts: string[] = [];
   readonly pressedButtons: string[] = [];
@@ -205,6 +208,12 @@ class MockAppiumDriver implements AppiumDriver {
     this.taps.push(point);
     if (this.config.tapError) throw this.config.tapError;
     return this.config.tapResult ?? DEFAULT_ACTION_SUCCESS;
+  }
+  async tapElement(accessibilityId: string): Promise<AppiumActionResult> {
+    this.calls.push('tapElement');
+    this.tappedElements.push(accessibilityId);
+    if (this.config.tapElementError) throw this.config.tapElementError;
+    return this.config.tapElementResult ?? { success: true, message: 'tapped element (mock)' };
   }
 
   async swipe(
@@ -594,6 +603,68 @@ describe('AppiumDeviceBackend', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('tap');
+    });
+
+    it('prefers element-resolved tap when accessibilityId is given', async () => {
+      await backend.getUiTree({ deviceId: TEST_UDID });
+      mock.calls.length = 0;
+
+      const result = await backend.tap({
+        deviceId: TEST_UDID,
+        x: 0.5,
+        y: 0.5,
+        accessibilityId: 'login_button',
+      } as Parameters<typeof backend.tap>[0]);
+
+      expect(result.success).toBe(true);
+      expect(mock.tappedElements).toEqual(['login_button']);
+      expect(mock.taps).toHaveLength(0);
+    });
+
+    it('falls back to coordinate tap only on element-lookup failure', async () => {
+      await backend.getUiTree({ deviceId: TEST_UDID });
+      mock.calls.length = 0;
+      mock.setConfig({
+        tapElementError: new AppiumDriverError(
+          'command_failed',
+          'tapElement: no such element',
+          new Error('NoSuchElementError: no such element'),
+        ),
+      });
+
+      const result = await backend.tap({
+        deviceId: TEST_UDID,
+        x: 0.5,
+        y: 0.5,
+        accessibilityId: 'login_button',
+      } as Parameters<typeof backend.tap>[0]);
+
+      expect(result.success).toBe(true);
+      expect(mock.tappedElements).toEqual(['login_button']);
+      expect(mock.taps).toHaveLength(1);
+    });
+
+    it('does not double-tap when the element click fails after dispatch', async () => {
+      await backend.getUiTree({ deviceId: TEST_UDID });
+      mock.calls.length = 0;
+      mock.setConfig({
+        tapElementError: new AppiumDriverError(
+          'command_failed',
+          'tapElement: network error after command',
+          new Error('NetworkError: connection reset while awaiting click response'),
+        ),
+      });
+
+      const result = await backend.tap({
+        deviceId: TEST_UDID,
+        x: 0.5,
+        y: 0.5,
+        accessibilityId: 'login_button',
+      } as Parameters<typeof backend.tap>[0]);
+
+      expect(result.success).toBe(false);
+      expect(mock.tappedElements).toEqual(['login_button']);
+      expect(mock.taps).toHaveLength(0);
     });
   });
 

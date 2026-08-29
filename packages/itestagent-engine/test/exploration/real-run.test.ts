@@ -197,3 +197,182 @@ describe('runRealDeviceExploration', () => {
     expect(result.assertion.status).toBe('explored');
   });
 });
+
+// ─── 批2-2: LLM suggestion wiring (US-11.1 AC4 chain) ──────────────
+
+describe('runRealDeviceExploration llmSuggest', () => {
+  const TREE = `<XCUIElementTypeButton name="login_button" label="Log in" />`;
+
+  function llmBackend() {
+    return {
+      async getUiTree(_input: { udid?: string }) {
+        return { raw: TREE, format: 'xml', capturedAt: '' };
+      },
+      async screenshot(_input: { udid?: string }) {
+        return { id: 's1', type: 'screenshot', path: '/tmp/s1.png' };
+      },
+      async launchApp(_input: { bundleId: string }) {
+        return { success: true as const, message: 'launched' };
+      },
+    };
+  }
+
+  const SUGGESTIONS_JSON = JSON.stringify([
+    {
+      id: 's1',
+      caseId: 'login',
+      label: 'login button visible',
+      conditions: [
+        { type: 'element_visible', description: 'login button is visible', target: 'login_button' },
+      ],
+      evidence: ['name="login_button" in tree'],
+    },
+  ]);
+
+  it('proposes LLM suggestions as needs_assertion when no user/profile assertions', async () => {
+    const result = await runRealDeviceExploration({
+      backend: llmBackend(),
+      toolDispatcher: makeDispatcher(llmBackend()),
+      runDir: mkdtempSync(join(tmpdir(), 'real-run-llm-')),
+      runId: 'run_llm_1',
+      bundleId: 'com.example.app',
+      deviceId: 'UDID-1',
+      targetKind: 'physical',
+      actions: [],
+      llmSuggest: { generate: async () => SUGGESTIONS_JSON, goal: 'login works' },
+    });
+    expect(result.assertion.status).toBe('needs_assertion');
+    expect(result.assertion.suggestions ?? []).toHaveLength(1);
+    expect((result.assertion.suggestions ?? [])[0]?.source).toBe('agent');
+    expect(result.llmSuggestions).toHaveLength(1);
+  });
+
+  it('does not call the LLM when user assertions are present', async () => {
+    let called = 0;
+    const result = await runRealDeviceExploration({
+      backend: llmBackend(),
+      toolDispatcher: makeDispatcher(llmBackend()),
+      runDir: mkdtempSync(join(tmpdir(), 'real-run-llm-')),
+      runId: 'run_llm_2',
+      bundleId: 'com.example.app',
+      deviceId: 'UDID-1',
+      targetKind: 'physical',
+      actions: [],
+      assertions: [userAssertion()],
+      llmSuggest: {
+        generate: async () => {
+          called += 1;
+          return SUGGESTIONS_JSON;
+        },
+        goal: 'login works',
+      },
+    });
+    expect(called).toBe(0);
+    expect(result.assertion.status).toBe('passed');
+    expect(result.llmSuggestions).toHaveLength(0);
+  });
+});
+
+// ─── 批2-1a: interaction primitive routes in the dispatcher ────────
+
+describe('createBackendToolDispatcher interaction routes', () => {
+  const recorded: { tool: string; args: Record<string, unknown> }[] = [];
+
+  function interactiveBackend(partial?: Record<string, never>) {
+    return {
+      async getUiTree(_input: { udid?: string }) {
+        return { raw: '<a />', format: 'xml', capturedAt: '' };
+      },
+      async screenshot(_input: { udid?: string }) {
+        return { id: 's', type: 'screenshot', path: '/tmp/s.png' };
+      },
+      async launchApp(_input: { bundleId: string }) {
+        return { success: true as const };
+      },
+      async tap(input: { udid?: string; x: number; y: number }) {
+        recorded.push({ tool: 'tap', args: input as unknown as Record<string, unknown> });
+        return { success: true as const, message: 'tapped' };
+      },
+      async swipe(input: {
+        udid?: string;
+        fromX: number;
+        fromY: number;
+        toX: number;
+        toY: number;
+      }) {
+        recorded.push({ tool: 'swipe', args: input as unknown as Record<string, unknown> });
+        return { success: true as const, message: 'swiped' };
+      },
+      async typeText(input: { udid?: string; text: string }) {
+        recorded.push({ tool: 'typeText', args: input as unknown as Record<string, unknown> });
+        return { success: true as const, message: 'typed' };
+      },
+      async pressButton(input: { udid?: string; button: string }) {
+        recorded.push({ tool: 'pressButton', args: input as unknown as Record<string, unknown> });
+        return { success: true as const, message: 'pressed' };
+      },
+      ...partial,
+    };
+  }
+
+  it('routes tap with numeric coordinates', async () => {
+    const dispatcher = createBackendToolDispatcher(interactiveBackend());
+    const r = await dispatcher.dispatch({
+      id: 't1',
+      name: 'tap',
+      arguments: { deviceId: 'U1', x: 100, y: 200 },
+    });
+    expect(r.status).toBe('ok');
+    expect(recorded.at(-1)).toEqual({ tool: 'tap', args: { udid: 'U1', x: 100, y: 200 } });
+  });
+
+  it('routes swipe, type_text and press_button', async () => {
+    const dispatcher = createBackendToolDispatcher(interactiveBackend());
+    const swipe = await dispatcher.dispatch({
+      id: 't2',
+      name: 'swipe',
+      arguments: { deviceId: 'U1', fromX: 0.5, fromY: 0.7, toX: 0.5, toY: 0.3 },
+    });
+    expect(swipe.status).toBe('ok');
+    const typed = await dispatcher.dispatch({
+      id: 't3',
+      name: 'type_text',
+      arguments: { deviceId: 'U1', text: 'hello' },
+    });
+    expect(typed.status).toBe('ok');
+    const pressed = await dispatcher.dispatch({
+      id: 't4',
+      name: 'press_button',
+      arguments: { deviceId: 'U1', button: 'home' },
+    });
+    expect(pressed.status).toBe('ok');
+    expect(recorded.map((r) => r.tool)).toEqual(['tap', 'swipe', 'typeText', 'pressButton']);
+  });
+
+  it('returns an error route when the backend lacks the capability', async () => {
+    const backend = interactiveBackend();
+    const dispatcher = createBackendToolDispatcher(backend);
+    const r = await dispatcher.dispatch({
+      id: 't5',
+      name: 'tap',
+      arguments: { deviceId: 'U1', x: 1, y: 2 },
+    });
+    expect(r.status).toBe('ok'); // backend implements tap — ok
+    const sparse = createBackendToolDispatcher({
+      getUiTree: async () => ({ raw: '', format: 'xml', capturedAt: '' }),
+      screenshot: async () => ({ id: 's', type: 'screenshot', path: '' }),
+      launchApp: async () => ({ success: true as const }),
+      tap: undefined,
+      swipe: undefined,
+      typeText: undefined,
+      pressButton: undefined,
+    } as unknown as Parameters<typeof createBackendToolDispatcher>[0]);
+    const blocked = await sparse.dispatch({
+      id: 't6',
+      name: 'tap',
+      arguments: { deviceId: 'U1', x: 1, y: 2 },
+    });
+    expect(blocked.status).toBe('error');
+    expect((blocked.output as { error: string }).error).toContain('does not support tap');
+  });
+});

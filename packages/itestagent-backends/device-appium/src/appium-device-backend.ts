@@ -45,7 +45,7 @@ import type {
 
 import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
@@ -73,6 +73,65 @@ async function spawnAsync(
   ]);
   await proc.exited;
   return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
+}
+
+interface DevicectlDeviceEntry {
+  connectionProperties?: {
+    tunnelState?: string;
+    transportType?: string;
+    pairingState?: string;
+  };
+  hardwareProperties?: { udid?: string; productType?: string };
+  deviceProperties?: { name?: string; osVersionNumber?: string };
+}
+
+interface DevicectlListOutput {
+  /** Xcode 26.x shape: devices wrapped under `result`. */
+  result?: { devices?: DevicectlDeviceEntry[] };
+  /** Older/some devicectl builds emit a root-level `devices` array. */
+  devices?: DevicectlDeviceEntry[];
+}
+
+/**
+ * Runs `devicectl list devices` and returns its parsed JSON output, or null
+ * on failure. Xcode 26.5 dropped the bare `--json` flag — output must go
+ * through `--json-output <path>` (G5 finding). The temp file is cleaned up
+ * on every path (early returns and read/parse failures included).
+ */
+async function devicectlListDevicesJson(signal?: AbortSignal): Promise<DevicectlListOutput | null> {
+  const tmpJson = join(tmpdir(), `itestagent-devlist-${process.pid}-${Date.now()}.json`);
+  try {
+    const { exitCode } = await spawnAsync(
+      ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
+      signal,
+    );
+    if (exitCode !== 0 || !existsSync(tmpJson)) {
+      return null;
+    }
+    return JSON.parse(readFileSync(tmpJson, 'utf-8')) as DevicectlListOutput;
+  } catch {
+    return null;
+  } finally {
+    try {
+      rmSync(tmpJson, { force: true });
+    } catch {
+      // Ignore cleanup failures
+    }
+  }
+}
+
+/**
+ * True when a driver error is provably a pre-dispatch element-lookup failure
+ * (no-such-element) — the click never reached the app, so a coordinate-tap
+ * fallback cannot double-fire. Anything else (post-click failure, session
+ * loss, network error) must propagate.
+ */
+function isElementLookupError(error: unknown): boolean {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  const parts: string[] = [];
+  if (error instanceof Error) parts.push(error.name, error.message);
+  if (cause instanceof Error) parts.push(cause.name, cause.message);
+  return /no such element|NoSuchElement/i.test(parts.join(' '));
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -614,30 +673,12 @@ export class AppiumDeviceBackend implements DeviceBackend {
    */
   private async listPhysicalDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     try {
-      const { stdout: raw, exitCode } = await spawnAsync(
-        ['xcrun', 'devicectl', 'list', 'devices', '--json'],
-        signal,
-      );
-
-      if (exitCode !== 0 || !raw.trim()) {
+      const parsed = await devicectlListDevicesJson(signal);
+      if (!parsed) {
         return [];
       }
 
-      const parsed = JSON.parse(raw) as {
-        result?: {
-          devices?: Array<{
-            connectionProperties?: {
-              tunnelState?: string;
-              transportType?: string;
-              pairingState?: string;
-            };
-            hardwareProperties?: { udid?: string; productType?: string };
-            deviceProperties?: { name?: string; osVersionNumber?: string };
-          }>;
-        };
-      };
-
-      const devices = parsed?.result?.devices ?? [];
+      const devices = parsed?.result?.devices ?? parsed?.devices ?? [];
 
       return devices
         .filter((d) => {
@@ -736,26 +777,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
     signal?: AbortSignal,
   ): Promise<HealthCheckResult> {
     try {
-      const { stdout, exitCode } = await spawnAsync(
-        ['xcrun', 'devicectl', 'list', 'devices', '--json'],
-        signal,
-      );
+      const parsed = await devicectlListDevicesJson(signal);
 
-      if (exitCode !== 0) {
+      if (!parsed) {
         return {
           healthy: false,
           details: 'devicectl unavailable — ensure Xcode CLI tools are installed',
         };
       }
 
-      const parsed = JSON.parse(stdout) as {
-        result?: {
-          devices?: Array<{
-            hardwareProperties?: { udid?: string };
-          }>;
-        };
-      };
-      const devices = parsed?.result?.devices ?? [];
+      const devices = parsed.result?.devices ?? parsed.devices ?? [];
       const found = devices.some((d) => d.hardwareProperties?.udid === deviceId);
 
       if (!found) {
@@ -938,7 +969,28 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   // ────────── tap ─────────────────────────────────────────────────
 
-  async tap(input: TapInput, signal?: AbortSignal): Promise<ActionResult> {
+  async tap(
+    input: TapInput & { accessibilityId?: string },
+    signal?: AbortSignal,
+  ): Promise<ActionResult> {
+    // G5 finding: raw coordinate taps don't register on SwiftUI buttons in this
+    // setup — prefer WDA's element-resolved click when an accessibility
+    // identifier is available, fall back to coordinates.
+    const accId = (input as { accessibilityId?: string }).accessibilityId;
+    if (accId) {
+      try {
+        await this.ensureSession();
+        return await this.driver.tapElement(accId);
+      } catch (error) {
+        // Only fall through to the coordinate path when the element click
+        // provably never dispatched (element lookup failed). A post-click
+        // failure must not re-tap — the app may have already processed the
+        // first tap (double-tap risk).
+        if (!isElementLookupError(error)) {
+          return this.toActionResult(error, 'tap');
+        }
+      }
+    }
     try {
       await this.ensureSession();
 

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-08-28T18:35:00Z",
+  "last_updated": "2026-08-29T03:10:00Z",
   "items": [
     {
       "id": "DEF-001",
@@ -552,6 +552,38 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-08-28T18:30:00.000Z"
+    },
+    {
+      "id": "DEF-031",
+      "source": "CodeRabbit",
+      "pr": 65,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/65",
+      "comment_id": 3885210995,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/65#discussion_r3885210995",
+      "task": "3.7d",
+      "severity": "major",
+      "item": "ensureFreshProfile trusts verify ready:true without testing WDA profile validity or usability",
+      "detail": "CodeRabbit (PR #65, wda-manager.ts ensureFreshProfile): the verify-first branch returns { refreshed: false } whenever verifyPreinstalledWDA reports ready:true, but that verification only checks that the WDA Runner app exists on the device — it does not test profile expiry or WDA usability. After the 7-day free-account profile expires (DEF-G5-001 finding), verify still returns ready:true, ensureFreshProfile skips preparation, and the next WDA session fails. Verified in code: verifyPreinstalledWDA (wda-manager.ts:447-452) carries an explicit R5 note that profile expiry is best-effort because devicectl does not expose provisioning profile details. Deferral rationale: a proper fix requires either parsing the installed app's embedded provisioning profile (method unproven on-device — needs a real-device spike to validate, R3) or launching WDA for a /status usability probe (cross-component change pulling WdaManager lifecycle into preparation-time verification). Neither is safely implementable without new G5 spike evidence. Next step: extend the next physical G5 spike to test profile-expiry detection approaches (embedded mobileprovision read via devicectl/app inspection vs. WDA status probe), then implement the winning approach in WdaManager.verifyPreinstalledWDA so ensureFreshProfile's ready branch genuinely proves freshness.",
+      "target_phase": 6,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-08-29T03:10:00Z"
+    },
+    {
+      "id": "DEF-032",
+      "source": "CodeRabbit",
+      "pr": 65,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/65",
+      "comment_id": 3885210999,
+      "comment_url": "https://github.com/logan-suu/iTestAgent/pull/65#discussion_r3885210999",
+      "task": "3.7d",
+      "severity": "major",
+      "item": "runXcunitFlow uses reduced local type mirrors instead of exported backend contracts",
+      "detail": "CodeRabbit (PR #65, run-xcunit-flow.ts): XcunitTestRunInput/Output and XcunitParseOptions/ParsedResult are local mirrors of build-xcodebuild's XcodebuildTestRunInput/Output and analyzer-xcresult's XcresultParserOptions/XcresultParseResult (which are exported). Backend contract changes could silently drift past the flow because the mirrors are only structurally compatible, not shared. Verified: itestagent-engine/package.json currently declares no workspace dependency on itestagent-backends-build-xcodebuild or itestagent-backends-analyzer-xcresult, and the flow is only consumed via injected mock deps in unit tests — the real composition (BackendSelector wiring runXcodebuildTests + createXcresultParser into runXcunitFlow) has not landed yet. Deferral rationale: unifying now adds two engine workspace edges and forces typed test-mock rewrites for a module with no production caller yet; when the real wiring task lands, the dependency edge becomes mandatory anyway and typecheck will force the unification. Next step: in the task that wires runXcunitFlow to the real backends (engine test-flow integration), import XcodebuildTestRunInput/Output and XcresultParserOptions/XcresultParseResult from the backend packages, delete the local mirrors, and update the flow tests to produce typed XcresultParseResult mocks.",
+      "target_phase": 6,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-08-29T03:10:00Z"
     }
   ]
 }
