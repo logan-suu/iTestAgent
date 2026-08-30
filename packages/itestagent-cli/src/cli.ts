@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
@@ -259,10 +260,50 @@ export function createProgram(): Command {
           }
         }
 
+        // G5 finding: appium's RemoteXPC device matching on iOS 17+ REQUIRES
+        // platformVersion — auto-resolve it from devicectl when omitted.
+        let platformVersion = options.platformVersion;
+        if (!platformVersion) {
+          const probeJson = join(tmpdir(), `itestagent-explore-pv-${Date.now()}.json`);
+          const probe = Bun.spawnSync([
+            'xcrun',
+            'devicectl',
+            'list',
+            'devices',
+            '--json-output',
+            probeJson,
+          ]);
+          try {
+            const list = JSON.parse(readFileSync(probeJson, 'utf-8')) as {
+              result?: {
+                devices?: Array<{
+                  hardwareProperties?: { udid?: string };
+                  deviceProperties?: { osVersionNumber?: string };
+                }>;
+              };
+            };
+            platformVersion = (list.result?.devices ?? []).find(
+              (d) => d.hardwareProperties?.udid === options.udid,
+            )?.deviceProperties?.osVersionNumber;
+          } finally {
+            try {
+              rmSync(probeJson, { force: true });
+            } catch {
+              // Best-effort temp cleanup
+            }
+          }
+          if (!platformVersion) {
+            throw new PublicCliError(
+              `Device ${options.udid} not found via devicectl — connect the device, unlock it, and re-run (platformVersion is required for appium session creation)`,
+            );
+          }
+        }
+
         const runtime = createAppiumExplorationRuntime(
           {
             udid: options.udid,
             bundleId: options.bundleId,
+            platformVersion,
             ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
             wdaStartupMode: options.wdaMode as
               | 'preinstalled'
@@ -276,44 +317,49 @@ export function createProgram(): Command {
         );
 
         const runId = `explore_${Date.now()}`;
+        let lastAssertionStatus: string | undefined;
         const runDir = join(tmpdir(), 'itestagent', 'runs', runId);
-        const result = await runRealDeviceExploration({
-          backend: runtime.backend,
-          toolDispatcher: createBackendToolDispatcher(runtime.backend),
-          runDir,
-          runId,
-          bundleId: options.bundleId,
-          deviceId: options.udid,
-          targetKind: 'physical',
-          actions: [
-            { action: 'launch', target: options.bundleId },
-            { action: 'screenshot', target: 'explore' },
-          ],
-          ...(options.goal ? { policy: undefined } : {}),
-          ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
-        });
+        // CodeRabbit r3: cleanup must run even when exploration rejects —
+        // a leaked Appium session or iproxy tunnel blocks the next run.
+        try {
+          const result = await runRealDeviceExploration({
+            backend: runtime.backend,
+            toolDispatcher: createBackendToolDispatcher(runtime.backend),
+            runDir,
+            runId,
+            bundleId: options.bundleId,
+            deviceId: options.udid,
+            targetKind: 'physical',
+            actions: [
+              { action: 'launch', target: options.bundleId },
+              { action: 'screenshot', target: 'explore' },
+            ],
+            ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
+          });
 
-        console.log(`run: ${runId} | dir: ${runDir}`);
-        console.log(`assertion: ${result.assertion.status} — ${result.assertion.summary}`);
-        for (const s of result.assertion.suggestions ?? []) {
+          console.log(`run: ${runId} | dir: ${runDir}`);
+          lastAssertionStatus = result.assertion.status;
+          console.log(`assertion: ${result.assertion.status} — ${result.assertion.summary}`);
+          for (const s of result.assertion.suggestions ?? []) {
+            console.log(
+              `  suggestion [${s.source}] ${s.label ?? s.caseId}: ${s.evidence?.join('; ') ?? ''}`,
+            );
+          }
+          if (result.llmSuggestions !== undefined) {
+            console.log(
+              `llmSuggestions: ${result.llmSuggestions.length}${result.llmReason ? ` (${result.llmReason})` : ''}`,
+            );
+          }
+          for (const s of result.steps) {
+            console.log(`  step [${s.action}] ${s.target ?? ''}`);
+          }
           console.log(
-            `  suggestion [${s.source}] ${s.label ?? s.caseId}: ${s.evidence?.join('; ') ?? ''}`,
+            `artifacts: ${result.artifactCount} | index: ${result.artifactIndexPath ?? 'n/a'}`,
           );
+        } finally {
+          await runtime.close();
         }
-        if (result.llmSuggestions !== undefined) {
-          console.log(
-            `llmSuggestions: ${result.llmSuggestions.length}${result.llmReason ? ` (${result.llmReason})` : ''}`,
-          );
-        }
-        for (const s of result.steps) {
-          console.log(`  step [${s.action}] ${s.target ?? ''}`);
-        }
-        console.log(
-          `artifacts: ${result.artifactCount} | index: ${result.artifactIndexPath ?? 'n/a'}`,
-        );
-
-        await runtime.close();
-        if (result.assertion.status === 'failed') {
+        if (lastAssertionStatus === 'failed') {
           process.exitCode = 1;
         }
       },

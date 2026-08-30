@@ -7,8 +7,11 @@
  */
 import { beforeEach, describe, expect, it } from 'bun:test';
 import { writeFileSync } from 'node:fs';
-import { type ExecFn, type ExecResult, setExecOverride } from '../utils.js';
-import { checkRemotexpcTunnel, extractWiredUdid } from './check-remotexpc-tunnel.js';
+import {
+  checkRemotexpcTunnel,
+  extractWiredUdid,
+} from '../../src/doctor/checks/check-remotexpc-tunnel.js';
+import { type ExecFn, type ExecResult, setExecOverride } from '../../src/doctor/utils.js';
 
 const WIRED_JSON = JSON.stringify({
   result: {
@@ -117,5 +120,31 @@ describe('checkRemotexpcTunnel', () => {
     const result = await checkRemotexpcTunnel();
     expect(result.status).toBe('manual');
     expect(result.message).toContain('libimobiledevice');
+  });
+});
+
+describe('checkRemotexpcTunnel probe failures (CodeRabbit r3)', () => {
+  it('is manual when the legacy probe exits nonzero with unrelated stderr', async () => {
+    setExecOverride(
+      scriptExec({
+        'devicectl list devices': { exitCode: 0, stdout: WIRED_JSON, stderr: '' },
+        'idevice_id -l': { exitCode: 1, stdout: '', stderr: 'usbmuxd handshake error' },
+      }),
+    );
+    const result = await checkRemotexpcTunnel();
+    expect(result.status).toBe('manual');
+    expect(result.message).toContain('visibility unknown');
+  });
+
+  it('is manual when the legacy probe binary is missing', async () => {
+    setExecOverride(
+      scriptExec({
+        'devicectl list devices': { exitCode: 0, stdout: WIRED_JSON, stderr: '' },
+        'idevice_id -l': { exitCode: 1, stdout: '', stderr: 'idevice_id: command not found' },
+      }),
+    );
+    const result = await checkRemotexpcTunnel();
+    expect(result.status).toBe('manual');
+    expect(result.fixGuide?.some((g) => g.includes('libimobiledevice'))).toBe(true);
   });
 });

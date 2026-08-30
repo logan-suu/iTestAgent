@@ -93,16 +93,21 @@ export async function checkRemotexpcTunnel(): Promise<DoctorCheckResult> {
 
     // 2. Legacy-layer visibility (appium's fallback enumeration path)
     const legacyProbe = exec('idevice_id', ['-l']);
-    if (
-      legacyProbe.exitCode !== 0 &&
-      legacyProbe.stdout.trim() === '' &&
-      legacyProbe.stderr.includes('not found')
-    ) {
+    // A failed probe did not measure visibility — 'manual' (unknown), never
+    // 'fail' (CodeRabbit r3): only a successful probe that cannot see the
+    // device proves the tunnel gap.
+    const probeFailed = legacyProbe.exitCode !== 0 && !legacyProbe.stdout.includes(wiredUdid);
+    if (probeFailed) {
+      const missingBinary = legacyProbe.stderr.includes('not found');
       return {
         name: 'RemoteXPC tunnel',
         status: 'manual',
-        message: 'libimobiledevice (idevice_id) not installed — tunnel readiness unknown',
-        fixGuide: ['brew install libimobiledevice  # enables the legacy-layer probe'],
+        message: missingBinary
+          ? 'libimobiledevice (idevice_id) not installed — tunnel readiness unknown'
+          : `Legacy probe failed (exit ${legacyProbe.exitCode}) — visibility unknown`,
+        fixGuide: missingBinary
+          ? ['brew install libimobiledevice  # enables the legacy-layer probe']
+          : ['Re-run doctor. If persistent, inspect `idevice_id -l` output manually.'],
       };
     }
 

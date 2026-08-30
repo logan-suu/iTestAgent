@@ -186,6 +186,28 @@ export interface SuggesterModelConfig {
 export function createConfiguredGenerateFn(
   config: SuggesterModelConfig,
 ): (prompt: string) => Promise<string> {
+  assertProviderUrl(config.baseUrl);
   const openai = createOpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey });
   return createAiSdkGenerateFn(openai(config.model));
+}
+
+/**
+ * Refuse provider URLs that would carry the API key in cleartext (CWE-319):
+ * https: anywhere, or http: on loopback only. @ai-sdk/openai does not
+ * enforce this itself (verified for 4.0.17 — CodeRabbit round 3).
+ */
+export function assertProviderUrl(baseUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new Error(`Invalid provider URL: ${baseUrl}`);
+  }
+  if (parsed.protocol === 'https:') return;
+  const host = parsed.hostname;
+  const loopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  if (parsed.protocol === 'http:' && loopback) return;
+  throw new Error(
+    `Refusing to send the API key over non-HTTPS: ${baseUrl} (use https: or a loopback http: URL)`,
+  );
 }
