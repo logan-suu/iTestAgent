@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-30T11:05:00Z",
+  "last_updated": "2026-08-30T23:08:15Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1123,9 +1123,24 @@
     {
       "id": 6,
       "name": "增强路线（MVP 后）",
-      "status": "not_started",
+      "status": "in_progress",
       "integration_test": "6.7",
       "tasks": [
+        {
+          "id": "6.0",
+          "title": "Codex development workflow migration",
+          "story": null,
+          "status": "in_progress",
+          "last_updated": "2026-08-30T23:08:15Z",
+          "documents_required": [
+            "AGENTS.md",
+            "docs/INDEX.md",
+            "docs/decisions/ADR-025-codex-development-workflow.md"
+          ],
+          "dependencies": [],
+          "test_file": null,
+          "notes": "Migrated 14 OpenCode command workflows to repository-scoped Codex skills, added trusted-project Codex configuration with Argent MCP parity, and aligned agent governance documentation. The project owner explicitly authorized direct integration into dev-1.0; keep in_progress pending explicit lifecycle completion confirmation."
+        },
         {
           "id": "6.1",
           "title": "团队扩展：remote backend / Mac worker pool / 共享设备池 / PR Bot",

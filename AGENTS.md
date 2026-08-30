@@ -2,7 +2,7 @@
 
 **版本**：v1.0
 **生效日期**：2026-07-13
-**适用对象**：所有参与 iTestAgent 项目开发的 AI Agent（OpenCode 桌面版 / Codex / Cursor / Claude）及人类开发者
+**适用对象**：所有参与 iTestAgent 项目开发的 AI Agent（Codex / OpenCode / Cursor / Claude）及人类开发者
 **优先级**：本规约优先于任何 Agent 的默认行为。当本规约与 Agent 默认行为冲突时，以本规约为准。
 **任务追踪**：`docs/05-planning/task-status.json` 记录所有任务执行状态
 **延期待办**：`docs/05-planning/deferred-items.json` 集中追踪 PR review 中合理但延期的修复条目
@@ -33,7 +33,7 @@
 
 ### 0.2 任务类型 → 文档快速索引（Agent 必读）
 
-**使用方式**：收到任务后，先判断任务类型，按下表确定应读取的文档和章节，使用 `read_file` 工具**只读取相关章节**（而非整篇文档）。
+**使用方式**：收到任务后，先判断任务类型，按下表确定应读取的文档和章节，使用可用的文件读取工具**只读取相关章节**（而非整篇文档）。
 
 | 任务类型 | 应读取的文档 | 重点章节/关键词 |
 |---|---|---|
@@ -180,7 +180,7 @@ LLM          OpenAI-compatible provider（可扩展）
 - `{type}/{description}`：功能分支，PR base 为 `dev-1.0`（非 `main`）
 
 **分支创建规则**：Agent 只在以下两种情况下创建新分支：
-1. 执行 `/commit-pr-itest` 命令时（该命令包含分支检查与创建步骤）
+1. 执行 Codex Skill `$commit-pr-itest`（或兼容 Agent 的同名工作流）时，该工作流包含分支检查与创建步骤
 2. 用户明确要求开分支（如"开个分支"、"新建分支做 X"）
 
 除此之外，Agent 直接在当前分支上工作，**不主动切分支**。
@@ -361,17 +361,17 @@ pending -> ready -> in_progress -> done
 | `pending` | 任务已定义，依赖未满足 | 人类 |
 | `ready` | 依赖已满足，等待执行 | Agent 自动（级联） |
 | `in_progress` | 执行中；代码类任务已提交 PR 等待合并，非代码类任务已完成等待确认 | Agent 自动 |
-| `done` | 代码类：PR 已合并到 dev-1.0；非代码类：人类已确认完成 | Agent 自动（经 `pr-merge-itest`） |
+| `done` | 代码类：PR 已合并到 dev-1.0；非代码类：人类已确认完成 | Agent 自动（经 `$pr-merge-itest`） |
 
 ### 8.1.2 代码类任务 `in_progress → done` 转换规则
 
-- 仅当 PR 已被人类手动合并到 dev-1.0 后，Agent 通过 `pr-merge-itest` 命令设为 `done`（§9.3：Agent 不得自动合并 PR）。
-- `commit-pr-itest` 命令提交代码时**保持 `in_progress`**，仅记录 PR 链接到 `notes`，不得设为 `done`。
+- 仅当 PR 已被人类手动合并到 dev-1.0 后，Agent 通过 `$pr-merge-itest` 工作流设为 `done`（§9.3：Agent 不得自动合并 PR）。
+- `$commit-pr-itest` 工作流提交代码时**保持 `in_progress`**，仅记录 PR 链接到 `notes`，不得设为 `done`。
 
 ### 8.1.3 非代码类任务 `in_progress → done` 转换规则
 
 - Agent 完成任务产出（报告/验证/研究）后，**保持 `in_progress`**，在 `notes` 中记录产出路径与结论摘要。
-- 人类审阅确认后，Agent 通过 `pr-merge-itest` 命令设为 `done`（与代码类任务同一入口）。
+- 人类审阅确认后，Agent 通过 `$pr-merge-itest` 工作流设为 `done`（与代码类任务同一入口）。
 - Agent **不得**在未经人类确认的情况下将非代码类任务标 `done`。
 
 ### 8.1.4 task-status.json 字段约束（R13）
@@ -404,18 +404,18 @@ R14 发现缺陷必须先判断是否必须延期（外部依赖、跨 Phase 协
 
 | 来源 | 识别时机 | 示例 |
 |---|---|---|
-| PR review（CodeRabbit / 人类 reviewer） | `pr-review-itest` 执行时 | reviewer 指出的安全/性能/架构问题 |
+| PR review（CodeRabbit / 人类 reviewer） | `$pr-review-itest` 执行时 | reviewer 指出的安全/性能/架构问题 |
 | 自行检查 | 实现过程中发现与文档/架构/AI 建议的偏离 | 字段类型与数据流文档不一致、本地类型重复但重构成本高 |
 
-**创建**：`pr-review-itest` 第五步之半（PR review 来源）或 `commit-pr-itest` 第一步 §2（自行检查来源）— 每条必须逐条写入，含完整上下文（`detail` 字段强制必填）。
+**创建**：`$pr-review-itest`（PR review 来源）或 `$commit-pr-itest`（自行检查来源）— 每条必须逐条写入，含完整上下文（`detail` 字段强制必填）。
 
-**追踪**：`next-task-itest` 第一步 — 若当前阶段有 `target_phase` 匹配且 `status: "open"` 的条目，输出提醒。
+**追踪**：`$next-task-itest` 定位任务时 — 若当前阶段有 `target_phase` 匹配且 `status: "open"` 的条目，输出提醒。
 
-**提交门禁**：`commit-pr-itest` 第一步 §2 — 若刚完成 review 且有 🟡 警告未留档，阻断 commit。
+**提交门禁**：`$commit-pr-itest` — 若刚完成 review 且有 🟡 警告未留档，阻断 commit。
 
 **出口检查**：Phase 集成测试任务中 — 检查本阶段 `target_phase` 的 open 条目是否已随其他任务顺便修复；若是，更新 `status → resolved` + `resolved_by`；若否，保留 open 并记录检查结果。
 
-**关闭**：条目修复后通过 `sync-docs-itest` 将 `status` 更新为 `resolved`，**不得删除条目**（保留审计轨迹）。
+**关闭**：条目修复后通过 `$sync-docs-itest` 将 `status` 更新为 `resolved`，**不得删除条目**（保留审计轨迹）。
 
 ### 8.2 跨阶段阻断规则
 
@@ -462,7 +462,7 @@ R14 发现缺陷必须先判断是否必须延期（外部依赖、跨 Phase 协
 | **GitHub 可见内容使用中文** | 禁止（R12） | commit/PR/评论/代码注释必须英文，docs/ 豁免 |
 | **未经代码验证就采纳自动化审查建议** | 引入误报/错误修复 | CodeRabbit 等 AI 审查发现的每条问题必须先读实际代码逐条评估合理性，确认问题存在后再修复 |
 
-## 10. 在 OpenCode 中的工作约定
+## 10. 在 Codex 与兼容开发 Agent 中的工作约定
 
 ```
 - 优先读本文件与相关规格章节，再动手；不要凭想象实现
@@ -472,6 +472,8 @@ R14 发现缺陷必须先判断是否必须延期（外部依赖、跨 Phase 协
 - 需要外部库/新依赖前，先核对技术选型文档，未列入的先讨论
 - 涉及危险操作(删除/卸载/写项目/凭证)必须显式征得确认，不擅自执行
 - 提交信息遵循仓库风格；无用户明确要求不擅自 commit/push
+- Codex 复用工作流位于 `.agents/skills/`，使用 `$skill-name` 调用；`.opencode/commands/` 仅作为迁移期兼容参考
+- Codex 项目配置位于 `.codex/config.toml`；不得把个人凭证、模型偏好或本机私有路径写入仓库配置
 ```
 
 建议的仓库结构（与架构设计文档 §10 对齐，独立 workspace 包）：

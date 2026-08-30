@@ -26,10 +26,16 @@ Thumbs.db
 *.swo
 *~
 
-# OpenCode / Agent state (promotion denylist — never commit, see guide §2.1)
+# Legacy OpenCode state (promotion denylist — never commit, see guide §2.1).
+# The already tracked .opencode/commands files remain as migration references.
 .omo/
 .opencode/
 .superpowers/
+
+# Codex project configuration is shared; local Codex logs/state are not.
+.codex/*
+!.codex/config.toml
+.codex-log/
 
 # Code intelligence (local tool index, never commit)
 .codegraph/

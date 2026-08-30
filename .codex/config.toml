@@ -1,0 +1,7 @@
+# Repository-scoped Codex configuration. Codex loads this file only when the
+# project is trusted.
+project_doc_max_bytes = 65536
+
+[mcp_servers.argent]
+command = "npx"
+args = ["-y", "@swmansion/argent", "mcp"]

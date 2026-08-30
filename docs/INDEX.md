@@ -1,6 +1,6 @@
 # iTestAgent 项目文档索引
 
-> 本文档供 AI Agent（OpenCode 桌面版）及人类开发者快速定位项目文档。
+> 本文档供 Codex、OpenCode、Cursor、Claude 等 AI Agent 及人类开发者快速定位项目文档。
 > 所有规格文档位于 `docs/` 目录下，按类别分 7 个子目录。冲突时以 `AGENTS.md` 为最高优先级。
 > **Agent 使用指引**：启动时读取本文件建立全局认知；执行任务前根据 `AGENTS.md` §1 按需读取具体文档章节。
 
@@ -19,11 +19,13 @@
 | **验证与 Spike** | `06-verification/` | `phase-0-cross-evaluation-report.md`、`g5-sim-spike-report-*.md` | 多 Backend 横评报告、G5/G5-SIM 真机与 Simulator 验证证据
 | **疑难杂症** | `07-troubleshooting/` | `appium-free-account/blocker.md` + `unblock-plan.md` | 开发过程中遇到的阻塞问题根因分析与解决方案记录 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~28-36 周） |
-| **任务状态** | `05-planning/` | `task-status.json` | 7 个 Phase 69 个任务、依赖关系、当前进度 |
+| **任务状态** | `05-planning/` | `task-status.json` | Phase/任务动态清单、依赖关系、当前进度 |
 | **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
-| **架构决策** | `decisions/` | `ADR-001~012` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持、ADR-012 WDA 生命周期分离） |
+| **架构决策** | `decisions/` | `ADR-*.md` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持、ADR-012 WDA 生命周期分离） |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R14、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
+| **Codex 工作流** | 仓库根目录 | `../.agents/skills/*/SKILL.md` | 任务、测试、提交、PR review/完成确认等可复用工作流 |
+| **Codex 项目配置** | 仓库根目录 | `../.codex/config.toml` | 指令容量与项目级 MCP（Argent）配置；仅受信任项目加载 |
 
 ---
 
@@ -140,6 +142,7 @@
 4. **遇到疑问**：回到本索引，确认是否遗漏了相关文档章节
 5. **完成后**：执行 G1-G7+G5-SIM 质量门禁，更新 `05-planning/task-status.json`
 6. **阶段出口**：完成集成测试任务后，检查 `05-planning/deferred-items.json` 中该阶段的延期待办
+7. **Codex 工作流**：通过 `$init-session-itest`、`$status-itest`、`$next-task-itest` 等仓库 Skill 调用；完整清单位于 `../.agents/skills/`
 
 ---
 
@@ -148,8 +151,8 @@
 
 **下次全面复审日期**：2026-08-01（与开发计划 Phase 0 结束同步）
 
-## 迁移索引（B39 同步）
+## 迁移索引
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~023
+- ADR 记录：ADR-020~025（含 Codex 开发工作流迁移）
