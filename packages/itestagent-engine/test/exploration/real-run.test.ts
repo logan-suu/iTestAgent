@@ -20,14 +20,14 @@ const TREE = `<XCUIElementTypeApplication><XCUIElementTypeButton name="login_but
 
 function makeBackend(calls: { tool: string }[]) {
   return {
-    async getUiTree(_input: { udid?: string }) {
+    async getUiTree(_input: { deviceId: string }) {
       calls.push({ tool: 'get_ui_tree' });
       return { raw: TREE, format: 'xml', capturedAt: new Date().toISOString() };
     },
     async launchApp(_input: { bundleId: string }) {
       return { success: true as const, message: 'launched' };
     },
-    async screenshot(_input: { udid?: string }) {
+    async screenshot(_input: { deviceId: string }) {
       calls.push({ tool: 'screenshot' });
       const id = `shot_${calls.length}`;
       const path = join(tmpdir(), `${id}.png`);
@@ -41,11 +41,11 @@ function makeDispatcher(backend: ReturnType<typeof makeBackend>): ExplorerToolDi
     async dispatch(call) {
       const args = call.arguments as Record<string, string | undefined>;
       if (call.name === 'get_ui_tree') {
-        const tree = await backend.getUiTree({ udid: args.deviceId });
+        const tree = await backend.getUiTree({ deviceId: String(args.deviceId ?? '') });
         return { callId: call.id, status: 'ok', output: { raw: tree.raw, format: tree.format } };
       }
       if (call.name === 'screenshot') {
-        const ref = await backend.screenshot({ udid: args.deviceId });
+        const ref = await backend.screenshot({ deviceId: String(args.deviceId ?? '') });
         return {
           callId: call.id,
           status: 'ok',
@@ -145,14 +145,14 @@ describe('runRealDeviceExploration', () => {
   it('reports failed for an unsatisfied user assertion', async () => {
     const calls: { tool: string }[] = [];
     const backend = {
-      async getUiTree(_input: { udid?: string }) {
+      async getUiTree(_input: { deviceId: string }) {
         calls.push({ tool: 'get_ui_tree' });
         return { raw: '<XCUIElementTypeApplication />', format: 'xml', capturedAt: '' };
       },
       async launchApp(_input: { bundleId: string }) {
         return { success: true as const, message: 'launched' };
       },
-      async screenshot(_input: { udid?: string }) {
+      async screenshot(_input: { deviceId: string }) {
         return { id: 's1', type: 'screenshot', path: '/tmp/s1.png' };
       },
     };
@@ -205,10 +205,10 @@ describe('runRealDeviceExploration llmSuggest', () => {
 
   function llmBackend() {
     return {
-      async getUiTree(_input: { udid?: string }) {
+      async getUiTree(_input: { deviceId: string }) {
         return { raw: TREE, format: 'xml', capturedAt: '' };
       },
-      async screenshot(_input: { udid?: string }) {
+      async screenshot(_input: { deviceId: string }) {
         return { id: 's1', type: 'screenshot', path: '/tmp/s1.png' };
       },
       async launchApp(_input: { bundleId: string }) {
@@ -280,21 +280,21 @@ describe('createBackendToolDispatcher interaction routes', () => {
 
   function interactiveBackend(partial?: Record<string, never>) {
     return {
-      async getUiTree(_input: { udid?: string }) {
+      async getUiTree(_input: { deviceId: string }) {
         return { raw: '<a />', format: 'xml', capturedAt: '' };
       },
-      async screenshot(_input: { udid?: string }) {
+      async screenshot(_input: { deviceId: string }) {
         return { id: 's', type: 'screenshot', path: '/tmp/s.png' };
       },
       async launchApp(_input: { bundleId: string }) {
         return { success: true as const };
       },
-      async tap(input: { udid?: string; x: number; y: number }) {
+      async tap(input: { deviceId: string; x: number; y: number }) {
         recorded.push({ tool: 'tap', args: input as unknown as Record<string, unknown> });
         return { success: true as const, message: 'tapped' };
       },
       async swipe(input: {
-        udid?: string;
+        deviceId: string;
         fromX: number;
         fromY: number;
         toX: number;
@@ -303,11 +303,11 @@ describe('createBackendToolDispatcher interaction routes', () => {
         recorded.push({ tool: 'swipe', args: input as unknown as Record<string, unknown> });
         return { success: true as const, message: 'swiped' };
       },
-      async typeText(input: { udid?: string; text: string }) {
+      async typeText(input: { deviceId: string; text: string }) {
         recorded.push({ tool: 'typeText', args: input as unknown as Record<string, unknown> });
         return { success: true as const, message: 'typed' };
       },
-      async pressButton(input: { udid?: string; button: string }) {
+      async pressButton(input: { deviceId: string; button: string }) {
         recorded.push({ tool: 'pressButton', args: input as unknown as Record<string, unknown> });
         return { success: true as const, message: 'pressed' };
       },
@@ -323,7 +323,7 @@ describe('createBackendToolDispatcher interaction routes', () => {
       arguments: { deviceId: 'U1', x: 100, y: 200 },
     });
     expect(r.status).toBe('ok');
-    expect(recorded.at(-1)).toEqual({ tool: 'tap', args: { udid: 'U1', x: 100, y: 200 } });
+    expect(recorded.at(-1)).toEqual({ tool: 'tap', args: { deviceId: 'U1', x: 100, y: 200 } });
   });
 
   it('routes swipe, type_text and press_button', async () => {

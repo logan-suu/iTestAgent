@@ -199,6 +199,126 @@ export function createProgram(): Command {
       },
     );
 
+  // ─── explore (US-8.1: real-device exploration over the engine flow) ───
+  program
+    .command('explore')
+    .description('run real-device exploration: launch AUT, interact, assert, persist evidence')
+    .requiredOption('--udid <udid>', 'device hardware UDID')
+    .requiredOption('--bundle-id <id>', 'AUT bundle identifier')
+    .option(
+      '--platform-version <ver>',
+      'iOS version (required for appium RemoteXPC matching, e.g. 18.2.1)',
+    )
+    .option('--goal <goal>', 'verification goal — enables LLM assertion suggestions (AC4)')
+    .option(
+      '--wda-mode <mode>',
+      'WDA startup route: preinstalled | external-url | managed-xcodebuild',
+      'managed-xcodebuild',
+    )
+    .option('--xcode-org-id <id>', 'signing team ID (managed-xcodebuild route)')
+    .option('--wda-bundle-id <id>', 'WDA base bundle id (free-account slot reuse)')
+    .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
+    .option(
+      '--use-config-llm',
+      'use model config (baseURL/model) + keychain key for LLM suggestions',
+    )
+    .action(
+      async (options: {
+        udid: string;
+        bundleId: string;
+        platformVersion?: string;
+        goal?: string;
+        wdaMode: string;
+        xcodeOrgId?: string;
+        wdaBundleId?: string;
+        appiumUrl: string;
+        useConfigLlm?: boolean;
+      }) => {
+        const { runRealDeviceExploration, createBackendToolDispatcher } = await import(
+          'itestagent-engine'
+        );
+        const { createAppiumExplorationRuntime } = await import('itestagent-engine');
+        const { loadConfig, resolveCredentials } = await import('./config/loader.js');
+
+        // LLM suggestion config from the three-layer model config + keychain key
+        let llm: { baseUrl: string; apiKey: string; model: string; goal: string } | undefined;
+        if (options.useConfigLlm && options.goal) {
+          const { config: merged } = await loadConfig();
+          const { resolvedApiKey } = await resolveCredentials(merged);
+          if (merged.model.baseURL && resolvedApiKey && merged.model.model) {
+            llm = {
+              baseUrl: merged.model.baseURL,
+              apiKey: resolvedApiKey,
+              model: merged.model.model,
+              goal: options.goal,
+            };
+          } else {
+            console.error(
+              'LLM suggestions skipped: config.model.baseURL/model or keychain key missing',
+            );
+          }
+        }
+
+        const runtime = createAppiumExplorationRuntime(
+          {
+            udid: options.udid,
+            bundleId: options.bundleId,
+            ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
+            wdaStartupMode: options.wdaMode as
+              | 'preinstalled'
+              | 'external-url'
+              | 'managed-xcodebuild',
+            ...(options.xcodeOrgId ? { xcodeOrgId: options.xcodeOrgId } : {}),
+            ...(options.wdaBundleId ? { wdaBundleId: options.wdaBundleId } : {}),
+            appiumServerUrl: options.appiumUrl,
+          },
+          llm,
+        );
+
+        const runId = `explore_${Date.now()}`;
+        const runDir = join(tmpdir(), 'itestagent', 'runs', runId);
+        const result = await runRealDeviceExploration({
+          backend: runtime.backend,
+          toolDispatcher: createBackendToolDispatcher(runtime.backend),
+          runDir,
+          runId,
+          bundleId: options.bundleId,
+          deviceId: options.udid,
+          targetKind: 'physical',
+          actions: [
+            { action: 'launch', target: options.bundleId },
+            { action: 'screenshot', target: 'explore' },
+          ],
+          ...(options.goal ? { policy: undefined } : {}),
+          ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
+        });
+
+        console.log(`run: ${runId} | dir: ${runDir}`);
+        console.log(`assertion: ${result.assertion.status} — ${result.assertion.summary}`);
+        for (const s of result.assertion.suggestions ?? []) {
+          console.log(
+            `  suggestion [${s.source}] ${s.label ?? s.caseId}: ${s.evidence?.join('; ') ?? ''}`,
+          );
+        }
+        if (result.llmSuggestions !== undefined) {
+          console.log(
+            `llmSuggestions: ${result.llmSuggestions.length}${result.llmReason ? ` (${result.llmReason})` : ''}`,
+          );
+        }
+        for (const s of result.steps) {
+          console.log(`  step [${s.action}] ${s.target ?? ''}`);
+        }
+        console.log(
+          `artifacts: ${result.artifactCount} | index: ${result.artifactIndexPath ?? 'n/a'}`,
+        );
+
+        await runtime.close();
+        if (result.assertion.status === 'failed') {
+          process.exitCode = 1;
+        }
+      },
+    );
+
   // ─── config (implemented: shows three-layer merged config) ───
   // US-18.2 AC1/AC2: three-layer JSONC merge + $schema support
   const configCmd = program

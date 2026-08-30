@@ -172,6 +172,12 @@ export type { MemoryProfileIntent, MemoryProfileIntentOverrides } from './memory
 
 export { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
 export { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
+export { createAppiumExplorationRuntime } from './exploration/exploration-wiring.js';
+export type {
+  ExplorationSurfaceConfig,
+  ExplorationLlmConfig,
+  ExplorationRuntime,
+} from './exploration/exploration-wiring.js';
 export type {
   XcunitFlowInput,
   XcunitFlowResult,
