@@ -17,10 +17,12 @@
 #                           difference -> exit 1.
 #   BUN_LOCK_PATH           (required) path of the lockfile to verify.
 #                           Defaults to <repo-root>/bun.lock.
-#   BUN_LOCK_EXPECTED_SHA   (required) SHA-256 of the signed/approved lock
-#                           (targetBunLockSha256). If the lock on disk does not
-#                           hash to this value (floating/unapproved lock) ->
-#                           exit 1.
+#   BUN_LOCK_EXPECTED_SHA   (optional, RETIRED per ADR-024) SHA-256 of the
+#                           signed/approved lock. The migration (B00-B42) is
+#                           complete — the promotion approval's lock anchor is
+#                           frozen as a historical record and no longer
+#                           enforced. Dependency changes are governed by the
+#                           standard gates (G1-G7, CodeRabbit, allowed-edges).
 #   BUN_LIFECYCLE_SCRIPTS   (optional, default "0"). If "1" — an install that
 #                           would run lifecycle scripts BEFORE G7 passed — the
 #                           script must fail closed -> exit 1.
@@ -93,10 +95,14 @@ else
   REPO_ROOT="$(cd -P -- "$(git rev-parse --show-toplevel 2>/dev/null || printf '%s' "$PWD")" && pwd -P)"
   LOCK_PATH="${REPO_ROOT}/bun.lock"
   APPROVAL_FILE="${REPO_ROOT}/docs/05-planning/promotion-plan-approval.json"
-  if ! LOCK_EXPECTED_SHA="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["targetBunLockSha256"])' "$APPROVAL_FILE" 2>/dev/null)"; then
-    fail "cannot read targetBunLockSha256 from ${APPROVAL_FILE}"
+  # ADR-024: the migration is complete — the approval file's lock anchor is
+  # retired (frozen as a historical record, no longer read). An explicit
+  # BUN_LOCK_EXPECTED_SHA env var remains the re-approval path for future
+  # promotion-style batches.
+  LOCK_EXPECTED_SHA="${BUN_LOCK_EXPECTED_SHA:-}"
+  if [[ -z "$LOCK_EXPECTED_SHA" ]]; then
+    echo "verify-bun-binary: lock anchor retired per ADR-024 — skipping lock SHA check"
   fi
-  [[ "$LOCK_EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]] || fail 'invalid targetBunLockSha256 in approval file'
   LIFECYCLE_SCRIPTS="0"
 fi
 
@@ -105,11 +111,14 @@ if [[ "$LIFECYCLE_SCRIPTS" = "1" ]]; then
   fail 'lifecycle scripts requested before G7: blocked (fail closed)'
 fi
 
-# 2. The lockfile on disk must be bound to the signed/approved SHA-256.
+# 2. The lockfile on disk must be bound to the signed/approved SHA-256 —
+# skipped when the anchor is retired (ADR-024: migration complete).
 [[ -f "$LOCK_PATH" ]] || fail "lockfile not found: $LOCK_PATH"
 LOCK_ACTUAL_SHA="$(sha256_file "$LOCK_PATH")"
-[[ "$LOCK_ACTUAL_SHA" = "$LOCK_EXPECTED_SHA" ]] \
-  || fail "lockfile SHA-256 mismatch (approved ${LOCK_EXPECTED_SHA}, on disk ${LOCK_ACTUAL_SHA})"
+if [[ -n "$LOCK_EXPECTED_SHA" ]]; then
+  [[ "$LOCK_ACTUAL_SHA" = "$LOCK_EXPECTED_SHA" ]] \
+    || fail "lockfile SHA-256 mismatch (approved ${LOCK_EXPECTED_SHA}, on disk ${LOCK_ACTUAL_SHA})"
+fi
 
 # 3. Cached ZIP must exist.
 [[ -f "$ARCHIVE" ]] || fail "cached Bun ZIP not found: $ARCHIVE"
