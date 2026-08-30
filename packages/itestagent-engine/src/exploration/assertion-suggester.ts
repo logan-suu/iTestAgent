@@ -1,3 +1,4 @@
+import { createOpenAI } from '@ai-sdk/openai';
 /**
  * Assertion suggester — LLM-generated tier-3 assertion suggestions (US-11.1
  * AC4 chain: exploration observations → suggestions → user confirmation).
@@ -165,4 +166,26 @@ export function createAiSdkGenerateFn(model: LanguageModel): (prompt: string) =>
     const { text } = await generateText({ model, prompt });
     return text;
   };
+}
+
+/** Model config from the three-layer configuration (US-18.2). */
+export interface SuggesterModelConfig {
+  /** OpenAI-compatible base URL (e.g. https://api.openai.com/v1). */
+  baseUrl: string;
+  /** API key — resolved from the keychain by the caller (R6: memory-only). */
+  apiKey: string;
+  /** Model identifier (e.g. gpt-4o-mini). */
+  model: string;
+}
+
+/**
+ * Config-driven provider factory: builds the generate fn from the merged
+ * three-layer config (US-18.2). The API key stays in memory (R6) — callers
+ * resolve it from the keychain via CredentialManager.
+ */
+export function createConfiguredGenerateFn(
+  config: SuggesterModelConfig,
+): (prompt: string) => Promise<string> {
+  const openai = createOpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey });
+  return createAiSdkGenerateFn(openai(config.model));
 }

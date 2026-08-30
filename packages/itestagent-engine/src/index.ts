@@ -181,7 +181,12 @@ export type {
   RealDeviceRunOptions,
   RealDeviceRunResult,
 } from './exploration/real-run.js';
-export { suggestAssertions, createAiSdkGenerateFn } from './exploration/assertion-suggester.js';
+export {
+  suggestAssertions,
+  createAiSdkGenerateFn,
+  createConfiguredGenerateFn,
+} from './exploration/assertion-suggester.js';
+export type { SuggesterModelConfig } from './exploration/assertion-suggester.js';
 export type {
   SuggestionContext,
   SuggesterDeps,
