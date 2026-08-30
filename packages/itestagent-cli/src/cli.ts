@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
 import {
@@ -119,6 +120,81 @@ export function createProgram(): Command {
         if (options.healthcheck && devices.length > 0) {
           const results = await healthcheckAllDevices(devices);
           console.log(`\n${formatHealthcheckResults(results, devices)}`);
+        }
+      },
+    );
+
+  // ─── test (US-7.1: XCUITest run surface over the engine composition) ───
+  program
+    .command('test')
+    .description('run XCUITests for a scheme and print normalized results (engine xcunit flow)')
+    .requiredOption('--root <path>', 'project/workspace directory')
+    .requiredOption('--scheme <scheme>', 'scheme to test')
+    .option('--udid <udid>', 'physical device UDID')
+    .option('--simulator-name <name>', 'simulator name')
+    .option('--simulator-id <id>', 'simulator UDID')
+    .option('--only <ids>', 'comma-separated test identifiers (-only-testing)')
+    .option('--result-bundle <path>', 'xcresult bundle output path')
+    .option('--attachments', 'extract screenshot attachments from the bundle')
+    .action(
+      async (options: {
+        root: string;
+        scheme: string;
+        udid?: string;
+        simulatorName?: string;
+        simulatorId?: string;
+        only?: string;
+        resultBundle?: string;
+        attachments?: boolean;
+      }) => {
+        const { runXcunitFlow } = await import('itestagent-engine');
+        const { createRealXcunitFlowDeps } = await import('itestagent-engine');
+        const resultBundle =
+          options.resultBundle ?? join(tmpdir(), `itestagent-xcresult-${Date.now()}.xcresult`);
+        const destination = options.udid
+          ? { targetKind: 'physical' as const, udid: options.udid }
+          : options.simulatorId
+            ? { targetKind: 'simulator' as const, simulatorId: options.simulatorId }
+            : options.simulatorName
+              ? { targetKind: 'simulator' as const, simulatorName: options.simulatorName }
+              : undefined;
+        const result = await runXcunitFlow(
+          {
+            projectRoot: options.root,
+            scheme: options.scheme,
+            destination,
+            only: options.only
+              ?.split(',')
+              .map((s) => s.trim())
+              .filter(Boolean),
+            resultBundlePath: resultBundle,
+            includeAttachments: options.attachments === true,
+          },
+          createRealXcunitFlowDeps(),
+        );
+        const parsed = result.parsed;
+        console.log(
+          `exit: ${result.exitCode} | duration: ${Math.round(result.durationMs / 1000)}s`,
+        );
+        console.log(`xcresult: ${resultBundle}`);
+        if (result.parseError) {
+          console.error(`parse error: ${result.parseError}`);
+        } else if (parsed) {
+          const exec = parsed.execution;
+          console.log(
+            `tests: ${exec.totalTests} total | ${exec.passed} passed | ${exec.failed} failed | ${exec.skipped} skipped`,
+          );
+          for (const c of parsed.cases) {
+            console.log(`  [${c.status}] ${c.name}`);
+          }
+          if (parsed.attachments.length > 0) {
+            console.log(`attachments: ${parsed.attachments.length}`);
+          }
+        } else {
+          console.error('no xcresult bundle was produced');
+        }
+        if (result.exitCode !== 0) {
+          process.exitCode = 1;
         }
       },
     );
