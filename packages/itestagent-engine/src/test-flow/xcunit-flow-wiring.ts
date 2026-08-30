@@ -10,18 +10,34 @@ import { createXcresultParser } from 'itestagent-backends-analyzer-xcresult';
  * composition. CLI/TUI surfaces import this module (never the backends
  * directly).
  */
-import {
-  type XcodebuildProcessRunner,
-  runXcodebuildTests,
-} from 'itestagent-backends-build-xcodebuild';
+import { runXcodebuildTests } from 'itestagent-backends-build-xcodebuild';
 import type { XcunitFlowDeps } from './run-xcunit-flow.js';
 
+/**
+ * Union of the two backend process-runner contracts this wiring serves:
+ * build-xcodebuild's XcodebuildProcessRunner ({ timeoutMs?, cwd? }) and the
+ * xcresult parser's SpawnAsyncFn ({ cwd?, signal?, env? }). The AbortSignal
+ * is forwarded into Bun.spawn so parse cancellation reaches the child
+ * process (ADR-010 abort propagation).
+ */
+export type XcunitFlowProcessRunner = (
+  cmd: string,
+  args: string[],
+  options?: {
+    cwd?: string;
+    signal?: AbortSignal;
+    env?: Record<string, string>;
+  },
+) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+
 /** Default async process runner (Bun.spawn — mirrors build-xcodebuild). */
-const defaultProcessRunner: XcodebuildProcessRunner = async (cmd, args, options) => {
+export const defaultXcunitProcessRunner: XcunitFlowProcessRunner = async (cmd, args, options) => {
   const proc = Bun.spawn([cmd, ...args], {
     cwd: options?.cwd,
+    env: options?.env ? { ...process.env, ...options.env } : undefined,
     stdout: 'pipe',
     stderr: 'pipe',
+    ...(options?.signal ? { signal: options.signal } : {}),
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -36,8 +52,8 @@ const defaultProcessRunner: XcodebuildProcessRunner = async (cmd, args, options)
  *
  * @param runner - Optional process-runner override (tests inject fakes).
  */
-export function createRealXcunitFlowDeps(runner?: XcodebuildProcessRunner): XcunitFlowDeps {
-  const processRunner: XcodebuildProcessRunner = runner ?? defaultProcessRunner;
+export function createRealXcunitFlowDeps(runner?: XcunitFlowProcessRunner): XcunitFlowDeps {
+  const processRunner = runner ?? defaultXcunitProcessRunner;
   const parser = createXcresultParser({ spawnAsync: processRunner });
   return {
     runTests: (input) => runXcodebuildTests(input, processRunner),

@@ -176,6 +176,7 @@ export function createProgram(): Command {
         console.log(
           `exit: ${result.exitCode} | duration: ${Math.round(result.durationMs / 1000)}s`,
         );
+        console.log(`xcresult: ${resultBundle}`);
         if (result.parseError) {
           console.error(`parse error: ${result.parseError}`);
         } else if (parsed) {
