@@ -172,6 +172,12 @@ export type { MemoryProfileIntent, MemoryProfileIntentOverrides } from './memory
 
 export { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
 export { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
+export { createAppiumExplorationRuntime } from './exploration/exploration-wiring.js';
+export type {
+  ExplorationSurfaceConfig,
+  ExplorationLlmConfig,
+  ExplorationRuntime,
+} from './exploration/exploration-wiring.js';
 export type {
   XcunitFlowInput,
   XcunitFlowResult,
@@ -181,7 +187,12 @@ export type {
   RealDeviceRunOptions,
   RealDeviceRunResult,
 } from './exploration/real-run.js';
-export { suggestAssertions, createAiSdkGenerateFn } from './exploration/assertion-suggester.js';
+export {
+  suggestAssertions,
+  createAiSdkGenerateFn,
+  createConfiguredGenerateFn,
+} from './exploration/assertion-suggester.js';
+export type { SuggesterModelConfig } from './exploration/assertion-suggester.js';
 export type {
   SuggestionContext,
   SuggesterDeps,

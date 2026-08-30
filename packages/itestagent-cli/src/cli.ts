@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
@@ -194,6 +195,171 @@ export function createProgram(): Command {
           console.error('no xcresult bundle was produced');
         }
         if (result.exitCode !== 0) {
+          process.exitCode = 1;
+        }
+      },
+    );
+
+  // ─── explore (US-8.1: real-device exploration over the engine flow) ───
+  program
+    .command('explore')
+    .description('run real-device exploration: launch AUT, interact, assert, persist evidence')
+    .requiredOption('--udid <udid>', 'device hardware UDID')
+    .requiredOption('--bundle-id <id>', 'AUT bundle identifier')
+    .option(
+      '--platform-version <ver>',
+      'iOS version (required for appium RemoteXPC matching, e.g. 18.2.1)',
+    )
+    .option('--goal <goal>', 'verification goal — enables LLM assertion suggestions (AC4)')
+    .option(
+      '--wda-mode <mode>',
+      'WDA startup route: preinstalled | external-url | managed-xcodebuild',
+      'managed-xcodebuild',
+    )
+    .option('--xcode-org-id <id>', 'signing team ID (managed-xcodebuild route)')
+    .option('--wda-bundle-id <id>', 'WDA base bundle id (free-account slot reuse)')
+    .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
+    .option(
+      '--use-config-llm',
+      'use model config (baseURL/model) + keychain key for LLM suggestions',
+    )
+    .action(
+      async (options: {
+        udid: string;
+        bundleId: string;
+        platformVersion?: string;
+        goal?: string;
+        wdaMode: string;
+        xcodeOrgId?: string;
+        wdaBundleId?: string;
+        appiumUrl: string;
+        useConfigLlm?: boolean;
+      }) => {
+        const { runRealDeviceExploration, createBackendToolDispatcher } = await import(
+          'itestagent-engine'
+        );
+        const { createAppiumExplorationRuntime } = await import('itestagent-engine');
+        const { loadConfig, resolveCredentials } = await import('./config/loader.js');
+
+        // LLM suggestion config from the three-layer model config + keychain key
+        let llm: { baseUrl: string; apiKey: string; model: string; goal: string } | undefined;
+        if (options.useConfigLlm && options.goal) {
+          const { config: merged } = await loadConfig();
+          const { resolvedApiKey } = await resolveCredentials(merged);
+          if (merged.model.baseURL && resolvedApiKey && merged.model.model) {
+            llm = {
+              baseUrl: merged.model.baseURL,
+              apiKey: resolvedApiKey,
+              model: merged.model.model,
+              goal: options.goal,
+            };
+          } else {
+            console.error(
+              'LLM suggestions skipped: config.model.baseURL/model or keychain key missing',
+            );
+          }
+        }
+
+        // G5 finding: appium's RemoteXPC device matching on iOS 17+ REQUIRES
+        // platformVersion — auto-resolve it from devicectl when omitted.
+        let platformVersion = options.platformVersion;
+        if (!platformVersion) {
+          const probeJson = join(tmpdir(), `itestagent-explore-pv-${Date.now()}.json`);
+          const probe = Bun.spawnSync([
+            'xcrun',
+            'devicectl',
+            'list',
+            'devices',
+            '--json-output',
+            probeJson,
+          ]);
+          try {
+            const list = JSON.parse(readFileSync(probeJson, 'utf-8')) as {
+              result?: {
+                devices?: Array<{
+                  hardwareProperties?: { udid?: string };
+                  deviceProperties?: { osVersionNumber?: string };
+                }>;
+              };
+            };
+            platformVersion = (list.result?.devices ?? []).find(
+              (d) => d.hardwareProperties?.udid === options.udid,
+            )?.deviceProperties?.osVersionNumber;
+          } finally {
+            try {
+              rmSync(probeJson, { force: true });
+            } catch {
+              // Best-effort temp cleanup
+            }
+          }
+          if (!platformVersion) {
+            throw new PublicCliError(
+              `Device ${options.udid} not found via devicectl — connect the device, unlock it, and re-run (platformVersion is required for appium session creation)`,
+            );
+          }
+        }
+
+        const runtime = createAppiumExplorationRuntime(
+          {
+            udid: options.udid,
+            bundleId: options.bundleId,
+            platformVersion,
+            ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
+            wdaStartupMode: options.wdaMode as
+              | 'preinstalled'
+              | 'external-url'
+              | 'managed-xcodebuild',
+            ...(options.xcodeOrgId ? { xcodeOrgId: options.xcodeOrgId } : {}),
+            ...(options.wdaBundleId ? { wdaBundleId: options.wdaBundleId } : {}),
+            appiumServerUrl: options.appiumUrl,
+          },
+          llm,
+        );
+
+        const runId = `explore_${Date.now()}`;
+        let lastAssertionStatus: string | undefined;
+        const runDir = join(tmpdir(), 'itestagent', 'runs', runId);
+        // CodeRabbit r3: cleanup must run even when exploration rejects —
+        // a leaked Appium session or iproxy tunnel blocks the next run.
+        try {
+          const result = await runRealDeviceExploration({
+            backend: runtime.backend,
+            toolDispatcher: createBackendToolDispatcher(runtime.backend),
+            runDir,
+            runId,
+            bundleId: options.bundleId,
+            deviceId: options.udid,
+            targetKind: 'physical',
+            actions: [
+              { action: 'launch', target: options.bundleId },
+              { action: 'screenshot', target: 'explore' },
+            ],
+            ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
+          });
+
+          console.log(`run: ${runId} | dir: ${runDir}`);
+          lastAssertionStatus = result.assertion.status;
+          console.log(`assertion: ${result.assertion.status} — ${result.assertion.summary}`);
+          for (const s of result.assertion.suggestions ?? []) {
+            console.log(
+              `  suggestion [${s.source}] ${s.label ?? s.caseId}: ${s.evidence?.join('; ') ?? ''}`,
+            );
+          }
+          if (result.llmSuggestions !== undefined) {
+            console.log(
+              `llmSuggestions: ${result.llmSuggestions.length}${result.llmReason ? ` (${result.llmReason})` : ''}`,
+            );
+          }
+          for (const s of result.steps) {
+            console.log(`  step [${s.action}] ${s.target ?? ''}`);
+          }
+          console.log(
+            `artifacts: ${result.artifactCount} | index: ${result.artifactIndexPath ?? 'n/a'}`,
+          );
+        } finally {
+          await runtime.close();
+        }
+        if (lastAssertionStatus === 'failed') {
           process.exitCode = 1;
         }
       },

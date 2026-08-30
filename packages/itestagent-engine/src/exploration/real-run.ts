@@ -29,26 +29,31 @@ export interface BackendActionResult {
 }
 
 export interface RealRunBackend {
-  getUiTree(input: { udid?: string }): Promise<{ raw: string; format: string; capturedAt: string }>;
-  screenshot(input: { udid?: string }): Promise<{ id: string; type: string; path: string }>;
+  /** Input shapes align with the contracts DeviceBackend (deviceId required). */
+  getUiTree(input: { deviceId: string }): Promise<{
+    raw: string;
+    format: string;
+    capturedAt: string;
+  }>;
+  screenshot(input: { deviceId: string }): Promise<{ id: string; type: string; path: string }>;
   launchApp(input: { bundleId: string }): Promise<BackendActionResult>;
   /** Interaction primitives — optional; backends declare capability support. */
   tap?(input: {
-    udid?: string;
+    deviceId: string;
     x: number;
     y: number;
     accessibilityId?: string;
   }): Promise<BackendActionResult>;
   swipe?(input: {
-    udid?: string;
+    deviceId: string;
     fromX: number;
     fromY: number;
     toX: number;
     toY: number;
     durationMs?: number;
   }): Promise<BackendActionResult>;
-  typeText?(input: { udid?: string; text: string }): Promise<BackendActionResult>;
-  pressButton?(input: { udid?: string; button: string }): Promise<BackendActionResult>;
+  typeText?(input: { deviceId: string; text: string }): Promise<BackendActionResult>;
+  pressButton?(input: { deviceId: string; button: string }): Promise<BackendActionResult>;
 }
 
 export interface RealDeviceRunOptions {
@@ -140,7 +145,7 @@ export function createBackendToolDispatcher(
     async dispatch(call) {
       const args = call.arguments as Record<string, string | undefined>;
       if (call.name === 'get_ui_tree') {
-        const tree = await backend.getUiTree({ udid: args.deviceId });
+        const tree = await backend.getUiTree({ deviceId: String(args.deviceId ?? '') });
         return { callId: call.id, status: 'ok', output: { raw: tree.raw, format: tree.format } };
       }
       if (call.name === 'launch_app') {
@@ -156,7 +161,7 @@ export function createBackendToolDispatcher(
           };
         }
         const result = await backend.tap({
-          udid: args.deviceId,
+          deviceId: String(args.deviceId ?? ''),
           x: Number(args.x ?? 0),
           y: Number(args.y ?? 0),
           accessibilityId: args.accessibilityId,
@@ -172,7 +177,7 @@ export function createBackendToolDispatcher(
           };
         }
         const result = await backend.swipe({
-          udid: args.deviceId,
+          deviceId: String(args.deviceId ?? ''),
           fromX: Number(args.fromX ?? 0),
           fromY: Number(args.fromY ?? 0),
           toX: Number(args.toX ?? 0),
@@ -190,7 +195,7 @@ export function createBackendToolDispatcher(
           };
         }
         const result = await backend.typeText({
-          udid: args.deviceId,
+          deviceId: String(args.deviceId ?? ''),
           text: String(args.text ?? ''),
         });
         return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
@@ -204,13 +209,13 @@ export function createBackendToolDispatcher(
           };
         }
         const result = await backend.pressButton({
-          udid: args.deviceId,
+          deviceId: String(args.deviceId ?? ''),
           button: String(args.button ?? 'home'),
         });
         return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
       }
       if (call.name === 'screenshot') {
-        const ref = await backend.screenshot({ udid: args.deviceId });
+        const ref = await backend.screenshot({ deviceId: String(args.deviceId ?? '') });
         if (!ref.path) {
           // A capture failure must not surface as a successful artifact (R5).
           return {
@@ -263,11 +268,11 @@ export async function runRealDeviceExploration(
   const caseIds = [...new Set(assertions.map((a) => a.caseId))];
   const uiTrees: UiTreeCapture[] = [];
   for (const caseId of caseIds) {
-    const tree = await options.backend.getUiTree({ udid: options.deviceId });
+    const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
     uiTrees.push({ caseId, raw: tree.raw });
   }
   if (caseIds.length === 0 && options.llmSuggest) {
-    const tree = await options.backend.getUiTree({ udid: options.deviceId });
+    const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
     uiTrees.push({ caseId: 'exploration', raw: tree.raw });
   }
 

@@ -21,9 +21,9 @@ describe('runDoctor', () => {
     expect(Array.isArray(report.checks)).toBe(true);
   });
 
-  test('all checks present (9 physical + 5 simulator = 14)', async () => {
+  test('all checks present (10 physical + 5 simulator = 15)', async () => {
     const report = await runDoctor();
-    expect(report.checks.length).toBe(14);
+    expect(report.checks.length).toBe(15);
   });
 
   test('summary totals match checks count', async () => {
@@ -53,8 +53,8 @@ describe('runDoctor', () => {
 
   test('does not crash when individual check throws (US-1.2 AC3)', async () => {
     const report = await runDoctor();
-    // All 14 checks should still be present even if some fail
-    expect(report.checks.length).toBe(14);
+    // All 15 checks should still be present even if some fail
+    expect(report.checks.length).toBe(15);
   });
 
   test('returns estimatedSetupMinutes when not healthy (US-1.3 AC3)', async () => {
@@ -70,9 +70,9 @@ describe('runDoctor', () => {
 // runPhysicalDoctor
 // ════════════════════════════════════════════════════════════
 describe('runPhysicalDoctor', () => {
-  test('returns exactly 9 physical readiness checks', async () => {
+  test('returns exactly 10 physical readiness checks', async () => {
     const report = await runPhysicalDoctor();
-    expect(report.checks.length).toBe(9);
+    expect(report.checks.length).toBe(10);
   });
 
   test('all checks have valid three-state status', async () => {

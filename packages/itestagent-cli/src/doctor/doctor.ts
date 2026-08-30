@@ -4,6 +4,7 @@
 import { checkAppium } from './checks/check-appium.js';
 import { checkCommandLineTools } from './checks/check-clt.js';
 import { checkPhysicalDevice } from './checks/check-device-physical.js';
+import { checkRemotexpcTunnel } from './checks/check-remotexpc-tunnel.js';
 import { checkSigningIdentity } from './checks/check-signing-identity.js';
 import { checkSigning } from './checks/check-signing.js';
 import { checkSimctl } from './checks/check-simctl.js';
@@ -43,6 +44,7 @@ const PHYSICAL_CHECKS: CheckFn[] = [
   checkSigningIdentity,
   checkWdaPreinstalled,
   checkWdaReadiness,
+  checkRemotexpcTunnel,
   checkPhysicalDevice,
 ];
 

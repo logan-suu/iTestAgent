@@ -1,3 +1,4 @@
+import { createOpenAI } from '@ai-sdk/openai';
 /**
  * Assertion suggester — LLM-generated tier-3 assertion suggestions (US-11.1
  * AC4 chain: exploration observations → suggestions → user confirmation).
@@ -165,4 +166,48 @@ export function createAiSdkGenerateFn(model: LanguageModel): (prompt: string) =>
     const { text } = await generateText({ model, prompt });
     return text;
   };
+}
+
+/** Model config from the three-layer configuration (US-18.2). */
+export interface SuggesterModelConfig {
+  /** OpenAI-compatible base URL (e.g. https://api.openai.com/v1). */
+  baseUrl: string;
+  /** API key — resolved from the keychain by the caller (R6: memory-only). */
+  apiKey: string;
+  /** Model identifier (e.g. gpt-4o-mini). */
+  model: string;
+}
+
+/**
+ * Config-driven provider factory: builds the generate fn from the merged
+ * three-layer config (US-18.2). The API key stays in memory (R6) — callers
+ * resolve it from the keychain via CredentialManager.
+ */
+export function createConfiguredGenerateFn(
+  config: SuggesterModelConfig,
+): (prompt: string) => Promise<string> {
+  assertProviderUrl(config.baseUrl);
+  const openai = createOpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey });
+  return createAiSdkGenerateFn(openai(config.model));
+}
+
+/**
+ * Refuse provider URLs that would carry the API key in cleartext (CWE-319):
+ * https: anywhere, or http: on loopback only. @ai-sdk/openai does not
+ * enforce this itself (verified for 4.0.17 — CodeRabbit round 3).
+ */
+export function assertProviderUrl(baseUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new Error(`Invalid provider URL: ${baseUrl}`);
+  }
+  if (parsed.protocol === 'https:') return;
+  const host = parsed.hostname;
+  const loopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  if (parsed.protocol === 'http:' && loopback) return;
+  throw new Error(
+    `Refusing to send the API key over non-HTTPS: ${baseUrl} (use https: or a loopback http: URL)`,
+  );
 }
