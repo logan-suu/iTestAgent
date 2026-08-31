@@ -918,3 +918,119 @@ describe('Edge cases', () => {
     expect(backend.tapCalls).toHaveLength(1);
   });
 });
+
+describe('custom tool handlers', () => {
+  function createCustomDispatcher(options?: {
+    permissionEngine?: PermissionEngine;
+    onEvent?: EventEmitter;
+    execute?: (args: unknown) => Promise<unknown>;
+  }): ToolDispatcher {
+    return new ToolDispatcher({
+      permissionEngine: options?.permissionEngine ?? new PermissionEngine(),
+      backendSelector: new BackendSelector(new BackendRegistry()),
+      onEvent: options?.onEvent,
+      customTools: {
+        analyze_project: {
+          parseParams: (args) => {
+            if (typeof args.workspace !== 'string') throw new Error('workspace is required');
+            return { workspace: args.workspace };
+          },
+          action: 'analyze_project',
+          resource: (args) => `workspace:${String(args.workspace)}`,
+          backendName: 'project-analyzer',
+          execute: options?.execute ?? (async (args) => ({ profile: args })),
+        },
+      },
+    });
+  }
+
+  test('executes without a DeviceBackend after validation and permission checks', async () => {
+    const result = await createCustomDispatcher().dispatch(
+      makeToolCall({
+        id: 'custom_1',
+        name: 'analyze_project',
+        arguments: { workspace: '/tmp/App' },
+      }),
+    );
+    expect(result).toMatchObject({
+      callId: 'custom_1',
+      status: 'ok',
+      output: { profile: { workspace: '/tmp/App' } },
+    });
+  });
+
+  test('fails validation before invoking a custom handler', async () => {
+    let invoked = false;
+    const dispatcher = createCustomDispatcher({
+      execute: async () => {
+        invoked = true;
+        return {};
+      },
+    });
+    const result = await dispatcher.dispatch(
+      makeToolCall({ id: 'custom_invalid', name: 'analyze_project', arguments: {} }),
+    );
+    expect(result.status).toBe('error');
+    expect(invoked).toBe(false);
+  });
+
+  test('honors deny rules without invoking a custom handler', async () => {
+    const permissionEngine = new PermissionEngine();
+    permissionEngine.addRule({
+      action: 'analyze_project',
+      resource: 'workspace:/private/App',
+      effect: 'deny',
+    });
+    let invoked = false;
+    const dispatcher = createCustomDispatcher({
+      permissionEngine,
+      execute: async () => {
+        invoked = true;
+        return {};
+      },
+    });
+    const result = await dispatcher.dispatch(
+      makeToolCall({
+        id: 'custom_deny',
+        name: 'analyze_project',
+        arguments: { workspace: '/private/App' },
+      }),
+    );
+    expect(result.status).toBe('error');
+    expect(invoked).toBe(false);
+  });
+
+  test('blocks high-risk custom tools until an explicit permission resolution', async () => {
+    const permissionEngine = new PermissionEngine({ highRiskActions: ['analyze_project'] });
+    const events: AgentEvent[] = [];
+    const dispatcher = createCustomDispatcher({
+      permissionEngine,
+      onEvent: (event) => events.push(event),
+    });
+    const pending = dispatcher.dispatch(
+      makeToolCall({
+        id: 'custom_ask',
+        name: 'analyze_project',
+        arguments: { workspace: '/tmp/App' },
+      }),
+    );
+    await Bun.sleep(0);
+    expect(events.some((event) => event.type === 'permission.requested')).toBe(true);
+    permissionEngine.resolve('custom_ask', 'allow', false);
+    expect((await pending).status).toBe('ok');
+    expect(events.some((event) => event.type === 'permission.resolved')).toBe(true);
+  });
+
+  test('rejects custom handlers that shadow built-in device tools', () => {
+    expect(
+      () =>
+        new ToolDispatcher({
+          permissionEngine: new PermissionEngine(),
+          backendSelector: new BackendSelector(new BackendRegistry()),
+          customTools: {
+            tap: { action: 'tap', execute: async () => ({}) },
+          },
+        }),
+    ).toThrow('Custom tool cannot override built-in tool: tap');
+  });
+});

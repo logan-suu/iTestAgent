@@ -4,19 +4,32 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel } from 'ai';
-import type { AgentEvent, ToolCall, ToolResult } from 'itestagent-contracts';
-import { MockDeviceBackend } from 'itestagent-device-mock';
+import { createXcodeProjAnalyzerBackend } from 'itestagent-backends-analyzer-xcodeproj';
+import { createAppiumDeviceBackend } from 'itestagent-backends-device-appium';
+import type {
+  AgentEvent,
+  DeviceBackend,
+  DeviceInfo,
+  ToolCall,
+  ToolResult,
+} from 'itestagent-contracts';
 import {
   AiSdkAgentRuntime,
   BackendRegistry,
   BackendSelector,
-  ContextBuilder,
   PermissionEngine,
   ToolDispatcher,
 } from 'itestagent-engine';
+import { type ProjectAnalysisResult, analyzeProject } from 'itestagent-project-analyzer';
 import { parse as parseJsonc } from 'jsonc-parser';
+import { retainMessages } from './message-retention.js';
 
-function loadConfig(): { baseURL?: string; model?: string } {
+interface SessionConfig {
+  baseURL?: string;
+  model?: string;
+}
+
+function loadConfig(): SessionConfig {
   const configPath = resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc');
   try {
     const raw = readFileSync(configPath, 'utf-8');
@@ -48,14 +61,11 @@ async function loadApiKey(): Promise<string | null> {
       resolvePromise(value);
     };
 
-    // Timeout: don't hang waiting for Keychain GUI prompt
     const timer = setTimeout(() => settle(null), 5000);
-
-    child.stdout?.on('data', (c: Buffer) => chunks.push(c));
+    child.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk));
     child.on('close', (code: number | null) => {
       clearTimeout(timer);
-      if (code === 0) settle(Buffer.concat(chunks).toString('utf-8').trim());
-      else settle(null);
+      settle(code === 0 ? Buffer.concat(chunks).toString('utf-8').trim() : null);
     });
     child.on('error', () => {
       clearTimeout(timer);
@@ -64,95 +74,93 @@ async function loadApiKey(): Promise<string | null> {
   });
 }
 
-const AGENT_TOOLS: Record<string, { description: string; parameters: Record<string, unknown> }> = {
+export const AGENT_TOOLS: Record<
+  string,
+  { description: string; parameters: Record<string, unknown> }
+> = {
   analyzeProject: {
     description:
-      'Analyze the current iOS project workspace. Discovers targets, infers features from code. Use when user wants to explore or understand their iOS project.',
+      'Analyze the current iOS workspace with the configured project analyzer. Returns a project profile plus explicit analysis tier, capabilities, and limitations.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
   getDeviceInfo: {
-    description: 'Get information about connected iOS devices and simulators.',
+    description:
+      'Discover connected iPhone devices and local iOS Simulators. The result is observed state, not a guessed connection status.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
-  screenshot: {
-    description: 'Take a screenshot of the current device screen.',
+  compileTestPlan: {
+    description:
+      'Compile a proposed test plan from confirmed project candidates. This capability may report that its owning task is not wired yet.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
-  listApps: {
-    description: 'List installed apps on the connected device.',
+  executeTestPlan: {
+    description:
+      'Execute a user-confirmed test plan on an explicitly selected target. This capability may report that its owning task is not wired yet.',
+    parameters: { type: 'object', properties: {}, required: [] },
+  },
+  generateReport: {
+    description:
+      'Generate the report triplet from real run evidence. This capability may report that its owning task is not wired yet.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
 };
 
-function createToolExecutor(
-  toolDispatcher: ToolDispatcher,
-  workspace: string,
-): (call: ToolCall) => Promise<ToolResult> {
-  return async (call: ToolCall): Promise<ToolResult> => {
-    if (call.name === 'analyzeProject') {
-      try {
-        return {
-          callId: call.id,
-          status: 'ok',
-          output: {
-            message: `Workspace: ${workspace}. Project analysis is available. Use 'itestagent doctor' for environment checks or describe what you want to test.`,
-          },
-        };
-      } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        return {
-          callId: call.id,
-          status: 'error',
-          output: { error: `Project analysis failed: ${msg}` },
-        };
-      }
-    }
+function buildSystemPrompt(workspace: string): string {
+  return `You are iTestAgent, a local iOS testing assistant.
 
-    if (call.name === 'getDeviceInfo') {
-      return {
-        callId: call.id,
-        status: 'ok',
-        output: {
-          message: 'Device information: Use `itestagent devices` for full device list.',
-          connected: true,
-        },
-      };
-    }
+Current workspace: ${workspace}
 
-    return toolDispatcher.dispatch(call);
-  };
+Use tools for project and device facts. Project source findings are candidates with evidence and confidence until the user confirms them. Before execution, present the proposed test plan and obtain explicit confirmation. If a capability reports capability_not_wired, explain the blocked owner task and do not claim success. Never fabricate device state, execution evidence, metrics, or reports. Keep physical-device and Simulator targets explicit and never silently switch between them.`;
 }
 
-function buildSystemPrompt(workspace: string): string {
-  return `You are iTestAgent, an AI-powered iOS testing assistant running locally.
+function capabilityNotWired(capability: string, ownerTask: string): never {
+  throw new Error(
+    `capability_not_wired: ${capability} is owned by task ${ownerTask} and is not available in task 6.2`,
+  );
+}
 
-## Your Role
-Help iOS developers test their apps on iPhone real devices and iOS Simulators. You can:
-1. Analyze iOS projects (Xcode projects, Swift packages)
-2. Generate test plans based on project analysis
-3. Execute tests on connected devices
-4. Collect evidence (screenshots, logs, crash reports)
-5. Generate test reports
+async function listProductionDevices(): Promise<DeviceInfo[]> {
+  const physicalDiscovery = createAppiumDeviceBackend({
+    udid: 'discovery-only',
+    targetKind: 'physical',
+  }).backend;
+  const simulatorDiscovery = createAppiumDeviceBackend({
+    udid: 'discovery-only',
+    targetKind: 'simulator',
+  }).backend;
 
-## Current Workspace
-${workspace}
+  const [physical, simulators] = await Promise.all([
+    physicalDiscovery.listDevices(),
+    simulatorDiscovery.listDevices(),
+  ]);
+  return [...physical, ...simulators].sort((left, right) => {
+    if (left.targetKind !== right.targetKind) return left.targetKind === 'physical' ? -1 : 1;
+    return (left.name ?? left.udid).localeCompare(right.name ?? right.udid);
+  });
+}
 
-## Available Actions
-- When a user asks you to "analyze" or "look at" their project, use the analyzeProject tool.
-- When a user asks about devices, use getDeviceInfo.
-- When asked to test something, first analyze the project, then propose a test plan.
-- Always explain what you're doing before taking action.
-- Be concise. Use bullet points for lists.
+function createProductionDeviceBackend(device: DeviceInfo): DeviceBackend {
+  return createAppiumDeviceBackend({
+    udid: device.udid,
+    targetKind: device.targetKind,
+    ...(device.name ? { deviceName: device.name } : {}),
+    ...(device.osVersion ? { platformVersion: device.osVersion } : {}),
+  }).backend;
+}
 
-## Important Rules
-- NEVER guess about device state — always use tools to verify.
-- For test plans, always ask for user confirmation before executing.
-- Report all metrics as approximate when uncertain.
-- Do NOT fabricate test results.`;
+export interface AgentSessionDependencies {
+  loadApiKey?: () => Promise<string | null>;
+  createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
+  analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
+  listDevices?: () => Promise<DeviceInfo[]>;
+  createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
 }
 
 export interface TuiAgentSession {
   processMessage(input: string): AsyncIterable<TuiStatePatch>;
+  getDevices(): readonly DeviceInfo[];
+  resolvePermission(callId: string, effect: 'allow' | 'deny', remember?: boolean): void;
+  cancelPermission(callId: string, reason?: string): void;
   dispose(): void;
 }
 
@@ -163,68 +171,200 @@ export interface TuiStatePatch {
     | 'mode_change'
     | 'candidates_update'
     | 'plan_update'
+    | 'permission_request'
+    | 'permission_resolved'
+    | 'devices_update'
     | 'error';
   payload: Record<string, unknown>;
 }
 
-export async function createAgentSession(workspace: string): Promise<TuiAgentSession> {
+class PatchQueue implements AsyncIterable<TuiStatePatch> {
+  private readonly values: TuiStatePatch[] = [];
+  private readonly waiters: Array<(result: IteratorResult<TuiStatePatch>) => void> = [];
+  private closed = false;
+
+  push(value: TuiStatePatch): void {
+    if (this.closed) return;
+    const waiter = this.waiters.shift();
+    if (waiter) waiter({ value, done: false });
+    else this.values.push(value);
+  }
+
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    for (const waiter of this.waiters.splice(0)) waiter({ value: undefined, done: true });
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<TuiStatePatch> {
+    return {
+      next: async (): Promise<IteratorResult<TuiStatePatch>> => {
+        const value = this.values.shift();
+        if (value) return { value, done: false };
+        if (this.closed) return { value: undefined, done: true };
+        return new Promise((resolveNext) => this.waiters.push(resolveNext));
+      },
+    };
+  }
+}
+
+export async function createAgentSession(
+  workspace: string,
+  dependencies: AgentSessionDependencies = {},
+): Promise<TuiAgentSession> {
   const config = loadConfig();
-  const apiKey = await loadApiKey();
+  const apiKey = await (dependencies.loadApiKey ?? loadApiKey)();
   if (!apiKey) {
     throw new Error(
       'No API key found. Store it in Keychain: security add-generic-password -s itestagent/openai_api_key -a itestagent -w',
     );
   }
 
-  const openai = createOpenAI({
-    baseURL: config.baseURL ?? 'https://api.deepseek.com/v1',
-    apiKey,
-  });
-  const model: LanguageModel = openai.chat(config.model ?? 'deepseek-chat');
+  const model = dependencies.createModel
+    ? dependencies.createModel(config, apiKey)
+    : createOpenAI({
+        baseURL: config.baseURL ?? 'https://api.deepseek.com/v1',
+        apiKey,
+      }).chat(config.model ?? 'deepseek-chat');
 
-  const deviceBackend = new MockDeviceBackend();
+  const analyzeWorkspace =
+    dependencies.analyzeWorkspace ??
+    ((root: string) => analyzeProject(createXcodeProjAnalyzerBackend(), root));
+  let devices = dependencies.listDevices
+    ? await dependencies.listDevices()
+    : await listProductionDevices();
+  const physicalDevice = devices.find((device) => device.targetKind === 'physical');
 
   const registry = new BackendRegistry();
-  registry.register('mock', deviceBackend);
-
-  const backendSelector = new BackendSelector(registry);
+  if (physicalDevice) {
+    registry.register(
+      'appium',
+      (dependencies.createDeviceBackend ?? createProductionDeviceBackend)(physicalDevice),
+    );
+  }
 
   const permissionEngine = new PermissionEngine();
-  permissionEngine.addRule({ action: '*', resource: '*', effect: 'allow' });
+  const pendingPermissionIds = new Set<string>();
+  let activeQueue: PatchQueue | null = null;
+  let activeTurn = false;
 
   const toolDispatcher = new ToolDispatcher({
     permissionEngine,
-    backendSelector,
+    backendSelector: new BackendSelector(registry),
     targetKind: 'physical',
+    customTools: {
+      analyzeProject: {
+        action: 'analyze_project',
+        resource: `workspace:${workspace}`,
+        backendName: 'itestagent-project-analyzer',
+        execute: () => analyzeWorkspace(workspace),
+      },
+      getDeviceInfo: {
+        action: 'list_devices',
+        resource: 'local-apple-devices',
+        backendName: 'itestagent-backends-device-appium',
+        execute: async () => {
+          devices = dependencies.listDevices
+            ? await dependencies.listDevices()
+            : await listProductionDevices();
+          return {
+            connected: devices.length > 0,
+            selectedDevice: devices.find((device) => device.targetKind === 'physical') ?? null,
+            devices,
+          };
+        },
+      },
+      compileTestPlan: {
+        action: 'generate_draft_test',
+        resource: `workspace:${workspace}`,
+        backendName: 'itestagent-engine',
+        execute: async () => capabilityNotWired('test-plan compilation', '6.3'),
+      },
+      executeTestPlan: {
+        action: 'execute_test_plan',
+        resource: physicalDevice ? `deviceId:${physicalDevice.udid}` : 'device:unselected',
+        backendName: 'itestagent-engine',
+        execute: async () => capabilityNotWired('test-plan execution', '6.5'),
+      },
+      generateReport: {
+        action: 'generate_report',
+        resource: `workspace:${workspace}`,
+        backendName: 'itestagent-report',
+        execute: async () => capabilityNotWired('report generation', '6.8'),
+      },
+    },
+    onEvent: (event) => {
+      if (event.type === 'permission.requested') pendingPermissionIds.add(event.callId);
+      if (event.type === 'permission.resolved') pendingPermissionIds.delete(event.callId);
+      if (
+        event.type === 'permission.requested' ||
+        event.type === 'permission.resolved' ||
+        event.type === 'tool.started' ||
+        event.type === 'tool.progress'
+      ) {
+        const patch = mapEventToPatch(event);
+        if (patch) activeQueue?.push(patch);
+      }
+    },
   });
 
-  const contextBuilder = new ContextBuilder();
-
-  const toolExecutor = createToolExecutor(toolDispatcher, workspace);
-
-  const systemPrompt = buildSystemPrompt(workspace);
   const agentRuntime = new AiSdkAgentRuntime({
     model,
     tools: AGENT_TOOLS,
-    toolExecutor,
-    system: systemPrompt,
+    toolExecutor: (call: ToolCall): Promise<ToolResult> => toolDispatcher.dispatch(call),
+    system: buildSystemPrompt(workspace),
     maxSteps: 15,
   });
 
   return {
-    async *processMessage(input: string): AsyncIterable<TuiStatePatch> {
-      const turnInput = {
-        messages: [{ role: 'user', content: input }],
-      };
+    processMessage(input: string): AsyncIterable<TuiStatePatch> {
+      if (activeTurn) throw new Error('An agent turn is already in progress');
+      activeTurn = true;
+      const queue = new PatchQueue();
+      activeQueue = queue;
+      queue.push({ type: 'devices_update', payload: { devices } });
 
-      for await (const event of agentRuntime.streamTurn(turnInput)) {
-        const patch = mapEventToPatch(event);
-        if (patch) yield patch;
-      }
+      void (async () => {
+        try {
+          for await (const event of agentRuntime.streamTurn({
+            messages: [{ role: 'user', content: input }],
+          })) {
+            const patch = mapEventToPatch(event);
+            if (patch) queue.push(patch);
+          }
+        } catch (error: unknown) {
+          queue.push({
+            type: 'error',
+            payload: { message: error instanceof Error ? error.message : String(error) },
+          });
+        } finally {
+          activeTurn = false;
+          activeQueue = null;
+          queue.close();
+        }
+      })();
+
+      return queue;
+    },
+
+    getDevices() {
+      return [...devices];
+    },
+
+    resolvePermission(callId, effect, remember = false) {
+      permissionEngine.resolve(callId, effect, remember);
+    },
+
+    cancelPermission(callId, reason = 'user cancelled') {
+      permissionEngine.cancel(callId, reason);
     },
 
     dispose() {
-      agentRuntime.abort('session closed').catch(() => {});
+      for (const callId of pendingPermissionIds) {
+        permissionEngine.cancel(callId, 'session closed');
+      }
+      pendingPermissionIds.clear();
+      void agentRuntime.abort('session closed');
     },
   };
 }
@@ -232,38 +372,45 @@ export async function createAgentSession(workspace: string): Promise<TuiAgentSes
 function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
   switch (event.type) {
     case 'assistant.delta':
-      return {
-        type: 'message_update',
-        payload: { text: event.delta, id: event.turnId },
-      };
+      return { type: 'message_update', payload: { text: event.delta, id: event.turnId } };
     case 'tool.started':
       return {
         type: 'message_add',
         payload: {
           role: 'system',
-          text: `\uD83D\uDD27 ${event.name} on ${event.backend}...`,
+          text: `Tool ${event.name} on ${event.backend}...`,
+          id: event.callId,
+        },
+      };
+    case 'tool.progress':
+      return {
+        type: 'message_add',
+        payload: {
+          role: 'system',
+          text:
+            event.percent === undefined ? event.message : `${event.message} (${event.percent}%)`,
           id: event.callId,
         },
       };
     case 'tool.completed':
       return {
         type: 'message_add',
-        payload: {
-          role: 'system',
-          text: formatToolOutput(event.result),
-          id: event.callId,
-        },
+        payload: { role: 'system', text: formatToolOutput(event.result), id: event.callId },
       };
     case 'tool.failed':
+      return { type: 'error', payload: { message: event.error.message, id: event.callId } };
+    case 'permission.requested':
       return {
-        type: 'error',
-        payload: { message: event.error.message, id: event.callId },
+        type: 'permission_request',
+        payload: { callId: event.callId, action: event.action, resource: event.resource },
+      };
+    case 'permission.resolved':
+      return {
+        type: 'permission_resolved',
+        payload: { callId: event.callId, effect: event.effect },
       };
     case 'session.error':
-      return {
-        type: 'error',
-        payload: { message: event.error.message },
-      };
+      return { type: 'error', payload: { message: event.error.message } };
     default:
       return null;
   }
@@ -277,8 +424,6 @@ function formatToolOutput(result: ToolResult): string {
     return String(result.output);
   }
 }
-
-import { retainMessages } from './message-retention.js';
 
 /** B29: caps a session transcript to the retention window. */
 export function retainSessionTranscript<T>(transcript: readonly T[], maxCount: number): T[] {

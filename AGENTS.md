@@ -153,7 +153,7 @@ LLM          OpenAI-compatible provider（可扩展）
 复用与自研边界：
 
 ```
-直接采用   AI SDK / MCP SDK / SourceKit / XcodeProj / xcresultparser / xcparse / xcbeautify / fastlane
+直接采用   AI SDK / MCP SDK / XcodeProj / xcresultparser / xcparse / xcbeautify / fastlane
 候选横评   OpenTUI+Ink / mobile-mcp+Appium+iphone-use / XcodeTraceMCP+instrumentsmcp+raw xcrun / Drizzle+Kysely / XcodeQuery+XcodeProj
 借鉴不依赖 XcodeBuildMCP / instruments-analyzer / Periphery / Maestro flow 语义
 必须自研   Project Profile 语义、候选链路、TestPlan 编译、编排循环+权限引擎、Flow、失败归因、baseline 策略、TUI 交互体验
@@ -485,7 +485,7 @@ packages/
   itestagent-engine/              (Agent 编排循环 + 权限引擎)
   itestagent-server/              (本地 Bun server + SSE + session 状态)
   itestagent-store/               (SQLite + Drizzle + 文件系统 artifacts)
-  itestagent-project-analyzer/    (XcodeProj + swift-syntax + sourcekit)
+  itestagent-project-analyzer/    (XcodeProj + tiered source analysis; SwiftSyntax/SourceKit optional)
   itestagent-contracts/           (Zod schemas + Backend 接口契约)
   itestagent-report/              (报告三件套合成)
   itestagent-flow/                (iTestAgent Flow YAML)

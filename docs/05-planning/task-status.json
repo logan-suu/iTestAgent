@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-31T11:35:25Z",
+  "last_updated": "2026-08-31T12:59:55Z",
   "current_phase": 6,
   "phases": [
     {
@@ -428,10 +428,10 @@
         },
         {
           "id": "2.2",
-          "title": "Swift 结构/符号：swift-syntax + sourcekit-lsp/SourceKitten",
+          "title": "Swift/ObjC tier 1 候选扫描：SwiftSyntax/SourceKit 条件增强",
           "story": "US-3.1",
           "status": "done",
-          "last_updated": "2026-07-19T20:30:00.000Z",
+          "last_updated": "2026-08-31T12:02:22Z",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -439,7 +439,7 @@
             "2.1"
           ],
           "test_file": "packages/itestagent-backends/analyzer-xcodeproj/test/scan-sources.test.ts, packages/itestagent-backends/analyzer-xcodeproj/test/scan-resources.test.ts",
-          "notes": "PR #21: https://github.com/logan-suu/iTestAgent/pull/21 — Merged to dev-1.0 (4d01239). scanSources/scanResources implemented. scanSources: regex-based Swift/ObjC pattern matching (ViewController, SwiftUI View, Protocol, Storyboard/XIB ref detection). scanResources: file system scanning (.xcassets, fonts, .strings, .entitlements, Info.plist). .gitignore parser + default deny patterns (DerivedData/Pods/Carthage) for AC3. Zero external deps. 28 new tests. Review warnings (W1-W3) fixed in 4e1e2ae. swift-syntax AST full analysis designed as pluggable tier 2. sourcekit-lsp/SourceKitten noted as optional enhancement. G3: typecheck 0, lint 0, 576 tests pass."
+          "notes": "PR #21: https://github.com/logan-suu/iTestAgent/pull/21 — Merged to dev-1.0 (4d01239). scanSources/scanResources implemented. scanSources: regex-based Swift/ObjC pattern matching (ViewController, SwiftUI View, Protocol, Storyboard/XIB ref detection). scanResources: file system scanning (.xcassets, fonts, .strings, .entitlements, Info.plist). .gitignore parser + default deny patterns (DerivedData/Pods/Carthage) for AC3. Zero external deps. 28 new tests. Review warnings (W1-W3) fixed in 4e1e2ae. ADR-026 clarifies this as tier 1 candidate scanning; SwiftSyntax is the preferred tier 2 enhancement and SourceKit is conditional tier 3 when a usable build/index exists. G3: typecheck 0, lint 0, 576 tests pass."
         },
         {
           "id": "2.3",
@@ -1164,19 +1164,20 @@
           "id": "6.2",
           "title": "TUI 生产 AgentSession：接入真实项目分析、设备发现、BackendSelector 与 PermissionEngine",
           "story": "US-3.1~3.3, US-4.1~4.3, US-17.1~17.2",
-          "status": "ready",
-          "last_updated": "2026-08-31T11:35:25Z",
+          "status": "in_progress",
+          "last_updated": "2026-08-31T12:59:55Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/架构设计文档.md",
             "docs/decisions/ADR-008-tui-backend-opentui-ink.md",
-            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md",
+            "docs/decisions/ADR-026-tiered-project-source-analysis.md"
           ],
           "dependencies": [
             "6.1"
           ],
-          "test_file": "packages/itestagent-tui/test/production-agent-session.test.ts",
-          "notes": "移除 analyzeProject/getDeviceInfo 固定结果和生产 MockDeviceBackend；工具声明必须覆盖计划、执行、报告等用户可达能力；高风险动作统一经过 PermissionEngine。负责核查 DEF-025。"
+          "test_file": "packages/itestagent-tui/test/agent-session.test.ts",
+          "notes": "已移除 analyzeProject/getDeviceInfo 固定结果和生产 MockDeviceBackend；生产会话接入 tier-1 XcodeProj 分析、devicectl+simctl 双目标发现、BackendSelector 与 PermissionEngine，计划/执行/报告未接能力显式返回 capability_not_wired。T6.2 Phase 6 RED contract 4 项转绿；G5/G5-SIM 设备发现证据见 docs/06-verification/g5-sim-spike-report-6.2.md。Check：typecheck 0、lint 0、G7 7 pass、全库 bun test 3358 pass/13 skip/0 fail。DEF-025 经核查仍由 T6.10 处理，未在本任务误标 resolved。"
         },
         {
           "id": "6.3",

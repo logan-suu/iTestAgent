@@ -63,6 +63,7 @@ export type {
 export { ToolDispatcher } from './tool-dispatcher.js';
 
 export type {
+  CustomToolHandler,
   EventEmitter,
   ToolDispatcherOptions,
 } from './tool-dispatcher.js';

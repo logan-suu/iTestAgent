@@ -80,6 +80,18 @@ export type { ProductionAppiumConfig, AppiumBackendAssembly } from './compositio
 
 export { redactError, redactErrorMessage } from './redactor.js';
 
+export {
+  discoverDevices,
+  discoverPhysicalDevices,
+  discoverSimulatorDevices,
+  parsePhysicalDevices,
+  parseSimulatorDevices,
+} from './device-discovery.js';
+export type {
+  DeviceDiscoveryCommandResult,
+  DeviceDiscoveryRuntime,
+} from './device-discovery.js';
+
 // ─── B13 module split: process/liveness/session/wda handles ──
 export { isProcessAlive } from './appium-process-liveness.js';
 export type { ProcessSignalFn } from './appium-process-liveness.js';

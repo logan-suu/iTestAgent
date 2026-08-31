@@ -10,6 +10,7 @@
  */
 
 export { generateProjectProfile } from './profile-generator.js';
+export { analyzeProject, XCODEPROJ_TIER1_ANALYSIS } from './project-analysis-result.js';
 export { computeProjectHash } from './project-hash.js';
 export {
   saveProfile,
@@ -26,3 +27,8 @@ export type {
   /** @deprecated Use CandidateLink */
   FeatureCandidate,
 } from './profile-io.js';
+export type {
+  ProjectAnalysisMetadata,
+  ProjectAnalysisResult,
+  ProjectAnalysisTier,
+} from './project-analysis-result.js';
