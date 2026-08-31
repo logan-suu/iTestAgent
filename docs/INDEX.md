@@ -18,7 +18,7 @@
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7+G5-SIM、反模式 |
 | **验证与 Spike** | `06-verification/` | `phase-0-cross-evaluation-report.md`、`g5-sim-spike-report-*.md` | 多 Backend 横评报告、G5/G5-SIM 真机与 Simulator 验证证据
 | **疑难杂症** | `07-troubleshooting/` | `appium-free-account/blocker.md` + `unblock-plan.md` | 开发过程中遇到的阻塞问题根因分析与解决方案记录 |
-| **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-6+ 里程碑、任务拆解、单人排期（~28-36 周） |
+| **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-7 里程碑、任务拆解、单人排期（Phase 6 真机闭环收口；Phase 7 可选增强） |
 | **任务状态** | `05-planning/` | `task-status.json` | Phase/任务动态清单、依赖关系、当前进度 |
 | **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
@@ -67,7 +67,7 @@
 | 可行性分析 + MVP 分档 | `03-implementation/开发避坑与关键注意点手册.md` §15 |
 | 测试文件存放约定（单元/集成/数据） | `../AGENTS.md` §10 |
 | 开发中遇到的阻塞问题与根因分析 | `07-troubleshooting/` |
-| Phase 0-6+ 里程碑与时间线 | `05-planning/开发计划安排文档.md` §2~8 |
+| Phase 0-7 里程碑与时间线 | `05-planning/开发计划安排文档.md` §2~9 |
 | 当前开发任务与进度 | `05-planning/task-status.json` |
 
 ---

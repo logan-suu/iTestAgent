@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-30T23:08:15Z",
+  "last_updated": "2026-08-31T10:07:34Z",
   "current_phase": 6,
   "phases": [
     {
@@ -40,7 +40,7 @@
             "0.1"
           ],
           "test_file": null,
-          "notes": "已完成。Appium/WDA: 免费账号可用（workaround: 改WDA bundle ID com.facebook.*→UJ876FXT32.* + -allowProvisioningUpdates + usePrebuiltWDA）。真机 session+page source(49596 chars)+screenshot(305KB) on iPhone 14 Plus/iOS 18.2.1 验证通过。MockBackend: fixture+TDD验证通过。mobile-mcp: 设备发现+app列表(568个)可用，screenshot/UI tree/tap被免费账号限制阻塞（mobilecli硬编码bundle ID，需付费账号补测）。iphone-use: 调研级Phase 6+。最终推荐: Appium/WDA为主+MockBackend为CI baseline；mobile-mcp保留为强候选（MCP-native+独特能力，待付费账号）。"
+          "notes": "已完成。Appium/WDA: 免费账号可用（workaround: 改WDA bundle ID com.facebook.*→UJ876FXT32.* + -allowProvisioningUpdates + usePrebuiltWDA）。真机 session+page source(49596 chars)+screenshot(305KB) on iPhone 14 Plus/iOS 18.2.1 验证通过。MockBackend: fixture+TDD验证通过。mobile-mcp: 设备发现+app列表(568个)可用，screenshot/UI tree/tap被免费账号限制阻塞（mobilecli硬编码bundle ID，需付费账号补测）。iphone-use: 调研级 Phase 7+。最终推荐: Appium/WDA为主+MockBackend为CI baseline；mobile-mcp保留为强候选（MCP-native+独特能力，待付费账号）。"
         },
         {
           "id": "0.3",
@@ -1122,16 +1122,16 @@
     },
     {
       "id": 6,
-      "name": "增强路线（MVP 后）",
+      "name": "真机全闭环收口",
       "status": "in_progress",
-      "integration_test": "6.7",
+      "integration_test": "6.12",
       "tasks": [
         {
           "id": "6.0",
           "title": "Codex development workflow migration",
           "story": null,
-          "status": "in_progress",
-          "last_updated": "2026-08-30T23:08:15Z",
+          "status": "done",
+          "last_updated": "2026-08-31T10:07:34Z",
           "documents_required": [
             "AGENTS.md",
             "docs/INDEX.md",
@@ -1139,106 +1139,350 @@
           ],
           "dependencies": [],
           "test_file": null,
-          "notes": "Migrated 14 OpenCode command workflows to repository-scoped Codex skills, added trusted-project Codex configuration with Argent MCP parity, and aligned agent governance documentation. The project owner explicitly authorized direct integration into dev-1.0; keep in_progress pending explicit lifecycle completion confirmation."
+          "notes": "Migrated 14 OpenCode command workflows to repository-scoped Codex skills, added trusted-project Codex configuration with Argent MCP parity, and aligned agent governance documentation. Integrated directly into dev-1.0 in commit 985bb99. Completion explicitly confirmed by the project owner on 2026-08-31."
         },
         {
           "id": "6.1",
-          "title": "团队扩展：remote backend / Mac worker pool / 共享设备池 / PR Bot",
-          "story": null,
+          "title": "真机全闭环契约与失败基线：锁定生产调用图、AC 矩阵和 E2E 红测",
+          "story": "US-4.1, US-5.2, US-6.1~6.2, US-7.1, US-8.1, US-9.1~9.2, US-13.1, US-14.1, US-15.1, US-16.1, US-17.1~17.2",
           "status": "ready",
+          "last_updated": "2026-08-31T09:46:43Z",
           "documents_required": [
-            "docs/02-architecture/架构设计文档.md"
+            "AGENTS.md",
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/05-planning/开发计划安排文档.md"
           ],
-          "dependencies": [],
-          "test_file": null,
-          "notes": "Optional。不破坏 Local-first、无登录、真机核心。"
+          "dependencies": [
+            "5.6"
+          ],
+          "test_file": "tests/integration/phase6/phase6-physical-closed-loop-contract.test.ts",
+          "notes": "P0 收口起点。先以当前生产代码建立失败基线：TUI 使用真实组合、禁止 MockDeviceBackend/固定成功 probe 冒充 E2E、同一 run 必须贯穿计划/执行/证据/报告/解释/重跑。仅建立契约和 RED 证据，不在未经计划确认时进入实现。"
         },
         {
           "id": "6.2",
+          "title": "TUI 生产 AgentSession：接入真实项目分析、设备发现、BackendSelector 与 PermissionEngine",
+          "story": "US-3.1~3.3, US-4.1~4.3, US-17.1~17.2",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/架构设计文档.md",
+            "docs/decisions/ADR-008-tui-backend-opentui-ink.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md"
+          ],
+          "dependencies": [
+            "6.1"
+          ],
+          "test_file": "packages/itestagent-tui/test/production-agent-session.test.ts",
+          "notes": "移除 analyzeProject/getDeviceInfo 固定结果和生产 MockDeviceBackend；工具声明必须覆盖计划、执行、报告等用户可达能力；高风险动作统一经过 PermissionEngine。负责核查 DEF-025。"
+        },
+        {
+          "id": "6.3",
+          "title": "一句话到已确认 TestPlan：workspace 分析、Intent、计划修改/确认/取消",
+          "story": "US-3.1~3.3, US-4.2, US-5.1~5.2",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": [
+            "6.1"
+          ],
+          "test_file": "tests/integration/phase6/phase6-intent-plan-confirmation.test.ts",
+          "notes": "从当前 workspace 生成带证据的 Project Profile 和 TestPlan；核心链路只做候选；用户未确认时不得进入构建或设备执行。"
+        },
+        {
+          "id": "6.4",
+          "title": "真机执行前置链：App 来源、构建安装启动、WDA 签名与可用性自愈",
+          "story": "US-1.2, US-2.1~2.2, US-6.1~6.2",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/技术选型文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md",
+            "docs/decisions/ADR-012-wda-lifecycle-separation.md"
+          ],
+          "dependencies": [
+            "6.1"
+          ],
+          "test_file": "tests/integration/phase6/phase6-physical-app-wda-preflight.test.ts",
+          "notes": "贯通 appSource -> xcodebuild -> devicectl install/launch -> WDA/Appium preflight。不能仅凭已安装判断免费账号 profile 有效；需用 G5 证据验证过期探测/重新签名路径。负责核查 DEF-031。"
+        },
+        {
+          "id": "6.5",
+          "title": "双路径生产调度：XCUITest 与 DeviceBackend 探索按项目资产自动选择",
+          "story": "US-7.1, US-8.1, US-17.1",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/架构设计文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": [
+            "6.2",
+            "6.3",
+            "6.4"
+          ],
+          "test_file": "tests/integration/phase6/phase6-dual-execution-routing.test.ts",
+          "notes": "有 XCUITest 时生产调用 xcodebuild test -> xcresult parser；无测试资产时转真实 Appium DeviceBackend。统一 backend 契约类型并删除局部镜像漂移，负责核查 DEF-032。"
+        },
+        {
+          "id": "6.6",
+          "title": "真机探索执行与 Flow 记录：动态动作、逐 case checkpoint、断言确认、run steps",
+          "story": "US-8.1~8.2, US-9.1, US-11.1, US-13.1",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md"
+          ],
+          "dependencies": [
+            "6.5"
+          ],
+          "test_file": "tests/integration/phase6/phase6-exploration-flow-recording.test.ts",
+          "notes": "用已确认 TestPlan/Agent 动态动作替代固定 launch+screenshot；每个 case 动作后立即捕获 UI tree/证据，避免最终页面冒充早期断言；Agent 建议断言未经确认不得判 passed。负责核查 DEF-030。"
+        },
+        {
+          "id": "6.7",
+          "title": "Flow 真机生产重放：正确 backend 构造、targetKind 与证据贯通",
+          "story": "US-9.2, US-13.1",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/架构设计文档.md",
+            "schemas/flow.schema.json"
+          ],
+          "dependencies": [
+            "6.6"
+          ],
+          "test_file": "tests/integration/phase6/phase6-flow-replay-production.test.ts",
+          "notes": "修复 workspace 包名和真实 Appium 构造；生产执行不可静默切换 mock/dry-run；能力或环境不足时 fail-closed，并输出明确错误与修复建议。"
+        },
+        {
+          "id": "6.8",
+          "title": "单一 RunStore 与报告贯通：plan、run steps、三件套和 artifacts 同 run 落盘",
+          "story": "US-13.1, US-15.1, US-19.1",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md",
+            "schemas/test-plan.schema.json",
+            "schemas/result.schema.json",
+            "schemas/artifact-index.schema.json"
+          ],
+          "dependencies": [
+            "6.5"
+          ],
+          "test_file": "tests/integration/phase6/phase6-run-report-persistence.test.ts",
+          "notes": "生产执行写入 ~/.itestagent/runs/<run_id>/，生成 plan.yaml、summary.md、result.json、artifact-index.json、artifacts/；禁止只在 /tmp 生成孤立 artifact-index。"
+        },
+        {
+          "id": "6.9",
+          "title": "证据驱动解释与真实重跑：failed-only 调度、parentRunId 与 flaky 关联",
+          "story": "US-14.1, US-16.1",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md"
+          ],
+          "dependencies": [
+            "6.7",
+            "6.8"
+          ],
+          "test_file": "tests/integration/phase6/phase6-explain-rerun-dispatch.test.ts",
+          "notes": "explain 必须消费 6.8 的真实 run 证据；rerun 移除仅打印 TODO，复用原 TestPlan/数据真正调度失败 case，并把新 run 关联到原 run。"
+        },
+        {
+          "id": "6.10",
+          "title": "真机闭环可靠性与安全收口：TUI、session、WDA freshness、权限、abort 与脱敏",
+          "story": "US-4.1, US-10.1~10.2, US-17.2, US-18.3",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "AGENTS.md",
+            "docs/03-implementation/开发避坑与关键注意点手册.md",
+            "docs/decisions/ADR-008-tui-backend-opentui-ink.md",
+            "docs/decisions/ADR-010-agent-harness-runtime-boundary.md",
+            "docs/decisions/ADR-012-wda-lifecycle-separation.md",
+            "docs/05-planning/deferred-items.json"
+          ],
+          "dependencies": [
+            "6.2",
+            "6.4",
+            "6.6",
+            "6.9"
+          ],
+          "test_file": "tests/integration/phase6/phase6-physical-reliability-security.test.ts",
+          "notes": "处理真实交互 renderer、closeSession 悬空删除、WDA 过期、AbortSignal、R7 确认与 R6 脱敏。负责核查 DEF-025/029/031；只有修复并验证后才能在 deferred-items.json 标 resolved。"
+        },
+        {
+          "id": "6.11",
+          "title": "生产组合自动化闭环测试：TUI 指令到报告、解释和重跑的跨包验证",
+          "story": "MVP-1~19",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "AGENTS.md",
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md"
+          ],
+          "dependencies": [
+            "6.6",
+            "6.7",
+            "6.8",
+            "6.9",
+            "6.10"
+          ],
+          "test_file": "tests/integration/phase6/phase6-physical-closed-loop.test.ts",
+          "notes": "测试必须调用与用户入口相同的生产 composition root；CI 可用 mock transport/fixtures 替代设备 I/O，但禁止替换编排、存储、报告、解释或重跑逻辑，也禁止只断言函数存在。"
+        },
+        {
+          "id": "6.12",
+          "title": "M6-PHY 真机出口验收：生产入口两条路径 G5 与全闭环证据留档",
+          "story": "MVP-1~19",
+          "status": "pending",
+          "last_updated": "2026-08-31T09:46:43Z",
+          "documents_required": [
+            "AGENTS.md",
+            "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/04-ai-native/AI Native 开发理念与实战技巧手册.md",
+            "docs/05-planning/开发计划安排文档.md",
+            "docs/05-planning/deferred-items.json"
+          ],
+          "dependencies": [
+            "6.11"
+          ],
+          "test_file": null,
+          "notes": "非代码验收任务。使用真实 iPhone 从 TUI 一句话开始，分别验证 XCUITest 路径和无测试 DeviceBackend 路径，检查计划确认、App/WDA 前置、Flow/证据、三件套、explain、真实 rerun、R6/R7/abort。证据写入 docs/06-verification/g5-physical-closed-loop-report-6.12.md；完成后保持 in_progress，须经人类确认再通过 pr-merge-itest 标 done。"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "增强路线（MVP 后，可选）",
+      "status": "pending",
+      "integration_test": "7.7",
+      "tasks": [
+        {
+          "id": "7.1",
+          "title": "团队扩展：remote backend / Mac worker pool / 共享设备池 / PR Bot",
+          "story": null,
+          "status": "pending",
+          "documents_required": [
+            "docs/02-architecture/架构设计文档.md"
+          ],
+          "dependencies": [
+            "6.12"
+          ],
+          "test_file": null,
+          "notes": "Optional。不破坏 Local-first、无登录、真机核心。",
+          "last_updated": "2026-08-31T10:03:58Z"
+        },
+        {
+          "id": "7.2",
           "title": "xctrace summary 深解析（schema → 归一化，跨版本维护）",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
           "dependencies": [
+            "6.12",
             "4.4"
           ],
           "test_file": null,
-          "notes": "Deferred → 正式。"
+          "notes": "Deferred → 正式。",
+          "last_updated": "2026-08-31T10:03:58Z"
         },
         {
-          "id": "6.3",
+          "id": "7.3",
           "title": "断言增强（对话类流式完成断言原语等）",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
+            "6.12",
             "3.14"
           ],
           "test_file": null,
-          "notes": "提升探索可靠性。"
+          "notes": "提升探索可靠性。",
+          "last_updated": "2026-08-31T10:03:58Z"
         },
         {
-          "id": "6.4",
+          "id": "7.4",
           "title": "核心链路推断增强（历史 Flow + 证据学习）",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/03-implementation/开发避坑与关键注意点手册.md"
           ],
           "dependencies": [
+            "6.12",
             "2.4"
           ],
           "test_file": null,
           "notes": "仍需人确认。",
-          "last_updated": "2026-07-21T15:50:00.000Z"
+          "last_updated": "2026-08-31T10:03:58Z"
         },
         {
-          "id": "6.5",
+          "id": "7.5",
           "title": "Flow 管理 / 导出 XCUITest/Appium 正式测试",
           "story": null,
-          "status": "ready",
+          "status": "pending",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md"
           ],
           "dependencies": [
+            "6.12",
             "3.15",
             "5.3"
           ],
           "test_file": null,
-          "notes": "从 draft 到可维护。"
+          "notes": "从 draft 到可维护。",
+          "last_updated": "2026-08-31T10:03:58Z"
         },
         {
-          "id": "6.6",
+          "id": "7.6",
           "title": "云扩展：BrowserStack/Sauce/AWS/Firebase 云真机矩阵",
           "story": null,
           "status": "pending",
           "documents_required": [],
           "dependencies": [
-            "6.1"
+            "7.1"
           ],
           "test_file": null,
-          "notes": "Optional。"
+          "notes": "Optional。",
+          "last_updated": "2026-08-31T10:03:58Z"
         },
         {
-          "id": "6.7",
-          "title": "Phase 6 集成测试：增强路线验证",
+          "id": "7.7",
+          "title": "Phase 7 集成测试：增强路线验证",
           "story": null,
           "status": "pending",
           "documents_required": [],
           "notes": "验证 xctrace深解析/断言增强/链路推断/Flow导出/团队扩展 等增强功能。",
           "dependencies": [
-            "6.2",
-            "6.3",
-            "6.4",
-            "6.5",
-            "6.1",
-            "6.6"
+            "7.2",
+            "7.3",
+            "7.4",
+            "7.5",
+            "7.1",
+            "7.6"
           ],
-          "test_file": null
+          "test_file": null,
+          "last_updated": "2026-08-31T10:03:58Z"
         }
       ]
     }

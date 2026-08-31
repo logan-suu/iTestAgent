@@ -17,7 +17,7 @@ PR #64-#68 legitimately added dependencies (engine → build-xcodebuild /
 analyzer-xcresult / device-appium), moving the lock to `c86cd849…`. The
 prelude's pinned-lock check (verify-bun-binary.sh) now fails against the
 frozen approval anchor, blocking every prelude-gated commit — including
-normal Phase 6 enhancement work.
+normal Phase 7 optional enhancement work.
 
 ## Decision
 

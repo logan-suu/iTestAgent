@@ -34,7 +34,7 @@ iTestAgent 需要在 iPhone 真机上执行 UI 自动化（截图、UI tree、ta
 MVP 主 backend   = Appium/WDA（免费账号可用，真机 session/UI tree/screenshot 全验证）
 CI/no-device     = MockBackend（fixture + TDD 验证）
 强候选（后置）   = mobile-mcp（MCP-native + 独特能力，待付费账号补测 screenshot/UI tree/tap）
-Phase 6+ fallback = iphone-use（视觉 fallback）
+Phase 7+ fallback = iphone-use（视觉 fallback）
 ```
 
 ## 备选方案

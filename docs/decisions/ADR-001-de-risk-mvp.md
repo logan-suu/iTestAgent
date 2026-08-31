@@ -50,4 +50,4 @@ XCUITest/Appium 测试代码 draft 生成（标实验性）
 
 - `docs/03-implementation/开发避坑与关键注意点手册.md` §15 — 可行性分析
 - `docs/01-spec/全量用户故事与验收标准规格书.md` — MVP 验收总表
-- `docs/05-planning/开发计划安排文档.md` — Phase 0-6 排期
+- `docs/05-planning/开发计划安排文档.md` — Phase 0-7 排期

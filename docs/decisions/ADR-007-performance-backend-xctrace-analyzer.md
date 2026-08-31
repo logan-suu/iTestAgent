@@ -62,7 +62,7 @@ instrumentsmcp = 录制/report 工作流参考，不作为默认可信 backend
 
 1. 第一版：只解析 `hitches-summary`（count、max duration、severity breakdown、Hitch Type）
 2. 第二版：多表关联（hitch-id / swap-id 关联 5 个 interval 表）
-3. 第三版：DuckDB/Parquet（Phase 6+，借鉴 instruments-analyzer）
+3. 第三版：DuckDB/Parquet（Phase 7+，借鉴 instruments-analyzer）
 
 ## 备选方案
 

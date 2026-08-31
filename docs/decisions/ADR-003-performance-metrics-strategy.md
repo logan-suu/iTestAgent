@@ -35,7 +35,7 @@
 2. 不可导出的 xctrace 数据标 `not_exportable`，不编造
 3. 原始 `.trace` 文件始终保留，供用户在 Instruments 中人工打开
 4. xctrace 解析层对 schema 名称/列做跨 Xcode 版本容错
-5. 深度 xctrace summary 归一化推迟到 Phase 6+ 增强路线
+5. 深度 xctrace summary 归一化推迟到 Phase 7 可选增强路线
 
 ## 后果
 
