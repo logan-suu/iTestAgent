@@ -1183,8 +1183,8 @@
           "id": "6.3",
           "title": "一句话到已确认 TestPlan：workspace 分析、Intent、计划修改/确认/取消",
           "story": "US-3.1~3.3, US-4.2, US-5.1~5.2",
-          "status": "in_progress",
-          "last_updated": "2026-08-31T17:55:07Z",
+          "status": "done",
+          "last_updated": "2026-08-31T18:06:33Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md",
@@ -1194,7 +1194,7 @@
             "6.1"
           ],
           "test_file": "tests/integration/phase6/phase6-intent-plan-confirmation.test.ts",
-          "notes": "初始实现完成后，2026-08-31 规格复审通过 ADR-027 补充 Planning Cycle 生命周期和不可变快照边界，并同步规格、架构、数据流与避坑手册。PR review 阻断项已修复：普通后续消息保持 confirmed TestPlan；`/plan <test goal>` 显式创建新周期并原子清理旧规划 UI 状态；确认和取消成为周期终态；PlanningSession 对输入、snapshot、待确认与已确认计划执行深拷贝，并为所有状态转换增加来源守卫。新增普通追问、显式新规划、取消/确认终态及返回值 mutation 回归。Check：typecheck 0、lint 0；评审修复定向测试 52 pass/0 fail；全库 bun test 3389 pass/13 skip/0 fail。G6 报告：docs/06-verification/phase6-intent-plan-confirmation-report-6.3.md。G5/G5-SIM 不适用。PR #72：https://github.com/logan-suu/iTestAgent/pull/72；任务保持 in_progress，等待人工审阅与合并。"
+          "notes": "初始实现完成后，2026-08-31 规格复审通过 ADR-027 补充 Planning Cycle 生命周期和不可变快照边界，并同步规格、架构、数据流与避坑手册。PR review 阻断项已修复：普通后续消息保持 confirmed TestPlan；`/plan <test goal>` 显式创建新周期并原子清理旧规划 UI 状态；确认和取消成为周期终态；PlanningSession 对输入、snapshot、待确认与已确认计划执行深拷贝，并为所有状态转换增加来源守卫。新增普通追问、显式新规划、取消/确认终态及返回值 mutation 回归。Check：typecheck 0、lint 0；评审修复定向测试 52 pass/0 fail；全库 bun test 3389 pass/13 skip/0 fail。G6 报告：docs/06-verification/phase6-intent-plan-confirmation-report-6.3.md。G5/G5-SIM 不适用。PR #72：https://github.com/logan-suu/iTestAgent/pull/72；任务保持 in_progress，等待人工审阅与合并。 Completion confirmed: PR #72 was merged by logan-suu into dev-1.0 at 2026-08-31T18:04:32Z (merge commit 15624f0555a012bed224dde3216ae4827db680ba); CI and gitleaks succeeded, and all verified review threads were resolved."
         },
         {
           "id": "6.4",
