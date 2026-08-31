@@ -2,7 +2,7 @@
 
 ## 1. 结论
 
-T6.1 已将 Phase 6 的生产闭环出口固化为可执行契约。当前生产入口尚未贯通，专用 RED 运行结果为 **0 pass / 8 fail / exit 1**，与开发计划中锁定的实现偏移一致。
+T6.1 已将 Phase 6 的生产闭环出口固化为 AST/数据流语义契约。当前生产入口尚未贯通，专用 RED 运行结果为 **3 matcher pass / 11 contract fail / exit 1**，与开发计划中锁定的实现偏移一致。
 
 本报告只证明“缺口可复现、后续修复有稳定验收目标”，不证明真机闭环已完成，不替代 T6.11 的自动化闭环测试或 T6.12 的当前真机 G5 证据。
 
@@ -107,8 +107,8 @@ bun test tests/integration/phase6/phase6-physical-closed-loop-contract.test.ts
 结果：
 
 ```text
-0 pass
-8 skip
+3 pass
+11 skip
 0 fail
 exit 0
 ```
@@ -123,28 +123,31 @@ ITESTAGENT_PHASE6_RED=1 bun test tests/integration/phase6/phase6-physical-closed
 
 ```text
 Bun 1.3.14 (0d9b296a)
-0 pass
-8 fail
-14 expect() calls
+3 pass
+11 fail
+17 expect() calls
 exit 1
 ```
 
 失败项：
 
-1. TUI 仍注册 `MockDeviceBackend`。
-2. TUI 仍安装 allow-all 权限规则。
-3. TUI 未调用真实项目分析，仍返回固定 workspace 提示。
-4. TUI 未调用真实设备发现，仍返回 `connected: true`。
-5. explore 未读取已确认 TestPlan，仍使用固定动作。
-6. explore 未写入默认 RunStore、未调用 `ReportSynthesizer`，且使用临时目录。
-7. Flow 执行仍包含 mock dry-run fallback。
-8. rerun 仍未执行调度，也未创建带 `parentRunId` 的新 run。
+1. TUI 仍依赖 `MockDeviceBackend` 模块。
+2. TUI 仍安装语义上的 allow-all 权限规则。
+3. TUI 未实际调用真实项目分析器。
+4. TUI 未实际调用真实设备发现。
+5. explore 没有把解析后的已确认 TestPlan 传入执行调用。
+6. explore 仍内嵌固定 launch+screenshot 动作。
+7. explore 没有从默认 RunStore 获取 run 目录。
+8. explore 没有实际执行 `ReportSynthesizer.write()`。
+9. Flow 执行仍依赖 mock backend 模块。
+10. rerun 仍未调用生产执行调度。
+11. rerun 仍未通过 `insertRun` 创建带 `parentRunId` 的 child run。
 
-专用环境开关用于保存可提交的 RED 基线，同时不让预期失败永久破坏普通质量门禁。后续 T6.2-T6.10 应逐项使这些断言转绿；T6.11 负责将闭环升级为真实跨包行为测试并移除 RED 开关。
+契约通过 TypeScript AST 识别生产 command action、模块依赖、真实调用、对象语义和关键数据流；注释、未使用 import、别名或格式变化不能使契约转绿。3 个常规 matcher 回归测试明确覆盖这些防假绿条件。专用环境开关用于保存可提交的 RED 基线，同时不让预期失败永久破坏普通质量门禁。后续 T6.2-T6.10 应逐项使这些断言转绿；T6.11 负责将闭环升级为真实跨包行为测试并移除 RED 开关。
 
 ## 6. 限制与门禁声明
 
-- 本测试检查用户可达生产入口的组合约束，但当前阶段主要通过源码契约定位缺口；它不是设备行为测试。
+- 本测试检查用户可达生产入口的 AST/数据流组合约束，但它仍不是设备行为测试。
 - 本任务没有修改 physical 或 simulator 行为，因此没有新增 G5/G5-SIM 证据。
 - `DEF-025/029/030/031/032` 仍为 Phase 6 open，必须在 M6-PHY 出口逐条处置。
 - 当前任务继续保持 `in_progress`；代码类任务需要通过 `$commit-pr-itest` 建 PR，合并后再由 `$pr-merge-itest` 完成状态转换。
@@ -152,11 +155,13 @@ exit 1
 ## 7. Check 结果
 
 ```text
-Scoped tests: 61 pass / 8 intentional RED skips / 0 fail
-Typecheck:    PASS (tsc --noEmit -p tsconfig.base.json)
-Lint:         PASS (biome check .; 781 files)
-JSON parse:   PASS (task-status.json + deferred-items.json)
-Full tests:   PASS (3346 pass / 10 skip / 0 fail; 312 files)
+Contract default: PASS (3 matcher pass / 11 intentional RED skips / 0 fail)
+Contract RED:     EXPECTED RED (3 matcher pass / 11 contract fail / exit 1)
+Typecheck:        PASS (tsc --noEmit -p tsconfig.base.json)
+Lint:             PASS (biome check .; 781 files)
+G7:               PASS (7 pass / 0 fail)
+JSON parse:       PASS (task-status.json + deferred-items.json)
+Full tests:       PASS (3349 pass / 13 skip / 0 fail; 312 files)
 ```
 
-首次在受限执行环境运行全库 `bun test` 时，macOS Keychain 写入授权不可用，既有 `packages/itestagent-cli/test/keychain-secret-store.test.ts` 出现 3 个 `security` exit 152。随后在获准访问 macOS Keychain 的环境重跑相同命令，结果为 **3346 pass / 10 skip / 0 fail**，证明首次失败属于执行环境限制而非代码缺陷。
+在受限执行环境运行全库 `bun test` 时，macOS Keychain 写入授权不可用，既有 `packages/itestagent-cli/test/keychain-secret-store.test.ts` 出现 3 个 `security` exit 152。随后在获准访问 macOS Keychain 的环境重跑相同命令，结果为 **3349 pass / 13 skip / 0 fail**，证明首次失败属于执行环境限制而非代码缺陷。
