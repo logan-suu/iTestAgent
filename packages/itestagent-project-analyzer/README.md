@@ -1,9 +1,9 @@
 # itestagent-project-analyzer
 
-> iOS project analysis — XcodeProj + swift-syntax + sourcekit
+> iOS project analysis — XcodeProj + tiered source analysis; SwiftSyntax/SourceKit are optional enhancements (ADR-026)
 
 Part of iTestAgent monorepo. See [../../README.md](../../README.md) for project overview and [../../AGENTS.md](../../AGENTS.md) for conventions.
 
 ## Status
 
-Phase 0 scaffold — implementation pending.
+Deterministic project discovery/profile generation and tier-1 source candidate scanning are implemented. Production AgentSession capability metadata is tracked by task 6.2.

@@ -39,16 +39,32 @@ export interface ToolDispatcherOptions {
   onEvent?: EventEmitter;
   /** AbortSignal for cancellation propagation. */
   signal?: AbortSignal;
+  /** Non-device tools that still require the same validation and permission chain. */
+  customTools?: Record<string, CustomToolHandler>;
 }
 
 interface ToolMapping {
-  /** DeviceBackend method name */
-  method: keyof DeviceBackend;
+  /** DeviceBackend method name. Mutually exclusive with execute. */
+  method?: keyof DeviceBackend;
   /** Zod parse function: args → typed input */
   // biome-ignore lint/suspicious/noExplicitAny: dynamic param schemas
   parseParams: (args: Record<string, unknown>) => any;
   /** Permission action name, or a resolver that computes it from parsed args */
   action: string | ((parsedArgs: Record<string, unknown>) => string);
+  /** Resource override for non-device tools. */
+  resource?: string | ((parsedArgs: Record<string, unknown>) => string);
+  /** Non-device handler. Mutually exclusive with method. */
+  execute?: (parsedArgs: unknown, signal?: AbortSignal) => Promise<unknown>;
+  /** Lifecycle label used in AgentEvent.tool.started. */
+  backendName?: string;
+}
+
+export interface CustomToolHandler {
+  parseParams?: (args: Record<string, unknown>) => unknown;
+  action: string | ((parsedArgs: Record<string, unknown>) => string);
+  resource?: string | ((parsedArgs: Record<string, unknown>) => string);
+  execute(parsedArgs: unknown, signal?: AbortSignal): Promise<unknown>;
+  backendName?: string;
 }
 
 /** Maximum output size in chars before truncation (R5: not silent). */
@@ -262,6 +278,7 @@ export class ToolDispatcher {
   private onEvent: EventEmitter | undefined;
   private signal: AbortSignal | undefined;
   private deviceLocks = new Map<string, Promise<void>>();
+  private tools: Record<string, ToolMapping>;
 
   constructor(options: ToolDispatcherOptions) {
     this.permissionEngine = options.permissionEngine;
@@ -269,6 +286,19 @@ export class ToolDispatcher {
     this.targetKind = options.targetKind ?? 'physical';
     this.onEvent = options.onEvent;
     this.signal = options.signal;
+    this.tools = { ...TOOL_REGISTRY };
+    for (const [name, handler] of Object.entries(options.customTools ?? {})) {
+      if (this.tools[name]) {
+        throw new Error(`Custom tool cannot override built-in tool: ${name}`);
+      }
+      this.tools[name] = {
+        parseParams: handler.parseParams ?? noopParse,
+        action: handler.action,
+        resource: handler.resource,
+        execute: handler.execute,
+        backendName: handler.backendName ?? 'itestagent-local',
+      };
+    }
   }
 
   /**
@@ -300,11 +330,11 @@ export class ToolDispatcher {
     }
 
     // 2. Look up tool mapping
-    const mapping = TOOL_REGISTRY[parsedCall.name];
+    const mapping = this.tools[parsedCall.name];
     if (!mapping) {
       return this.errorResult(
         callId,
-        `Unknown tool: "${parsedCall.name}". Available tools: ${Object.keys(TOOL_REGISTRY).join(', ')}`,
+        `Unknown tool: "${parsedCall.name}". Available tools: ${Object.keys(this.tools).join(', ')}`,
         'unknown_tool',
       );
     }
@@ -323,9 +353,17 @@ export class ToolDispatcher {
     }
 
     // 4. Permission gate
+    const parsedRecord =
+      typeof parsedArgs === 'object' && parsedArgs !== null
+        ? (parsedArgs as Record<string, unknown>)
+        : parsedCall.arguments;
     const resolvedAction =
-      typeof mapping.action === 'function' ? mapping.action(parsedCall.arguments) : mapping.action;
-    const resource = deriveResource(resolvedAction, parsedCall.arguments);
+      typeof mapping.action === 'function' ? mapping.action(parsedRecord) : mapping.action;
+    const resource = mapping.resource
+      ? typeof mapping.resource === 'function'
+        ? mapping.resource(parsedRecord)
+        : mapping.resource
+      : deriveResource(resolvedAction, parsedRecord);
 
     const permissionResult = await this.checkPermission(callId, resolvedAction, resource);
     if (permissionResult.denied) {
@@ -336,27 +374,31 @@ export class ToolDispatcher {
       );
     }
 
-    // 5. Backend selection
-    const selectResult = this.backendSelector.select(
-      this.targetKind,
-      undefined,
-      typeof parsedCall.arguments.deviceId === 'string' ? parsedCall.arguments.deviceId : undefined,
-    );
-
-    if (!selectResult.success || !selectResult.backend) {
-      return this.errorResult(
-        callId,
-        selectResult.error ?? 'No backend available',
-        selectResult.errorCode ?? 'blocked.target_unsupported',
+    // 5. Backend selection is required only for DeviceBackend tools.
+    let backend: DeviceBackend | undefined;
+    if (mapping.method) {
+      const selectResult = this.backendSelector.select(
+        this.targetKind,
+        undefined,
+        typeof parsedCall.arguments.deviceId === 'string'
+          ? parsedCall.arguments.deviceId
+          : undefined,
       );
-    }
 
-    const backend = selectResult.backend;
+      if (!selectResult.success || !selectResult.backend) {
+        return this.errorResult(
+          callId,
+          selectResult.error ?? 'No backend available',
+          selectResult.errorCode ?? 'blocked.target_unsupported',
+        );
+      }
+      backend = selectResult.backend;
+    }
 
     // Per-device serialization: extract device id and queue on same UDID
     const deviceId =
-      ((parsedArgs as Record<string, unknown>).deviceId as string | undefined) ??
-      ((parsedArgs as Record<string, unknown>).udid as string | undefined);
+      (typeof parsedRecord.deviceId === 'string' ? parsedRecord.deviceId : undefined) ??
+      (typeof parsedRecord.udid === 'string' ? parsedRecord.udid : undefined);
 
     let deviceRelease: (() => void) | undefined;
     if (deviceId) {
@@ -377,7 +419,7 @@ export class ToolDispatcher {
         type: 'tool.started',
         callId,
         name: parsedCall.name,
-        backend: backend.name,
+        backend: backend?.name ?? mapping.backendName ?? 'itestagent-local',
       });
 
       // Abort check before execution
@@ -390,8 +432,13 @@ export class ToolDispatcher {
         return this.errorResult(callId, 'Tool call aborted mid-execution', 'aborted');
       }
 
-      const method = backend[mapping.method] as (...args: unknown[]) => Promise<unknown>;
-      const rawResult = await method.call(backend, parsedArgs, this.signal);
+      const rawResult = mapping.execute
+        ? await mapping.execute(parsedArgs, this.signal)
+        : await (
+            backend?.[mapping.method as keyof DeviceBackend] as (
+              ...args: unknown[]
+            ) => Promise<unknown>
+          ).call(backend, parsedArgs, this.signal);
 
       // 8. Check for backend-level failure (H-02 fix: success:false → error).
       if (rawResult && typeof rawResult === 'object') {
@@ -477,7 +524,7 @@ export class ToolDispatcher {
           error: errorInfo.error,
           cause: errorInfo.cause,
           tool: parsedCall.name,
-          backend: backend.name,
+          backend: backend?.name ?? mapping.backendName ?? 'itestagent-local',
         },
       };
     } finally {

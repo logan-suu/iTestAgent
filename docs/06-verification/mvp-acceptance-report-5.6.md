@@ -43,16 +43,16 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 
 ---
 
-### Item 2 — Project Analysis & Profile (US-3.1/3.2, P0) ✅
+### Item 2 — Project Analysis & Profile (US-3.1/3.2, P0) ⚠️ ADR-026 revised
 
 | Target | Status | Evidence |
 |---|---|---|
-| **Physical** | ✅ PASS | XcodeProjAnalyzerBackend: `discover` (xcodebuild -list -json), `graph` (self-contained pbxproj parser), `buildSettings`, `scanSources`, `scanResources`. Profile generator with feature inference (evidence+confidence, R4). 42+28+24=94 tests across tasks 2.1-2.3. |
-| **Simulator** | ✅ PASS | Same analyzer — target-agnostic. Project hash deterministic (sha256). Profile stored at `~/.itestagent/projects/<hash>/project-profile.json`. |
+| **Physical** | ⚠️ PARTIAL | Deterministic XcodeProj/xcodebuild layer and tier 1 candidate scan are implemented. This historical run did not use SwiftSyntax/SourceKit and did not expose session-level analysisTier/limitations; T6.2 owns that production-session metadata under ADR-026. |
+| **Simulator** | ⚠️ PARTIAL | Same target-agnostic analyzer. Project hash and Profile storage are verified; session-level analysis capability metadata remains T6.2 scope. |
 
 **AC Coverage**:
 - AC1 (US-3.1): XcodeProj + xcodebuild deterministic layer ✅
-- AC2 (US-3.1): scanSources regex-based Swift/ObjC pattern matching ✅
+- AC2 (US-3.1): tier 1 regex-based candidate scanning existed, but the former claim did not prove SwiftSyntax/SourceKit. ADR-026 supersedes the old wording; explicit analysisTier/enabledCapabilities/limitations remains pending T6.2 ⚠️
 - AC3 (US-3.1): .gitignore parser + default deny patterns ✅
 - AC4 (US-3.1): Result → Project Profile ✅
 - AC1-AC4 (US-3.2): app/features/testAssets/suggestedSmoke, G2 Zod validation, project hash, Profile IO ✅

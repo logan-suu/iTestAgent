@@ -153,7 +153,7 @@ LLM          OpenAI-compatible provider（可扩展）
 复用与自研边界：
 
 ```
-直接采用   AI SDK / MCP SDK / SourceKit / XcodeProj / xcresultparser / xcparse / xcbeautify / fastlane
+直接采用   AI SDK / MCP SDK / XcodeProj / xcresultparser / xcparse / xcbeautify / fastlane
 候选横评   OpenTUI+Ink / mobile-mcp+Appium+iphone-use / XcodeTraceMCP+instrumentsmcp+raw xcrun / Drizzle+Kysely / XcodeQuery+XcodeProj
 借鉴不依赖 XcodeBuildMCP / instruments-analyzer / Periphery / Maestro flow 语义
 必须自研   Project Profile 语义、候选链路、TestPlan 编译、编排循环+权限引擎、Flow、失败归因、baseline 策略、TUI 交互体验
@@ -234,7 +234,7 @@ R12 所有对外可见的版本控制内容必须使用英文。项目文档（d
 
 ```
 交互层  itestagent-cli / itestagent-tui
-编排层  itestagent-server(SessionManager/SSE Hub/subprocess controller) / itestagent-engine(AgentRuntime/PermissionEngine/RunStateMachine/ToolDispatcher/BackendSelector/ContextBuilder) / itestagent-project-analyzer
+编排层  itestagent-server(SessionManager/SSE Hub/自有 subprocess controller) / itestagent-engine(AgentRuntime/PermissionEngine/RunStateMachine/ToolDispatcher/BackendSelector/ContextBuilder) / itestagent-project-analyzer
 语义层  ProjectProfile / TestPlan / RunStep / Flow / ArtifactRef
 Backend接口层  DeviceBackend / PerformanceBackend / BuildDriver / ProjectAnalyzerBackend / StoreDriver
 Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQuery / Drizzle / Kysely
@@ -247,6 +247,8 @@ Harness 边界（ADR-010）：
 - RunStateMachine 与 AgentRuntime 分离，不执行工具
 - 同设备串行，不同设备并行
 - abort 贯穿 runtime/tool/backend/child process，复用 AbortSignal/Bun.spawn
+- 选定目标前通过 DeviceDiscoveryProvider 发现设备；选定目标后通过 BackendSelector/DeviceBackend 操作设备
+- Provider/Backend/Server 各自拥有自己启动的子进程，禁止跨 owner 接管（ADR-023）
 - 复用 AI SDK streamText/generateText/stopWhen/prepareStep、MCP TS SDK、UIMessage parts
 - 禁止 fork OpenCode core、Effect-TS 全局编排、SQLite 事件溯源
 ```
@@ -485,7 +487,7 @@ packages/
   itestagent-engine/              (Agent 编排循环 + 权限引擎)
   itestagent-server/              (本地 Bun server + SSE + session 状态)
   itestagent-store/               (SQLite + Drizzle + 文件系统 artifacts)
-  itestagent-project-analyzer/    (XcodeProj + swift-syntax + sourcekit)
+  itestagent-project-analyzer/    (XcodeProj + tiered source analysis; SwiftSyntax/SourceKit optional)
   itestagent-contracts/           (Zod schemas + Backend 接口契约)
   itestagent-report/              (报告三件套合成)
   itestagent-flow/                (iTestAgent Flow YAML)

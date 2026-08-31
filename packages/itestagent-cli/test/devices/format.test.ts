@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { DeviceInfo, HealthCheckResult } from 'itestagent-contracts';
 import {
   formatDeviceList,
+  formatDiscoveryLimitations,
   formatHealthcheckResult,
   formatHealthcheckResults,
   formatNoDevices,
@@ -38,6 +39,18 @@ describe('formatNoDevices', () => {
   test('references doctor command for full diagnostics', () => {
     const output = formatNoDevices();
     expect(output).toContain('doctor');
+  });
+});
+
+describe('formatDiscoveryLimitations', () => {
+  test('shows partial lane failures without presenting them as no devices', () => {
+    const output = formatDiscoveryLimitations({
+      devices: [],
+      status: 'partial',
+      issues: [{ lane: 'physical', code: 'command_failed', message: 'devicectl unavailable' }],
+    });
+    expect(output).toContain('Device discovery partial');
+    expect(output).toContain('physical: devicectl unavailable');
   });
 });
 

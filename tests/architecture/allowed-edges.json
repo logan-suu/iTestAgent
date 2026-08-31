@@ -44,6 +44,10 @@
     "to": "itestagent-backends-analyzer-xcresult"
   },
   {
+    "from": "itestagent-engine",
+    "to": "itestagent-backends-analyzer-xcodeproj"
+  },
+  {
     "from": "itestagent-backends-device-appium",
     "to": "itestagent-process"
   },
@@ -118,10 +122,6 @@
   {
     "from": "itestagent-tui",
     "to": "itestagent-contracts"
-  },
-  {
-    "from": "itestagent-tui",
-    "to": "itestagent-device-mock"
   },
   {
     "from": "itestagent-tui",

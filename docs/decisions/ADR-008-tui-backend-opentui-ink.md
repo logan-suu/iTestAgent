@@ -1,7 +1,7 @@
 # ADR-008: TuiShell 选型——OpenTUI+SolidJS 目标主线 + Ink 已验证 fallback
 
-**状态**: 已接受，已实施
-**日期**: 2026-07-15（决策）/ 2026-07-16（实施）
+**状态**: 已接受，部分实施（生产入口切换由 T6.10/DEF-025 跟踪）
+**日期**: 2026-07-15（决策）/ 2026-07-16（初始实施）/ 2026-08-31（实施状态同步）
 **决策人**: AI Agent（基于 T0.4 横评实测）
 **关联**: ADR-005、T0.4 横评文档、Phase 1 T1.2
 
@@ -66,8 +66,9 @@ Rejected = Rezi（当前 npm registry 下不存在为 TUI 框架）
 
 ```
 TuiShellViewModel / TuiShellEvent / reducer: framework-independent ✅
-OpenTUIRenderer: 默认 renderer ✅（OpenTUI 0.4.3 + SolidJS 1.9，位于 src/renderers/opentui-renderer.tsx）
+OpenTUIRenderer: 目标主线 renderer 已实现（OpenTUI 0.4.3 + SolidJS 1.9，位于 src/renderers/opentui-renderer.tsx）
 InkRenderer: CI-friendly fallback（未实现，保留为后续应急方案）
+ANSI renderer: 当前生产交互入口使用，直至 T6.10/DEF-025 解决 OpenTUI 动态更新阻塞
 ```
 
 实施细节：
@@ -76,6 +77,10 @@ InkRenderer: CI-friendly fallback（未实现，保留为后续应急方案）
 - `opentui-renderer.tsx`：SolidJS App 组件，集成 `tuiShellReducer` 驱动状态
 - `entry.ts`：`startTui()` 入口，非 TTY 环境优雅降级
 - `tsconfig.base.json`：`jsxImportSource: "@opentui/solid"`
+
+### 2026-08-31 实施状态同步
+
+后续真实渲染验证发现 OpenTUI 0.4.3 native render loop 启动后会阻塞 JS event loop，导致计时器、输入回调和服务端流式更新无法继续。该证据已记录在 `DEF-025`，生产交互入口因此暂时直接使用 ANSI renderer。此项只同步实现事实，不改变 2026-08-28 人工确认的技术方向：OpenTUI 仍为目标主线，不默认切换到 Ink；生产入口切换由 T6.10/DEF-025 跟踪。
 
 ### OpenTUI 交互式 shell 验证状态
 
@@ -94,7 +99,7 @@ Ink 16/16 通过 T0.4 横评，但 Phase 1 T1.2 未实现 InkRenderer。
 ## 后果
 
 ### 正面
-- ✅ OpenTUI+SolidJS 已在 Phase 1 实现为默认 TUI renderer（PR #2）
+- OpenTUI+SolidJS renderer 已在 Phase 1 实现（PR #2），但当前生产入口因 DEF-025 暂用 ANSI
 - OpenTUI + SolidJS 对齐 OpenCode，长期可复用 TUI 经验
 - framework-independent reducer 设计已在实际实现中验证（TuiShellState/TuiShellEvent/tuiShellReducer 纯函数不依赖任何渲染器）
 - `TuiRenderer` 接口使 renderer 可无痛切换（后续 Ink/其他 renderer 只需实现接口）

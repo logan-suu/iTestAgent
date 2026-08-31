@@ -3,6 +3,9 @@
  *
  * Public API:
  *   - generateProjectProfile(backend, root) → ProjectProfile
+ *   - analyzeProject(backend, root) → ProjectAnalysisResult
+ *   - XCODEPROJ_TIER1_ANALYSIS → tier-1 capability metadata
+ *   - ProjectAnalysisMetadata / ProjectAnalysisResult / ProjectAnalysisTier
  *   - computeProjectHash(root) → deterministic sha256 hex string
  *   - saveProfile(profile) → persist to ~/.itestagent/
  *   - saveProfileToProject(profile, projectRoot) → persist to project
@@ -10,6 +13,7 @@
  */
 
 export { generateProjectProfile } from './profile-generator.js';
+export { analyzeProject, XCODEPROJ_TIER1_ANALYSIS } from './project-analysis-result.js';
 export { computeProjectHash } from './project-hash.js';
 export {
   saveProfile,
@@ -26,3 +30,8 @@ export type {
   /** @deprecated Use CandidateLink */
   FeatureCandidate,
 } from './profile-io.js';
+export type {
+  ProjectAnalysisMetadata,
+  ProjectAnalysisResult,
+  ProjectAnalysisTier,
+} from './project-analysis-result.js';

@@ -45,7 +45,14 @@ export type TuiShellMode =
   | 'assertion_review';
 
 /** 设备连接状态。当前为占位值，后续由 engine/server 驱动。 */
-export type DeviceStatus = 'no_device' | 'checking' | 'healthy' | 'untrusted' | 'busy';
+export type DeviceStatus =
+  | 'no_device'
+  | 'checking'
+  | 'healthy'
+  | 'degraded'
+  | 'unavailable'
+  | 'untrusted'
+  | 'busy';
 
 /** 一条消息。 */
 export interface Message {

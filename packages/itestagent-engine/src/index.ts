@@ -63,6 +63,7 @@ export type {
 export { ToolDispatcher } from './tool-dispatcher.js';
 
 export type {
+  CustomToolHandler,
   EventEmitter,
   ToolDispatcherOptions,
 } from './tool-dispatcher.js';
@@ -198,3 +199,6 @@ export type {
   SuggesterDeps,
   SuggestionResult,
 } from './exploration/assertion-suggester.js';
+
+export { createProductionAgentSessionDependencies } from './production-agent-session.js';
+export type { ProductionAgentSessionDependencies } from './production-agent-session.js';

@@ -85,6 +85,8 @@ export async function startTui(workspace?: string): Promise<void> {
   const ws = workspace ?? process.cwd();
   let state: TuiShellState = createInitialState(ws);
   let pendingUserText = '';
+  let pendingPermissionId: string | null = null;
+  let agentTurnActive = false;
 
   // Detect first-run → enter setup wizard
   const needsSetup = isFirstRun();
@@ -178,13 +180,58 @@ export async function startTui(workspace?: string): Promise<void> {
       return;
     }
 
-    if (event.type === 'submit' && pendingUserText && agentSession) {
+    if (event.type === 'submit' && pendingPermissionId && agentSession) {
+      const decision = pendingUserText.trim().toLowerCase();
+      pendingUserText = '';
+      state = tuiShellReducer(state, event);
+
+      if (['allow', 'yes', 'y', 'session'].includes(decision)) {
+        agentSession.resolvePermission(pendingPermissionId, 'allow', decision === 'session');
+        pendingPermissionId = null;
+      } else if (['deny', 'no', 'n'].includes(decision)) {
+        agentSession.resolvePermission(pendingPermissionId, 'deny');
+        pendingPermissionId = null;
+      } else {
+        state = tuiShellReducer(state, {
+          type: 'system_message',
+          text: 'Reply with allow, session, or deny.',
+        });
+      }
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'submit' && pendingUserText && agentSession && !agentTurnActive) {
       const text = pendingUserText;
       pendingUserText = '';
       state = tuiShellReducer(state, event);
-      processAgentMessage(agentSession, text).then((newState) => {
-        state = newState;
+      agentTurnActive = true;
+      void processAgentMessage(agentSession, text, (patch) => {
+        state = applyAgentPatch(state, patch);
+        if (patch.type === 'permission_request') {
+          pendingPermissionId =
+            typeof patch.payload.callId === 'string' ? patch.payload.callId : null;
+        } else if (
+          patch.type === 'permission_resolved' &&
+          patch.payload.callId === pendingPermissionId
+        ) {
+          pendingPermissionId = null;
+        }
         renderer.update(state);
+      }).finally(() => {
+        agentTurnActive = false;
+        pendingPermissionId = null;
+      });
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'submit' && pendingUserText && agentTurnActive) {
+      pendingUserText = '';
+      state = tuiShellReducer(state, event);
+      state = tuiShellReducer(state, {
+        type: 'system_message',
+        text: 'The current agent turn is still running.',
       });
       renderer.update(state);
       return;
@@ -210,43 +257,85 @@ async function processAgentMessage(
     ): AsyncIterable<{ type: string; payload: Record<string, unknown> }>;
   },
   text: string,
-): Promise<TuiShellState> {
-  let state = createInitialState(process.cwd());
+  onPatch: (patch: { type: string; payload: Record<string, unknown> }) => void,
+): Promise<void> {
   try {
     for await (const patch of session.processMessage(text)) {
-      switch (patch.type) {
-        case 'message_update': {
-          const id = typeof patch.payload.id === 'string' ? patch.payload.id : '';
-          const msg =
-            typeof patch.payload.text === 'string'
-              ? patch.payload.text
-              : String(patch.payload.text ?? '');
-          state = tuiShellReducer(state, { type: 'stream_delta', id, text: msg });
-          break;
-        }
-        case 'message_add': {
-          const msg =
-            typeof patch.payload.text === 'string'
-              ? patch.payload.text
-              : String(patch.payload.text ?? '');
-          state = tuiShellReducer(state, { type: 'system_message', text: msg });
-          break;
-        }
-        case 'error': {
-          const msg =
-            typeof patch.payload.message === 'string'
-              ? patch.payload.message
-              : String(patch.payload.message ?? '');
-          state = tuiShellReducer(state, { type: 'system_message', text: `❌ ${msg}` });
-          break;
-        }
-      }
+      onPatch(patch);
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    state = tuiShellReducer(state, { type: 'system_message', text: `❌ ${msg}` });
+    onPatch({ type: 'error', payload: { message: msg } });
   }
-  return state;
+}
+
+export function applyAgentPatch(
+  state: TuiShellState,
+  patch: { type: string; payload: Record<string, unknown> },
+): TuiShellState {
+  switch (patch.type) {
+    case 'message_update': {
+      const id = typeof patch.payload.id === 'string' ? patch.payload.id : '';
+      const text =
+        typeof patch.payload.text === 'string'
+          ? patch.payload.text
+          : String(patch.payload.text ?? '');
+      return tuiShellReducer(state, { type: 'stream_delta', id, text });
+    }
+    case 'message_add': {
+      const text =
+        typeof patch.payload.text === 'string'
+          ? patch.payload.text
+          : String(patch.payload.text ?? '');
+      return tuiShellReducer(state, { type: 'system_message', text });
+    }
+    case 'devices_update': {
+      const devices = Array.isArray(patch.payload.devices) ? patch.payload.devices : [];
+      const discoveryStatus = patch.payload.discoveryStatus;
+      const hasReadyDevice = devices.some((device) => {
+        if (!device || typeof device !== 'object') return false;
+        const value = device as Record<string, unknown>;
+        return value.targetKind === 'physical' || value.state === 'booted';
+      });
+      const status =
+        discoveryStatus === 'failed'
+          ? 'unavailable'
+          : discoveryStatus === 'partial'
+            ? 'degraded'
+            : hasReadyDevice
+              ? 'healthy'
+              : devices.length > 0
+                ? 'unavailable'
+                : 'no_device';
+      return tuiShellReducer(state, {
+        type: 'device_status_updated',
+        status,
+      });
+    }
+    case 'permission_request': {
+      const action = String(patch.payload.action ?? 'unknown action');
+      const resource = String(patch.payload.resource ?? 'unknown resource');
+      return tuiShellReducer(state, {
+        type: 'system_message',
+        text: `Permission required: ${action} on ${resource}. Reply allow, session, or deny.`,
+      });
+    }
+    case 'permission_resolved': {
+      return tuiShellReducer(state, {
+        type: 'system_message',
+        text: `Permission ${String(patch.payload.effect ?? 'resolved')}.`,
+      });
+    }
+    case 'error': {
+      const message =
+        typeof patch.payload.message === 'string'
+          ? patch.payload.message
+          : String(patch.payload.message ?? '');
+      return tuiShellReducer(state, { type: 'system_message', text: `❌ ${message}` });
+    }
+    default:
+      return state;
+  }
 }
 
 /** B29: maps a thrown agent-session error to a readable message. */

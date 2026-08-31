@@ -48,6 +48,8 @@ const DEVICE_LABELS: Record<DeviceStatus, string> = {
   no_device: '[no device]',
   checking: '[checking…]',
   healthy: '[✓ connected]',
+  degraded: '[! discovery degraded]',
+  unavailable: '[✗ unavailable]',
   untrusted: '[✗ untrusted]',
   busy: '[… busy]',
 };

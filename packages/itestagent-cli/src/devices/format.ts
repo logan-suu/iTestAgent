@@ -7,7 +7,7 @@
  * US-2.1 AC2: no devices → clear prompt with connection guidance.
  */
 
-import type { DeviceInfo, HealthCheckResult } from 'itestagent-contracts';
+import type { DeviceDiscoverySnapshot, DeviceInfo, HealthCheckResult } from 'itestagent-contracts';
 
 // ─── ANSI helpers ──────────────────────────────────────────
 
@@ -168,6 +168,16 @@ export function formatNoDevices(): string {
     '  - If using a USB hub, try connecting directly to a Mac USB port',
     '',
     'Tip: you can still explore project analysis without a device connected.',
+  ].join('\n');
+}
+
+export function formatDiscoveryLimitations(discovery: DeviceDiscoverySnapshot): string {
+  if (discovery.issues.length === 0) return '';
+  const heading =
+    discovery.status === 'failed' ? 'Device discovery failed' : 'Device discovery partial';
+  return [
+    `${YELLOW}${BOLD}${heading}${RESET}`,
+    ...discovery.issues.map((issue) => `  - ${issue.lane}: ${issue.message}`),
   ].join('\n');
 }
 

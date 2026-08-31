@@ -16,15 +16,15 @@ recorded before the process package move lands.
 
 ## Decision
 
-1. Each backend owns the child processes it spawns; there is no
-   cross-backend process handoff.
+1. Each backend or pre-selection discovery provider owns the child processes it spawns; there is no
+   cross-owner process handoff.
 2. Teardown order is fixed: recorder → appium → aut → wda (memory-profile
    runtime cleanup).
 3. PTY / bounded-child races are absorbed at the harness boundary (B35) via
    the bounded-child probe and a PTY cleanup deadline.
-4. Cycle-break: the engine never spawns device processes directly — all
-   device command execution goes through the DeviceBackend interface
-   (ADR-010 harness boundary).
+4. Cycle-break: the engine never spawns device processes directly. Before a target is selected,
+   inventory commands go through a typed `DeviceDiscoveryProvider`; after selection, device-bound
+   operations go through `DeviceBackend` and `BackendSelector` (ADR-010 harness boundary).
 
 ## Consequences
 

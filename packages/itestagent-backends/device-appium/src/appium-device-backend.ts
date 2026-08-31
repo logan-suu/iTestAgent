@@ -45,13 +45,14 @@ import type {
 
 import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
 import type { SimulatorCapabilitiesOptions, WdaStartupMode } from './appium-capabilities.js';
 import { buildPhysicalCapabilities } from './appium-capabilities.js';
 import { AppiumDriverError } from './appium-driver.js';
+import { discoverPhysicalDevices, discoverSimulatorDevices } from './device-discovery.js';
 import type { IProxyTunnel } from './iproxy-tunnel.js';
 import { type RedactingLogger, createRedactingLogger, redactError } from './redactor.js';
 import type { WdaManager } from './wda-manager.js';
@@ -73,51 +74,6 @@ async function spawnAsync(
   ]);
   await proc.exited;
   return { stdout, stderr, exitCode: proc.exitCode ?? 1 };
-}
-
-interface DevicectlDeviceEntry {
-  connectionProperties?: {
-    tunnelState?: string;
-    transportType?: string;
-    pairingState?: string;
-  };
-  hardwareProperties?: { udid?: string; productType?: string };
-  deviceProperties?: { name?: string; osVersionNumber?: string };
-}
-
-interface DevicectlListOutput {
-  /** Xcode 26.x shape: devices wrapped under `result`. */
-  result?: { devices?: DevicectlDeviceEntry[] };
-  /** Older/some devicectl builds emit a root-level `devices` array. */
-  devices?: DevicectlDeviceEntry[];
-}
-
-/**
- * Runs `devicectl list devices` and returns its parsed JSON output, or null
- * on failure. Xcode 26.5 dropped the bare `--json` flag — output must go
- * through `--json-output <path>` (G5 finding). The temp file is cleaned up
- * on every path (early returns and read/parse failures included).
- */
-async function devicectlListDevicesJson(signal?: AbortSignal): Promise<DevicectlListOutput | null> {
-  const tmpJson = join(tmpdir(), `itestagent-devlist-${process.pid}-${Date.now()}.json`);
-  try {
-    const { exitCode } = await spawnAsync(
-      ['xcrun', 'devicectl', 'list', 'devices', '--json-output', tmpJson],
-      signal,
-    );
-    if (exitCode !== 0 || !existsSync(tmpJson)) {
-      return null;
-    }
-    return JSON.parse(readFileSync(tmpJson, 'utf-8')) as DevicectlListOutput;
-  } catch {
-    return null;
-  } finally {
-    try {
-      rmSync(tmpJson, { force: true });
-    } catch {
-      // Ignore cleanup failures
-    }
-  }
 }
 
 /**
@@ -663,104 +619,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async listDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
     if (this.targetKind === 'simulator') {
-      return this.listSimulatorDevices(signal);
+      return discoverSimulatorDevices(signal);
     }
-    return this.listPhysicalDevices(signal);
-  }
-
-  /**
-   * List physical iOS devices via devicectl (no Appium session needed).
-   */
-  private async listPhysicalDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
-    try {
-      const parsed = await devicectlListDevicesJson(signal);
-      if (!parsed) {
-        return [];
-      }
-
-      const devices = parsed?.result?.devices ?? parsed?.devices ?? [];
-
-      return devices
-        .filter((d) => {
-          const cp = d.connectionProperties;
-          if (!cp) return false;
-          // Xcode 26+: tunnel is lazy — accept any wired+paired device
-          if (cp.transportType === 'wired' && cp.pairingState === 'paired') return true;
-          // Xcode <26: tunnel state is authoritative
-          if (cp.tunnelState === 'connected' || cp.tunnelState === 'available') return true;
-          return false;
-        })
-        .map((d) => ({
-          udid: String(d.hardwareProperties?.udid ?? ''),
-          name: d.deviceProperties?.name,
-          model: d.hardwareProperties?.productType,
-          osVersion: d.deviceProperties?.osVersionNumber,
-          platform: 'ios' as const,
-          targetKind: 'physical' as const,
-          state: 'booted' as const,
-        }))
-        .filter((d) => d.udid !== '');
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * List iOS Simulator devices via simctl (no Appium session needed).
-   *
-   * Uses `xcrun simctl list devices --json` to discover all simulator
-   * devices, including booted and shutdown ones. Filters to iOS runtimes only.
-   *
-   * R5: If simctl is unavailable, returns empty array.
-   */
-  private async listSimulatorDevices(signal?: AbortSignal): Promise<DeviceInfo[]> {
-    try {
-      const { stdout: raw, exitCode } = await spawnAsync(
-        ['xcrun', 'simctl', 'list', 'devices', '--json'],
-        signal,
-      );
-
-      if (exitCode !== 0 || !raw.trim()) {
-        return [];
-      }
-
-      const parsed = JSON.parse(raw) as {
-        devices?: Record<string, Array<Record<string, unknown>>>;
-      };
-      const devicesMap = parsed.devices ?? {};
-
-      const results: DeviceInfo[] = [];
-
-      for (const [runtimeKey, deviceList] of Object.entries(devicesMap)) {
-        if (!Array.isArray(deviceList)) continue;
-
-        // Extract iOS version from runtime identifier
-        // e.g. "com.apple.CoreSimulator.SimRuntime.iOS-18-2" → "18.2"
-        const osMatch = runtimeKey.match(/iOS[- ](\d+)[-.](\d+)/);
-        const osVersion = osMatch ? `${osMatch[1]}.${osMatch[2]}` : undefined;
-
-        for (const d of deviceList) {
-          const dObj = d as Record<string, unknown>;
-          const state = String(dObj.state ?? 'shutdown').toLowerCase();
-
-          results.push({
-            udid: String(dObj.udid ?? ''),
-            name: String(dObj.name ?? 'unknown'),
-            model: String(dObj.deviceTypeIdentifier ?? 'unknown'),
-            osVersion,
-            platform: 'ios' as const,
-            targetKind: 'simulator' as const,
-            runtimeIdentifier: runtimeKey,
-            deviceTypeIdentifier: String(dObj.deviceTypeIdentifier ?? ''),
-            state: state as DeviceInfo['state'],
-          });
-        }
-      }
-
-      return results.filter((d) => d.udid !== '');
-    } catch {
-      return [];
-    }
+    return discoverPhysicalDevices(signal);
   }
 
   // ────────── healthcheck ─────────────────────────────────────────
@@ -777,17 +638,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
     signal?: AbortSignal,
   ): Promise<HealthCheckResult> {
     try {
-      const parsed = await devicectlListDevicesJson(signal);
+      const devices = await discoverPhysicalDevices(signal);
 
-      if (!parsed) {
+      if (devices.length === 0) {
         return {
           healthy: false,
           details: 'devicectl unavailable — ensure Xcode CLI tools are installed',
         };
       }
 
-      const devices = parsed.result?.devices ?? parsed.devices ?? [];
-      const found = devices.some((d) => d.hardwareProperties?.udid === deviceId);
+      const found = devices.some((device) => device.udid === deviceId);
 
       if (!found) {
         return {
@@ -836,8 +696,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
       for (const deviceList of Object.values(devicesMap)) {
         if (!Array.isArray(deviceList)) continue;
-        const found = deviceList.some((d) => (d as Record<string, unknown>).udid === deviceId);
-        if (found) return { healthy: true };
+        const found = deviceList.find((d) => (d as Record<string, unknown>).udid === deviceId) as
+          | Record<string, unknown>
+          | undefined;
+        if (!found) continue;
+        if (String(found.state ?? '').toLowerCase() !== 'booted') {
+          return {
+            healthy: false,
+            details: `Simulator ${deviceId} is ${String(found.state ?? 'unknown')}; boot it before execution`,
+          };
+        }
+        return { healthy: true };
       }
 
       return {

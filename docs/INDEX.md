@@ -124,7 +124,7 @@
 | 工具协议 | MCP TypeScript SDK | `02-architecture/技术选型文档.md` §7 |
 | 存储 | SQLite + Drizzle + 文件系统 + JSONC 配置 | `02-architecture/技术选型文档.md` §8 |
 | 设备执行 | DeviceBackend（Appium-WDA(physical+simulator) / mobile-mcp / iphone-use） | `02-architecture/技术选型文档.md` §9 |
-| 项目分析 | analyzer-xcodeproj（xcodebuild + 自研 pbxproj 解析）+ swift-syntax（待实现） | `02-architecture/技术选型文档.md` §10 |
+| 项目分析 | analyzer-xcodeproj（xcodebuild + 自研 pbxproj + tier 1 候选扫描）；SwiftSyntax/SourceKit 为条件增强（ADR-026） | `02-architecture/技术选型文档.md` §10 |
 | 性能采集 | xcrun xctrace / XCTest metrics / xcresultparser / xcparse | `02-architecture/技术选型文档.md` §11 |
 | 辅助 | fastlane（签名/构建）/ xcbeautify（日志） | `02-architecture/技术选型文档.md` §9 |
 
