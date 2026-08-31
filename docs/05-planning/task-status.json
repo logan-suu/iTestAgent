@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-31T13:18:16Z",
+  "last_updated": "2026-08-31T14:49:05Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1165,7 +1165,7 @@
           "title": "TUI 生产 AgentSession：接入真实项目分析、设备发现、BackendSelector 与 PermissionEngine",
           "story": "US-3.1~3.3, US-4.1~4.3, US-17.1~17.2",
           "status": "in_progress",
-          "last_updated": "2026-08-31T13:18:16Z",
+          "last_updated": "2026-08-31T14:49:05Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/架构设计文档.md",
@@ -1177,7 +1177,7 @@
             "6.1"
           ],
           "test_file": "packages/itestagent-tui/test/agent-session.test.ts",
-          "notes": "已移除 analyzeProject/getDeviceInfo 固定结果和生产 MockDeviceBackend；生产会话接入 tier-1 XcodeProj 分析、devicectl+simctl 双目标发现、BackendSelector 与 PermissionEngine，计划/执行/报告未接能力显式返回 capability_not_wired。T6.2 Phase 6 RED contract 4 项转绿；G5/G5-SIM 设备发现证据见 docs/06-verification/g5-sim-spike-report-6.2.md。Check：typecheck 0、lint 0、G7 7 pass、全库 bun test 3358 pass/13 skip/0 fail。DEF-025 经核查仍由 T6.10 处理，未在本任务误标 resolved。PR #70：https://github.com/logan-suu/iTestAgent/pull/70（2026-08-31T13:18:16Z），任务保持 in_progress，等待人类审阅与合并。"
+          "notes": "已移除 analyzeProject/getDeviceInfo 固定结果和生产 MockDeviceBackend；生产会话接入 tier-1 XcodeProj 分析、devicectl+simctl 双目标发现、BackendSelector 与 PermissionEngine，计划/执行/报告未接能力显式返回 capability_not_wired。PR review 修复已完成：生产组合下沉 Engine；新增 contracts 层 DeviceDiscoveryProvider，明确目标选择前由 provider 发现、选择后才进入 BackendSelector→DeviceBackend；Appium 与 CLI 均实现详细发现并显式保留 ok/partial/failed、分通道 limitation，诊断 stderr 脱敏且限制 2,000 字符；provider 接受显式 lanes，CLI 单目标 flag 不再启动无关发现通道；ADR-023/ADR-010/AGENTS.md 统一为 provider、backend、Server 各自管理其启动的进程；Simulator 状态归一化且仅 booted 为 ready；刷新发送 devices_update；ToolDispatcher 支持 nullable 自定义参数；临时 JSON 路径使用 UUID；Project Analyzer 公共 API 注释已修正。第二轮未解决 review thread 复核：turn finally 清除待确认 UI 状态作为合理防御性不变量已采纳；compileTestPlan 测试改为观察 permission_request 后授权，移除对单个 microtask 的时序依赖；CodeRabbit 80% docstring 比例不属于仓库门禁，拒绝批量噪声注释。文档同步更新规格、架构、ADR 与避坑手册。Check：typecheck 0、lint 0、评审修复定向/架构 211 pass，provider 契约与架构定向回归 123 pass，第二轮相关测试 80 pass；最终全库 bun test 3370 pass/13 skip/0 fail。G5/G5-SIM 真实复验：Appium provider 与 CLI provider 均为 status=ok、1 台 physical、35 台 Simulator（2 booted/33 shutdown）、无 issue，证据见 docs/06-verification/g5-sim-spike-report-6.2.md。DEF-025 仍由 T6.10 处理。PR #70：https://github.com/logan-suu/iTestAgent/pull/70，任务保持 in_progress，等待更新提交与人类审阅。"
         },
         {
           "id": "6.3",

@@ -959,6 +959,26 @@ describe('custom tool handlers', () => {
     });
   });
 
+  test('accepts nullable custom parser output without crashing device lock extraction', async () => {
+    const dispatcher = new ToolDispatcher({
+      permissionEngine: new PermissionEngine(),
+      backendSelector: new BackendSelector(new BackendRegistry()),
+      customTools: {
+        nullable: {
+          parseParams: () => null,
+          action: 'nullable',
+          resource: 'nullable:test',
+          execute: async (args) => args,
+        },
+      },
+    });
+
+    const result = await dispatcher.dispatch(
+      makeToolCall({ id: 'custom_null', name: 'nullable', arguments: {} }),
+    );
+    expect(result).toMatchObject({ status: 'ok', output: null });
+  });
+
   test('fails validation before invoking a custom handler', async () => {
     let invoked = false;
     const dispatcher = createCustomDispatcher({

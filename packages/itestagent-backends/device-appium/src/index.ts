@@ -81,6 +81,10 @@ export type { ProductionAppiumConfig, AppiumBackendAssembly } from './compositio
 export { redactError, redactErrorMessage } from './redactor.js';
 
 export {
+  DeviceDiscoveryError,
+  createAppiumDeviceDiscoveryProvider,
+  createDeviceDiscoveryTempPath,
+  discoverDeviceInventory,
   discoverDevices,
   discoverPhysicalDevices,
   discoverSimulatorDevices,

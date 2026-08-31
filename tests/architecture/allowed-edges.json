@@ -8,14 +8,6 @@
     "to": "itestagent-engine"
   },
   {
-    "from": "itestagent-tui",
-    "to": "itestagent-backends-analyzer-xcodeproj"
-  },
-  {
-    "from": "itestagent-tui",
-    "to": "itestagent-backends-device-appium"
-  },
-  {
     "from": "itestagent-cli",
     "to": "itestagent-engine"
   },
@@ -50,6 +42,10 @@
   {
     "from": "itestagent-engine",
     "to": "itestagent-backends-analyzer-xcresult"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-backends-analyzer-xcodeproj"
   },
   {
     "from": "itestagent-backends-device-appium",

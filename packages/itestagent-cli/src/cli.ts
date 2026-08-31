@@ -98,24 +98,26 @@ export function createProgram(): Command {
         physicalOnly?: boolean;
         simulatorOnly?: boolean;
       }) => {
-        const { discoverPhysicalDevices, discoverSimulatorDevices, discoverAllDevices } =
-          await import('./devices/discover.js');
+        const { cliDeviceDiscoveryProvider } = await import('./devices/discover.js');
         const { healthcheckAllDevices } = await import('./devices/healthcheck.js');
-        const { formatDeviceList, formatHealthcheckResults } = await import('./devices/format.js');
+        const { formatDeviceList, formatDiscoveryLimitations, formatHealthcheckResults } =
+          await import('./devices/format.js');
 
         // Discover devices based on flags
-        const devices = await (async () => {
-          if (options.simulatorOnly) {
-            return discoverSimulatorDevices();
-          }
-          if (options.physicalOnly) {
-            return discoverPhysicalDevices();
-          }
-          return discoverAllDevices();
-        })();
+        const requestedLanes = options.simulatorOnly
+          ? (['simulator'] as const)
+          : options.physicalOnly
+            ? (['physical'] as const)
+            : (['physical', 'simulator'] as const);
+        const visibleDiscovery = await cliDeviceDiscoveryProvider.discover({
+          lanes: requestedLanes,
+        });
+        const devices = visibleDiscovery.devices;
 
         // Print device list
         console.log(formatDeviceList(devices));
+        const limitations = formatDiscoveryLimitations(visibleDiscovery);
+        if (limitations) console.error(limitations);
 
         // Optional healthcheck
         if (options.healthcheck && devices.length > 0) {

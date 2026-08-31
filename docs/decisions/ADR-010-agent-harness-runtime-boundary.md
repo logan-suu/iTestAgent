@@ -105,9 +105,13 @@ Run AbortController -> AI SDK -> MCP tool -> Backend -> Bun.spawn
 
 5. **ToolRegistry/ToolDispatcher**（建议显式组件）：`ToolCall → Zod parse → PermissionEngine → BackendSelector → backend method → normalize ToolResult → RunStep/Artifact → AgentEvent`
 
-6. **BackendSelector**（建议显式组件）：Engine 负责选择和 fallback policy；Server 负责子进程启动/signal forwarding/timeout/回收
+6. **BackendSelector**（建议显式组件）：Engine 负责目标选定后的 backend 选择与 fallback policy；选定目标前的设备清单由 `DeviceDiscoveryProvider` 提供。Provider/Backend 各自负责所启动子进程的 signal forwarding、timeout 与回收（ADR-023）
 
 7. **ContextBuilder**（建议显式组件）：输入 ProjectProfile/Intent/TestPlan/Run state；禁止 secret 明文和大体积原始证据进入模型上下文
+
+### TUI 与生产会话组合边界
+
+TUI 可以请求 Engine 暴露的生产会话组合/facade；这种依赖装配不视为 TUI 直接调用底层工具。TUI 不得直接执行 DeviceBackend、ProjectAnalyzerBackend、DeviceDiscoveryProvider 或 shell 子进程。选定目标前的设备发现通过 `DeviceDiscoveryProvider`，选定目标后的运行期工具调用经过 `ToolDispatcher → PermissionEngine → BackendSelector → backend`。Provider/Backend 按 ADR-023 各自拥有所启动的子进程；Server 管理 session 与事件流，不接管其他组件的进程所有权。架构依赖白名单只能反映该边界，不得作为绕过统一调度链的依据。
 
 ### Harness Event Model
 

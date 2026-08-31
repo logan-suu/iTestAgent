@@ -116,6 +116,22 @@ export type {
   AppInfo,
 } from './device-types.js';
 
+export {
+  DeviceDiscoveryLaneSchema,
+  DeviceDiscoveryStatusSchema,
+  DeviceDiscoveryIssueSchema,
+  DeviceDiscoverySnapshotSchema,
+} from './device-discovery.js';
+
+export type {
+  DeviceDiscoveryLane,
+  DeviceDiscoveryStatus,
+  DeviceDiscoveryIssue,
+  DeviceDiscoveryOptions,
+  DeviceDiscoverySnapshot,
+  DeviceDiscoveryProvider,
+} from './device-discovery.js';
+
 export type {
   ActionResult,
   UiTreeSnapshot,

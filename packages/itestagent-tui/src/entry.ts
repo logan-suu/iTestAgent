@@ -220,6 +220,7 @@ export async function startTui(workspace?: string): Promise<void> {
         renderer.update(state);
       }).finally(() => {
         agentTurnActive = false;
+        pendingPermissionId = null;
       });
       renderer.update(state);
       return;
@@ -290,9 +291,25 @@ export function applyAgentPatch(
     }
     case 'devices_update': {
       const devices = Array.isArray(patch.payload.devices) ? patch.payload.devices : [];
+      const discoveryStatus = patch.payload.discoveryStatus;
+      const hasReadyDevice = devices.some((device) => {
+        if (!device || typeof device !== 'object') return false;
+        const value = device as Record<string, unknown>;
+        return value.targetKind === 'physical' || value.state === 'booted';
+      });
+      const status =
+        discoveryStatus === 'failed'
+          ? 'unavailable'
+          : discoveryStatus === 'partial'
+            ? 'degraded'
+            : hasReadyDevice
+              ? 'healthy'
+              : devices.length > 0
+                ? 'unavailable'
+                : 'no_device';
       return tuiShellReducer(state, {
         type: 'device_status_updated',
-        status: devices.length > 0 ? 'healthy' : 'no_device',
+        status,
       });
     }
     case 'permission_request': {

@@ -57,7 +57,15 @@ describe('StatefulApp reducer integration', () => {
   });
 
   it('device status labels cover all DeviceStatus values', () => {
-    const statuses: DeviceStatus[] = ['no_device', 'checking', 'healthy', 'untrusted', 'busy'];
+    const statuses: DeviceStatus[] = [
+      'no_device',
+      'checking',
+      'healthy',
+      'degraded',
+      'unavailable',
+      'untrusted',
+      'busy',
+    ];
     for (const status of statuses) {
       const next = tuiShellReducer(createInitialState('/x'), {
         type: 'device_status_updated',

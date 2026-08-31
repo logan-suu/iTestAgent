@@ -13,9 +13,33 @@ describe('applyAgentPatch', () => {
     const initial = createInitialState('/workspace');
     const updated = applyAgentPatch(initial, {
       type: 'devices_update',
-      payload: { devices: [{ udid: 'device-1' }] },
+      payload: { devices: [{ udid: 'device-1', targetKind: 'physical' }] },
     });
     expect(updated.deviceStatus).toBe('healthy');
+  });
+
+  it('does not mark shutdown-only Simulator inventory healthy', () => {
+    const updated = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'devices_update',
+      payload: {
+        discoveryStatus: 'ok',
+        devices: [{ udid: 'sim-1', targetKind: 'simulator', state: 'shutdown' }],
+      },
+    });
+    expect(updated.deviceStatus).toBe('unavailable');
+  });
+
+  it('shows partial and failed discovery explicitly', () => {
+    const partial = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'devices_update',
+      payload: { discoveryStatus: 'partial', devices: [] },
+    });
+    const failed = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'devices_update',
+      payload: { discoveryStatus: 'failed', devices: [] },
+    });
+    expect(partial.deviceStatus).toBe('degraded');
+    expect(failed.deviceStatus).toBe('unavailable');
   });
 
   it('renders a permission request with explicit choices', () => {

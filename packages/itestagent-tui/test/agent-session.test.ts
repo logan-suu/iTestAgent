@@ -152,6 +152,29 @@ describe('createAgentSession production composition', () => {
     expect(session.getDevices()).toEqual([SIMULATOR_DEVICE]);
     expect(backendCreated).toBe(false);
   });
+
+  it('starts with an explicit failed discovery result instead of treating it as no device', async () => {
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        listDevices: async () => ({
+          devices: [],
+          status: 'failed',
+          issues: [
+            { lane: 'physical', code: 'command_failed', message: 'devicectl unavailable' },
+            { lane: 'simulator', code: 'command_failed', message: 'simctl unavailable' },
+          ],
+        }),
+      }),
+    );
+
+    const patches = await collectPatches(session);
+    expect(patches[0]).toMatchObject({
+      type: 'devices_update',
+      payload: { discoveryStatus: 'failed' },
+    });
+    expect(patches[1]?.payload.text).toContain('devicectl unavailable');
+  });
 });
 
 describe('AgentSession tools', () => {
@@ -187,20 +210,33 @@ describe('AgentSession tools', () => {
   });
 
   it('reports unwired downstream capabilities instead of fabricating success', async () => {
+    streamScenario = async function* (args) {
+      try {
+        await args.tools.compileTestPlan?.execute({}, { toolCallId: 'compile-1' });
+      } catch (error: unknown) {
+        yield { type: 'tool-error', toolCallId: 'compile-1', error };
+      }
+    };
     const session = await createAgentSession('/workspace', dependencies());
-    await collectPatches(session);
+    const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
 
-    const pending = sdkTool('compileTestPlan').execute({}, { toolCallId: 'compile-1' });
-    await Promise.resolve();
+    expect((await iterator.next()).value?.type).toBe('devices_update');
+    const permission = await iterator.next();
+    expect(permission.value).toMatchObject({
+      type: 'permission_request',
+      payload: { callId: 'compile-1' },
+    });
     session.resolvePermission('compile-1', 'allow');
-    const error = await pending.then(
-      () => null,
-      (caught: unknown) => caught,
-    );
 
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('capability_not_wired');
-    expect((error as Error).message).toContain('task 6.3');
+    const remaining: TuiStatePatch[] = [];
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+      remaining.push(next.value);
+    }
+    const errorPatch = remaining.find((patch) => patch.type === 'error');
+    expect(errorPatch?.payload.message).toContain('capability_not_wired');
+    expect(errorPatch?.payload.message).toContain('task 6.3');
   });
 });
 
@@ -214,6 +250,28 @@ describe('AgentSession streaming and permission bridge', () => {
     const patches = await collectPatches(session);
     expect(patches.map((patch) => patch.type)).toEqual(['devices_update', 'message_update']);
     expect(patches[1]?.payload.text).toBe('Observed result');
+  });
+
+  it('emits devices_update when getDeviceInfo refreshes discovery', async () => {
+    let discoveryCount = 0;
+    streamScenario = async function* (args) {
+      await args.tools.getDeviceInfo?.execute({}, { toolCallId: 'refresh-devices' });
+      yield { type: 'tool-result', toolCallId: 'refresh-devices' };
+    };
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        listDevices: async () => {
+          discoveryCount += 1;
+          return discoveryCount === 1 ? [PHYSICAL_DEVICE] : [PHYSICAL_DEVICE, SIMULATOR_DEVICE];
+        },
+      }),
+    );
+
+    const patches = await collectPatches(session);
+    const updates = patches.filter((patch) => patch.type === 'devices_update');
+    expect(updates).toHaveLength(2);
+    expect(updates[1]?.payload.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
   });
 
   it('delivers permission requests while the tool call is blocked', async () => {

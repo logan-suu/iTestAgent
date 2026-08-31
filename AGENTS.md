@@ -234,7 +234,7 @@ R12 所有对外可见的版本控制内容必须使用英文。项目文档（d
 
 ```
 交互层  itestagent-cli / itestagent-tui
-编排层  itestagent-server(SessionManager/SSE Hub/subprocess controller) / itestagent-engine(AgentRuntime/PermissionEngine/RunStateMachine/ToolDispatcher/BackendSelector/ContextBuilder) / itestagent-project-analyzer
+编排层  itestagent-server(SessionManager/SSE Hub/自有 subprocess controller) / itestagent-engine(AgentRuntime/PermissionEngine/RunStateMachine/ToolDispatcher/BackendSelector/ContextBuilder) / itestagent-project-analyzer
 语义层  ProjectProfile / TestPlan / RunStep / Flow / ArtifactRef
 Backend接口层  DeviceBackend / PerformanceBackend / BuildDriver / ProjectAnalyzerBackend / StoreDriver
 Backend实现层  mobile-mcp / Appium-WDA / iphone-use / XcodeTraceMCP / XcodeQuery / Drizzle / Kysely
@@ -247,6 +247,8 @@ Harness 边界（ADR-010）：
 - RunStateMachine 与 AgentRuntime 分离，不执行工具
 - 同设备串行，不同设备并行
 - abort 贯穿 runtime/tool/backend/child process，复用 AbortSignal/Bun.spawn
+- 选定目标前通过 DeviceDiscoveryProvider 发现设备；选定目标后通过 BackendSelector/DeviceBackend 操作设备
+- Provider/Backend/Server 各自拥有自己启动的子进程，禁止跨 owner 接管（ADR-023）
 - 复用 AI SDK streamText/generateText/stopWhen/prepareStep、MCP TS SDK、UIMessage parts
 - 禁止 fork OpenCode core、Effect-TS 全局编排、SQLite 事件溯源
 ```

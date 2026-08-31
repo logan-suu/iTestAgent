@@ -199,3 +199,6 @@ export type {
   SuggesterDeps,
   SuggestionResult,
 } from './exploration/assertion-suggester.js';
+
+export { createProductionAgentSessionDependencies } from './production-agent-session.js';
+export type { ProductionAgentSessionDependencies } from './production-agent-session.js';

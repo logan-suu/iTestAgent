@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 import {
   type DeviceDiscoveryRuntime,
+  createAppiumDeviceDiscoveryProvider,
+  createDeviceDiscoveryTempPath,
+  discoverDeviceInventory,
   discoverDevices,
   discoverPhysicalDevices,
   parsePhysicalDevices,
@@ -64,7 +67,6 @@ describe('shared Appium device discovery', () => {
         osVersion: '18.2.1',
         platform: 'ios',
         targetKind: 'physical',
-        state: 'booted',
       },
     ]);
   });
@@ -78,6 +80,20 @@ describe('shared Appium device discovery', () => {
       osVersion: '18.2',
       state: 'booted',
     });
+  });
+
+  it('normalizes transitional and unknown Simulator states to schema values', () => {
+    const devices = parseSimulatorDevices(
+      JSON.stringify({
+        devices: {
+          'com.apple.CoreSimulator.SimRuntime.iOS-18-2': [
+            { udid: 'SIM-STOPPING', state: 'Shutting Down', isAvailable: true },
+            { udid: 'SIM-FUTURE', state: 'Restoring Snapshot', isAvailable: true },
+          ],
+        },
+      }),
+    );
+    expect(devices.map((device) => device.state)).toEqual(['shutting_down', 'unknown']);
   });
 
   it('discovers and orders physical before simulator devices', async () => {
@@ -95,9 +111,55 @@ describe('shared Appium device discovery', () => {
     expect(removed).toBe(true);
   });
 
-  it('fails closed to an empty list when the command fails', async () => {
+  it('returns partial discovery with an explicit lane issue', async () => {
     const runtime = createRuntime();
-    runtime.run = async () => ({ stdout: '', stderr: 'xcrun failed', exitCode: 1 });
-    expect(await discoverDevices(undefined, runtime)).toEqual([]);
+    runtime.run = async (command) =>
+      command.includes('devicectl')
+        ? { stdout: '', stderr: 'xcrun failed', exitCode: 1 }
+        : { stdout: simulatorFixture, stderr: '', exitCode: 0 };
+    const inventory = await discoverDeviceInventory(undefined, runtime);
+    expect(inventory.status).toBe('partial');
+    expect(inventory.devices.map((device) => device.udid)).toEqual(['SIM-1']);
+    expect(inventory.issues).toEqual([
+      expect.objectContaining({ lane: 'physical', code: 'command_failed' }),
+    ]);
+    await expect(discoverDevices(undefined, runtime)).rejects.toThrow('Device discovery partial');
+  });
+
+  it('redacts and bounds command diagnostics exposed through the provider', async () => {
+    const runtime = createRuntime();
+    runtime.run = async (command) =>
+      command.includes('devicectl')
+        ? {
+            stdout: '',
+            stderr: `token=super-secret ${'x'.repeat(3_000)}`,
+            exitCode: 1,
+          }
+        : { stdout: simulatorFixture, stderr: '', exitCode: 0 };
+    const inventory = await createAppiumDeviceDiscoveryProvider(runtime).discover();
+    expect(inventory.issues[0]?.message).not.toContain('super-secret');
+    expect(inventory.issues[0]?.message.length).toBeLessThanOrEqual(2_020);
+    expect(inventory.issues[0]?.truncated).toBe(true);
+  });
+
+  it('runs only the requested discovery lane', async () => {
+    const commands: string[][] = [];
+    const runtime = createRuntime();
+    const originalRun = runtime.run;
+    runtime.run = async (command, signal) => {
+      commands.push([...command]);
+      return originalRun(command, signal);
+    };
+
+    const inventory = await createAppiumDeviceDiscoveryProvider(runtime).discover({
+      lanes: ['simulator'],
+    });
+    expect(inventory.devices.map((device) => device.udid)).toEqual(['SIM-1']);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toContain('simctl');
+  });
+
+  it('creates collision-resistant output paths', () => {
+    expect(createDeviceDiscoveryTempPath()).not.toBe(createDeviceDiscoveryTempPath());
   });
 });

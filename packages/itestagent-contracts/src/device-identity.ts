@@ -37,7 +37,9 @@ export const DeviceInfoSchema = z.object({
   /** Simulator device type identifier (e.g. 'com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro') */
   deviceTypeIdentifier: z.string().optional(),
   /** Simulator boot state */
-  state: z.enum(['booted', 'shutdown', 'creating', 'booting', 'shutting_down']).optional(),
+  state: z
+    .enum(['booted', 'shutdown', 'creating', 'booting', 'shutting_down', 'unknown'])
+    .optional(),
 });
 
 export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;

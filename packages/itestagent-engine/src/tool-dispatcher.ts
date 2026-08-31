@@ -397,8 +397,8 @@ export class ToolDispatcher {
 
     // Per-device serialization: extract device id and queue on same UDID
     const deviceId =
-      ((parsedArgs as Record<string, unknown>).deviceId as string | undefined) ??
-      ((parsedArgs as Record<string, unknown>).udid as string | undefined);
+      (typeof parsedRecord.deviceId === 'string' ? parsedRecord.deviceId : undefined) ??
+      (typeof parsedRecord.udid === 'string' ? parsedRecord.udid : undefined);
 
     let deviceRelease: (() => void) | undefined;
     if (deviceId) {

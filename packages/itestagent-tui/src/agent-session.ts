@@ -4,11 +4,10 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel } from 'ai';
-import { createXcodeProjAnalyzerBackend } from 'itestagent-backends-analyzer-xcodeproj';
-import { createAppiumDeviceBackend } from 'itestagent-backends-device-appium';
 import type {
   AgentEvent,
   DeviceBackend,
+  DeviceDiscoverySnapshot,
   DeviceInfo,
   ToolCall,
   ToolResult,
@@ -19,8 +18,9 @@ import {
   BackendSelector,
   PermissionEngine,
   ToolDispatcher,
+  createProductionAgentSessionDependencies,
 } from 'itestagent-engine';
-import { type ProjectAnalysisResult, analyzeProject } from 'itestagent-project-analyzer';
+import type { ProjectAnalysisResult } from 'itestagent-project-analyzer';
 import { parse as parseJsonc } from 'jsonc-parser';
 import { retainMessages } from './message-retention.js';
 
@@ -119,40 +119,21 @@ function capabilityNotWired(capability: string, ownerTask: string): never {
   );
 }
 
-async function listProductionDevices(): Promise<DeviceInfo[]> {
-  const physicalDiscovery = createAppiumDeviceBackend({
-    udid: 'discovery-only',
-    targetKind: 'physical',
-  }).backend;
-  const simulatorDiscovery = createAppiumDeviceBackend({
-    udid: 'discovery-only',
-    targetKind: 'simulator',
-  }).backend;
+export type AgentDeviceDiscovery = DeviceDiscoverySnapshot;
 
-  const [physical, simulators] = await Promise.all([
-    physicalDiscovery.listDevices(),
-    simulatorDiscovery.listDevices(),
-  ]);
-  return [...physical, ...simulators].sort((left, right) => {
-    if (left.targetKind !== right.targetKind) return left.targetKind === 'physical' ? -1 : 1;
-    return (left.name ?? left.udid).localeCompare(right.name ?? right.udid);
-  });
+function normalizeDiscovery(value: AgentDeviceDiscovery | DeviceInfo[]): AgentDeviceDiscovery {
+  return Array.isArray(value) ? { devices: value, status: 'ok', issues: [] } : value;
 }
 
-function createProductionDeviceBackend(device: DeviceInfo): DeviceBackend {
-  return createAppiumDeviceBackend({
-    udid: device.udid,
-    targetKind: device.targetKind,
-    ...(device.name ? { deviceName: device.name } : {}),
-    ...(device.osVersion ? { platformVersion: device.osVersion } : {}),
-  }).backend;
+function isReadyDevice(device: DeviceInfo): boolean {
+  return device.targetKind === 'physical' || device.state === 'booted';
 }
 
 export interface AgentSessionDependencies {
   loadApiKey?: () => Promise<string | null>;
   createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
-  listDevices?: () => Promise<DeviceInfo[]>;
+  listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
 }
 
@@ -212,6 +193,7 @@ export async function createAgentSession(
   workspace: string,
   dependencies: AgentSessionDependencies = {},
 ): Promise<TuiAgentSession> {
+  const production = createProductionAgentSessionDependencies();
   const config = loadConfig();
   const apiKey = await (dependencies.loadApiKey ?? loadApiKey)();
   if (!apiKey) {
@@ -227,19 +209,17 @@ export async function createAgentSession(
         apiKey,
       }).chat(config.model ?? 'deepseek-chat');
 
-  const analyzeWorkspace =
-    dependencies.analyzeWorkspace ??
-    ((root: string) => analyzeProject(createXcodeProjAnalyzerBackend(), root));
-  let devices = dependencies.listDevices
-    ? await dependencies.listDevices()
-    : await listProductionDevices();
+  const analyzeWorkspace = dependencies.analyzeWorkspace ?? production.analyzeWorkspace;
+  const listDevices = dependencies.listDevices ?? (() => production.deviceDiscovery.discover());
+  let discovery = normalizeDiscovery(await listDevices());
+  let devices = discovery.devices;
   const physicalDevice = devices.find((device) => device.targetKind === 'physical');
 
   const registry = new BackendRegistry();
   if (physicalDevice) {
     registry.register(
       'appium',
-      (dependencies.createDeviceBackend ?? createProductionDeviceBackend)(physicalDevice),
+      (dependencies.createDeviceBackend ?? production.createDeviceBackend)(physicalDevice),
     );
   }
 
@@ -247,6 +227,7 @@ export async function createAgentSession(
   const pendingPermissionIds = new Set<string>();
   let activeQueue: PatchQueue | null = null;
   let activeTurn = false;
+  let discoveryNoticeEmitted = false;
 
   const toolDispatcher = new ToolDispatcher({
     permissionEngine,
@@ -264,13 +245,31 @@ export async function createAgentSession(
         resource: 'local-apple-devices',
         backendName: 'itestagent-backends-device-appium',
         execute: async () => {
-          devices = dependencies.listDevices
-            ? await dependencies.listDevices()
-            : await listProductionDevices();
+          discovery = normalizeDiscovery(await listDevices());
+          devices = discovery.devices;
+          activeQueue?.push({
+            type: 'devices_update',
+            payload: {
+              devices,
+              discoveryStatus: discovery.status,
+              issues: discovery.issues,
+            },
+          });
+          if (discovery.issues.length > 0) {
+            activeQueue?.push({
+              type: 'message_add',
+              payload: {
+                role: 'system',
+                text: `Device discovery ${discovery.status}: ${discovery.issues.map((issue) => `${issue.lane}: ${issue.message}`).join('; ')}`,
+              },
+            });
+          }
           return {
-            connected: devices.length > 0,
+            connected: devices.some(isReadyDevice),
             selectedDevice: devices.find((device) => device.targetKind === 'physical') ?? null,
             devices,
+            discoveryStatus: discovery.status,
+            limitations: discovery.issues,
           };
         },
       },
@@ -322,7 +321,24 @@ export async function createAgentSession(
       activeTurn = true;
       const queue = new PatchQueue();
       activeQueue = queue;
-      queue.push({ type: 'devices_update', payload: { devices } });
+      queue.push({
+        type: 'devices_update',
+        payload: {
+          devices,
+          discoveryStatus: discovery.status,
+          issues: discovery.issues,
+        },
+      });
+      if (!discoveryNoticeEmitted && discovery.issues.length > 0) {
+        discoveryNoticeEmitted = true;
+        queue.push({
+          type: 'message_add',
+          payload: {
+            role: 'system',
+            text: `Device discovery ${discovery.status}: ${discovery.issues.map((issue) => `${issue.lane}: ${issue.message}`).join('; ')}`,
+          },
+        });
+      }
 
       void (async () => {
         try {

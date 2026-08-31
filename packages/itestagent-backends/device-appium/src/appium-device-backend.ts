@@ -696,8 +696,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
       for (const deviceList of Object.values(devicesMap)) {
         if (!Array.isArray(deviceList)) continue;
-        const found = deviceList.some((d) => (d as Record<string, unknown>).udid === deviceId);
-        if (found) return { healthy: true };
+        const found = deviceList.find((d) => (d as Record<string, unknown>).udid === deviceId) as
+          | Record<string, unknown>
+          | undefined;
+        if (!found) continue;
+        if (String(found.state ?? '').toLowerCase() !== 'booted') {
+          return {
+            healthy: false,
+            details: `Simulator ${deviceId} is ${String(found.state ?? 'unknown')}; boot it before execution`,
+          };
+        }
+        return { healthy: true };
       }
 
       return {

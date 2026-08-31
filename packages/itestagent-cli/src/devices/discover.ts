@@ -13,7 +13,13 @@
  */
 
 import { DeviceInfoSchema } from 'itestagent-contracts';
-import type { DeviceInfo } from 'itestagent-contracts';
+import type {
+  DeviceDiscoveryIssue,
+  DeviceDiscoveryLane,
+  DeviceDiscoveryProvider,
+  DeviceDiscoverySnapshot,
+  DeviceInfo,
+} from 'itestagent-contracts';
 import { exec } from './exec.js';
 
 // ─── Physical device discovery ──────────────────────────────
@@ -193,12 +199,22 @@ function tryGetDeviceDetails(udid: string): {
  *   2. xcrun xcdevice list (cross-check, Phase 0 §4.7)
  *   3. xcrun devicectl device info details --device <udid> (model + OS, best-effort)
  */
-export async function discoverPhysicalDevices(): Promise<DeviceInfo[]> {
+async function discoverPhysicalLane(): Promise<{
+  devices: DeviceInfo[];
+  issue?: DeviceDiscoveryIssue;
+}> {
   const devicectl = exec(['xcrun', 'devicectl', 'list', 'devices']);
   const xcdevice = exec(['xcrun', 'xcdevice', 'list']);
 
   if (devicectl.exitCode !== 0) {
-    return [];
+    return {
+      devices: [],
+      issue: {
+        lane: 'physical',
+        code: 'command_failed',
+        message: `devicectl device discovery failed with exit code ${devicectl.exitCode}`,
+      },
+    };
   }
 
   const rawDevices = parseDevicectlOutput(devicectl.stdout);
@@ -217,17 +233,24 @@ export async function discoverPhysicalDevices(): Promise<DeviceInfo[]> {
     }),
   );
 
-  return enrichedDevices.map((d) =>
-    DeviceInfoSchema.parse({
-      udid: d.udid,
-      name: d.name,
-      model: d.model,
-      osVersion: d.osVersion,
-      platform: 'ios' as const,
-      targetKind: 'physical' as const,
-      state: undefined,
-    }),
-  );
+  return {
+    devices: enrichedDevices.map((d) =>
+      DeviceInfoSchema.parse({
+        udid: d.udid,
+        name: d.name,
+        model: d.model,
+        osVersion: d.osVersion,
+        platform: 'ios' as const,
+        targetKind: 'physical' as const,
+        state: undefined,
+      }),
+    ),
+  };
+}
+
+/** Legacy array-only adapter. Production callers should use cliDeviceDiscoveryProvider. */
+export async function discoverPhysicalDevices(): Promise<DeviceInfo[]> {
+  return (await discoverPhysicalLane()).devices;
 }
 
 // ─── Simulator device discovery ─────────────────────────────
@@ -246,32 +269,38 @@ interface SimDevice {
  * Defense: keys may vary across Xcode versions — Zod .passthrough() handles this.
  */
 function parseSimctlDevices(raw: string): SimDevice[] {
-  try {
-    const parsed = JSON.parse(raw);
-    const devicesMap = parsed.devices ?? parsed;
-    const result: SimDevice[] = [];
+  const parsed = JSON.parse(raw);
+  const devicesMap = parsed.devices ?? parsed;
+  const result: SimDevice[] = [];
 
-    if (typeof devicesMap !== 'object' || devicesMap === null) return [];
+  if (typeof devicesMap !== 'object' || devicesMap === null) return [];
 
-    for (const [runtimeKey, deviceList] of Object.entries(devicesMap)) {
-      if (!Array.isArray(deviceList)) continue;
-      for (const d of deviceList) {
-        if (typeof d !== 'object' || d === null) continue;
-        const dObj = d as Record<string, unknown>;
-        result.push({
-          name: String(dObj.name ?? 'unknown'),
-          udid: String(dObj.udid ?? ''),
-          state: String(dObj.state ?? 'unknown'),
-          runtime: runtimeKey,
-          deviceTypeIdentifier: String(dObj.deviceTypeIdentifier ?? 'unknown'),
-          isAvailable: dObj.isAvailable !== false, // default true if absent
-        });
-      }
+  for (const [runtimeKey, deviceList] of Object.entries(devicesMap)) {
+    if (!Array.isArray(deviceList)) continue;
+    for (const d of deviceList) {
+      if (typeof d !== 'object' || d === null) continue;
+      const dObj = d as Record<string, unknown>;
+      result.push({
+        name: String(dObj.name ?? 'unknown'),
+        udid: String(dObj.udid ?? ''),
+        state: String(dObj.state ?? 'unknown'),
+        runtime: runtimeKey,
+        deviceTypeIdentifier: String(dObj.deviceTypeIdentifier ?? 'unknown'),
+        isAvailable: dObj.isAvailable !== false, // default true if absent
+      });
     }
-    return result;
-  } catch {
-    return [];
   }
+  return result;
+}
+
+function normalizeSimulatorState(state: string): NonNullable<DeviceInfo['state']> {
+  const normalized = state
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return ['booted', 'shutdown', 'creating', 'booting', 'shutting_down'].includes(normalized)
+    ? (normalized as NonNullable<DeviceInfo['state']>)
+    : 'unknown';
 }
 
 /**
@@ -290,31 +319,63 @@ function extractOSVersion(runtimeIdentifier: string): string | undefined {
  * Data source (US-2.3 AC1):
  *   xcrun simctl list devices --json
  */
-export async function discoverSimulatorDevices(): Promise<DeviceInfo[]> {
+async function discoverSimulatorLane(): Promise<{
+  devices: DeviceInfo[];
+  issue?: DeviceDiscoveryIssue;
+}> {
   const simctl = exec(['xcrun', 'simctl', 'list', 'devices', '--json']);
 
   if (simctl.exitCode !== 0 || !simctl.stdout) {
-    return [];
+    return {
+      devices: [],
+      issue: {
+        lane: 'simulator',
+        code: simctl.exitCode === 0 ? 'missing_output' : 'command_failed',
+        message:
+          simctl.exitCode === 0
+            ? 'simctl returned empty JSON output'
+            : `simctl device discovery failed with exit code ${simctl.exitCode}`,
+      },
+    };
   }
 
-  const simDevices = parseSimctlDevices(simctl.stdout);
+  let simDevices: SimDevice[];
+  try {
+    simDevices = parseSimctlDevices(simctl.stdout);
+  } catch {
+    return {
+      devices: [],
+      issue: {
+        lane: 'simulator',
+        code: 'invalid_output',
+        message: 'simctl returned invalid JSON',
+      },
+    };
+  }
 
   // Filter: only available iOS simulators (exclude watchOS, tvOS, etc.)
   const iosDevices = simDevices.filter((d) => d.isAvailable && d.runtime.includes('iOS'));
 
-  return iosDevices.map((d) =>
-    DeviceInfoSchema.parse({
-      udid: d.udid,
-      name: d.name,
-      model: d.deviceTypeIdentifier,
-      osVersion: extractOSVersion(d.runtime),
-      platform: 'ios' as const,
-      targetKind: 'simulator' as const,
-      runtimeIdentifier: d.runtime,
-      deviceTypeIdentifier: d.deviceTypeIdentifier,
-      state: d.state.toLowerCase() as DeviceInfo['state'],
-    }),
-  );
+  return {
+    devices: iosDevices.map((d) =>
+      DeviceInfoSchema.parse({
+        udid: d.udid,
+        name: d.name,
+        model: d.deviceTypeIdentifier,
+        osVersion: extractOSVersion(d.runtime),
+        platform: 'ios' as const,
+        targetKind: 'simulator' as const,
+        runtimeIdentifier: d.runtime,
+        deviceTypeIdentifier: d.deviceTypeIdentifier,
+        state: normalizeSimulatorState(d.state),
+      }),
+    ),
+  };
+}
+
+/** Legacy array-only adapter. Production callers should use cliDeviceDiscoveryProvider. */
+export async function discoverSimulatorDevices(): Promise<DeviceInfo[]> {
+  return (await discoverSimulatorLane()).devices;
 }
 
 // ─── Unified discovery ──────────────────────────────────────
@@ -326,16 +387,31 @@ export async function discoverSimulatorDevices(): Promise<DeviceInfo[]> {
  * AGENTS.md §2 (R2): relies on xcrun devicectl + xcrun simctl, no self-built interaction.
  */
 export async function discoverAllDevices(): Promise<DeviceInfo[]> {
-  const [physical, simulator] = await Promise.all([
-    discoverPhysicalDevices(),
-    discoverSimulatorDevices(),
-  ]);
-
-  // Sort: physical first, then simulator; within each group, by name
-  return [...physical, ...simulator].sort((a, b) => {
-    if (a.targetKind !== b.targetKind) {
-      return a.targetKind === 'physical' ? -1 : 1;
-    }
-    return (a.name ?? '').localeCompare(b.name ?? '');
-  });
+  return (await cliDeviceDiscoveryProvider.discover()).devices;
 }
+
+export const cliDeviceDiscoveryProvider: DeviceDiscoveryProvider = {
+  async discover(options = {}): Promise<DeviceDiscoverySnapshot> {
+    const lanes: readonly DeviceDiscoveryLane[] = options.lanes?.length
+      ? [...new Set(options.lanes)]
+      : ['physical', 'simulator'];
+    const results = await Promise.all(
+      lanes.map((lane) => (lane === 'physical' ? discoverPhysicalLane() : discoverSimulatorLane())),
+    );
+    const issues = results
+      .map((result) => result.issue)
+      .filter((issue): issue is DeviceDiscoveryIssue => issue !== undefined);
+
+    const devices = results
+      .flatMap((result) => result.devices)
+      .sort((a, b) => {
+        if (a.targetKind !== b.targetKind) return a.targetKind === 'physical' ? -1 : 1;
+        return (a.name ?? '').localeCompare(b.name ?? '');
+      });
+    return {
+      devices,
+      status: issues.length === 0 ? 'ok' : issues.length === lanes.length ? 'failed' : 'partial',
+      issues,
+    };
+  },
+};
