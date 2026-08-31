@@ -12,7 +12,7 @@
  * AGENTS.md §2 (R2): reuse xcrun, no self-built device interaction.
  */
 
-import { DeviceInfoSchema } from 'itestagent-contracts';
+import { DeviceDiscoverySnapshotSchema, DeviceInfoSchema } from 'itestagent-contracts';
 import type {
   DeviceDiscoveryIssue,
   DeviceDiscoveryLane,
@@ -408,10 +408,10 @@ export const cliDeviceDiscoveryProvider: DeviceDiscoveryProvider = {
         if (a.targetKind !== b.targetKind) return a.targetKind === 'physical' ? -1 : 1;
         return (a.name ?? '').localeCompare(b.name ?? '');
       });
-    return {
+    return DeviceDiscoverySnapshotSchema.parse({
       devices,
       status: issues.length === 0 ? 'ok' : issues.length === lanes.length ? 'failed' : 'partial',
       issues,
-    };
+    });
   },
 };

@@ -9,11 +9,26 @@ export const DeviceDiscoveryIssueSchema = z.object({
   message: z.string(),
   truncated: z.boolean().optional(),
 });
-export const DeviceDiscoverySnapshotSchema = z.object({
+const DeviceDiscoverySnapshotBase = {
   devices: z.array(DeviceInfoSchema),
-  status: DeviceDiscoveryStatusSchema,
-  issues: z.array(DeviceDiscoveryIssueSchema),
-});
+};
+export const DeviceDiscoverySnapshotSchema = z.discriminatedUnion('status', [
+  z.object({
+    ...DeviceDiscoverySnapshotBase,
+    status: z.literal('ok'),
+    issues: z.array(DeviceDiscoveryIssueSchema).length(0),
+  }),
+  z.object({
+    ...DeviceDiscoverySnapshotBase,
+    status: z.literal('partial'),
+    issues: z.array(DeviceDiscoveryIssueSchema).min(1),
+  }),
+  z.object({
+    ...DeviceDiscoverySnapshotBase,
+    status: z.literal('failed'),
+    issues: z.array(DeviceDiscoveryIssueSchema).min(1),
+  }),
+]);
 
 export type DeviceDiscoveryLane = z.infer<typeof DeviceDiscoveryLaneSchema>;
 export type DeviceDiscoveryStatus = z.infer<typeof DeviceDiscoveryStatusSchema>;

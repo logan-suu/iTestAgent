@@ -23,4 +23,22 @@ describe('DeviceDiscoveryProvider contract', () => {
     expect((await provider.discover({ lanes: ['simulator'] })).status).toBe('ok');
     expect(requestedLanes).toEqual(['simulator']);
   });
+
+  it('rejects ok snapshots that contain discovery issues', () => {
+    expect(() =>
+      DeviceDiscoverySnapshotSchema.parse({
+        devices: [],
+        status: 'ok',
+        issues: [{ lane: 'physical', code: 'command_failed', message: 'unavailable' }],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects non-ok snapshots that contain no discovery issues', () => {
+    for (const status of ['partial', 'failed'] as const) {
+      expect(() =>
+        DeviceDiscoverySnapshotSchema.parse({ devices: [], status, issues: [] }),
+      ).toThrow();
+    }
+  });
 });

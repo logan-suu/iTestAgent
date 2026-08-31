@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DeviceDiscoverySnapshotSchema } from 'itestagent-contracts';
 import type {
   DeviceDiscoveryIssue,
   DeviceDiscoveryOptions,
@@ -334,11 +335,11 @@ async function discoverRequestedDeviceInventory(
       : [],
   );
 
-  return {
+  return DeviceDiscoverySnapshotSchema.parse({
     devices,
     status: issues.length === 0 ? 'ok' : issues.length === lanes.length ? 'failed' : 'partial',
     issues,
-  };
+  });
 }
 
 export function createAppiumDeviceDiscoveryProvider(
