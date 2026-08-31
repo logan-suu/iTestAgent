@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-31T10:07:34Z",
+  "last_updated": "2026-08-31T10:45:00Z",
   "current_phase": 6,
   "phases": [
     {
@@ -641,7 +641,7 @@
           "id": "3.6",
           "title": "MobileMcpBackend 实现",
           "story": null,
-          "status": "pending",
+          "status": "ready",
           "documents_required": [
             "docs/02-architecture/技术选型文档.md"
           ],
@@ -650,7 +650,7 @@
             "3.2"
           ],
           "test_file": null,
-          "last_updated": "2026-07-21T15:50:00.000Z",
+          "last_updated": "2026-08-31T10:21:08Z",
           "notes": "[BLOCKED] 外部阻塞：需 Apple Developer Program 付费账号（$99/年）。mobilecli 硬编码 bundle ID，免费账号无法创建通配符 profile → screenshot/UI tree/tap 三条核心能力均无法 G5 验证。设备发现/app列表可用但不构成完整 DeviceBackend。Phase 0 横评结论：Appium/WDA 为 MVP 主 backend，mobile-mcp 为强候选（MCP-native+独特能力，待付费账号补测）。解除条件：获取付费账号 → 补测截图/UI tree/tap → 恢复为 ready。已被排除出 3.17 集成测试依赖列表。Phase 3 当前主路径：3.7 AppiumDeviceBackend。"
         },
         {
@@ -1145,8 +1145,8 @@
           "id": "6.1",
           "title": "真机全闭环契约与失败基线：锁定生产调用图、AC 矩阵和 E2E 红测",
           "story": "US-4.1, US-5.2, US-6.1~6.2, US-7.1, US-8.1, US-9.1~9.2, US-13.1, US-14.1, US-15.1, US-16.1, US-17.1~17.2",
-          "status": "ready",
-          "last_updated": "2026-08-31T09:46:43Z",
+          "status": "in_progress",
+          "last_updated": "2026-08-31T10:45:00Z",
           "documents_required": [
             "AGENTS.md",
             "docs/01-spec/全量用户故事与验收标准规格书.md",
@@ -1158,7 +1158,7 @@
             "5.6"
           ],
           "test_file": "tests/integration/phase6/phase6-physical-closed-loop-contract.test.ts",
-          "notes": "P0 收口起点。先以当前生产代码建立失败基线：TUI 使用真实组合、禁止 MockDeviceBackend/固定成功 probe 冒充 E2E、同一 run 必须贯穿计划/执行/证据/报告/解释/重跑。仅建立契约和 RED 证据，不在未经计划确认时进入实现。"
+          "notes": "P0 收口起点。先以当前生产代码建立失败基线：TUI 使用真实组合、禁止 MockDeviceBackend/固定成功 probe 冒充 E2E、同一 run 必须贯穿计划/执行/证据/报告/解释/重跑。仅建立契约和 RED 证据，不在未经计划确认时进入实现。T6.1 RED 契约：tests/integration/phase6/phase6-physical-closed-loop-contract.test.ts；验证报告：docs/06-verification/phase6-physical-closed-loop-baseline-6.1.md。默认门禁 0 pass/8 skip/0 fail；ITESTAGENT_PHASE6_RED=1 显式运行 0 pass/8 fail/exit 1，锁定 TUI mock/固定结果、allow-all、固定探索动作、临时 run、Flow mock fallback、未调度 rerun 等生产缺口。Check：direct scoped suites 61 pass/8 intentional skip/0 fail，typecheck/lint/JSON parse 通过；获准访问 macOS Keychain 后全库 bun test 3346 pass/10 skip/0 fail。"
         },
         {
           "id": "6.2",
