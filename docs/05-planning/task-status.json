@@ -1184,7 +1184,7 @@
           "title": "一句话到已确认 TestPlan：workspace 分析、Intent、计划修改/确认/取消",
           "story": "US-3.1~3.3, US-4.2, US-5.1~5.2",
           "status": "in_progress",
-          "last_updated": "2026-08-31T17:20:51Z",
+          "last_updated": "2026-08-31T17:55:07Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md",
@@ -1194,7 +1194,7 @@
             "6.1"
           ],
           "test_file": "tests/integration/phase6/phase6-intent-plan-confirmation.test.ts",
-          "notes": "初始实现与回归已完成，但 2026-08-31 规格复审发现 Planning Cycle 生命周期和不可变快照边界定义不足；已通过 ADR-027 同步规格、架构、数据流和避坑手册。PR review 运行时复现两个阻断项：普通后续消息会使 confirmed TestPlan 失效，cancelled 可被 confirmCandidates 原地恢复；snapshot/confirm 暴露可变内部引用，可注入未确认 feature 或污染 evidence。现有 typecheck、lint 与定向测试通过，但缺少 ADR-027 对应回归，G1/G4 暂未通过。G6 报告已更新：docs/06-verification/phase6-intent-plan-confirmation-report-6.3.md。G5/G5-SIM 不适用。PR #72：https://github.com/logan-suu/iTestAgent/pull/72；任务保持 in_progress，修复并重新验证前不可合并。"
+          "notes": "初始实现完成后，2026-08-31 规格复审通过 ADR-027 补充 Planning Cycle 生命周期和不可变快照边界，并同步规格、架构、数据流与避坑手册。PR review 阻断项已修复：普通后续消息保持 confirmed TestPlan；`/plan <test goal>` 显式创建新周期并原子清理旧规划 UI 状态；确认和取消成为周期终态；PlanningSession 对输入、snapshot、待确认与已确认计划执行深拷贝，并为所有状态转换增加来源守卫。新增普通追问、显式新规划、取消/确认终态及返回值 mutation 回归。Check：typecheck 0、lint 0；评审修复定向测试 52 pass/0 fail；全库 bun test 3389 pass/13 skip/0 fail。G6 报告：docs/06-verification/phase6-intent-plan-confirmation-report-6.3.md。G5/G5-SIM 不适用。PR #72：https://github.com/logan-suu/iTestAgent/pull/72；任务保持 in_progress，等待人工审阅与合并。"
         },
         {
           "id": "6.4",

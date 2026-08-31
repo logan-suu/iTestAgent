@@ -81,7 +81,7 @@ describe('PlanningSession', () => {
     expect(modified.plan?.projectProfileRef).toBe(planned.plan?.projectProfileRef);
   });
 
-  it('returns a plan only after explicit confirmation and clears it on cancel', () => {
+  it('returns a plan only after explicit confirmation', () => {
     const session = new PlanningSession(analysis());
     const snapshot = session.begin('用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(
@@ -93,8 +93,56 @@ describe('PlanningSession', () => {
     expect(session.getConfirmedPlan()).toBeNull();
     expect(session.confirmPlan().execution.features).toEqual(['Login']);
     expect(session.getConfirmedPlan()?.execution.features).toEqual(['Login']);
+    expect(() => session.begin('start over')).toThrow('invalid_transition');
+    expect(() => session.modifyPlan('只跑登录')).toThrow('invalid_transition');
+    expect(() => session.cancel()).toThrow('invalid_transition');
+  });
+
+  it('treats cancellation as terminal for the current planning cycle', () => {
+    const session = new PlanningSession(analysis());
+    const snapshot = session.begin('用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
     expect(session.cancel().status).toBe('cancelled');
     expect(session.getConfirmedPlan()).toBeNull();
+    expect(() => session.confirmCandidates(snapshot.candidates)).toThrow('invalid_transition');
+    expect(() => session.modifyPlan('只跑登录')).toThrow('invalid_transition');
+    expect(() => session.confirmPlan()).toThrow('invalid_transition');
+    expect(() => session.begin('start over')).toThrow('invalid_transition');
+  });
+
+  it('does not expose mutable analysis or candidate evidence through snapshots', () => {
+    const source = analysis();
+    const session = new PlanningSession(source);
+    const snapshot = session.begin('用本机 iPhone 跑登录 smoke');
+    (snapshot.analysis.profile.features[0]?.evidence as string[]).push('forged-analysis.swift');
+    (snapshot.candidates[0]?.evidence as string[]).push('forged-candidate.swift');
+
+    const next = session.getSnapshot();
+    expect(next.analysis.profile.features[0]?.evidence).toEqual(['LoginViewController.swift']);
+    expect(next.candidates[0]?.evidence).toEqual(['LoginViewController.swift']);
+    expect(source.profile.features[0]?.evidence).toEqual(['LoginViewController.swift']);
+  });
+
+  it('does not confirm caller mutations to returned plans', () => {
+    const session = new PlanningSession(analysis());
+    const snapshot = session.begin('用本机 iPhone 跑登录 smoke');
+    const planned = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    (planned.plan?.execution.features as string[]).push('Injected');
+
+    const confirmed = session.confirmPlan();
+    expect(confirmed.execution.features).toEqual(['Login']);
+    (confirmed.execution.features as string[]).push('Injected after confirmation');
+    expect(session.getConfirmedPlan()?.execution.features).toEqual(['Login']);
   });
 
   it('rejects a modification that adds an unconfirmed candidate', () => {

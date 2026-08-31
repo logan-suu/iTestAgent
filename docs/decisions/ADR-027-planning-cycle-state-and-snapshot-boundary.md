@@ -26,7 +26,7 @@
 ## 决策
 
 1. 同一测试目标的多轮消息属于同一个 Planning Cycle；普通追问不得隐式开始新周期或使已确认计划失效。
-2. 新测试目标必须由显式用户动作开始。开始新周期时，旧 Intent、候选、草稿及相关对话状态必须原子清理或替换，不得混用。
+2. 新测试目标必须由显式用户动作开始；第一版 TUI 使用 `/plan <test goal>`。开始新周期时，旧 Intent、候选、草稿及相关对话状态必须原子清理或替换，不得混用。
 3. `confirmed` 与 `cancelled` 是当前 Planning Cycle 的终态。`confirmed` 只能进入当前 run 的后续阶段或结束；`cancelled` 只能结束。继续规划必须显式创建新周期。
 4. 每个状态转换由 engine 校验合法来源状态，不能只依赖 TUI mode 或 prompt 约束。
 5. Planning Cycle 在输入处复制外部对象，并向所有调用方返回不可变快照。修改 snapshot、candidate evidence、Intent 或 TestPlan 返回值不得改变内部状态或确认基线。

@@ -120,6 +120,7 @@ export type TuiShellEvent =
   | { readonly type: 'input'; readonly text: string }
   | { readonly type: 'submit' }
   | { readonly type: 'quit' }
+  | { readonly type: 'planning_reset' }
   | { readonly type: 'system_message'; readonly text: string }
   | { readonly type: 'device_status_updated'; readonly status: DeviceStatus }
   // Candidate review events (US-3.3 AC2)
@@ -323,6 +324,22 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
 
     case 'quit':
       return { ...state, running: false };
+
+    case 'planning_reset':
+      return {
+        ...state,
+        mode: 'chat',
+        currentIntent: null,
+        candidates: [],
+        candidateIndex: 0,
+        candidateEditMode: false,
+        candidateEditDraft: '',
+        plan: null,
+        planSectionIndex: 0,
+        planModifyMode: false,
+        planModifyDraft: '',
+        planConfirmed: false,
+      };
 
     // ── Candidate review events (US-3.3 AC2) ───────────────────────
 

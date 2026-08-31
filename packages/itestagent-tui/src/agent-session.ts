@@ -152,10 +152,24 @@ export interface TuiAgentSession {
   dispose(): void;
 }
 
+const NEW_PLAN_COMMAND = '/plan';
+
+function explicitPlanGoal(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed === NEW_PLAN_COMMAND) {
+    throw new Error('planning_goal_required: use /plan <test goal>');
+  }
+  if (!trimmed.startsWith(`${NEW_PLAN_COMMAND} `)) return null;
+  const goal = trimmed.slice(NEW_PLAN_COMMAND.length).trim();
+  if (!goal) throw new Error('planning_goal_required: use /plan <test goal>');
+  return goal;
+}
+
 export interface TuiStatePatch {
   type:
     | 'message_add'
     | 'message_update'
+    | 'planning_reset'
     | 'mode_change'
     | 'intent_update'
     | 'candidates_update'
@@ -374,14 +388,20 @@ export async function createAgentSession(
       void (async () => {
         try {
           const analysis = await analyzeOnce();
-          if (!planningSession || planningSession.getSnapshot().status === 'cancelled') {
+          const explicitGoal = explicitPlanGoal(input);
+          let planningSnapshot = null;
+          if (!planningSession || explicitGoal !== null) {
             planningSession = new PlanningSession(analysis);
+            planningSnapshot = planningSession.begin(explicitGoal ?? input);
+          } else if (planningSession.getSnapshot().status === 'awaiting_clarification') {
+            planningSnapshot = planningSession.clarify(input);
           }
-          const planningSnapshot =
-            planningSession.getSnapshot().status === 'awaiting_clarification'
-              ? planningSession.clarify(input)
-              : planningSession.begin(input);
-          for (const patch of planningPatches(planningSnapshot)) queue.push(patch);
+          if (planningSnapshot) {
+            if (explicitGoal !== null) {
+              queue.push({ type: 'planning_reset', payload: {} });
+            }
+            for (const patch of planningPatches(planningSnapshot)) queue.push(patch);
+          }
 
           transcript.push({ role: 'user', content: input });
           let assistantText = '';
@@ -434,6 +454,13 @@ export async function createAgentSession(
       return [
         { type: 'plan_update', payload: { plan, confirmed: true } },
         { type: 'mode_change', payload: { mode: 'chat' } },
+        {
+          type: 'message_add',
+          payload: {
+            role: 'system',
+            text: 'Plan confirmed. Use /plan <test goal> to start a new planning cycle.',
+          },
+        },
       ];
     },
 
@@ -443,6 +470,13 @@ export async function createAgentSession(
       return [
         { type: 'plan_update', payload: { plan: null, confirmed: false } },
         { type: 'mode_change', payload: { mode: 'chat' } },
+        {
+          type: 'message_add',
+          payload: {
+            role: 'system',
+            text: 'Planning cancelled. Use /plan <test goal> to start a new planning cycle.',
+          },
+        },
       ];
     },
 

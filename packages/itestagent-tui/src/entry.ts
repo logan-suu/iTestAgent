@@ -328,6 +328,8 @@ export function applyAgentPatch(
   patch: { type: string; payload: Record<string, unknown> },
 ): TuiShellState {
   switch (patch.type) {
+    case 'planning_reset':
+      return tuiShellReducer(state, { type: 'planning_reset' });
     case 'intent_update': {
       if (patch.payload.result === null || patch.payload.result === undefined) return state;
       return tuiShellReducer(state, {

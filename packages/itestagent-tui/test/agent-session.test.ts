@@ -95,9 +95,25 @@ function dependencies(overrides: Partial<AgentSessionDependencies> = {}): AgentS
   };
 }
 
+function confirmedFakeCandidates() {
+  return FAKE_ANALYSIS.profile.features.map((candidate) => ({
+    ...candidate,
+    keywords: [...candidate.keywords],
+    evidence: [...candidate.evidence],
+    confirmed: true,
+  }));
+}
+
 async function collectPatches(session: TuiAgentSession): Promise<TuiStatePatch[]> {
+  return collectMessagePatches(session, 'inspect the workspace');
+}
+
+async function collectMessagePatches(
+  session: TuiAgentSession,
+  input: string,
+): Promise<TuiStatePatch[]> {
   const patches: TuiStatePatch[] = [];
-  for await (const patch of session.processMessage('inspect the workspace')) patches.push(patch);
+  for await (const patch of session.processMessage(input)) patches.push(patch);
   return patches;
 }
 
@@ -347,6 +363,55 @@ describe('AgentSession streaming and permission bridge', () => {
     expect(() => session.processMessage('second')).toThrow('already in progress');
     releaseStream?.();
     await first.next();
+  });
+});
+
+describe('AgentSession planning lifecycle', () => {
+  it('preserves a confirmed plan across ordinary chat and replaces it only via /plan', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    const confirmPatches = session.confirmPlan();
+    expect(confirmPatches.find((patch) => patch.type === 'message_add')?.payload.text).toContain(
+      '/plan <test goal>',
+    );
+    const runId = session.getConfirmedPlan()?.runId;
+
+    const chatPatches = await collectMessagePatches(session, '解释一下刚才的计划');
+    expect(chatPatches.some((patch) => patch.type === 'intent_update')).toBe(false);
+    expect(chatPatches.some((patch) => patch.type === 'candidates_update')).toBe(false);
+    expect(session.getConfirmedPlan()?.runId).toBe(runId);
+
+    const newPlanPatches = await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    expect(newPlanPatches.some((patch) => patch.type === 'candidates_update')).toBe(true);
+    expect(session.getConfirmedPlan()).toBeNull();
+  });
+
+  it('keeps cancellation terminal until an explicit /plan command starts a new cycle', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+    const reviewed = confirmedFakeCandidates();
+    session.confirmCandidates(reviewed);
+    const cancelPatches = session.cancelPlan();
+    expect(cancelPatches.find((patch) => patch.type === 'message_add')?.payload.text).toContain(
+      '/plan <test goal>',
+    );
+
+    await collectMessagePatches(session, '为什么取消了？');
+    expect(() => session.confirmCandidates(reviewed)).toThrow('invalid_transition');
+
+    const newPlanPatches = await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    expect(newPlanPatches.some((patch) => patch.type === 'candidates_update')).toBe(true);
+  });
+
+  it('requires a goal after the explicit /plan command', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+
+    const patches = await collectMessagePatches(session, '/plan');
+    expect(patches.find((patch) => patch.type === 'error')?.payload.message).toContain(
+      'planning_goal_required',
+    );
   });
 });
 

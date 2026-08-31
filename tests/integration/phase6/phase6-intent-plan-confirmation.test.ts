@@ -97,6 +97,21 @@ describe('Phase 6 intent → confirmed TestPlan production session', () => {
     expect(state.mode).toBe('chat');
     expect(state.planConfirmed).toBe(true);
     expect(session.getConfirmedPlan()?.execution.features).toEqual(['Login']);
+
+    for await (const patch of session.processMessage('解释一下刚才确认的计划')) {
+      state = applyAgentPatch(state, patch);
+    }
+    expect(state.planConfirmed).toBe(true);
+    expect(state.plan?.runId).toBe(originalRunId);
+    expect(session.getConfirmedPlan()?.runId).toBe(originalRunId);
+
+    for await (const patch of session.processMessage('/plan 用本机 iPhone 跑登录 smoke')) {
+      state = applyAgentPatch(state, patch);
+    }
+    expect(state.mode).toBe('candidate_review');
+    expect(state.plan).toBeNull();
+    expect(state.planConfirmed).toBe(false);
+    expect(session.getConfirmedPlan()).toBeNull();
   });
 
   it('cancels a draft without exposing a confirmed plan', async () => {
