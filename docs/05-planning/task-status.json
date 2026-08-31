@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-31T15:35:38Z",
+  "last_updated": "2026-08-31T16:48:51Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1183,8 +1183,8 @@
           "id": "6.3",
           "title": "一句话到已确认 TestPlan：workspace 分析、Intent、计划修改/确认/取消",
           "story": "US-3.1~3.3, US-4.2, US-5.1~5.2",
-          "status": "ready",
-          "last_updated": "2026-08-31T11:35:25Z",
+          "status": "in_progress",
+          "last_updated": "2026-08-31T16:48:51Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md",
@@ -1194,7 +1194,7 @@
             "6.1"
           ],
           "test_file": "tests/integration/phase6/phase6-intent-plan-confirmation.test.ts",
-          "notes": "从当前 workspace 生成带证据的 Project Profile 和 TestPlan；核心链路只做候选；用户未确认时不得进入构建或设备执行。"
+          "notes": "实现完成，等待 commit/PR 与人类合并确认：生产 workspace 分析落盘 Project Profile；新增 Intent/澄清/候选确认/计划修改/最终确认/取消状态机；TestPlan 仅编译 confirmed 候选且未确认不得执行；候选确认保留 Profile evidence/confidence 来源证明并允许用户修正名称/排序；TUI 已接入候选与计划复核操作。验证：typecheck、lint、build 通过；指定 Phase 6 集成测试 2/2 通过；6.3 定向回归 100/100 通过；宿主环境全库 bun test 3383 pass/13 skip/0 fail，test:ci 3267 pass/13 skip/0 fail。G6 报告：docs/06-verification/phase6-intent-plan-confirmation-report-6.3.md。G5/G5-SIM 不适用。"
         },
         {
           "id": "6.4",

@@ -19,7 +19,11 @@ export {
   compileTestPlan,
   testPlanToYaml,
   parseTestPlanYaml,
+  TestPlanConfirmationError,
 } from './test-plan-compiler.js';
+
+export { PlanningSession, PlanningSessionError } from './planning-session.js';
+export type { PlanningSnapshot, PlanningStatus } from './planning-session.js';
 
 export {
   BackendRegistry,

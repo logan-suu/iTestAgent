@@ -58,8 +58,8 @@ describe('keymap-registry', () => {
     expect(CANDIDATE_REVIEW_KEYMAP.q).toEqual({ type: 'exit_candidate_review' });
   });
 
-  it('does NOT bind Enter in non-edit candidate mode (falls through unhandled)', () => {
-    expect(CANDIDATE_REVIEW_KEYMAP.enter).toBeUndefined();
+  it('binds Enter to submit reviewed candidates', () => {
+    expect(CANDIDATE_REVIEW_KEYMAP.enter).toEqual({ type: 'candidate_confirm' });
   });
 
   it('maps the plan review keys to their exact events', () => {

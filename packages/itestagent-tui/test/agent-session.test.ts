@@ -51,7 +51,24 @@ const SIMULATOR_DEVICE: DeviceInfo = {
 };
 
 const FAKE_ANALYSIS = {
-  profile: { schemaVersion: 'itestagent.project-profile.v1', project: { root: '/workspace' } },
+  profile: {
+    schemaVersion: 'itestagent.project-profile.v1',
+    projectHash: 'a'.repeat(64),
+    app: { name: 'Demo', workspace: '/workspace/Demo.xcworkspace', scheme: 'Demo' },
+    targets: [{ name: 'Demo', type: 'app' }],
+    testAssets: { hasXCUITest: false, hasScheme: true },
+    features: [
+      {
+        name: 'Login',
+        keywords: ['login', '登录'],
+        evidence: ['LoginViewController.swift'],
+        confidence: 0.8,
+        confirmed: false,
+        displayOrder: 0,
+      },
+    ],
+    suggestedSmoke: ['launch', 'Login'],
+  },
   analysis: {
     analysisTier: 'tier1_static',
     enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
@@ -88,6 +105,17 @@ function sdkTool(name: string): SdkTool {
   const tool = capturedStreamArgs?.tools[name];
   if (!tool) throw new Error(`SDK tool was not registered: ${name}`);
   return tool;
+}
+
+async function nextPatchOfType(
+  iterator: AsyncIterator<TuiStatePatch>,
+  type: TuiStatePatch['type'],
+): Promise<TuiStatePatch> {
+  for (;;) {
+    const next = await iterator.next();
+    if (next.done) throw new Error(`Patch stream ended before ${type}`);
+    if (next.value.type === type) return next.value;
+  }
 }
 
 beforeEach(async () => {
@@ -209,7 +237,7 @@ describe('AgentSession tools', () => {
     expect(output.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
   });
 
-  it('reports unwired downstream capabilities instead of fabricating success', async () => {
+  it('blocks TestPlan compilation until candidate confirmation', async () => {
     streamScenario = async function* (args) {
       try {
         await args.tools.compileTestPlan?.execute({}, { toolCallId: 'compile-1' });
@@ -221,8 +249,8 @@ describe('AgentSession tools', () => {
     const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
 
     expect((await iterator.next()).value?.type).toBe('devices_update');
-    const permission = await iterator.next();
-    expect(permission.value).toMatchObject({
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    expect(permission).toMatchObject({
       type: 'permission_request',
       payload: { callId: 'compile-1' },
     });
@@ -235,8 +263,7 @@ describe('AgentSession tools', () => {
       remaining.push(next.value);
     }
     const errorPatch = remaining.find((patch) => patch.type === 'error');
-    expect(errorPatch?.payload.message).toContain('capability_not_wired');
-    expect(errorPatch?.payload.message).toContain('task 6.3');
+    expect(errorPatch?.payload.message).toContain('candidate_confirmation_required');
   });
 });
 
@@ -248,8 +275,14 @@ describe('AgentSession streaming and permission bridge', () => {
     const session = await createAgentSession('/workspace', dependencies());
 
     const patches = await collectPatches(session);
-    expect(patches.map((patch) => patch.type)).toEqual(['devices_update', 'message_update']);
-    expect(patches[1]?.payload.text).toBe('Observed result');
+    expect(patches.map((patch) => patch.type)).toEqual([
+      'devices_update',
+      'intent_update',
+      'candidates_update',
+      'mode_change',
+      'message_update',
+    ]);
+    expect(patches.at(-1)?.payload.text).toBe('Observed result');
   });
 
   it('emits devices_update when getDeviceInfo refreshes discovery', async () => {
@@ -286,9 +319,8 @@ describe('AgentSession streaming and permission bridge', () => {
     const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
 
     expect((await iterator.next()).value?.type).toBe('devices_update');
-    const permission = await iterator.next();
-    expect(permission.value?.type).toBe('permission_request');
-    expect(permission.value?.payload.callId).toBe('permission-1');
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    expect(permission.payload.callId).toBe('permission-1');
 
     session.resolvePermission('permission-1', 'deny');
     const remaining: TuiStatePatch[] = [];

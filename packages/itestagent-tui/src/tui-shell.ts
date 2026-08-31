@@ -134,6 +134,7 @@ export type TuiShellEvent =
   | { readonly type: 'candidate_edit_cancel' }
   | { readonly type: 'candidate_confirm_all' }
   | { readonly type: 'candidate_unconfirm_all' }
+  | { readonly type: 'candidate_confirm' }
   // Assertion review events (US-11.1 AC4)
   | { readonly type: 'enter_assertion_review'; readonly suggestions: readonly UserAssertion[] }
   | { readonly type: 'exit_assertion_review' }
@@ -412,6 +413,9 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       const updated = unconfirmAllCandidates(state.candidates as CandidateLink[]);
       return { ...state, candidates: updated };
     }
+
+    case 'candidate_confirm':
+      return state;
 
     // ── Assertion review events (US-11.1 AC4) ─────────────────────
 

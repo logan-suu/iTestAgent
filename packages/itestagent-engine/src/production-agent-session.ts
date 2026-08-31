@@ -4,7 +4,11 @@ import {
   createAppiumDeviceDiscoveryProvider,
 } from 'itestagent-backends-device-appium';
 import type { DeviceBackend, DeviceDiscoveryProvider, DeviceInfo } from 'itestagent-contracts';
-import { type ProjectAnalysisResult, analyzeProject } from 'itestagent-project-analyzer';
+import {
+  type ProjectAnalysisResult,
+  analyzeProject,
+  saveProfile,
+} from 'itestagent-project-analyzer';
 
 export interface ProductionAgentSessionDependencies {
   analyzeWorkspace(workspace: string): Promise<ProjectAnalysisResult>;
@@ -18,7 +22,11 @@ export interface ProductionAgentSessionDependencies {
  */
 export function createProductionAgentSessionDependencies(): ProductionAgentSessionDependencies {
   return {
-    analyzeWorkspace: (workspace) => analyzeProject(createXcodeProjAnalyzerBackend(), workspace),
+    analyzeWorkspace: async (workspace) => {
+      const analysis = await analyzeProject(createXcodeProjAnalyzerBackend(), workspace);
+      saveProfile(analysis.profile);
+      return analysis;
+    },
     deviceDiscovery: createAppiumDeviceDiscoveryProvider(),
     createDeviceBackend: (device) =>
       createAppiumDeviceBackend({

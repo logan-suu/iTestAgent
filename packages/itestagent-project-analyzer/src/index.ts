@@ -27,6 +27,7 @@ export type {
   TargetProfile,
   TestAssetsProfile,
   CandidateLink,
+  ProfileIoOptions,
   /** @deprecated Use CandidateLink */
   FeatureCandidate,
 } from './profile-io.js';
