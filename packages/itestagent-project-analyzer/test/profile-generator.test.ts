@@ -362,10 +362,12 @@ describe('profile-io (AC2, AC3, AC4)', () => {
 
   it('AC2: saveProfile writes to ~/.itestagent/projects/<hash>/project-profile.json', async () => {
     const profile = await generateProjectProfile(backend, '/fake/MyApp');
+    const dataRoot = join(tmpDir, '.itestagent');
 
-    // saveProfile writes to the actual home directory path
-    // We verify it doesn't throw
-    expect(() => saveProfile(profile)).not.toThrow();
+    expect(() => saveProfile(profile, { dataRoot })).not.toThrow();
+    expect(
+      existsSync(join(dataRoot, 'projects', profile.projectHash, 'project-profile.json')),
+    ).toBe(true);
   });
 
   // ── AC3: project-level save ──────────────────────────────
@@ -397,11 +399,10 @@ describe('profile-io (AC2, AC3, AC4)', () => {
   it('AC4: profile can be saved and loaded with full integrity', async () => {
     const profile = await generateProjectProfile(backend, '/fake/MyApp');
 
-    // Write to a tmp directory for isolated testing
-    // We test loadProfile by writing to the default location
-    saveProfile(profile);
+    const dataRoot = join(tmpDir, '.itestagent');
+    saveProfile(profile, { dataRoot });
 
-    const loaded = loadProfile(profile.projectHash);
+    const loaded = loadProfile(profile.projectHash, { dataRoot });
     expect(loaded).not.toBeNull();
     expect(loaded?.schemaVersion).toBe(profile.schemaVersion);
     expect(loaded?.app.name).toBe(profile.app.name);
@@ -411,7 +412,7 @@ describe('profile-io (AC2, AC3, AC4)', () => {
   });
 
   it('loadProfile returns null for non-existent hash', () => {
-    const result = loadProfile('deadbeef'.repeat(8)); // 64-char fake hash
+    const result = loadProfile('deadbeef'.repeat(8), { dataRoot: join(tmpDir, '.itestagent') });
     expect(result).toBeNull();
   });
 });

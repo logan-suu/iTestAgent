@@ -81,7 +81,7 @@ describe('Phase 2 integration: confirmedOnly filter', () => {
     makeValidTestPlan(plan);
   });
 
-  it('falls back to suggestedSmoke when no confirmed features match intent', () => {
+  it('does not fall back to suggestedSmoke when no confirmed features match intent', () => {
     const profile = makeProfile([
       {
         name: 'login',
@@ -109,16 +109,12 @@ describe('Phase 2 integration: confirmedOnly filter', () => {
     expect(intentResult.status).toBe('complete');
     if (intentResult.status !== 'complete') return;
 
-    const plan = compileTestPlan(intentResult.intent, profile, { confirmedOnly: true });
-
-    // Both features matched by intent but NEITHER confirmed → filtered out
-    // Should fall back to suggestedSmoke as default feature set
-    expect(plan.execution.features).toEqual(profile.suggestedSmoke);
-
-    makeValidTestPlan(plan);
+    expect(() => compileTestPlan(intentResult.intent, profile, { confirmedOnly: true })).toThrow(
+      'test_plan_not_confirmed',
+    );
   });
 
-  it('includes all matched features when confirmedOnly is false (default)', () => {
+  it('never includes an unconfirmed matched feature', () => {
     const profile = makeProfile([
       {
         name: 'login',
@@ -146,16 +142,17 @@ describe('Phase 2 integration: confirmedOnly filter', () => {
     expect(intentResult.status).toBe('complete');
     if (intentResult.status !== 'complete') return;
 
-    // Default: confirmedOnly omitted → all matched features included
+    // Production invariant: compilation is confirmed-only even when the
+    // legacy marker is omitted.
     const plan = compileTestPlan(intentResult.intent, profile);
 
     expect(plan.execution.features).toContain('login');
-    expect(plan.execution.features).toContain('checkout');
+    expect(plan.execution.features).not.toContain('checkout');
 
     makeValidTestPlan(plan);
   });
 
-  it('returns empty features array when confirmedOnly and no confirmed candidates', () => {
+  it('fails closed when no confirmed candidate matches', () => {
     const profile = makeProfile([
       {
         name: 'launch',
@@ -173,12 +170,9 @@ describe('Phase 2 integration: confirmedOnly filter', () => {
     expect(intentResult.status).toBe('complete');
     if (intentResult.status !== 'complete') return;
 
-    const plan = compileTestPlan(intentResult.intent, profile, { confirmedOnly: true });
-
-    // Feature matched but NOT confirmed → filtered out, fallback to suggestedSmoke
-    expect(plan.execution.features).toEqual(profile.suggestedSmoke);
-
-    makeValidTestPlan(plan);
+    expect(() => compileTestPlan(intentResult.intent, profile, { confirmedOnly: true })).toThrow(
+      'test_plan_not_confirmed',
+    );
   });
 
   it('preserves confirmed-only behavior across YAML round-trip', () => {

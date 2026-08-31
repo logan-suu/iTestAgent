@@ -91,8 +91,11 @@ export interface CompileOptions {
   runIdPrefix?: string;
   /** Override project profile ref path. */
   projectProfileRef?: string;
-  /** Use only confirmed candidate links as features (AC3: user-confirmed only). */
-  confirmedOnly?: boolean;
+  /**
+   * Confirmation gate marker. Compilation is always confirmed-only; callers
+   * may pass true to make that boundary explicit at a production call site.
+   */
+  confirmedOnly?: true;
   /** Override test data policy (defaults: allowAgentGeneratedData=true, askUserInTuiWhenRequired=true). */
   testData?: Partial<{ allowAgentGeneratedData: boolean; askUserInTuiWhenRequired: boolean }>;
 }
@@ -127,18 +130,17 @@ function buildExecutionPlan(
   profile: ProjectProfile,
   options?: CompileOptions,
 ): ExecutionPlan {
-  // AC4: features from Intent (matched against Profile features by intent-parser)
-  let features = intent.features;
+  // US-3.3 AC3/AC4: only explicitly confirmed candidate links can enter a
+  // TestPlan. Never reintroduce inferred suggestedSmoke entries after this
+  // filter; doing so would turn an unconfirmed inference into an execution
+  // fact.
+  const confirmedNames = new Set(
+    profile.features.filter((feature) => feature.confirmed).map((feature) => feature.name),
+  );
+  const features = intent.features.filter((feature) => confirmedNames.has(feature));
 
-  // If confirmedOnly, filter to user-confirmed candidates
-  if (options?.confirmedOnly) {
-    const confirmedNames = new Set(profile.features.filter((f) => f.confirmed).map((f) => f.name));
-    features = features.filter((f) => confirmedNames.has(f));
-  }
-
-  // Fallback: if no features matched, use suggestedSmoke
-  if (features.length === 0 && profile.suggestedSmoke.length > 0) {
-    features = [...profile.suggestedSmoke];
+  if (features.length === 0) {
+    throw new TestPlanConfirmationError(intent.features);
   }
 
   // XCUITest path decision
@@ -158,6 +160,17 @@ function buildExecutionPlan(
     assertion: resolveAssertionPolicy(intent),
     metrics,
   };
+}
+
+/** Raised when S3 is attempted without a user-confirmed candidate link. */
+export class TestPlanConfirmationError extends Error {
+  readonly requestedFeatures: readonly string[];
+
+  constructor(requestedFeatures: readonly string[]) {
+    super('test_plan_not_confirmed: select and confirm at least one candidate before compilation');
+    this.name = 'TestPlanConfirmationError';
+    this.requestedFeatures = [...requestedFeatures];
+  }
 }
 
 /** Select metrics based on Intent.scope and metricsRequested */

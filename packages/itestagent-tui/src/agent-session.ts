@@ -9,6 +9,7 @@ import type {
   DeviceBackend,
   DeviceDiscoverySnapshot,
   DeviceInfo,
+  TestPlan,
   ToolCall,
   ToolResult,
 } from 'itestagent-contracts';
@@ -17,10 +18,11 @@ import {
   BackendRegistry,
   BackendSelector,
   PermissionEngine,
+  PlanningSession,
   ToolDispatcher,
   createProductionAgentSessionDependencies,
 } from 'itestagent-engine';
-import type { ProjectAnalysisResult } from 'itestagent-project-analyzer';
+import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
 import { parse as parseJsonc } from 'jsonc-parser';
 import { retainMessages } from './message-retention.js';
 
@@ -90,7 +92,7 @@ export const AGENT_TOOLS: Record<
   },
   compileTestPlan: {
     description:
-      'Compile a proposed test plan from confirmed project candidates. This capability may report that its owning task is not wired yet.',
+      'Return the proposed TestPlan compiled from the current intent and explicitly confirmed project candidates.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
   executeTestPlan: {
@@ -140,16 +142,36 @@ export interface AgentSessionDependencies {
 export interface TuiAgentSession {
   processMessage(input: string): AsyncIterable<TuiStatePatch>;
   getDevices(): readonly DeviceInfo[];
+  confirmCandidates(candidates: readonly CandidateLink[]): readonly TuiStatePatch[];
+  modifyPlan(input: string): readonly TuiStatePatch[];
+  confirmPlan(): readonly TuiStatePatch[];
+  cancelPlan(): readonly TuiStatePatch[];
+  getConfirmedPlan(): TestPlan | null;
   resolvePermission(callId: string, effect: 'allow' | 'deny', remember?: boolean): void;
   cancelPermission(callId: string, reason?: string): void;
   dispose(): void;
+}
+
+const NEW_PLAN_COMMAND = '/plan';
+
+function explicitPlanGoal(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed === NEW_PLAN_COMMAND) {
+    throw new Error('planning_goal_required: use /plan <test goal>');
+  }
+  if (!trimmed.startsWith(`${NEW_PLAN_COMMAND} `)) return null;
+  const goal = trimmed.slice(NEW_PLAN_COMMAND.length).trim();
+  if (!goal) throw new Error('planning_goal_required: use /plan <test goal>');
+  return goal;
 }
 
 export interface TuiStatePatch {
   type:
     | 'message_add'
     | 'message_update'
+    | 'planning_reset'
     | 'mode_change'
+    | 'intent_update'
     | 'candidates_update'
     | 'plan_update'
     | 'permission_request'
@@ -228,6 +250,14 @@ export async function createAgentSession(
   let activeQueue: PatchQueue | null = null;
   let activeTurn = false;
   let discoveryNoticeEmitted = false;
+  let planningSession: PlanningSession | null = null;
+  let cachedAnalysis: ProjectAnalysisResult | null = null;
+  const transcript: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+
+  const analyzeOnce = async (): Promise<ProjectAnalysisResult> => {
+    if (!cachedAnalysis) cachedAnalysis = await analyzeWorkspace(workspace);
+    return cachedAnalysis;
+  };
 
   const toolDispatcher = new ToolDispatcher({
     permissionEngine,
@@ -238,7 +268,7 @@ export async function createAgentSession(
         action: 'analyze_project',
         resource: `workspace:${workspace}`,
         backendName: 'itestagent-project-analyzer',
-        execute: () => analyzeWorkspace(workspace),
+        execute: () => analyzeOnce(),
       },
       getDeviceInfo: {
         action: 'list_devices',
@@ -277,13 +307,28 @@ export async function createAgentSession(
         action: 'generate_draft_test',
         resource: `workspace:${workspace}`,
         backendName: 'itestagent-engine',
-        execute: async () => capabilityNotWired('test-plan compilation', '6.3'),
+        execute: async () => {
+          const snapshot = planningSession?.getSnapshot();
+          if (!snapshot?.plan) {
+            throw new Error(
+              'candidate_confirmation_required: review and confirm project candidates in the TUI before compiling a TestPlan',
+            );
+          }
+          return { status: snapshot.status, plan: snapshot.plan };
+        },
       },
       executeTestPlan: {
         action: 'execute_test_plan',
         resource: physicalDevice ? `deviceId:${physicalDevice.udid}` : 'device:unselected',
         backendName: 'itestagent-engine',
-        execute: async () => capabilityNotWired('test-plan execution', '6.5'),
+        execute: async () => {
+          if (!planningSession?.getConfirmedPlan()) {
+            throw new Error(
+              'plan_confirmation_required: confirm the displayed TestPlan before execution',
+            );
+          }
+          return capabilityNotWired('test-plan execution', '6.5');
+        },
       },
       generateReport: {
         action: 'generate_report',
@@ -342,12 +387,32 @@ export async function createAgentSession(
 
       void (async () => {
         try {
+          const analysis = await analyzeOnce();
+          const explicitGoal = explicitPlanGoal(input);
+          let planningSnapshot = null;
+          if (!planningSession || explicitGoal !== null) {
+            planningSession = new PlanningSession(analysis);
+            planningSnapshot = planningSession.begin(explicitGoal ?? input);
+          } else if (planningSession.getSnapshot().status === 'awaiting_clarification') {
+            planningSnapshot = planningSession.clarify(input);
+          }
+          if (planningSnapshot) {
+            if (explicitGoal !== null) {
+              queue.push({ type: 'planning_reset', payload: {} });
+            }
+            for (const patch of planningPatches(planningSnapshot)) queue.push(patch);
+          }
+
+          transcript.push({ role: 'user', content: input });
+          let assistantText = '';
           for await (const event of agentRuntime.streamTurn({
-            messages: [{ role: 'user', content: input }],
+            messages: retainSessionTranscript(transcript, 40),
           })) {
+            if (event.type === 'assistant.delta') assistantText += event.delta;
             const patch = mapEventToPatch(event);
             if (patch) queue.push(patch);
           }
+          if (assistantText) transcript.push({ role: 'assistant', content: assistantText });
         } catch (error: unknown) {
           queue.push({
             type: 'error',
@@ -367,6 +432,58 @@ export async function createAgentSession(
       return [...devices];
     },
 
+    confirmCandidates(candidates) {
+      if (!planningSession) {
+        throw new Error('planning_session_unavailable: submit a test goal first');
+      }
+      return planningPatches(planningSession.confirmCandidates(candidates));
+    },
+
+    modifyPlan(input) {
+      if (!planningSession) {
+        throw new Error('planning_session_unavailable: submit a test goal first');
+      }
+      return planningPatches(planningSession.modifyPlan(input));
+    },
+
+    confirmPlan() {
+      if (!planningSession) {
+        throw new Error('planning_session_unavailable: submit a test goal first');
+      }
+      const plan = planningSession.confirmPlan();
+      return [
+        { type: 'plan_update', payload: { plan, confirmed: true } },
+        { type: 'mode_change', payload: { mode: 'chat' } },
+        {
+          type: 'message_add',
+          payload: {
+            role: 'system',
+            text: 'Plan confirmed. Use /plan <test goal> to start a new planning cycle.',
+          },
+        },
+      ];
+    },
+
+    cancelPlan() {
+      if (!planningSession) return [];
+      planningSession.cancel();
+      return [
+        { type: 'plan_update', payload: { plan: null, confirmed: false } },
+        { type: 'mode_change', payload: { mode: 'chat' } },
+        {
+          type: 'message_add',
+          payload: {
+            role: 'system',
+            text: 'Planning cancelled. Use /plan <test goal> to start a new planning cycle.',
+          },
+        },
+      ];
+    },
+
+    getConfirmedPlan() {
+      return planningSession?.getConfirmedPlan() ?? null;
+    },
+
     resolvePermission(callId, effect, remember = false) {
       permissionEngine.resolve(callId, effect, remember);
     },
@@ -383,6 +500,47 @@ export async function createAgentSession(
       void agentRuntime.abort('session closed');
     },
   };
+}
+
+function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): TuiStatePatch[] {
+  const patches: TuiStatePatch[] = [
+    { type: 'intent_update', payload: { result: snapshot.intentResult } },
+  ];
+  if (snapshot.status === 'awaiting_clarification') {
+    const clarifications =
+      snapshot.intentResult?.status === 'incomplete'
+        ? snapshot.intentResult.clarificationsNeeded
+        : [];
+    for (const clarification of clarifications) {
+      patches.push({
+        type: 'message_add',
+        payload: {
+          role: 'system',
+          text: clarification.options
+            ? `${clarification.question} [${clarification.options.join(' / ')}]`
+            : clarification.question,
+        },
+      });
+    }
+    return patches;
+  }
+  if (snapshot.status === 'awaiting_candidate_confirmation') {
+    patches.push({
+      type: 'candidates_update',
+      payload: {
+        candidates: snapshot.candidates,
+        analysisTier: snapshot.analysis.analysis.analysisTier,
+        enabledCapabilities: snapshot.analysis.analysis.enabledCapabilities,
+        limitations: snapshot.analysis.analysis.limitations,
+      },
+    });
+    patches.push({ type: 'mode_change', payload: { mode: 'candidate_review' } });
+  }
+  if (snapshot.status === 'awaiting_plan_confirmation' && snapshot.plan) {
+    patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });
+    patches.push({ type: 'mode_change', payload: { mode: 'plan_review' } });
+  }
+  return patches;
 }
 
 function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {

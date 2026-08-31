@@ -299,11 +299,12 @@ describe('compileTestPlan', () => {
       expect(plan.execution.features).toEqual(['Login']);
     });
 
-    it('falls back to suggestedSmoke when no confirmed features match', () => {
-      const plan = compileTestPlan(makeIntent({ features: ['NonExistent'] }), makeProfile(), {
-        confirmedOnly: true,
-      });
-      expect(plan.execution.features).toContain('launch');
+    it('fails closed instead of reintroducing suggestedSmoke when no confirmed feature matches', () => {
+      expect(() =>
+        compileTestPlan(makeIntent({ features: ['NonExistent'] }), makeProfile(), {
+          confirmedOnly: true,
+        }),
+      ).toThrow('test_plan_not_confirmed');
     });
   });
 

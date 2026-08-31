@@ -70,14 +70,21 @@ export type FeatureCandidate = CandidateLink;
  * AC2: Default storage at ~/.itestagent/projects/<project-hash>/project-profile.json
  * AC3: Only write to <project>/.itestagent/project-profile.json after user confirmation.
  */
-const ITESTAGENT_HOME = join(homedir(), '.itestagent');
-
-function profileDir(projectHash: string): string {
-  return join(ITESTAGENT_HOME, 'projects', projectHash);
+export interface ProfileIoOptions {
+  /** Override the iTestAgent data root for tests. Defaults to ~/.itestagent. */
+  dataRoot?: string;
 }
 
-function profilePath(projectHash: string): string {
-  return join(profileDir(projectHash), 'project-profile.json');
+function dataRoot(options?: ProfileIoOptions): string {
+  return options?.dataRoot ?? join(homedir(), '.itestagent');
+}
+
+function profileDir(projectHash: string, options?: ProfileIoOptions): string {
+  return join(dataRoot(options), 'projects', projectHash);
+}
+
+function profilePath(projectHash: string, options?: ProfileIoOptions): string {
+  return join(profileDir(projectHash, options), 'project-profile.json');
 }
 
 // ─── I/O functions ──────────────────────────────────────────────────
@@ -88,13 +95,13 @@ function profilePath(projectHash: string): string {
  * G2: Validates against Zod schema before writing. Throws ZodError on invalid input.
  * AC2: ~/.itestagent/projects/<project-hash>/project-profile.json
  */
-export function saveProfile(profile: ProjectProfile): void {
+export function saveProfile(profile: ProjectProfile, options?: ProfileIoOptions): void {
   // G2: Validate before writing — defensive layer against future refactors
   const validated = ProjectProfileSchema.parse(profile);
-  const dir = profileDir(validated.projectHash);
+  const dir = profileDir(validated.projectHash, options);
   mkdirSync(dir, { recursive: true });
   const json = JSON.stringify(validated, null, 2);
-  writeFileSync(profilePath(validated.projectHash), json, 'utf-8');
+  writeFileSync(profilePath(validated.projectHash, options), json, 'utf-8');
 }
 
 /**
@@ -135,9 +142,12 @@ export function saveProfileToProject(
  * file is missing, unreadable, or contains structurally invalid data
  * (corrupted / version mismatch / schema drift).
  */
-export function loadProfile(projectHash: string): ProjectProfile | null {
+export function loadProfile(
+  projectHash: string,
+  options?: ProfileIoOptions,
+): ProjectProfile | null {
   try {
-    const path = profilePath(projectHash);
+    const path = profilePath(projectHash, options);
     const raw = readFileSync(path, 'utf-8');
     const parsed = JSON.parse(raw);
     // G2: Validate on read — corrupted or version-mismatched data never enters runtime

@@ -7,9 +7,7 @@
  * exact TuiShellEvent payloads; src/renderers/opentui-key-dispatch.ts applies
  * them (including edit-mode handling).
  *
- * Note: candidate review intentionally does NOT bind Enter outside edit mode;
- * plan review DOES bind Enter to plan_confirm. This asymmetry is locked by
- * test/opentui-key-dispatch.test.ts.
+ * Enter submits the reviewed candidates or confirms the reviewed plan.
  */
 
 import type { TuiShellEvent } from './tui-shell.js';
@@ -22,6 +20,7 @@ export const CANDIDATE_REVIEW_KEYMAP: Readonly<Record<string, TuiShellEvent>> = 
   e: { type: 'candidate_edit_start' },
   A: { type: 'candidate_confirm_all' },
   N: { type: 'candidate_unconfirm_all' },
+  enter: { type: 'candidate_confirm' },
   q: { type: 'exit_candidate_review' },
 };
 

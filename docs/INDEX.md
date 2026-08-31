@@ -39,6 +39,7 @@
 | 架构分层（CLI/TUI/Server/Engine/DeviceBackend/Store） | `02-architecture/架构设计文档.md` §2~3 |
 | Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §4 |
 | Harness Runtime 边界（自研/复用/禁止） | `decisions/ADR-010-agent-harness-runtime-boundary.md` |
+| Planning Cycle 状态与不可变快照边界 | `decisions/ADR-027-planning-cycle-state-and-snapshot-boundary.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -155,4 +156,4 @@
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~025（含 Codex 开发工作流迁移）
+- ADR 记录：ADR-020~027（含 Codex 开发工作流迁移、分层源码分析与 Planning Cycle 边界）

@@ -161,7 +161,7 @@ Verify   对齐 AC；涉及真机/Simulator 能力走 G5/G5-SIM spike 实测；�
 
 ### 6.4 性能与 .trace 解析（诚实降级重灾区）
 
-```
+```text
 - 主指标 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate
 - xctrace 解析用 export --toc 探测 + --xpath 抽取；不可导出标 not_exportable
 - 让 AI 参考 XcodeTraceMCP/instruments-analyzer 的 schema 处理，不整包依赖

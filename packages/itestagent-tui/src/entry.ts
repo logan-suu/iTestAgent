@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
+import { parseIntentResult, parseTestPlan } from 'itestagent-contracts';
+import type { CandidateLink } from 'itestagent-project-analyzer';
 import { parse as parseJsonc } from 'jsonc-parser';
 import type { TuiRenderer } from './renderer.js';
 import {
@@ -180,6 +182,58 @@ export async function startTui(workspace?: string): Promise<void> {
       return;
     }
 
+    if (event.type === 'candidate_confirm' && agentSession) {
+      try {
+        for (const patch of agentSession.confirmCandidates(state.candidates)) {
+          state = applyAgentPatch(state, patch);
+        }
+      } catch (error: unknown) {
+        state = tuiShellReducer(state, {
+          type: 'system_message',
+          text: error instanceof Error ? error.message : String(error),
+        });
+      }
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'plan_modify_submit' && agentSession) {
+      state = tuiShellReducer(state, event);
+      try {
+        for (const patch of agentSession.modifyPlan(state.planModifyDraft)) {
+          state = applyAgentPatch(state, patch);
+        }
+      } catch (error: unknown) {
+        state = tuiShellReducer(state, {
+          type: 'system_message',
+          text: error instanceof Error ? error.message : String(error),
+        });
+      }
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'plan_confirm' && agentSession) {
+      state = tuiShellReducer(state, event);
+      try {
+        for (const patch of agentSession.confirmPlan()) state = applyAgentPatch(state, patch);
+      } catch (error: unknown) {
+        state = tuiShellReducer(state, {
+          type: 'system_message',
+          text: error instanceof Error ? error.message : String(error),
+        });
+      }
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'plan_cancel' && agentSession) {
+      state = tuiShellReducer(state, event);
+      for (const patch of agentSession.cancelPlan()) state = applyAgentPatch(state, patch);
+      renderer.update(state);
+      return;
+    }
+
     if (event.type === 'submit' && pendingPermissionId && agentSession) {
       const decision = pendingUserText.trim().toLowerCase();
       pendingUserText = '';
@@ -274,6 +328,33 @@ export function applyAgentPatch(
   patch: { type: string; payload: Record<string, unknown> },
 ): TuiShellState {
   switch (patch.type) {
+    case 'planning_reset':
+      return tuiShellReducer(state, { type: 'planning_reset' });
+    case 'intent_update': {
+      if (patch.payload.result === null || patch.payload.result === undefined) return state;
+      return tuiShellReducer(state, {
+        type: 'intent_parsed',
+        result: parseIntentResult(patch.payload.result),
+      });
+    }
+    case 'candidates_update': {
+      const candidates = Array.isArray(patch.payload.candidates)
+        ? (patch.payload.candidates as CandidateLink[])
+        : [];
+      return tuiShellReducer(state, { type: 'enter_candidate_review', candidates });
+    }
+    case 'plan_update': {
+      if (patch.payload.plan === null) {
+        return tuiShellReducer(state, { type: 'plan_cancel' });
+      }
+      const plan = parseTestPlan(patch.payload.plan);
+      const reviewing = tuiShellReducer(state, { type: 'enter_plan_review', plan });
+      return patch.payload.confirmed === true
+        ? tuiShellReducer(reviewing, { type: 'plan_confirm' })
+        : reviewing;
+    }
+    case 'mode_change':
+      return state;
     case 'message_update': {
       const id = typeof patch.payload.id === 'string' ? patch.payload.id : '';
       const text =

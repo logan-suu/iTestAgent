@@ -255,7 +255,7 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
       testability: 'device_backend',
       evidence: ['Source: LoginViewController.swift'],
       confidence: 0.8,
-      confirmed: false,
+      confirmed: true,
       displayOrder: 0,
     },
     {
@@ -265,7 +265,7 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
       testability: 'device_backend',
       evidence: ['Source: SearchViewController.swift'],
       confidence: 0.5,
-      confirmed: false,
+      confirmed: true,
       displayOrder: 1,
     },
   ]);
@@ -275,7 +275,14 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
     expect(intentResult.status).toBe('complete');
     if (intentResult.status !== 'complete') return;
 
-    const plan = compileTestPlan(intentResult.intent, profile);
+    const confirmedProfile = {
+      ...profile,
+      features: profile.features.map((feature) => ({
+        ...feature,
+        confirmed: intentResult.intent.features.includes(feature.name),
+      })),
+    };
+    const plan = compileTestPlan(intentResult.intent, confirmedProfile);
 
     expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
     expect(plan.runId).toMatch(
@@ -377,7 +384,7 @@ describe('Phase 2 integration: TestPlan → TUI formatting', () => {
       testability: 'device_backend',
       evidence: ['Source: LoginViewController.swift'],
       confidence: 0.8,
-      confirmed: false,
+      confirmed: true,
       displayOrder: 0,
     },
     {
@@ -387,7 +394,7 @@ describe('Phase 2 integration: TestPlan → TUI formatting', () => {
       testability: 'device_backend',
       evidence: ['Source: CheckoutViewController.swift'],
       confidence: 0.6,
-      confirmed: false,
+      confirmed: true,
       displayOrder: 1,
     },
   ]);
@@ -397,7 +404,14 @@ describe('Phase 2 integration: TestPlan → TUI formatting', () => {
     expect(intentResult.status).toBe('complete');
     if (intentResult.status !== 'complete') return;
 
-    const plan = compileTestPlan(intentResult.intent, profile);
+    const confirmedProfile = {
+      ...profile,
+      features: profile.features.map((feature) => ({
+        ...feature,
+        confirmed: intentResult.intent.features.includes(feature.name),
+      })),
+    };
+    const plan = compileTestPlan(intentResult.intent, confirmedProfile);
     const sections = formatPlanSections(plan);
 
     expect(sections).toHaveLength(7);
@@ -463,7 +477,14 @@ describe('Phase 2 integration: full S2→S3 pipeline', () => {
     expect(intentResult.status).toBe('complete');
     if (intentResult.status !== 'complete') return;
 
-    const plan = compileTestPlan(intentResult.intent, profile);
+    const confirmedProfile = {
+      ...profile,
+      features: profile.features.map((feature) => ({
+        ...feature,
+        confirmed: intentResult.intent.features.includes(feature.name),
+      })),
+    };
+    const plan = compileTestPlan(intentResult.intent, confirmedProfile);
     makeValidTestPlan(plan);
 
     // Verify pipeline continuity: plan references correct profile

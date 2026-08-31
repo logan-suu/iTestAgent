@@ -51,7 +51,24 @@ const SIMULATOR_DEVICE: DeviceInfo = {
 };
 
 const FAKE_ANALYSIS = {
-  profile: { schemaVersion: 'itestagent.project-profile.v1', project: { root: '/workspace' } },
+  profile: {
+    schemaVersion: 'itestagent.project-profile.v1',
+    projectHash: 'a'.repeat(64),
+    app: { name: 'Demo', workspace: '/workspace/Demo.xcworkspace', scheme: 'Demo' },
+    targets: [{ name: 'Demo', type: 'app' }],
+    testAssets: { hasXCUITest: false, hasScheme: true },
+    features: [
+      {
+        name: 'Login',
+        keywords: ['login', '登录'],
+        evidence: ['LoginViewController.swift'],
+        confidence: 0.8,
+        confirmed: false,
+        displayOrder: 0,
+      },
+    ],
+    suggestedSmoke: ['launch', 'Login'],
+  },
   analysis: {
     analysisTier: 'tier1_static',
     enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
@@ -78,9 +95,25 @@ function dependencies(overrides: Partial<AgentSessionDependencies> = {}): AgentS
   };
 }
 
+function confirmedFakeCandidates() {
+  return FAKE_ANALYSIS.profile.features.map((candidate) => ({
+    ...candidate,
+    keywords: [...candidate.keywords],
+    evidence: [...candidate.evidence],
+    confirmed: true,
+  }));
+}
+
 async function collectPatches(session: TuiAgentSession): Promise<TuiStatePatch[]> {
+  return collectMessagePatches(session, 'inspect the workspace');
+}
+
+async function collectMessagePatches(
+  session: TuiAgentSession,
+  input: string,
+): Promise<TuiStatePatch[]> {
   const patches: TuiStatePatch[] = [];
-  for await (const patch of session.processMessage('inspect the workspace')) patches.push(patch);
+  for await (const patch of session.processMessage(input)) patches.push(patch);
   return patches;
 }
 
@@ -88,6 +121,17 @@ function sdkTool(name: string): SdkTool {
   const tool = capturedStreamArgs?.tools[name];
   if (!tool) throw new Error(`SDK tool was not registered: ${name}`);
   return tool;
+}
+
+async function nextPatchOfType(
+  iterator: AsyncIterator<TuiStatePatch>,
+  type: TuiStatePatch['type'],
+): Promise<TuiStatePatch> {
+  for (;;) {
+    const next = await iterator.next();
+    if (next.done) throw new Error(`Patch stream ended before ${type}`);
+    if (next.value.type === type) return next.value;
+  }
 }
 
 beforeEach(async () => {
@@ -209,7 +253,7 @@ describe('AgentSession tools', () => {
     expect(output.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
   });
 
-  it('reports unwired downstream capabilities instead of fabricating success', async () => {
+  it('blocks TestPlan compilation until candidate confirmation', async () => {
     streamScenario = async function* (args) {
       try {
         await args.tools.compileTestPlan?.execute({}, { toolCallId: 'compile-1' });
@@ -221,8 +265,8 @@ describe('AgentSession tools', () => {
     const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
 
     expect((await iterator.next()).value?.type).toBe('devices_update');
-    const permission = await iterator.next();
-    expect(permission.value).toMatchObject({
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    expect(permission).toMatchObject({
       type: 'permission_request',
       payload: { callId: 'compile-1' },
     });
@@ -235,8 +279,7 @@ describe('AgentSession tools', () => {
       remaining.push(next.value);
     }
     const errorPatch = remaining.find((patch) => patch.type === 'error');
-    expect(errorPatch?.payload.message).toContain('capability_not_wired');
-    expect(errorPatch?.payload.message).toContain('task 6.3');
+    expect(errorPatch?.payload.message).toContain('candidate_confirmation_required');
   });
 });
 
@@ -248,8 +291,14 @@ describe('AgentSession streaming and permission bridge', () => {
     const session = await createAgentSession('/workspace', dependencies());
 
     const patches = await collectPatches(session);
-    expect(patches.map((patch) => patch.type)).toEqual(['devices_update', 'message_update']);
-    expect(patches[1]?.payload.text).toBe('Observed result');
+    expect(patches.map((patch) => patch.type)).toEqual([
+      'devices_update',
+      'intent_update',
+      'candidates_update',
+      'mode_change',
+      'message_update',
+    ]);
+    expect(patches.at(-1)?.payload.text).toBe('Observed result');
   });
 
   it('emits devices_update when getDeviceInfo refreshes discovery', async () => {
@@ -286,9 +335,8 @@ describe('AgentSession streaming and permission bridge', () => {
     const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
 
     expect((await iterator.next()).value?.type).toBe('devices_update');
-    const permission = await iterator.next();
-    expect(permission.value?.type).toBe('permission_request');
-    expect(permission.value?.payload.callId).toBe('permission-1');
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    expect(permission.payload.callId).toBe('permission-1');
 
     session.resolvePermission('permission-1', 'deny');
     const remaining: TuiStatePatch[] = [];
@@ -315,6 +363,55 @@ describe('AgentSession streaming and permission bridge', () => {
     expect(() => session.processMessage('second')).toThrow('already in progress');
     releaseStream?.();
     await first.next();
+  });
+});
+
+describe('AgentSession planning lifecycle', () => {
+  it('preserves a confirmed plan across ordinary chat and replaces it only via /plan', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    const confirmPatches = session.confirmPlan();
+    expect(confirmPatches.find((patch) => patch.type === 'message_add')?.payload.text).toContain(
+      '/plan <test goal>',
+    );
+    const runId = session.getConfirmedPlan()?.runId;
+
+    const chatPatches = await collectMessagePatches(session, '解释一下刚才的计划');
+    expect(chatPatches.some((patch) => patch.type === 'intent_update')).toBe(false);
+    expect(chatPatches.some((patch) => patch.type === 'candidates_update')).toBe(false);
+    expect(session.getConfirmedPlan()?.runId).toBe(runId);
+
+    const newPlanPatches = await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    expect(newPlanPatches.some((patch) => patch.type === 'candidates_update')).toBe(true);
+    expect(session.getConfirmedPlan()).toBeNull();
+  });
+
+  it('keeps cancellation terminal until an explicit /plan command starts a new cycle', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+    const reviewed = confirmedFakeCandidates();
+    session.confirmCandidates(reviewed);
+    const cancelPatches = session.cancelPlan();
+    expect(cancelPatches.find((patch) => patch.type === 'message_add')?.payload.text).toContain(
+      '/plan <test goal>',
+    );
+
+    await collectMessagePatches(session, '为什么取消了？');
+    expect(() => session.confirmCandidates(reviewed)).toThrow('invalid_transition');
+
+    const newPlanPatches = await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    expect(newPlanPatches.some((patch) => patch.type === 'candidates_update')).toBe(true);
+  });
+
+  it('requires a goal after the explicit /plan command', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+
+    const patches = await collectMessagePatches(session, '/plan');
+    expect(patches.find((patch) => patch.type === 'error')?.payload.message).toContain(
+      'planning_goal_required',
+    );
   });
 });
 

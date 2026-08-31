@@ -120,6 +120,7 @@ export type TuiShellEvent =
   | { readonly type: 'input'; readonly text: string }
   | { readonly type: 'submit' }
   | { readonly type: 'quit' }
+  | { readonly type: 'planning_reset' }
   | { readonly type: 'system_message'; readonly text: string }
   | { readonly type: 'device_status_updated'; readonly status: DeviceStatus }
   // Candidate review events (US-3.3 AC2)
@@ -134,6 +135,7 @@ export type TuiShellEvent =
   | { readonly type: 'candidate_edit_cancel' }
   | { readonly type: 'candidate_confirm_all' }
   | { readonly type: 'candidate_unconfirm_all' }
+  | { readonly type: 'candidate_confirm' }
   // Assertion review events (US-11.1 AC4)
   | { readonly type: 'enter_assertion_review'; readonly suggestions: readonly UserAssertion[] }
   | { readonly type: 'exit_assertion_review' }
@@ -323,6 +325,22 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
     case 'quit':
       return { ...state, running: false };
 
+    case 'planning_reset':
+      return {
+        ...state,
+        mode: 'chat',
+        currentIntent: null,
+        candidates: [],
+        candidateIndex: 0,
+        candidateEditMode: false,
+        candidateEditDraft: '',
+        plan: null,
+        planSectionIndex: 0,
+        planModifyMode: false,
+        planModifyDraft: '',
+        planConfirmed: false,
+      };
+
     // ── Candidate review events (US-3.3 AC2) ───────────────────────
 
     case 'enter_candidate_review':
@@ -412,6 +430,9 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       const updated = unconfirmAllCandidates(state.candidates as CandidateLink[]);
       return { ...state, candidates: updated };
     }
+
+    case 'candidate_confirm':
+      return state;
 
     // ── Assertion review events (US-11.1 AC4) ─────────────────────
 
