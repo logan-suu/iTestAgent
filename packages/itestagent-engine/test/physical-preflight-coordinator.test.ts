@@ -193,4 +193,22 @@ describe('physical preflight coordinator', () => {
       expect(result.failure.code).toBe('wda_route_not_selected');
     }
   });
+
+  test('does not start installation after cancellation during inventory', async () => {
+    const controller = new AbortController();
+    const { deps, calls } = makeDeps({
+      isAppInstalled: async () => {
+        controller.abort(new Error('run cancelled'));
+        return false;
+      },
+    });
+
+    const result = await createPhysicalPreflightCoordinator(deps).run({
+      ...input,
+      signal: controller.signal,
+    });
+
+    expect(result.status).toBe('cancelled');
+    expect(calls).toEqual([]);
+  });
 });

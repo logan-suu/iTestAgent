@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-01T06:13:06Z",
+  "last_updated": "2026-09-01T07:14:04Z",
   "items": [
     {
       "id": "DEF-001",
@@ -597,7 +597,7 @@
       "task": "6.4",
       "severity": "major",
       "item": "Physical preflight accepts AbortSignal but production devicectl and permission wiring do not propagate cancellation",
-      "detail": "Self-review of T6.4 found that PhysicalPreflightCoordinatorDeps exposes AbortSignal for healthcheck, inventory, install, launch, WDA probe, and preparation, but createPhysicalPreflightDeps currently drops the signal for devicectl inventory/install/launch and requestPermission has no coupled cancellation callback. An aborted run can therefore leave a CoreDevice subprocess or permission ask active after the coordinator caller stops waiting. Fixing this safely requires extending the shared devicectl subprocess seam with AbortSignal-driven child termination and coupling PermissionEngine.cancel(callId, reason) to the same signal, then exercising the complete session/rerun teardown path. This is intentionally deferred to T6.10, whose assigned scope explicitly owns abort and redaction reliability; T6.4 has no production caller yet and must not claim abort completion. Next step: T6.10 should propagate one AbortSignal through coordinator, devicectl/Appium/WDA child processes and pending permission asks, verify cleanup on a real device, then mark this item resolved without deleting it.",
+      "detail": "PR #73 review remediation now checks AbortSignal between every coordinator stage, propagates it into devicectl inventory/install/launch subprocesses with SIGTERM, and couples pending PermissionEngine asks to cancellation. Real-device revalidation now proves Route B observes runtime WDA identity from /status, returns fail-closed about 0.9 seconds after an abort issued during readiness, and leaves no WDA xcodebuild or iproxy process. Route C returns about 8.5 seconds after the same abort, then spends about 15 seconds in guarded cleanup and still leaves an Appium-owned xcodebuild that requires exact-PID termination; normal Route C session deletion also leaves that child. The remaining gap is therefore narrowed to end-to-end cancellation and ownership of in-flight Appium/WebDriverIO and Route C xcodebuild work, plus coordinator-level final cancellation classification. This remains assigned to T6.10. ADR-028 now records Route B as the current candidate preference and Route C as an explicit diagnostic route, while keeping the final production-default decision partial. T6.10 must close the Route C child-ownership gap and rerun the complete production abort chain before resolving this item; do not delete it.",
       "target_phase": 6,
       "status": "open",
       "resolved_by": null,

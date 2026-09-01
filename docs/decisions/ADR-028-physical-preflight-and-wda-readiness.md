@@ -4,9 +4,9 @@
 **日期**：2026-08-31
 **决策者**：Logan Su + Codex（规格评审确认）
 **关联任务**：T6.4
-**关联条目**：DEF-031
+**关联条目**：DEF-031、DEF-033
 
-> **2026-09-01 G5 Update**：同一台 iPhone 14 Plus 上，Route B 与 Route C 均完成 WDA active readiness、Appium session、UI tree、截图、Home 动作与清理验证。Route C 无独立 tunnel，清理边界更简单，选为 production default；Route B 保留为显式优化路线且不得静默 fallback。Route B 的交互式 xcodebuild 中断仍会触发系统授权提示，需由 subprocess controller 强制回收。DEF-031 已由“inventory fail-closed → active probe ready”的真机证据关闭。用户完成 Xcode Accounts 登录并自行释放免费开发者 App 名额后，IntegrationApp 也完成签名归一化、首次安装、inventory 复核与启动 G5。
+> **2026-09-01 G5 Update**：同一台真机上，Route B 与 Route C 均完成 WDA active readiness、Appium session、UI tree、截图、Home 动作与常规清理验证。PR review 修复后又完成 identity/abort 复验：Route B 从活动 WDA `/status` 观测 runtime build identity，正常与 abort 清理均无残留；Route C 正常与 abort 后均可见 Appium-owned `xcodebuild` 残留，其中 abort 在发出约 8.5 秒后才返回，残留进程需按精确 PID 手工回收。基于当前证据，Route B 改为当前候选偏好，Route C 保留为显式诊断路线；在 DEF-033 完成 in-flight Appium cancellation、child ownership 和最终两路线清理 G5 前，路线对比保持 partial，不得宣称已确定最终 production default，也不得静默 fallback。DEF-031 已由“inventory fail-closed → active probe ready”的真机证据关闭。用户完成 Xcode Accounts 登录并自行释放免费开发者 App 名额后，IntegrationApp 也完成签名归一化、首次安装、inventory 复核与启动 G5。
 
 ## 背景
 
@@ -40,7 +40,7 @@ Route B 与 Route C 都保留为显式候选。T6.4 在当前真实 iPhone 环�
 
 ### 1. WDA readiness 必须由主动探测证明
 
-```
+```text
 installed != ready
 
 ready = route-specific launch/session succeeds
@@ -57,8 +57,8 @@ ready = route-specific launch/session succeeds
 
 - Route B：iTestAgent/WdaManager 拥有 WDA build/install/launch，拥有其启动的 `iproxy`，Appium 仅通过 `webDriverAgentUrl` 建立 WebDriver session。
 - Route C：Appium 通过 `managed-xcodebuild` 和 `allowProvisioningDeviceRegistration` 管理每次 WDA 启动；iTestAgent 仍负责前置诊断、错误分类和用户确认。
-- 两条路线使用相同验收：WDA active probe、Appium session、UI tree、截图、动作、清理和 abort。
-- T6.4 的 G5 报告必须记录环境、命令/配置、失败分类、资源所有权、证据路径和最终默认路线。没有该报告时，选择结果为 `inconclusive`，不得静默 fallback。
+- 两条路线使用相同验收：WDA active probe、Appium session、UI tree、截图、动作、清理和 abort。任一路线缺少 abort 证据时，对比结论只能是 partial。
+- T6.4 的 G5 报告必须记录环境、命令/配置、失败分类、资源所有权、证据路径和候选偏好；最终 production default 只能在 DEF-033 与两路线 abort G5 完成后确定。不得静默 fallback。
 
 ### 3. AppSource 必须归一化并验证
 
@@ -77,7 +77,7 @@ ready = route-specific launch/session succeeds
 ### 5. 任务所有权
 
 - T6.4 独占 AppSource、physical build/install/launch、WDA active readiness、自愈与 DEF-031 的实现和 G5 责任。
-- T6.10 只验证 T6.4 已建立的门禁在完整 session/rerun/abort/redaction 链中不回归，不重复实现或关闭 DEF-031。
+- T6.10 完成 DEF-033、两路线 abort G5 与最终 production default 收口，并验证 T6.4 已建立的其他门禁在完整 session/rerun/redaction 链中不回归；不重复实现或关闭 DEF-031。
 
 ## 后果
 
@@ -97,7 +97,7 @@ ready = route-specific launch/session succeeds
 ## 验证要求
 
 1. 自动化契约测试覆盖 AppSource 优先级、`.ipa` 归一化、兼容性失败、R7 拒绝和 readiness fail-closed。
-2. 真实 iPhone 分别验证 Route B、Route C；若某路线环境依赖缺失，报告必须标记 blocked/inconclusive。
+2. 真实 iPhone 分别验证 Route B、Route C，包括正常路径与 abort 清理；若某路线环境依赖或 abort 证据缺失，报告必须标记 partial/blocked/inconclusive。
 3. 用可用 WDA 与不可用/过期 WDA 状态证明主动探测不会把“已安装但不可用”判为 ready。
 4. 验证重签/重装后重新探测成功，并保留脱敏证据。
 5. DEF-031 在实现、自动化测试和 G5 全部完成前保持 open。

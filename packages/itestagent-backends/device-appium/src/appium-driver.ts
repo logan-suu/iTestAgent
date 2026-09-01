@@ -46,8 +46,10 @@ export class AppiumDriverError extends Error {
 export interface AppiumSession {
   /** Appium session ID (opaque string from server). */
   sessionId: string;
-  /** WDA bundle ID used for this session. */
-  wdaBundleId: string;
+  /** Device UDID observed in the Appium session response. */
+  deviceUdid?: string;
+  /** WDA bundle ID observed in the Appium session response. */
+  wdaBundleId?: string;
 }
 
 // ─── Capabilities ───────────────────────────────────────────────────────

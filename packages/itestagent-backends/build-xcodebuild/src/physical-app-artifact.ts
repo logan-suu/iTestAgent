@@ -21,6 +21,9 @@ export interface NormalizePhysicalAppArtifactInput {
   run: XcodebuildProcessRunner;
 }
 
+const MAX_IPA_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_IPA_EXPANSION_RATIO = 200;
+
 function fail(code: PhysicalPreflightFailureCode, message: string): never {
   throw new PhysicalAppArtifactError(code, message);
 }
@@ -56,6 +59,33 @@ function validateArchiveEntries(raw: string): void {
 function validateArchiveMetadata(raw: string): void {
   if (raw.split(/\r?\n/u).some((line) => /^\s*l[rwx-]{9}\s/u.test(line))) {
     fail('ipa_unsafe_entry', 'The IPA contains a symbolic-link entry.');
+  }
+}
+
+function validateArchiveExpansion(raw: string): void {
+  const match = raw.match(/(\d+)\s+bytes uncompressed,\s+(\d+)\s+bytes compressed/iu);
+  if (!match) {
+    fail('ipa_payload_invalid', 'Could not determine the IPA expansion size safely.');
+  }
+  const uncompressedBytes = Number(match[1]);
+  const compressedBytes = Number(match[2]);
+  if (!Number.isSafeInteger(uncompressedBytes) || !Number.isSafeInteger(compressedBytes)) {
+    fail('ipa_payload_invalid', 'The IPA expansion size exceeds supported numeric limits.');
+  }
+  if (uncompressedBytes > MAX_IPA_UNCOMPRESSED_BYTES) {
+    fail(
+      'ipa_payload_invalid',
+      `The IPA expands to ${uncompressedBytes} bytes, exceeding the ${MAX_IPA_UNCOMPRESSED_BYTES}-byte safety limit.`,
+    );
+  }
+  if (
+    uncompressedBytes > 0 &&
+    (compressedBytes === 0 || uncompressedBytes / compressedBytes > MAX_IPA_EXPANSION_RATIO)
+  ) {
+    fail(
+      'ipa_payload_invalid',
+      `The IPA expansion ratio exceeds the ${MAX_IPA_EXPANSION_RATIO}:1 safety limit.`,
+    );
   }
 }
 
@@ -153,6 +183,14 @@ export async function normalizePhysicalAppArtifact(
       'Could not inspect the IPA archive',
     );
     validateArchiveEntries(archiveEntries);
+    const archiveExpansion = await runRequired(
+      input.run,
+      '/usr/bin/zipinfo',
+      ['-t', sourcePath],
+      'ipa_payload_invalid',
+      'Could not inspect IPA expansion size',
+    );
+    validateArchiveExpansion(archiveExpansion);
     const archiveMetadata = await runRequired(
       input.run,
       '/usr/bin/zipinfo',

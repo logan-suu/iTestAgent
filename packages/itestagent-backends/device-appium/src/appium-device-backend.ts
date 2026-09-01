@@ -44,7 +44,12 @@ import type {
   WdaReadinessProbe,
 } from 'itestagent-contracts';
 
-import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
+import type {
+  AppiumDriver,
+  AppiumPoint,
+  AppiumScreenSize,
+  AppiumSession,
+} from './appium-driver.js';
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -94,6 +99,11 @@ function isElementLookupError(error: unknown): boolean {
 // ─── Types ────────────────────────────────────────────────────────────────
 
 /** Options for AppiumDeviceBackend construction. */
+export type WdaStatusFetchFn = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
 export interface AppiumDeviceBackendOptions {
   /** Device UDID (required). */
   udid: string;
@@ -117,6 +127,8 @@ export interface AppiumDeviceBackendOptions {
    * Required when wdaStartupMode is 'external-url'.
    */
   webDriverAgentUrl?: string;
+  /** HTTP transport for Route B WDA status identity observation. */
+  wdaStatusFetch?: WdaStatusFetchFn;
   /**
    * USB tunnel manager for real devices (G5 spike recipe): WDA listens on the
    * device's localhost only, so Route B needs `iproxy` before waitForReady can
@@ -224,6 +236,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       | 'derivedDataPath'
       | 'wdaManager'
       | 'webDriverAgentUrl'
+      | 'wdaStatusFetch'
       | 'wdaProjectPath'
       | 'xcodeOrgId'
       | 'xcodeSigningId'
@@ -245,13 +258,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private driver: AppiumDriver;
   private readonly wdaManager: WdaManager | undefined;
   private readonly iproxyTunnel: IProxyTunnel | undefined;
+  private readonly wdaStatusFetch: WdaStatusFetchFn;
   private sessionActive = false;
+  private activeSession: AppiumSession | null = null;
   private sessionMutex: Promise<void> | null = null;
   private screenSize: AppiumScreenSize | null = null;
 
   constructor(driver: AppiumDriver, options: AppiumDeviceBackendOptions) {
     this.logger = createRedactingLogger('AppiumDeviceBackend');
     this.driver = driver;
+    this.wdaStatusFetch = options.wdaStatusFetch ?? globalThis.fetch;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
     this.iproxyTunnel = options.iproxyTunnel;
@@ -334,7 +350,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         caps = await this.buildPhysicalCaps();
       }
 
-      await this.driver.createSession(caps);
+      this.activeSession = await this.driver.createSession(caps);
       this.sessionActive = true;
 
       this.screenSize = await this.driver.getScreenSize();
@@ -349,6 +365,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
           // Best-effort — the server may have already dropped it
         }
         this.sessionActive = false;
+        this.activeSession = null;
         this.screenSize = null;
       }
       // Clean up WDA if it was started during this attempt (external-url mode)
@@ -477,6 +494,10 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: '', // Configured per-deployment via WdaManager
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        teamId: this.opts.xcodeOrgId,
+        codeSignIdentity: this.opts.xcodeSigningId,
+        derivedDataPath: this.opts.derivedDataPath,
+        productBundleIdentifier: this.opts.wdaBundleId,
       });
     }
 
@@ -514,6 +535,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        derivedDataPath: this.opts.derivedDataPath,
+        productBundleIdentifier: this.opts.wdaBundleId,
       });
     }
 
@@ -563,6 +586,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         // Best-effort cleanup — don't throw on delete failure
       }
       this.sessionActive = false;
+      this.activeSession = null;
       this.screenSize = null;
     }
 
@@ -648,7 +672,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * Prove physical WDA readiness through the configured Route B/C session.
    * Installed-app inventory is deliberately insufficient (ADR-028 / DEF-031).
    */
-  async probePhysicalReadiness(): Promise<WdaReadinessProbe> {
+  async probePhysicalReadiness(signal?: AbortSignal): Promise<WdaReadinessProbe> {
+    signal?.throwIfAborted();
     if (this.targetKind !== 'physical') {
       throw new Error('Physical WDA readiness cannot be probed for a simulator backend.');
     }
@@ -663,14 +688,43 @@ export class AppiumDeviceBackend implements DeviceBackend {
     const startedAt = Date.now();
     try {
       await this.ensureSession();
+      if (signal?.aborted) {
+        await this.closeSession();
+        signal.throwIfAborted();
+      }
+      const expectedWdaBundleId = this.opts.wdaBundleId.endsWith('.xctrunner')
+        ? this.opts.wdaBundleId
+        : `${this.opts.wdaBundleId}.xctrunner`;
+      const observedWdaBaseBundleId =
+        this.wdaStartupMode === 'external-url'
+          ? await this.observeExternalWdaBundleId(signal)
+          : this.activeSession?.wdaBundleId;
+      const observedWdaBundleId = observedWdaBaseBundleId?.endsWith('.xctrunner')
+        ? observedWdaBaseBundleId
+        : observedWdaBaseBundleId
+          ? `${observedWdaBaseBundleId}.xctrunner`
+          : undefined;
+      if (
+        this.activeSession?.deviceUdid !== this.opts.udid ||
+        observedWdaBundleId !== expectedWdaBundleId
+      ) {
+        return {
+          route,
+          stage: 'wda_status',
+          ready: false,
+          targetDeviceUdid: this.activeSession?.deviceUdid ?? 'unobserved',
+          targetWdaBundleId: observedWdaBundleId ?? 'unobserved',
+          waitedMs: Date.now() - startedAt,
+          failureCode: 'wda_identity_mismatch',
+          details: 'The active route did not report the expected device and WDA bundle identities.',
+        };
+      }
       return {
         route,
         stage: 'ready',
         ready: true,
-        targetDeviceUdid: this.opts.udid,
-        targetWdaBundleId: this.opts.wdaBundleId.endsWith('.xctrunner')
-          ? this.opts.wdaBundleId
-          : `${this.opts.wdaBundleId}.xctrunner`,
+        targetDeviceUdid: this.activeSession.deviceUdid,
+        targetWdaBundleId: observedWdaBundleId,
         waitedMs: Date.now() - startedAt,
       };
     } catch (error) {
@@ -709,6 +763,30 @@ export class AppiumDeviceBackend implements DeviceBackend {
         details: message,
       };
     }
+  }
+
+  /**
+   * Route B bypasses Appium's WDA startup, so returned Appium capabilities do
+   * not reliably contain updatedWDABundleId. Observe the identity from the
+   * active WDA endpoint instead of treating the requested capability as fact.
+   */
+  private async observeExternalWdaBundleId(signal?: AbortSignal): Promise<string | undefined> {
+    const endpoint = new URL(
+      this.opts.webDriverAgentUrl ?? `http://127.0.0.1:${this.opts.wdaLocalPort}`,
+    );
+    endpoint.pathname = `${endpoint.pathname.replace(/\/$/u, '')}/status`;
+    const timeout = AbortSignal.timeout(5_000);
+    const response = await this.wdaStatusFetch(endpoint, {
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    if (!response.ok) {
+      throw new Error(`WDA status identity probe returned HTTP ${response.status}`);
+    }
+    const body = (await response.json()) as {
+      value?: { build?: { productBundleIdentifier?: unknown } };
+    };
+    const bundleId = body.value?.build?.productBundleIdentifier;
+    return typeof bundleId === 'string' && bundleId.length > 0 ? bundleId : undefined;
   }
 
   private async physicalHealthcheck(

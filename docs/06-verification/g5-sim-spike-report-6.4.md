@@ -32,11 +32,11 @@
 - WDA 已安装清单只证明 `installed`；`ready` 必须来自绑定目标 UDID、WDA bundle ID 与显式路线的活动 Appium session/status 等价探针。
 - WDA 修复后必须重新执行活动探针，不能沿用修复前结果。
 - `bun run typecheck`：通过。
-- `bun run lint`：通过，799 files checked。
-- T6.4 定向契约、backend、engine 与 Phase 6 集成测试最终复验：258 pass / 0 fail。
+- `bun run lint`：通过，800 files checked。
+- T6.4 定向契约、backend、engine 与 Phase 6 相关用例均通过。
 - `git diff --check`：通过。
 
-受限沙箱内首次全库测试曾因 Keychain、默认 `~/.itestagent`、CoreDevice 与本地端口隔离出现 29 个环境失败；按提交门禁在真实本机环境重跑后得到 3420 pass / 13 skip / 0 fail（321 files），确认这些失败不属于产品回归。
+受限沙箱内测试曾因 Keychain、默认 `~/.itestagent`、CoreDevice 与本地端口隔离出现环境失败；按提交门禁在真实本机环境重跑后得到 3430 pass / 13 skip / 0 fail（322 files），确认这些失败不属于产品回归。
 
 ## 真实 iPhone WDA G5
 
@@ -62,7 +62,19 @@ Route C 在用户明确确认可能发生 WDA 重建、重签和覆盖安装后�
 
 ### 路线结论
 
-当前环境将 **Route C 选为 production default**，Route B 保留为显式优化路线，不允许静默 fallback。理由：两者功能结果相同；Route C 不依赖独立 `iproxy`，session 删除即可完成主要生命周期清理；Route B 的 xcodebuild 在交互式中断时仍出现系统授权提示，需要 subprocess controller 强制回收。Route B 在已准备好 WDA 时启动更快，待其非交互清理/abort 证据稳定后可重新评审优先级。
+初次正常路径验证曾将 Route C 记为候选偏好，依据是它不依赖独立 `iproxy`。PR review 后的 identity/abort 复验证明该依据不完整：Route C 会遗留 Appium-owned `xcodebuild`，而 Route B 正常与 abort 清理均无残留。因此当前候选偏好改为 **Route B**，Route C 保留为显式诊断路线，不允许静默 fallback。路线对比仍为 **partial**；必须在 DEF-033/T6.10 完成 Route C in-flight cancellation 与 child ownership 后，才能确定最终 production default。
+
+### PR review 修复后真机复验
+
+2026-09-01 对 PR review 修复重新执行同设备 Route B/C readiness 与 abort 探针，设备标识、Team ID 和 WDA bundle ID 仍不写入报告：
+
+- Route B 首次复验揭示 Appium external-url session 不回传 `updatedWDABundleId`，仅依赖 Appium capabilities 会把可用 WDA 误判为 `unobserved`。实现改为从活动 WDA `/status.build.productBundleIdentifier` 观测 build identity，并在 `WdaManager.launch()` 向 XCTest runtime 传递与 build-for-testing 相同的 `WDA_PRODUCT_BUNDLE_IDENTIFIER`、签名和 DerivedData 设置。
+- Route B 使用同一可追溯产物完成重建、覆盖安装、启动、临时 `iproxy`、Appium session 与 identity probe；最终 `ready=true`，活动 probe 约 1.0 秒，完整启动后验证约 6.1 秒。常规清理后没有残留 WDA xcodebuild、Appium session 或 tunnel。
+- Route C 使用当前有效 Personal Team 重新验证，Appium session 返回的设备与 WDA identity 均匹配，`ready=true`，活动 probe 约 28.4 秒。但 session 删除成功后 Appium-owned `xcodebuild` 仍继续存活，已按本轮精确 PID 手工回收。
+- Route B 在 probe 开始 100 ms 后触发 abort，约 0.9 秒后 fail-closed 返回，随后检查没有残留 xcodebuild 或 tunnel。
+- Route C 在 probe 开始 100 ms 后触发 abort，约 8.5 秒后才返回，cleanup guard 又等待约 15 秒，Appium-owned `xcodebuild` 仍存活并需按本轮精确 PID 手工回收。
+
+因此此次复验关闭了 Route B URL 接线、runtime WDA identity 观测和正常清理的不确定性，也获得 Route B abort 的正向证据；同时以真机证据确认 Route C 的 in-flight Appium cancellation 与 child-process ownership 仍未闭合。DEF-033 必须继续保持 open，路线对比仍为 **partial**，不得把 Route B 候选偏好升级为最终默认。
 
 ## App 构建/安装 G5
 
@@ -85,8 +97,8 @@ Route C 在用户明确确认可能发生 WDA 重建、重签和覆盖安装后�
 
 ## Verify 结论
 
-App 与 WDA 两条真机主链路均已获得同设备主动 G5 证据：App 完成有效产物归一化、首次安装、inventory 复核和启动；WDA Route B/C 均完成主动 readiness、Appium session、UI source、截图、动作和清理。免费账号 App 数量上限的包装错误已转化为可操作且不自动卸载的诊断。后续若再次安装当前目标，因为 inventory 已显示其存在，必须在覆盖前重新取得 R7 确认。
+App 与 WDA 两条正常真机主链路均已获得同设备主动 G5 证据：App 完成有效产物归一化、首次安装、inventory 复核和启动；WDA Route B/C 均完成主动 readiness、Appium session、UI source、截图、动作和常规清理。免费账号 App 数量上限的包装错误已转化为可操作且不自动卸载的诊断。两路线 abort 证据仍由 DEF-033/T6.10 收口，因此本报告不宣称最终默认路线。后续若再次安装当前目标，因为 inventory 已显示其存在，必须在覆盖前重新取得 R7 确认。
 
-最终自动化复验：T6.4 相关 13 个测试文件共 258 pass / 0 fail，全库 3420 pass / 13 skip / 0 fail；`bun run typecheck`、`bun run lint` 与 `git diff --check` 均通过。
+最终自动化复验：T6.4 相关定向用例均通过；全库 3430 pass / 13 skip / 0 fail；`bun run typecheck`、`bun run lint` 与 `git diff --check` 均通过。
 
-DEF-031 的 installed-vs-ready 缺陷已有实现、自动化测试和同设备 Route B/C 主动 G5 证据，已关闭为 `resolved`。T6.4 的实现与 Verify 已完成；按任务状态机继续保持 `in_progress`，等待 `$commit-pr-itest` 创建 PR，不能由 Agent 直接标记 `done`。
+DEF-031 的 installed-vs-ready 缺陷已有实现、自动化测试和同设备 Route B/C 主动 G5 证据，已关闭为 `resolved`。T6.4 正常路径的实现与 Verify 已完成；路线对比因 DEF-033/two-route abort 证据仍为 partial，任务继续保持 `in_progress`，不能据此宣称最终 production default 或直接标记 `done`。

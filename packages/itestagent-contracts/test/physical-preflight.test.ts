@@ -117,4 +117,18 @@ describe('PhysicalPreflightResultSchema', () => {
       }),
     ).toThrow();
   });
+
+  test('rejects a cancelled failure code inside a blocked result', () => {
+    expect(() =>
+      PhysicalPreflightResultSchema.parse({
+        status: 'blocked',
+        stage: 'permission',
+        failure: {
+          code: 'cancelled',
+          stage: 'permission',
+          message: 'The operation was cancelled.',
+        },
+      }),
+    ).toThrow();
+  });
 });

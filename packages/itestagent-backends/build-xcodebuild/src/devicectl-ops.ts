@@ -37,14 +37,30 @@ export interface DevicectlAppInstallState extends DevicectlResult {
 /** Injectable dependencies for devicectl operations. */
 export interface DevicectlDeps {
   spawnSync: SpawnSyncFn;
-  spawnAsync: SpawnAsyncFn;
+  spawnAsync: DevicectlSpawnAsyncFn;
 }
+
+export type DevicectlSpawnAsyncFn = (
+  cmd: string,
+  args: string[],
+  cwd?: string,
+  signal?: AbortSignal,
+) => ReturnType<SpawnAsyncFn>;
 
 /** Object returned by createDevicectlOps. */
 export interface DevicectlOps {
-  isAppInstalled(udid: string, bundleId: string): Promise<DevicectlAppInstallState>;
-  installApp(udid: string, appPath: string): Promise<DevicectlResult>;
-  launchApp(udid: string, bundleId: string, launchArgs?: string[]): Promise<DevicectlResult>;
+  isAppInstalled(
+    udid: string,
+    bundleId: string,
+    signal?: AbortSignal,
+  ): Promise<DevicectlAppInstallState>;
+  installApp(udid: string, appPath: string, signal?: AbortSignal): Promise<DevicectlResult>;
+  launchApp(
+    udid: string,
+    bundleId: string,
+    launchArgs?: string[],
+    signal?: AbortSignal,
+  ): Promise<DevicectlResult>;
   terminateApp(udid: string, bundleId: string): Promise<DevicectlResult>;
   openDeepLink(udid: string, bundleId: string, url: string): Promise<DevicectlResult>;
 }
@@ -71,12 +87,15 @@ const defaultSpawnSync: SpawnSyncFn = (cmd, args, cwd) => {
 };
 
 /** Default asynchronous spawn using Bun.spawn. */
-const defaultSpawnAsync: SpawnAsyncFn = async (cmd, args, cwd) => {
+const defaultSpawnAsync: DevicectlSpawnAsyncFn = async (cmd, args, cwd, signal) => {
   try {
+    signal?.throwIfAborted();
     const proc = Bun.spawn([cmd, ...args], {
       cwd,
       stdout: 'pipe',
       stderr: 'pipe',
+      signal,
+      killSignal: 'SIGTERM',
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -88,7 +107,8 @@ const defaultSpawnAsync: SpawnAsyncFn = async (cmd, args, cwd) => {
       stdout: stdout.trim(),
       stderr: stderr.trim(),
     };
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
     return { exitCode: -1, stdout: '', stderr: `command not found: ${cmd}` };
   }
 };
@@ -189,20 +209,20 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
   const spawnSync = deps?.spawnSync ?? defaultSpawnSync;
   const spawnAsync = deps?.spawnAsync ?? defaultSpawnAsync;
 
-  async function isAppInstalled(udid: string, bundleId: string): Promise<DevicectlAppInstallState> {
+  async function isAppInstalled(
+    udid: string,
+    bundleId: string,
+    signal?: AbortSignal,
+  ): Promise<DevicectlAppInstallState> {
     const outputDir = mkdtempSync(join(tmpdir(), 'itestagent-devicectl-apps-'));
     const outputPath = join(outputDir, 'apps.json');
     try {
-      const result = await spawnAsync('xcrun', [
-        'devicectl',
-        'device',
-        'info',
-        'apps',
-        '--device',
-        udid,
-        '--json-output',
-        outputPath,
-      ]);
+      const result = await spawnAsync(
+        'xcrun',
+        ['devicectl', 'device', 'info', 'apps', '--device', udid, '--json-output', outputPath],
+        undefined,
+        signal,
+      );
       if (result.exitCode !== 0) {
         return {
           success: false,
@@ -247,16 +267,17 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
    *
    * Command: xcrun devicectl device install app --device <UDID> <appPath>
    */
-  async function installApp(udid: string, appPath: string): Promise<DevicectlResult> {
-    const result = await spawnAsync('xcrun', [
-      'devicectl',
-      'device',
-      'install',
-      'app',
-      '--device',
-      udid,
-      appPath,
-    ]);
+  async function installApp(
+    udid: string,
+    appPath: string,
+    signal?: AbortSignal,
+  ): Promise<DevicectlResult> {
+    const result = await spawnAsync(
+      'xcrun',
+      ['devicectl', 'device', 'install', 'app', '--device', udid, appPath],
+      undefined,
+      signal,
+    );
 
     if (result.exitCode !== 0) {
       return {
@@ -283,6 +304,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
     udid: string,
     bundleId: string,
     launchArgs?: string[],
+    signal?: AbortSignal,
   ): Promise<DevicectlResult> {
     const args: string[] = ['devicectl', 'device', 'process', 'launch', '--device', udid, bundleId];
 
@@ -291,7 +313,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
       args.push('--args', ...launchArgs);
     }
 
-    const result = await spawnAsync('xcrun', args);
+    const result = await spawnAsync('xcrun', args, undefined, signal);
 
     if (result.exitCode !== 0) {
       return {

@@ -80,6 +80,14 @@ export interface WdaLaunchOptions {
   wdaPort?: number;
   /** Minimum iOS deployment target. */
   deploymentTarget?: string;
+  /** Match the DEVELOPMENT_TEAM used by build-for-testing. */
+  teamId?: string;
+  /** Match the CODE_SIGN_IDENTITY used by build-for-testing. */
+  codeSignIdentity?: string;
+  /** Match the custom DerivedData directory used by build-for-testing. */
+  derivedDataPath?: string;
+  /** Match the base PRODUCT_BUNDLE_IDENTIFIER used by build-for-testing. */
+  productBundleIdentifier?: string;
   /** AbortSignal for cancelling the WDA launch subprocess. */
   signal?: AbortSignal;
 }
@@ -240,6 +248,7 @@ export class WdaManager {
         );
       }
       args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+      args.push(`WDA_PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
     }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
@@ -315,6 +324,21 @@ export class WdaManager {
       `id=${options.udid}`,
       `IPHONEOS_DEPLOYMENT_TARGET=${target}`,
     ];
+
+    if (options.teamId) args.push(`DEVELOPMENT_TEAM=${options.teamId}`);
+    if (options.codeSignIdentity) args.push(`CODE_SIGN_IDENTITY=${options.codeSignIdentity}`);
+    if (options.productBundleIdentifier) {
+      if (options.productBundleIdentifier.endsWith('.xctrunner')) {
+        throw new Error(
+          `productBundleIdentifier must be base ID (no .xctrunner), got: ${options.productBundleIdentifier}`,
+        );
+      }
+      args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+      args.push(`WDA_PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+    }
+    if (options.derivedDataPath) {
+      args.push('-derivedDataPath', options.derivedDataPath);
+    }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',

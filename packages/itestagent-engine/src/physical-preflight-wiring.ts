@@ -7,7 +7,7 @@ import type { PhysicalPreflightCoordinatorDeps } from './physical-preflight-coor
 export interface PhysicalPreflightWiringInput {
   deviceBackend: Pick<AppiumDeviceBackend, 'healthcheck' | 'probePhysicalReadiness'>;
   devicectl: Pick<DevicectlOps, 'isAppInstalled' | 'installApp' | 'launchApp'>;
-  permissionEngine: Pick<PermissionEngine, 'requestPermission'>;
+  permissionEngine: Pick<PermissionEngine, 'requestPermission' | 'cancel'>;
   prepareWda?(
     route: PhysicalRoute,
     signal?: AbortSignal,
@@ -24,19 +24,37 @@ export function createPhysicalPreflightDeps(
 ): PhysicalPreflightCoordinatorDeps {
   return {
     healthcheck: (deviceUdid, signal) => input.deviceBackend.healthcheck(deviceUdid, signal),
-    isAppInstalled: async (deviceUdid, bundleId) => {
-      const state = await input.devicectl.isAppInstalled(deviceUdid, bundleId);
+    isAppInstalled: async (deviceUdid, bundleId, signal) => {
+      signal?.throwIfAborted();
+      const state = await input.devicectl.isAppInstalled(deviceUdid, bundleId, signal);
       if (!state.success) {
         throw new Error(state.error ?? 'devicectl app inventory failed.');
       }
       return state.installed;
     },
-    installApp: (deviceUdid, appPath) => input.devicectl.installApp(deviceUdid, appPath),
-    launchApp: (deviceUdid, bundleId) => input.devicectl.launchApp(deviceUdid, bundleId),
-    probeWda: () => input.deviceBackend.probePhysicalReadiness(),
+    installApp: async (deviceUdid, appPath, signal) => {
+      signal?.throwIfAborted();
+      return input.devicectl.installApp(deviceUdid, appPath, signal);
+    },
+    launchApp: async (deviceUdid, bundleId, signal) => {
+      signal?.throwIfAborted();
+      return input.devicectl.launchApp(deviceUdid, bundleId, undefined, signal);
+    },
+    probeWda: async (_route, signal) => {
+      signal?.throwIfAborted();
+      return input.deviceBackend.probePhysicalReadiness(signal);
+    },
     ...(input.prepareWda ? { prepareWda: input.prepareWda } : {}),
-    requestPermission: (callId, action, resource) =>
-      input.permissionEngine.requestPermission(callId, action, resource),
+    requestPermission: async (callId, action, resource, signal) => {
+      signal?.throwIfAborted();
+      const onAbort = () => input.permissionEngine.cancel(callId, 'physical preflight aborted');
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        return await input.permissionEngine.requestPermission(callId, action, resource);
+      } finally {
+        signal?.removeEventListener('abort', onAbort);
+      }
+    },
     createCallId:
       input.createCallId ?? (() => `physical-preflight-${globalThis.crypto.randomUUID()}`),
   };

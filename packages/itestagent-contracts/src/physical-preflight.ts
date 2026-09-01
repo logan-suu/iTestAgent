@@ -158,6 +158,13 @@ export const PhysicalPreflightResultSchema = z
       .strict(),
   ])
   .superRefine((result, context) => {
+    if (result.status === 'blocked' && result.failure.code === 'cancelled') {
+      context.addIssue({
+        code: 'custom',
+        path: ['failure', 'code'],
+        message: 'A blocked preflight result cannot use the cancelled failure code',
+      });
+    }
     if (result.status !== 'ready' && result.stage !== result.failure.stage) {
       context.addIssue({
         code: 'custom',

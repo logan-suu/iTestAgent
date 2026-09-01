@@ -27,6 +27,13 @@ function createApp(root: string, name = 'Example'): string {
 function successfulRunner(onExtract?: (destination: string) => void): XcodebuildProcessRunner {
   return async (cmd, args) => {
     if (cmd === '/usr/bin/zipinfo') {
+      if (args[0] === '-t') {
+        return {
+          exitCode: 0,
+          stdout: '3 files, 4096 bytes uncompressed, 1024 bytes compressed: 75.0%',
+          stderr: '',
+        };
+      }
       return {
         exitCode: 0,
         stdout: 'Payload/\nPayload/Example.app/\nPayload/Example.app/Info.plist\n',
@@ -136,6 +143,13 @@ describe('normalizePhysicalAppArtifact', () => {
           stderr: '',
         };
       }
+      if (cmd === '/usr/bin/zipinfo' && args[0] === '-t') {
+        return {
+          exitCode: 0,
+          stdout: '1 file, 12 bytes uncompressed, 12 bytes compressed: 0.0%',
+          stderr: '',
+        };
+      }
       extracted = true;
       return { exitCode: 0, stdout: '', stderr: '' };
     };
@@ -147,6 +161,36 @@ describe('normalizePhysicalAppArtifact', () => {
         run,
       }),
     ).rejects.toMatchObject({ code: 'ipa_unsafe_entry' });
+    expect(extracted).toBe(false);
+  });
+
+  test('rejects excessive IPA expansion before extraction', async () => {
+    const root = makeRoot();
+    const ipaPath = join(root, 'Bomb.ipa');
+    writeFileSync(ipaPath, 'archive');
+    let extracted = false;
+    const run: XcodebuildProcessRunner = async (cmd, args) => {
+      if (cmd === '/usr/bin/zipinfo' && args[0] === '-1') {
+        return { exitCode: 0, stdout: 'Payload/Example.app/Info.plist\n', stderr: '' };
+      }
+      if (cmd === '/usr/bin/zipinfo' && args[0] === '-t') {
+        return {
+          exitCode: 0,
+          stdout: '1 file, 2147483648 bytes uncompressed, 1024 bytes compressed: 99.9%',
+          stderr: '',
+        };
+      }
+      extracted = true;
+      return { exitCode: 0, stdout: '', stderr: '' };
+    };
+
+    await expect(
+      normalizePhysicalAppArtifact({
+        sourcePath: ipaPath,
+        normalizationRoot: join(root, 'normalized'),
+        run,
+      }),
+    ).rejects.toMatchObject({ code: 'ipa_payload_invalid' });
     expect(extracted).toBe(false);
   });
 

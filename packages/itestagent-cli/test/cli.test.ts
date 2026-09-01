@@ -46,6 +46,13 @@ test('rerun command has --failed-only option (AGENTS.md §11: itestagent rerun <
   expect(failedOnlyOption).toBeDefined();
 });
 
+test('explore exposes an explicit WDA URL for Route B', () => {
+  const program = createProgram();
+  const explore = program.commands.find((cmd) => cmd.name() === 'explore');
+  expect(explore).toBeDefined();
+  expect(explore?.options.some((option) => option.flags.includes('--wda-url'))).toBe(true);
+});
+
 test('no subcommand action outputs TUI placeholder (US-18.1 AC1: no login required)', () => {
   const program = createProgram();
   // program.action is set for the default (no-subcommand) case

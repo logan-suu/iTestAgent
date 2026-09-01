@@ -5,7 +5,7 @@
 **Deciders**: Logan Su + Sisyphus (AGENTS.md)
 **G5 Evidence**: G5 spike report 3.7 §3a-3c (devicectl install ✅, xcodebuild test-without-building ✅, Appium xcodebuild ❌)
 
-> **2026-09-01 supersession update**：本 ADR 的生命周期分离原则仍有效。ADR-028/T6.4 已在同一真机上验证 Route B/C 均通过主动 readiness、Appium session、UI/动作与清理；Route C 因无独立 tunnel、清理边界更简单选为 production default，Route B 保留为显式优化路线且不得静默 fallback。WDA readiness 必须由主动启动/`/status` 或等价 session probe 证明，不能只检查安装状态。
+> **2026-09-01 supersession update**：本 ADR 的生命周期分离原则仍有效。ADR-028/T6.4 已在同一真机上验证 Route B/C 均通过主动 readiness 与 Appium session；PR review 后的 identity/abort 复验证明 Route B 正常与 abort 均无进程残留，而 Route C 仍会遗留 Appium-owned `xcodebuild`。Route B 因此成为当前候选偏好，Route C 保留为显式诊断路线；最终 production default 等待 DEF-033 收口，不得静默 fallback。WDA readiness 必须由主动启动/`/status` 或等价 session probe 证明，不能只检查安装状态。
 
 ---
 
@@ -65,8 +65,8 @@ WdaManager {
 ### AppiumDeviceBackend Changes
 
 - Constructor accepts an optional `WdaManager` instance
-- If a `WdaManager` is provided, `ensureSession()` calls `wdaManager.launch()` then connects Appium to `http://localhost:<port>` (skipping Appium's xcodebuild entirely)
-- If no `WdaManager`, falls back to Appium's built-in WDA startup (existing behavior, for compatibility)
+- Route B requires explicit `external-url`: either provide an active `webDriverAgentUrl`, or provide `WdaManager` so `ensureSession()` launches WDA before Appium attaches; missing both is rejected.
+- Route C requires explicit `managed-xcodebuild` and intentionally delegates WDA startup to Appium. Legacy implicit fallback is limited to non-production compatibility code.
 - Appium server still needed for WebDriver protocol — but only for session management, not WDA lifecycle
 
 ### Appium Capabilities

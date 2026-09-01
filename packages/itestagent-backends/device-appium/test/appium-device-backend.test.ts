@@ -74,6 +74,7 @@ interface MockDriverConfig {
 
 const DEFAULT_SESSION: AppiumSession = {
   sessionId: 'mock-session-001',
+  deviceUdid: '00008110-00123456A12B001E',
   wdaBundleId: 'TEAMID.WebDriverAgentRunner',
 };
 
@@ -1634,6 +1635,10 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
       wdaBundleId: 'TEAMID.WebDriverAgentRunner',
       wdaStartupMode: 'external-url',
       webDriverAgentUrl: 'http://127.0.0.1:8100',
+      wdaStatusFetch: async () =>
+        Response.json({
+          value: { build: { productBundleIdentifier: 'TEAMID.WebDriverAgentRunner' } },
+        }),
     });
 
     const probe = await backend.probePhysicalReadiness();
@@ -1642,6 +1647,70 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
       stage: 'ready',
       ready: true,
       targetDeviceUdid: TEST_UDID,
+    });
+    await backend.closeSession();
+  });
+
+  it('fails closed when the session reports a different device or WDA identity', async () => {
+    const backend = new AppiumDeviceBackend(
+      new MockAppiumDriver({
+        createSessionResult: {
+          sessionId: 'wrong-session',
+          deviceUdid: 'OTHER-DEVICE',
+          wdaBundleId: 'OTHER.WebDriverAgentRunner',
+        },
+      }),
+      {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaBundleId: 'TEAMID.WebDriverAgentRunner',
+        wdaStartupMode: 'external-url',
+        webDriverAgentUrl: 'http://127.0.0.1:8100',
+        wdaStatusFetch: async () =>
+          Response.json({
+            value: { build: { productBundleIdentifier: 'OTHER.WebDriverAgentRunner' } },
+          }),
+      },
+    );
+
+    await expect(backend.probePhysicalReadiness()).resolves.toMatchObject({
+      ready: false,
+      failureCode: 'wda_identity_mismatch',
+      targetDeviceUdid: 'OTHER-DEVICE',
+      targetWdaBundleId: 'OTHER.WebDriverAgentRunner.xctrunner',
+    });
+    await backend.closeSession();
+  });
+
+  it('uses the Route B WDA status identity instead of echoed Appium capabilities', async () => {
+    const backend = new AppiumDeviceBackend(
+      new MockAppiumDriver({
+        createSessionResult: {
+          sessionId: 'route-b-session',
+          deviceUdid: TEST_UDID,
+          wdaBundleId: 'TEAMID.WebDriverAgentRunner',
+        },
+      }),
+      {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaBundleId: 'TEAMID.WebDriverAgentRunner',
+        wdaStartupMode: 'external-url',
+        webDriverAgentUrl: 'http://127.0.0.1:8100',
+        wdaStatusFetch: async () =>
+          Response.json({
+            value: { build: { productBundleIdentifier: 'OBSERVED.WebDriverAgentRunner' } },
+          }),
+      },
+    );
+
+    await expect(backend.probePhysicalReadiness()).resolves.toMatchObject({
+      ready: false,
+      failureCode: 'wda_identity_mismatch',
+      targetDeviceUdid: TEST_UDID,
+      targetWdaBundleId: 'OBSERVED.WebDriverAgentRunner.xctrunner',
     });
     await backend.closeSession();
   });

@@ -27,6 +27,8 @@ export interface ExplorationSurfaceConfig {
   platformVersion?: string;
   /** Explicit WDA startup route. Inventory-only preinstalled mode is not executable. */
   wdaStartupMode: 'external-url' | 'managed-xcodebuild';
+  /** Active WDA endpoint required by the external-url route. */
+  webDriverAgentUrl?: string;
   /** Signing team ID (managed-xcodebuild route). */
   xcodeOrgId?: string;
   xcodeSigningId?: string;
@@ -85,6 +87,7 @@ export function createAppiumExplorationRuntime(
       // "Unknown device or simulator UDID".
       platformVersion: config.platformVersion,
       wdaStartupMode: config.wdaStartupMode,
+      webDriverAgentUrl: config.webDriverAgentUrl,
       xcodeOrgId: config.xcodeOrgId,
       xcodeSigningId: config.xcodeSigningId ?? 'Apple Development',
       wdaBundleId: config.wdaBundleId,

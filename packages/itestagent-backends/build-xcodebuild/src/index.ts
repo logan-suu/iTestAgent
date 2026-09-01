@@ -8,6 +8,8 @@ export type {
   AppSourceStrategy,
   AppSourceContext,
   AppSourceResolution,
+  ExistingAppArtifactCandidate,
+  ExistingAppArtifactTraceability,
   ProjectType,
 } from './app-source-resolver.js';
 export {
@@ -32,6 +34,7 @@ export type {
   DevicectlAppInstallState,
   DevicectlDeps,
   DevicectlOps,
+  DevicectlSpawnAsyncFn,
 } from './devicectl-ops.js';
 
 // Signing diagnostics (US-6.2 AC3)

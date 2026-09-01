@@ -96,6 +96,23 @@ describe('isAppInstalled', () => {
 // ─── installApp (uses spawnAsync) ─────────────────────────────────
 
 describe('installApp', () => {
+  it('propagates AbortSignal to the devicectl subprocess seam', async () => {
+    const controller = new AbortController();
+    let observed: AbortSignal | undefined;
+    const ops = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async (_cmd, _args, _cwd, signal) => {
+        observed = signal;
+        return asyncOk();
+      },
+    });
+
+    await expect(
+      ops.installApp('UDID-123', '/path/to/MyApp.app', controller.signal),
+    ).resolves.toMatchObject({ success: true });
+    expect(observed).toBe(controller.signal);
+  });
+
   it('installs successfully', async () => {
     const ops = createDevicectlOps({
       spawnSync: noopSync(),

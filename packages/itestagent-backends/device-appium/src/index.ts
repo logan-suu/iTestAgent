@@ -26,7 +26,7 @@
  */
 
 export { AppiumDeviceBackend } from './appium-device-backend.js';
-export type { AppiumDeviceBackendOptions } from './appium-device-backend.js';
+export type { AppiumDeviceBackendOptions, WdaStatusFetchFn } from './appium-device-backend.js';
 
 export { AppiumDriverError } from './appium-driver.js';
 export type {

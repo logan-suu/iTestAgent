@@ -1,5 +1,6 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import type { TargetKind } from 'itestagent-contracts';
 
 /**
  * AppSourceResolver — App source decision engine (task 3.1).
@@ -13,7 +14,7 @@ import { join, resolve } from 'node:path';
  *
  * Priority chain (US-6.1 AC2):
  *   1. user_specified .app/.ipa exists → user_provided
- *   2. Scan workspace build/ for .app bundles → existing_artifact
+ *   2. Select one caller-proven compatible and traceable .app → existing_artifact
  *   3. findProjectFile() detects .xcworkspace / .xcodeproj → build_required
  *   4. Nothing found → unresolved
  *
@@ -53,7 +54,12 @@ export type ProjectType = 'xcworkspace' | 'xcodeproj';
  */
 export type AppSourceResolution =
   | { kind: 'user_provided'; appPath: string; artifactType: 'app' | 'ipa' }
-  | { kind: 'existing_artifact'; appPath: string; artifactType: 'app' }
+  | {
+      kind: 'existing_artifact';
+      appPath: string;
+      artifactType: 'app';
+      traceability: ExistingAppArtifactTraceability;
+    }
   | { kind: 'build_required'; workspacePath: string; projectType: ProjectType }
   | { kind: 'unresolved'; reason: string };
 
@@ -70,9 +76,28 @@ export interface AppSourceContext {
   strategy: AppSourceStrategy;
   workspaceRoot: string;
   userAppPath?: string;
+  targetKind?: TargetKind;
+  destination?: string;
+  expectedBundleId?: string;
+  scheme?: string;
+  configuration?: string;
+  existingArtifacts?: readonly ExistingAppArtifactCandidate[];
   findProjectFile?: (
     root: string,
   ) => { type: 'xcode_workspace' | 'xcode_project'; path: string } | null;
+}
+
+/** Build facts required before an existing artifact may outrank a fresh build. */
+export interface ExistingAppArtifactTraceability {
+  targetKind: TargetKind;
+  destination: string;
+  bundleId: string;
+  scheme: string;
+  configuration: string;
+}
+
+export interface ExistingAppArtifactCandidate extends ExistingAppArtifactTraceability {
+  appPath: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -84,31 +109,19 @@ function toProjectType(raw: 'xcode_workspace' | 'xcode_project'): ProjectType {
   return raw === 'xcode_workspace' ? 'xcworkspace' : 'xcodeproj';
 }
 
-/**
- * Recursively search a directory (shallow-first) for the first `.app` bundle.
- * Returns the absolute path or null if none found.
- */
-function findAppBundle(root: string): string | null {
-  try {
-    const entries = readdirSync(root, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory() && entry.name.endsWith('.app')) {
-        return join(root, entry.name);
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-/**
- * Scan the workspace build/ directory for an existing .app bundle.
- */
-function scanBuildDir(workspaceRoot: string): string | null {
-  const buildDir = join(workspaceRoot, 'build');
-  if (!existsSync(buildDir)) return null;
-  return findAppBundle(buildDir);
+function matchingExistingArtifacts(ctx: AppSourceContext): ExistingAppArtifactCandidate[] {
+  return (ctx.existingArtifacts ?? []).filter((candidate) => {
+    const appPath = resolve(candidate.appPath);
+    return (
+      existsSync(appPath) &&
+      appPath.toLowerCase().endsWith('.app') &&
+      (ctx.targetKind === undefined || candidate.targetKind === ctx.targetKind) &&
+      (ctx.destination === undefined || candidate.destination === ctx.destination) &&
+      (ctx.expectedBundleId === undefined || candidate.bundleId === ctx.expectedBundleId) &&
+      (ctx.scheme === undefined || candidate.scheme === ctx.scheme) &&
+      (ctx.configuration === undefined || candidate.configuration === ctx.configuration)
+    );
+  });
 }
 
 // ─── Main resolver ───────────────────────────────────────────────
@@ -169,10 +182,22 @@ export function resolveAppSource(ctx: AppSourceContext): AppSourceResolution {
     userPathFailed = true;
   }
 
-  // ── 2. Scan build/ directory for .app artifacts ───────────────
-  const foundApp = scanBuildDir(absRoot);
-  if (foundApp) {
-    return { kind: 'existing_artifact', appPath: foundApp, artifactType: 'app' };
+  // ── 2. Reuse only caller-proven compatible and traceable artifacts ──
+  const existingArtifacts = matchingExistingArtifacts(ctx);
+  if (existingArtifacts.length === 1) {
+    const { appPath, ...traceability } = existingArtifacts[0] as ExistingAppArtifactCandidate;
+    return {
+      kind: 'existing_artifact',
+      appPath: resolve(appPath),
+      artifactType: 'app',
+      traceability,
+    };
+  }
+  if (existingArtifacts.length > 1) {
+    return {
+      kind: 'unresolved',
+      reason: `Multiple compatible existing application artifacts were found (${existingArtifacts.length}); select one explicitly or build a fresh artifact.`,
+    };
   }
 
   // ── 3. Detect project file (.xcworkspace / .xcodeproj) ────────

@@ -214,6 +214,7 @@ export function createProgram(): Command {
     )
     .option('--goal <goal>', 'verification goal — enables LLM assertion suggestions (AC4)')
     .requiredOption('--wda-mode <mode>', 'WDA startup route: external-url | managed-xcodebuild')
+    .option('--wda-url <url>', 'active WDA endpoint (required for external-url route)')
     .option('--xcode-org-id <id>', 'signing team ID (managed-xcodebuild route)')
     .option('--wda-bundle-id <id>', 'WDA base bundle id (free-account slot reuse)')
     .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
@@ -228,6 +229,7 @@ export function createProgram(): Command {
         platformVersion?: string;
         goal?: string;
         wdaMode: string;
+        wdaUrl?: string;
         xcodeOrgId?: string;
         wdaBundleId?: string;
         appiumUrl: string;
@@ -242,6 +244,16 @@ export function createProgram(): Command {
         if (!['external-url', 'managed-xcodebuild'].includes(options.wdaMode)) {
           throw new PublicCliError(
             `Unsupported WDA route "${options.wdaMode}"; expected external-url or managed-xcodebuild`,
+          );
+        }
+        if (options.wdaMode === 'external-url' && !options.wdaUrl) {
+          throw new PublicCliError(
+            '--wda-url is required when --wda-mode external-url is selected',
+          );
+        }
+        if (options.wdaMode === 'managed-xcodebuild' && options.wdaUrl) {
+          throw new PublicCliError(
+            '--wda-url is only valid when --wda-mode external-url is selected',
           );
         }
 
@@ -310,6 +322,7 @@ export function createProgram(): Command {
             platformVersion,
             ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
             wdaStartupMode: options.wdaMode as 'external-url' | 'managed-xcodebuild',
+            ...(options.wdaUrl ? { webDriverAgentUrl: options.wdaUrl } : {}),
             ...(options.xcodeOrgId ? { xcodeOrgId: options.xcodeOrgId } : {}),
             ...(options.wdaBundleId ? { wdaBundleId: options.wdaBundleId } : {}),
             appiumServerUrl: options.appiumUrl,

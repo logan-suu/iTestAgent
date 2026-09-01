@@ -26,6 +26,7 @@ export interface PhysicalPreflightCoordinatorDeps {
     callId: string,
     action: 'replace_device_app' | 'prepare_wda',
     resource: string,
+    signal?: AbortSignal,
   ): Promise<PermissionResult>;
   createCallId(): string;
 }
@@ -68,6 +69,19 @@ function cancelled(
   };
 }
 
+function cancelledAfterAbort(
+  input: PhysicalPreflightInput,
+  stage: Exclude<PhysicalPreflightResult['stage'], 'ready'>,
+): PhysicalPreflightResult | undefined {
+  if (!input.signal?.aborted) return undefined;
+  const reason = input.signal.reason;
+  return cancelled(
+    stage,
+    reason instanceof Error ? reason.message : 'The physical preflight was aborted.',
+    input.artifact,
+  );
+}
+
 function validateWdaProbeIdentity(
   probe: WdaReadinessProbe,
   input: Pick<PhysicalPreflightInput, 'deviceUdid' | 'route'>,
@@ -100,6 +114,8 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
 } {
   return {
     async run(input): Promise<PhysicalPreflightResult> {
+      const initiallyCancelled = cancelledAfterAbort(input, 'device_health');
+      if (initiallyCancelled) return initiallyCancelled;
       if (!input.confirmedTestPlan) {
         return blocked(
           'permission',
@@ -113,6 +129,8 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
       try {
         health = await deps.healthcheck(input.deviceUdid, input.signal);
       } catch (error) {
+        const aborted = cancelledAfterAbort(input, 'device_health');
+        if (aborted) return aborted;
         return blocked(
           'device_health',
           'device_health_failed',
@@ -128,6 +146,8 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
           input.artifact,
         );
       }
+      const cancelledAfterHealth = cancelledAfterAbort(input, 'app_inventory');
+      if (cancelledAfterHealth) return cancelledAfterHealth;
 
       let installed: boolean;
       try {
@@ -137,6 +157,8 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
           input.signal,
         );
       } catch (error) {
+        const aborted = cancelledAfterAbort(input, 'app_inventory');
+        if (aborted) return aborted;
         return blocked(
           'app_inventory',
           'app_inventory_failed',
@@ -144,6 +166,8 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
           input.artifact,
         );
       }
+      const cancelledAfterInventory = cancelledAfterAbort(input, 'permission');
+      if (cancelledAfterInventory) return cancelledAfterInventory;
       if (installed) {
         let permission: PermissionResult;
         try {
@@ -151,8 +175,11 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
             deps.createCallId(),
             'replace_device_app',
             `${input.deviceUdid}:${input.artifact.bundleId}`,
+            input.signal,
           );
         } catch (error) {
+          const aborted = cancelledAfterAbort(input, 'permission');
+          if (aborted) return aborted;
           return blocked(
             'permission',
             'permission_denied',
@@ -167,12 +194,16 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
             input.artifact,
           );
         }
+        const cancelledAfterPermission = cancelledAfterAbort(input, 'install');
+        if (cancelledAfterPermission) return cancelledAfterPermission;
       }
 
       let install: OperationResult;
       try {
         install = await deps.installApp(input.deviceUdid, input.artifact.appPath, input.signal);
       } catch (error) {
+        const aborted = cancelledAfterAbort(input, 'install');
+        if (aborted) return aborted;
         return blocked(
           'install',
           'install_failed',
@@ -188,11 +219,15 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
           input.artifact,
         );
       }
+      const cancelledAfterInstall = cancelledAfterAbort(input, 'launch');
+      if (cancelledAfterInstall) return cancelledAfterInstall;
 
       let launch: OperationResult;
       try {
         launch = await deps.launchApp(input.deviceUdid, input.artifact.bundleId, input.signal);
       } catch (error) {
+        const aborted = cancelledAfterAbort(input, 'launch');
+        if (aborted) return aborted;
         return blocked(
           'launch',
           'launch_failed',
@@ -208,11 +243,21 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
           input.artifact,
         );
       }
+      const cancelledAfterLaunch = cancelledAfterAbort(
+        input,
+        input.route === 'route_c_appium_managed' ? 'appium_session' : 'wda_status',
+      );
+      if (cancelledAfterLaunch) return cancelledAfterLaunch;
 
       let wda: WdaReadinessProbe;
       try {
         wda = await deps.probeWda(input.route, input.signal);
       } catch (error) {
+        const aborted = cancelledAfterAbort(
+          input,
+          input.route === 'route_c_appium_managed' ? 'appium_session' : 'wda_status',
+        );
+        if (aborted) return aborted;
         return blocked(
           input.route === 'route_c_appium_managed' ? 'appium_session' : 'wda_status',
           input.route === 'route_c_appium_managed' ? 'appium_session_failed' : 'wda_status_failed',
@@ -230,8 +275,11 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
             deps.createCallId(),
             'prepare_wda',
             `${input.deviceUdid}:${wda.targetWdaBundleId}`,
+            input.signal,
           );
         } catch (error) {
+          const aborted = cancelledAfterAbort(input, 'permission');
+          if (aborted) return aborted;
           return blocked(
             'permission',
             'permission_denied',
@@ -247,6 +295,8 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
         try {
           preparation = await deps.prepareWda(input.route, input.signal);
         } catch (error) {
+          const aborted = cancelledAfterAbort(input, 'wda_launch');
+          if (aborted) return aborted;
           return blocked(
             'wda_launch',
             'wda_signing_or_configuration_failed',
@@ -264,9 +314,19 @@ export function createPhysicalPreflightCoordinator(deps: PhysicalPreflightCoordi
             wda,
           );
         }
+        const cancelledAfterPreparation = cancelledAfterAbort(
+          input,
+          input.route === 'route_c_appium_managed' ? 'appium_session' : 'wda_status',
+        );
+        if (cancelledAfterPreparation) return cancelledAfterPreparation;
         try {
           wda = await deps.probeWda(input.route, input.signal);
         } catch (error) {
+          const aborted = cancelledAfterAbort(
+            input,
+            input.route === 'route_c_appium_managed' ? 'appium_session' : 'wda_status',
+          );
+          if (aborted) return aborted;
           return blocked(
             input.route === 'route_c_appium_managed' ? 'appium_session' : 'wda_status',
             input.route === 'route_c_appium_managed'
