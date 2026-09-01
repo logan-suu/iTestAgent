@@ -34,7 +34,7 @@ function selectorOf(plan: TestPlan): MvpDeviceSelector {
  */
 export function makeValidTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
   return {
-    schemaVersion: 'itestagent.test-plan.v2',
+    schemaVersion: 'itestagent.test-plan.v3',
     runId: 'run_20260720_001',
     projectProfileRef: '~/.itestagent/projects/abc123/project-profile.json',
     target: { type: 'current_workspace' },
@@ -50,6 +50,8 @@ export function makeValidTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
     execution: {
       prefer: 'auto',
       fallback: 'device_backend',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
       features: ['login', 'checkout'],
       testData: {
         allowAgentGeneratedData: true,
@@ -69,7 +71,7 @@ export function makeValidTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
     },
     safety: {
       defaultMode: 'ask',
-      highRiskActions: ['clear_data', 'reinstall', 'store_credential'],
+      highRiskActions: ['clear_app_data', 'replace_device_app', 'store_credential'],
     },
     ...overrides,
   };
@@ -111,22 +113,12 @@ export function makeInjectedPhysicalIdentity() {
  * literals by hand.
  */
 export function expectMvpInputFrom(plan: TestPlan): MvpExecutionInput {
-  const xcuitestSchemePresent = plan.execution.xcuitest?.scheme !== undefined;
-  const executionPath =
-    plan.execution.prefer === 'device_backend'
-      ? 'device_backend'
-      : plan.execution.prefer === 'xcuitest'
-        ? 'xcuitest'
-        : xcuitestSchemePresent
-          ? 'xcuitest'
-          : 'device_backend';
-
   return {
     runId: plan.runId,
     projectProfileRef: plan.projectProfileRef,
     deviceKind: plan.device.kind,
     deviceSelector: selectorOf(plan),
-    executionPath,
+    executionPath: plan.execution.resolvedPath,
     features: plan.execution.features,
     flows: plan.execution.flows,
     metrics: plan.execution.metrics,

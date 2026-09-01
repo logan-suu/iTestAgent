@@ -19,7 +19,12 @@ import type {
 } from 'itestagent-contracts';
 import type { TestPlan } from 'itestagent-contracts';
 import { TestPlanSchema, parseTestPlan } from 'itestagent-contracts';
-import { compileTestPlan, parseIntent, parseTestPlanYaml, testPlanToYaml } from 'itestagent-engine';
+import {
+  compileTestPlan as compileTestPlanCore,
+  parseIntent,
+  parseTestPlanYaml,
+  testPlanToYaml,
+} from 'itestagent-engine';
 import {
   type CandidateLink,
   type ProjectProfile,
@@ -32,6 +37,22 @@ import {
   formatPlanSections,
   navigatePlanSection,
 } from 'itestagent-tui/pure';
+
+function compileTestPlan(
+  intent: Parameters<typeof compileTestPlanCore>[0],
+  profile: Parameters<typeof compileTestPlanCore>[1],
+  options: Parameters<typeof compileTestPlanCore>[2] = {},
+) {
+  return compileTestPlanCore(intent, profile, {
+    ...options,
+    executionRoute: options.executionRoute ?? {
+      status: 'resolved',
+      prefer: 'auto',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    },
+  });
+}
 
 // ─── Mock backend (returns deterministic, schema-compliant data) ─
 
@@ -284,7 +305,7 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
     };
     const plan = compileTestPlan(intentResult.intent, confirmedProfile);
 
-    expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
+    expect(plan.schemaVersion).toBe('itestagent.test-plan.v3');
     expect(plan.runId).toMatch(
       /^run_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
@@ -293,8 +314,12 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
       expect(plan.device.physical.selector).toBe('local_connected');
     }
     expect(plan.performance.baselineDomain).toBe('physical');
-    expect(plan.execution.prefer).toBe('device_backend');
-    expect(plan.safety.highRiskActions).toContain('reinstall');
+    expect(plan.execution).toMatchObject({
+      prefer: 'auto',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    });
+    expect(plan.safety.highRiskActions).toContain('replace_device_app');
 
     makeValidTestPlan(plan);
   });

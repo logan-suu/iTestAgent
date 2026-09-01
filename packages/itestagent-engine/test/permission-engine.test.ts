@@ -122,7 +122,7 @@ describe('AC1: rule model + wildcard matching', () => {
 // ────────────────────────────────────────────────────────────
 
 describe('AC2: high-risk operations default to ask', () => {
-  test('all 9 DEFAULT_HIGH_RISK_ACTIONS return ask by default', () => {
+  test('all DEFAULT_HIGH_RISK_ACTIONS return ask by default', () => {
     const engine = makeEngine();
     for (const action of DEFAULT_HIGH_RISK_ACTIONS) {
       expect(engine.check(action, 'com.example.app')).toBe('ask');

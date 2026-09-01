@@ -41,6 +41,8 @@
 | Harness Runtime 边界（自研/复用/禁止） | `decisions/ADR-010-agent-harness-runtime-boundary.md` |
 | Planning Cycle 状态与不可变快照边界 | `decisions/ADR-027-planning-cycle-state-and-snapshot-boundary.md` |
 | 真机 App/WDA 前置、Route B/C 与主动 readiness | `decisions/ADR-028-physical-preflight-and-wda-readiness.md` |
+| XCUITest/DeviceBackend 双路径解析、确认与 fallback 边界 | `decisions/ADR-029-dual-execution-route-resolution.md` |
+| XCUITest metadata-only 候选、探测三态与构建权限边界 | `decisions/ADR-030-metadata-only-xcuitest-candidates.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -157,4 +159,4 @@
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~027（含 Codex 开发工作流迁移、分层源码分析与 Planning Cycle 边界）
+- ADR 记录：ADR-020~030（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径与 metadata-only 候选边界）

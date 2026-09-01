@@ -583,9 +583,11 @@
       "item": "runXcunitFlow uses reduced local type mirrors instead of exported backend contracts",
       "detail": "CodeRabbit (PR #65, run-xcunit-flow.ts): XcunitTestRunInput/Output and XcunitParseOptions/ParsedResult are local mirrors of build-xcodebuild's XcodebuildTestRunInput/Output and analyzer-xcresult's XcresultParserOptions/XcresultParseResult (which are exported). Backend contract changes could silently drift past the flow because the mirrors are only structurally compatible, not shared. Verified: itestagent-engine/package.json currently declares no workspace dependency on itestagent-backends-build-xcodebuild or itestagent-backends-analyzer-xcresult, and the flow is only consumed via injected mock deps in unit tests — the real composition (BackendSelector wiring runXcodebuildTests + createXcresultParser into runXcunitFlow) has not landed yet. Deferral rationale: unifying now adds two engine workspace edges and forces typed test-mock rewrites for a module with no production caller yet; when the real wiring task lands, the dependency edge becomes mandatory anyway and typecheck will force the unification. Next step: in the task that wires runXcunitFlow to the real backends (engine test-flow integration), import XcodebuildTestRunInput/Output and XcresultParserOptions/XcresultParseResult from the backend packages, delete the local mirrors, and update the flow tests to produce typed XcresultParseResult mocks.",
       "target_phase": 6,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-08-29T03:10:00Z"
+      "status": "resolved",
+      "resolved_by": "6.5 dual execution production dispatcher and shared backend contracts",
+      "created_at": "2026-08-29T03:10:00Z",
+      "notes": "2026-09-01 T6.5 imported XcodebuildTestRunInput/Output and XcresultParserOptions/XcresultParseResult directly in run-xcunit-flow.ts, removed all four local mirrors, carried testPlan through the shared build contract, and wired the flow into createProductionDualExecutionDispatcher. Typecheck, dependency-graph checks, flow unit tests, and Phase 6 routing integration pass.",
+      "resolved_at": "2026-09-01T12:54:43Z"
     },
     {
       "id": "DEF-033",
@@ -601,7 +603,8 @@
       "target_phase": 6,
       "status": "open",
       "resolved_by": null,
-      "created_at": "2026-09-01T06:05:27Z"
+      "created_at": "2026-09-01T06:05:27Z",
+      "notes": "2026-09-01 T6.5 self-check extends the same T6.10 cancellation audit to the confirmed XCUITest production route. ADR-030 removed analyzer xcodebuild execution from pre-confirmation discovery and reduced candidate revalidation to metadata-only reads, but runXcunitFlow still does not pass the accepted signal into confirmed xcodebuild test or xcresult parsing subprocesses. Fixing the remaining gap requires changing shared build/parser subprocess contracts and verifying child cleanup, so it remains in DEF-033/T6.10 rather than being hidden or duplicated. T6.5 G5/G5-SIM must not claim cancellation coverage."
     }
   ]
 }

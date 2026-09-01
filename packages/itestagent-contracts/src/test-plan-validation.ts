@@ -26,6 +26,10 @@ export const TEST_PLAN_VALIDATION_ISSUE_CODES = [
   'selector_missing_field',
   'selector_conflicting_fields',
   'xcuitest_prefer_without_scheme',
+  'xcuitest_route_without_configuration',
+  'device_route_with_xcuitest_configuration',
+  'explicit_preference_route_mismatch',
+  'xcuitest_route_requires_abort',
 ] as const;
 
 export type TestPlanValidationIssueCode = (typeof TEST_PLAN_VALIDATION_ISSUE_CODES)[number];
@@ -150,6 +154,38 @@ export function validateTestPlan(plan: TestPlan): TestPlanValidationIssue[] {
       path: 'execution.xcuitest.scheme',
       message:
         'prefer="xcuitest" requires an explicit execution.xcuitest.scheme (target-explicit, R4)',
+    });
+  }
+
+  if (plan.execution.resolvedPath === 'xcuitest' && !plan.execution.xcuitest) {
+    issues.push({
+      code: 'xcuitest_route_without_configuration',
+      path: 'execution.xcuitest',
+      message: 'resolvedPath="xcuitest" requires a confirmed XCUITest configuration',
+    });
+  }
+
+  if (plan.execution.resolvedPath === 'device_backend' && plan.execution.xcuitest) {
+    issues.push({
+      code: 'device_route_with_xcuitest_configuration',
+      path: 'execution.xcuitest',
+      message: 'a DeviceBackend route must not retain an XCUITest configuration',
+    });
+  }
+
+  if (plan.execution.prefer !== 'auto' && plan.execution.prefer !== plan.execution.resolvedPath) {
+    issues.push({
+      code: 'explicit_preference_route_mismatch',
+      path: 'execution.resolvedPath',
+      message: 'an explicit execution preference must resolve to the same route',
+    });
+  }
+
+  if (plan.execution.resolvedPath === 'xcuitest' && plan.execution.fallback !== 'abort') {
+    issues.push({
+      code: 'xcuitest_route_requires_abort',
+      path: 'execution.fallback',
+      message: 'a resolved XCUITest route is fail-closed and requires fallback="abort"',
     });
   }
 

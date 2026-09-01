@@ -51,6 +51,10 @@ interface ToolMapping {
   parseParams: (args: Record<string, unknown>) => any;
   /** Permission action name, or a resolver that computes it from parsed args */
   action: string | ((parsedArgs: Record<string, unknown>) => string);
+  /** Additional permission actions required before the same operation can execute. */
+  additionalActions?:
+    | readonly string[]
+    | ((parsedArgs: Record<string, unknown>) => readonly string[]);
   /** Resource override for non-device tools. */
   resource?: string | ((parsedArgs: Record<string, unknown>) => string);
   /** Non-device handler. Mutually exclusive with method. */
@@ -62,6 +66,9 @@ interface ToolMapping {
 export interface CustomToolHandler {
   parseParams?: (args: Record<string, unknown>) => unknown;
   action: string | ((parsedArgs: Record<string, unknown>) => string);
+  additionalActions?:
+    | readonly string[]
+    | ((parsedArgs: Record<string, unknown>) => readonly string[]);
   resource?: string | ((parsedArgs: Record<string, unknown>) => string);
   execute(parsedArgs: unknown, signal?: AbortSignal): Promise<unknown>;
   backendName?: string;
@@ -294,6 +301,7 @@ export class ToolDispatcher {
       this.tools[name] = {
         parseParams: handler.parseParams ?? noopParse,
         action: handler.action,
+        additionalActions: handler.additionalActions,
         resource: handler.resource,
         execute: handler.execute,
         backendName: handler.backendName ?? 'itestagent-local',
@@ -372,6 +380,20 @@ export class ToolDispatcher {
         permissionResult.reason ?? `Permission denied: ${mapping.action} on ${resource}`,
         'permission_denied',
       );
+    }
+    const additionalActions =
+      typeof mapping.additionalActions === 'function'
+        ? mapping.additionalActions(parsedRecord)
+        : (mapping.additionalActions ?? []);
+    for (const action of additionalActions) {
+      const additionalPermission = await this.checkPermission(callId, action, resource);
+      if (additionalPermission.denied) {
+        return this.errorResult(
+          callId,
+          additionalPermission.reason ?? `Permission denied: ${action} on ${resource}`,
+          'permission_denied',
+        );
+      }
     }
 
     // 5. Backend selection is required only for DeviceBackend tools.

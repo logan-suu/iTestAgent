@@ -84,12 +84,14 @@ describe('runXcunitFlow', () => {
     expect(result.parseError).toContain('xcresultparser missing');
   });
 
-  it('passes only-filters and destination through to the runner', async () => {
+  it('passes test plan, only-filters, and destination through to the runner', async () => {
     let capturedScheme = '';
+    let capturedTestPlan: string | undefined;
     let capturedDestination: unknown = undefined;
     const { deps } = makeDeps({
       async runTests(input) {
         capturedScheme = input.scheme;
+        capturedTestPlan = input.testPlan;
         capturedDestination = input.destination;
         return { exitCode: 0, stdout: '', stderr: '', durationMs: 1 };
       },
@@ -98,6 +100,7 @@ describe('runXcunitFlow', () => {
       {
         projectRoot: '/proj',
         scheme: 'SampleApp',
+        testPlan: 'Smoke',
         destination: { kind: 'physical', udid: 'U1' } as never,
         only: ['SampleAppTests/testExample'],
         resultBundlePath: '/tmp/x.xcresult',
@@ -105,6 +108,7 @@ describe('runXcunitFlow', () => {
       deps,
     );
     expect(capturedScheme).toBe('SampleApp');
+    expect(capturedTestPlan).toBe('Smoke');
     expect(capturedDestination).toEqual({ kind: 'physical', udid: 'U1' });
   });
 });

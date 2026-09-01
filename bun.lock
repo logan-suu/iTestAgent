@@ -17,6 +17,9 @@
     "packages/itestagent-backends/analyzer-xcodeproj": {
       "name": "itestagent-backends-analyzer-xcodeproj",
       "version": "0.0.1",
+      "dependencies": {
+        "itestagent-contracts": "workspace:*",
+      },
     },
     "packages/itestagent-backends/analyzer-xcodequery": {
       "name": "itestagent-backends-analyzer-xcodequery",

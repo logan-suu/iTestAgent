@@ -24,12 +24,9 @@ import type { PhysicalDeviceSelector, SimulatorDeviceSelector } from './test-pla
  * (TestPlan → RunPlan, Data Flow Specification §6→§7): pure, total, and
  * fail-closed — an invalid plan never silently degrades (R5).
  *
- * executionPath decision table (contracts layer):
- *   prefer=device_backend → device_backend (explicit wins)
- *   prefer=xcuitest       → xcuitest
- *   prefer=auto           → xcuitest iff execution.xcuitest.scheme is set,
- *                           else device_backend. Engine (B14) refines `auto`
- *                           with ProjectProfile.hasXCUITests.
+ * The canonical v3 TestPlan already contains the confirmed route. Execution
+ * consumes `resolvedPath` and never re-infers a route from preference or
+ * ProjectProfile compatibility fields (ADR-029).
  */
 
 export const MVP_EXECUTION_PATH_VALUES = ['xcuitest', 'device_backend'] as const;
@@ -108,12 +105,6 @@ export class MvpCompilationError extends Error {
   }
 }
 
-function resolveExecutionPath(execution: ExecutionPlan): MvpExecutionPath {
-  if (execution.prefer === 'device_backend') return 'device_backend';
-  if (execution.prefer === 'xcuitest') return 'xcuitest';
-  return execution.xcuitest?.scheme !== undefined ? 'xcuitest' : 'device_backend';
-}
-
 function resolveDeviceSelector(plan: TestPlan): MvpDeviceSelector {
   return plan.device.kind === 'physical'
     ? { kind: 'physical', physical: plan.device.physical as PhysicalDeviceSelector }
@@ -136,7 +127,7 @@ export function compileMvpExecution(plan: TestPlan): MvpExecutionInput {
     projectProfileRef: plan.projectProfileRef,
     deviceKind: plan.device.kind,
     deviceSelector: resolveDeviceSelector(plan),
-    executionPath: resolveExecutionPath(plan.execution),
+    executionPath: plan.execution.resolvedPath,
     features: plan.execution.features,
     flows: plan.execution.flows,
     metrics: plan.execution.metrics,

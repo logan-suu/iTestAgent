@@ -1000,7 +1000,7 @@ describe('build integration — injected deps', () => {
 // ─── B12 seam: xcodebuild test runner args ─────────────────────────
 
 describe('B12 seam: xcodebuild test runner', () => {
-  it('maps only-testing filters through the scheme prefix', async () => {
+  it('maps only-testing filters as target identifiers without a scheme prefix', async () => {
     const { runXcodebuildTests } = await import('../src/xcodebuild-test-runner.js');
     const calls: Array<{ cmd: string; args: string[] }> = [];
     const runner = async (cmd: string, args: string[]) => {
@@ -1012,6 +1012,6 @@ describe('B12 seam: xcodebuild test runner', () => {
       runner,
     );
     expect(calls[0]?.cmd).toBe('xcodebuild');
-    expect(calls[0]?.args).toContain('-only-testing:FixtureScheme/LoginTests');
+    expect(calls[0]?.args).toContain('-only-testing:LoginTests');
   });
 });

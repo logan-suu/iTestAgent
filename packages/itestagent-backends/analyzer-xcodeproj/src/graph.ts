@@ -87,11 +87,15 @@ export async function graph(discovery: ProjectDiscovery): Promise<ProjectGraph> 
 
   const hasXCUITests = result.targets.some((t) => isXCUITest(t.productType));
   const hasUnitTests = result.targets.some((t) => isUnitTest(t.productType));
+  const xcuitestTargets = result.targets
+    .filter((target) => isXCUITest(target.productType))
+    .map((target) => target.name);
 
   const graphResult: ProjectGraph = {
     targets,
     hasXCUITests,
     hasUnitTests,
+    xcuitestTargets,
   };
 
   // Validate against Zod schema

@@ -9,7 +9,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "itestagent.test-plan.v2"
+      "const": "itestagent.test-plan.v3"
     },
     "runId": {
       "type": "string",
@@ -141,6 +141,15 @@
           "type": "string",
           "enum": ["device_backend", "abort"]
         },
+        "resolvedPath": {
+          "type": "string",
+          "enum": ["xcuitest", "device_backend"],
+          "description": "Execution route resolved and confirmed before execution."
+        },
+        "selectionReason": {
+          "type": "string",
+          "enum": ["explicit_preference", "evidence_backed_xcuitest", "confirmed_no_xcuitest_candidate", "user_selected_after_ambiguity"]
+        },
         "features": {
           "type": "array",
           "description": "Feature names from ProjectProfile to cover.",
@@ -182,14 +191,37 @@
         "xcuitest": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Explicit XCUITest target override (target-explicit principle). Presence of scheme signals an XCUITest lane at the contracts layer.",
+          "description": "Confirmed XCUITest configuration for the resolved route.",
           "properties": {
             "scheme": { "type": "string" },
-            "configuration": { "type": "string" }
-          }
+            "configuration": { "type": "string" },
+            "testPlan": { "type": "string" },
+            "targets": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "limitations": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["scheme"]
         }
       },
-      "required": ["prefer", "fallback", "features", "testData", "assertion"]
+      "allOf": [
+        {
+          "if": {
+            "properties": { "resolvedPath": { "const": "xcuitest" } },
+            "required": ["resolvedPath"]
+          },
+          "then": { "required": ["xcuitest"] }
+        }
+      ],
+      "required": ["prefer", "fallback", "resolvedPath", "selectionReason", "features", "testData", "assertion"]
     },
     "ArtifactPolicy": {
       "type": "object",
@@ -251,7 +283,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["clear_data", "reinstall", "write_project", "store_credential", "update_baseline", "overwrite_flow", "generate_draft"]
+            "enum": ["clear_app_data", "uninstall_app", "write_project_file", "store_credential", "update_baseline", "overwrite_flow", "generate_draft_test", "open_non_http_url", "access_private_media", "execute_project_build", "replace_device_app", "prepare_wda"]
           }
         }
       },

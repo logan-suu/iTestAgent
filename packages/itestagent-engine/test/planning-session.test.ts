@@ -34,11 +34,140 @@ function analysis(): ProjectAnalysisResult {
       analysisTier: 'tier1_static',
       enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
       limitations: ['Candidates require confirmation.'],
+      executionAssets: {
+        statusByTargetKind: { physical: 'none', simulator: 'none' },
+        configurations: [],
+        evidence: ['Shared scheme metadata contains no XCUITest candidate.'],
+        limitations: [],
+      },
+    },
+  };
+}
+
+function analysisWithRoutes(): ProjectAnalysisResult {
+  const source = analysis();
+  return {
+    ...source,
+    analysis: {
+      ...source.analysis,
+      executionAssets: {
+        statusByTargetKind: { physical: 'available', simulator: 'none' },
+        configurations: ['One', 'Two'].map((scheme) => ({
+          scheme,
+          targets: [`${scheme}UITests`],
+          targetKind: 'physical' as const,
+          isDefault: true,
+          evidence: ['shared scheme TestAction metadata'],
+          limitations: [],
+        })),
+        evidence: [],
+        limitations: [],
+      },
     },
   };
 }
 
 describe('PlanningSession', () => {
+  it('uses the selected target status when another target kind has candidates', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('Run the login smoke test on the booted Simulator');
+    const planned = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(planned.status).toBe('awaiting_plan_confirmation');
+    expect(planned.plan?.execution).toMatchObject({
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    });
+  });
+
+  it('requires route selection before plan confirmation when auto is ambiguous', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('用本机 iPhone 跑登录 smoke');
+    const routed = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(routed.status).toBe('awaiting_execution_route_selection');
+    expect(routed.plan).toBeNull();
+
+    const planned = session.selectExecutionRoute('Two');
+    expect(planned.status).toBe('awaiting_plan_confirmation');
+    expect(planned.plan?.execution).toMatchObject({
+      resolvedPath: 'xcuitest',
+      selectionReason: 'user_selected_after_ambiguity',
+      xcuitest: { scheme: 'Two' },
+    });
+  });
+
+  it('blocks an explicit ambiguous XCUITest preference without fallback', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('用本机 iPhone 通过 XCUITest 跑登录 smoke');
+    const routed = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(routed.status).toBe('execution_route_blocked');
+    expect(routed.executionRoute).toMatchObject({ status: 'blocked', code: 'xcuitest_ambiguous' });
+    expect(routed.plan).toBeNull();
+    const recovered = session.selectExecutionRoute('Two');
+    expect(recovered.status).toBe('awaiting_plan_confirmation');
+    expect(recovered.plan?.execution.xcuitest?.scheme).toBe('Two');
+  });
+
+  it('recovers from an invalid route selection without changing the planning identity', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('Run the login smoke test on the local iPhone with scheme One');
+    const planned = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(planned.status).toBe('awaiting_plan_confirmation');
+
+    const blocked = session.modifyPlan('Change to scheme Missing');
+    expect(blocked.status).toBe('execution_route_blocked');
+    const recovered = session.selectExecutionRouteFromInput('scheme Two');
+    expect(recovered.status).toBe('awaiting_plan_confirmation');
+    expect(recovered.plan?.runId).toBe(planned.plan?.runId);
+    expect(recovered.plan?.projectProfileRef).toBe(planned.plan?.projectProfileRef);
+  });
+
+  it('allows a blocked route to be explicitly changed to DeviceBackend or cancelled', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('Run the login smoke test on the local iPhone with XCUITest');
+    session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    const recovered = session.selectExecutionRouteFromInput('use device backend');
+    expect(recovered).toMatchObject({
+      status: 'awaiting_plan_confirmation',
+      plan: { execution: { resolvedPath: 'device_backend' } },
+    });
+
+    const cancelled = new PlanningSession(analysisWithRoutes());
+    const cancelledSnapshot = cancelled.begin(
+      'Run the login smoke test on the local iPhone with XCUITest',
+    );
+    cancelled.confirmCandidates(
+      cancelledSnapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(cancelled.cancel().status).toBe('cancelled');
+  });
   it('supports clarification before candidate review', () => {
     const session = new PlanningSession(analysis());
     expect(session.begin('跑登录 smoke').status).toBe('awaiting_clarification');

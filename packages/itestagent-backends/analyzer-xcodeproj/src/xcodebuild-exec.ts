@@ -90,7 +90,7 @@ export function findProjectFile(root: string): {
 /**
  * Run a command and collect stdout + stderr.
  */
-function runCommand(
+export function runCommand(
   cmd: string,
   args: string[],
   cwd?: string,
