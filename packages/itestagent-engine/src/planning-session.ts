@@ -59,6 +59,7 @@ export class PlanningSession {
   private reviewedProfile: ProjectProfile;
   private plan: TestPlan | null = null;
   private executionRoute: ExecutionRouteResolution | null = null;
+  private pendingIdentity: { runId: string; projectProfileRef: string } | null = null;
   private conversation: string[] = [];
 
   constructor(analysis: ProjectAnalysisResult) {
@@ -140,15 +141,25 @@ export class PlanningSession {
   }
 
   selectExecutionRoute(scheme: string, testPlan?: string): PlanningSnapshot {
-    this.requireStatus('awaiting_execution_route_selection', 'select execution route');
+    if (
+      this.status !== 'awaiting_execution_route_selection' &&
+      this.status !== 'execution_route_blocked'
+    ) {
+      this.requireStatus('awaiting_execution_route_selection', 'select execution route');
+    }
     if (!this.intentResult || this.intentResult.status !== 'complete') {
       throw new PlanningSessionError(
         'intent_incomplete',
         'complete the intent before route review',
       );
     }
+    const {
+      xcuitestScheme: _scheme,
+      xcuitestTestPlan: _testPlan,
+      ...currentIntent
+    } = this.intentResult.intent;
     const intent: Intent = {
-      ...this.intentResult.intent,
+      ...currentIntent,
       xcuitestScheme: scheme,
       ...(testPlan ? { xcuitestTestPlan: testPlan } : {}),
     };
@@ -156,8 +167,30 @@ export class PlanningSession {
   }
 
   selectExecutionRouteFromInput(input: string): PlanningSnapshot {
-    this.requireStatus('awaiting_execution_route_selection', 'select execution route');
+    if (
+      this.status !== 'awaiting_execution_route_selection' &&
+      this.status !== 'execution_route_blocked'
+    ) {
+      this.requireStatus('awaiting_execution_route_selection', 'select execution route');
+    }
     const parsed = parseIntent(input, this.reviewedProfile).intent;
+    if (parsed.executionPreference === 'device_backend') {
+      if (!this.intentResult || this.intentResult.status !== 'complete') {
+        throw new PlanningSessionError(
+          'intent_incomplete',
+          'complete the intent before route review',
+        );
+      }
+      const {
+        xcuitestScheme: _scheme,
+        xcuitestTestPlan: _testPlan,
+        ...currentIntent
+      } = this.intentResult.intent;
+      return this.resolvePlan({
+        ...currentIntent,
+        executionPreference: 'device_backend',
+      });
+    }
     if (!parsed.xcuitestScheme) {
       throw new PlanningSessionError(
         'execution_route_selection_required',
@@ -229,9 +262,16 @@ export class PlanningSession {
   }
 
   cancel(): PlanningSnapshot {
-    this.requireStatus('awaiting_plan_confirmation', 'cancel plan');
+    if (
+      this.status !== 'awaiting_plan_confirmation' &&
+      this.status !== 'awaiting_execution_route_selection' &&
+      this.status !== 'execution_route_blocked'
+    ) {
+      this.requireStatus('awaiting_plan_confirmation', 'cancel plan');
+    }
     this.status = 'cancelled';
     this.plan = null;
+    this.pendingIdentity = null;
     return this.snapshot();
   }
 
@@ -280,6 +320,7 @@ export class PlanningSession {
     const resolution = resolveExecutionRoute({
       preference: intent.executionPreference ?? 'auto',
       targetKind: intent.targetKind ?? 'physical',
+      discoveryStatus: this.analysis.analysis.executionAssets?.status ?? 'indeterminate',
       configurations: this.analysis.analysis.executionAssets?.configurations ?? [],
       ...(intent.xcuitestScheme ? { selectedScheme: intent.xcuitestScheme } : {}),
       ...(intent.xcuitestTestPlan ? { selectedTestPlan: intent.xcuitestTestPlan } : {}),
@@ -288,6 +329,7 @@ export class PlanningSession {
     this.executionRoute = resolution;
     this.intentResult = { status: 'complete', intent };
     this.plan = null;
+    if (identity) this.pendingIdentity = identity;
 
     if (resolution.status === 'ambiguous') {
       this.status = 'awaiting_execution_route_selection';
@@ -301,7 +343,7 @@ export class PlanningSession {
     this.plan = compileTestPlan(intent, this.reviewedProfile, {
       confirmedOnly: true,
       executionRoute: resolution,
-      ...(identity ?? {}),
+      ...(this.pendingIdentity ?? {}),
     });
     this.status = 'awaiting_plan_confirmation';
     return this.snapshot();

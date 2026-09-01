@@ -1,4 +1,4 @@
-import type { RunnableXcuitestConfiguration, XcuitestTarget } from 'itestagent-contracts';
+import type { XcuitestExecutionCandidate, XcuitestTarget } from 'itestagent-contracts';
 
 export type ExecutionRoutePreference = 'auto' | 'xcuitest' | 'device_backend';
 
@@ -9,34 +9,35 @@ export type ExecutionRouteResolution =
       resolvedPath: 'xcuitest' | 'device_backend';
       selectionReason:
         | 'explicit_preference'
-        | 'runnable_xcuitest'
-        | 'no_runnable_xcuitest'
+        | 'evidence_backed_xcuitest'
+        | 'confirmed_no_xcuitest_candidate'
         | 'user_selected_after_ambiguity';
       xcuitest?: XcuitestTarget;
-      configuration?: RunnableXcuitestConfiguration;
+      configuration?: XcuitestExecutionCandidate;
     }
   | {
       status: 'ambiguous';
       prefer: 'auto';
-      candidates: RunnableXcuitestConfiguration[];
+      candidates: XcuitestExecutionCandidate[];
     }
   | {
       status: 'blocked';
       prefer: 'auto' | 'xcuitest';
-      code: 'xcuitest_unavailable' | 'xcuitest_ambiguous';
-      candidates: RunnableXcuitestConfiguration[];
+      code: 'xcuitest_unavailable' | 'xcuitest_ambiguous' | 'xcuitest_discovery_indeterminate';
+      candidates: XcuitestExecutionCandidate[];
     };
 
 export interface ResolveExecutionRouteInput {
   preference: ExecutionRoutePreference;
   targetKind: 'physical' | 'simulator';
-  configurations: readonly RunnableXcuitestConfiguration[];
+  discoveryStatus: 'available' | 'none' | 'indeterminate';
+  configurations: readonly XcuitestExecutionCandidate[];
   selectedScheme?: string;
   selectedTestPlan?: string;
   selectedAfterAmbiguity?: boolean;
 }
 
-function toXcuitest(configuration: RunnableXcuitestConfiguration): XcuitestTarget {
+function toXcuitest(configuration: XcuitestExecutionCandidate): XcuitestTarget {
   return {
     scheme: configuration.scheme,
     ...(configuration.testPlan ? { testPlan: configuration.testPlan } : {}),
@@ -53,6 +54,15 @@ export function resolveExecutionRoute(input: ResolveExecutionRouteInput): Execut
       prefer: input.preference,
       resolvedPath: 'device_backend',
       selectionReason: 'explicit_preference',
+    };
+  }
+
+  if (input.discoveryStatus === 'indeterminate') {
+    return {
+      status: 'blocked',
+      prefer: input.preference,
+      code: 'xcuitest_discovery_indeterminate',
+      candidates: [],
     };
   }
 
@@ -83,7 +93,7 @@ export function resolveExecutionRoute(input: ResolveExecutionRouteInput): Execut
         ? 'user_selected_after_ambiguity'
         : input.preference === 'xcuitest'
           ? 'explicit_preference'
-          : 'runnable_xcuitest',
+          : 'evidence_backed_xcuitest',
       xcuitest: toXcuitest(selected),
       configuration: selected,
     };
@@ -98,13 +108,20 @@ export function resolveExecutionRoute(input: ResolveExecutionRouteInput): Execut
       candidates: [...candidates],
     };
   }
-  if (candidates.length === 0) {
+  if (input.discoveryStatus === 'none') {
     return {
       status: 'resolved',
       prefer: input.preference,
       resolvedPath: 'device_backend',
-      selectionReason: 'no_runnable_xcuitest',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
     };
   }
-  return { status: 'ambiguous', prefer: 'auto', candidates: [...candidates] };
+  return candidates.length === 0
+    ? {
+        status: 'blocked',
+        prefer: 'auto',
+        code: 'xcuitest_unavailable',
+        candidates: [],
+      }
+    : { status: 'ambiguous', prefer: 'auto', candidates: [...candidates] };
 }

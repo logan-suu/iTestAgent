@@ -392,7 +392,14 @@ export async function createAgentSession(
         },
       },
       executeTestPlan: {
-        action: 'replace_device_app',
+        action: () =>
+          planningSession?.getConfirmedPlan()?.execution.resolvedPath === 'xcuitest'
+            ? 'execute_project_build'
+            : 'replace_device_app',
+        additionalActions: () =>
+          planningSession?.getConfirmedPlan()?.execution.resolvedPath === 'xcuitest'
+            ? ['replace_device_app']
+            : [],
         resource: 'confirmed-plan-target',
         backendName: 'itestagent-engine',
         execute: async () => {
@@ -472,7 +479,8 @@ export async function createAgentSession(
           } else if (planningSession.getSnapshot().status === 'awaiting_clarification') {
             planningSnapshot = planningSession.clarify(input);
           } else if (
-            planningSession.getSnapshot().status === 'awaiting_execution_route_selection'
+            planningSession.getSnapshot().status === 'awaiting_execution_route_selection' ||
+            planningSession.getSnapshot().status === 'execution_route_blocked'
           ) {
             planningSnapshot = planningSession.selectExecutionRouteFromInput(input);
           }
@@ -624,7 +632,7 @@ function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): 
       type: 'message_add',
       payload: {
         role: 'system',
-        text: `Multiple runnable XCUITest configurations require selection before plan confirmation:\n${candidates
+        text: `Multiple XCUITest execution candidates require selection before plan confirmation:\n${candidates
           .map(
             (candidate) =>
               `- scheme ${candidate.scheme}${candidate.testPlan ? `, test plan ${candidate.testPlan}` : ' (scheme default)'}`,
@@ -641,7 +649,7 @@ function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): 
       payload: {
         message:
           route?.status === 'blocked'
-            ? `${route.code}: explicit XCUITest selection could not be uniquely resolved; no DeviceBackend fallback was applied`
+            ? `${route.code}: XCUITest candidate resolution is blocked; no DeviceBackend fallback was applied. Correct the scheme/test plan, explicitly reply "use device backend", or cancel the plan.`
             : 'execution_route_blocked',
       },
     });

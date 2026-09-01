@@ -100,7 +100,7 @@ describe('compileMvpExecution executionPath decision table', () => {
         ...makeValidTestPlan().execution,
         prefer: 'auto',
         resolvedPath: 'device_backend',
-        selectionReason: 'no_runnable_xcuitest',
+        selectionReason: 'confirmed_no_xcuitest_candidate',
         xcuitest: { scheme: 'AppUITests' },
       },
     });
@@ -116,7 +116,7 @@ describe('compileMvpExecution executionPath decision table', () => {
         prefer: 'auto',
         fallback: 'device_backend',
         resolvedPath: 'xcuitest',
-        selectionReason: 'runnable_xcuitest',
+        selectionReason: 'evidence_backed_xcuitest',
         xcuitest: { scheme: 'AppUITests' },
       },
     });

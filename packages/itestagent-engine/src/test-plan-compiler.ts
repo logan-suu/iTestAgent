@@ -76,7 +76,13 @@ export function compileTestPlan(
     performance,
     safety: {
       defaultMode: 'ask',
-      highRiskActions: ['clear_data', 'reinstall', 'store_credential', 'update_baseline'],
+      highRiskActions: [
+        'clear_app_data',
+        'store_credential',
+        'update_baseline',
+        'execute_project_build',
+        'replace_device_app',
+      ],
     },
   };
 
@@ -181,7 +187,8 @@ function defaultExecutionRoute(
     status: 'resolved',
     prefer,
     resolvedPath: 'device_backend',
-    selectionReason: prefer === 'device_backend' ? 'explicit_preference' : 'no_runnable_xcuitest',
+    selectionReason:
+      prefer === 'device_backend' ? 'explicit_preference' : 'confirmed_no_xcuitest_candidate',
   };
 }
 

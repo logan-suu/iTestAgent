@@ -142,7 +142,7 @@ describe('compileTestPlan', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
       expect(plan.execution.prefer).toBe('auto');
       expect(plan.execution.resolvedPath).toBe('device_backend');
-      expect(plan.execution.selectionReason).toBe('no_runnable_xcuitest');
+      expect(plan.execution.selectionReason).toBe('confirmed_no_xcuitest_candidate');
       expect(plan.execution.features).toContain('Login');
       expect(plan.execution.testData.allowAgentGeneratedData).toBe(true);
       expect(plan.execution.assertion.policy).toBe('user_goal_then_profile_then_agent_confirmed');
@@ -172,7 +172,7 @@ describe('compileTestPlan', () => {
     it('includes safety policy', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
       expect(plan.safety.defaultMode).toBe('ask');
-      expect(plan.safety.highRiskActions).toContain('clear_data');
+      expect(plan.safety.highRiskActions).toContain('clear_app_data');
     });
 
     it('includes backendPreference', () => {

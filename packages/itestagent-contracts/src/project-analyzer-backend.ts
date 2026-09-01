@@ -169,7 +169,7 @@ export const ResourceFactsSchema = z
 
 export type ResourceFacts = z.infer<typeof ResourceFactsSchema>;
 
-// ─── 6. Runnable XCUITest execution assets (ADR-029) ─────────────
+// ─── 6. XCUITest execution candidates (ADR-030) ──────────────────
 
 export const XcuitestExecutionAssetQuerySchema = z
   .object({
@@ -183,7 +183,7 @@ export const XcuitestExecutionAssetQuerySchema = z
 
 export type XcuitestExecutionAssetQuery = z.infer<typeof XcuitestExecutionAssetQuerySchema>;
 
-export const RunnableXcuitestConfigurationSchema = z
+export const XcuitestExecutionCandidateSchema = z
   .object({
     scheme: z.string().min(1),
     testPlan: z.string().min(1).optional(),
@@ -196,15 +196,32 @@ export const RunnableXcuitestConfigurationSchema = z
   })
   .strict();
 
-export type RunnableXcuitestConfiguration = z.infer<typeof RunnableXcuitestConfigurationSchema>;
+export type XcuitestExecutionCandidate = z.infer<typeof XcuitestExecutionCandidateSchema>;
 
 export const XcuitestExecutionAssetsSchema = z
   .object({
-    configurations: z.array(RunnableXcuitestConfigurationSchema),
+    status: z.enum(['available', 'none', 'indeterminate']),
+    configurations: z.array(XcuitestExecutionCandidateSchema),
     evidence: z.array(z.string()),
     limitations: z.array(z.string()),
   })
-  .strict();
+  .strict()
+  .superRefine((assets, context) => {
+    if (assets.status === 'available' && assets.configurations.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['configurations'],
+        message: 'available execution assets require at least one candidate',
+      });
+    }
+    if (assets.status !== 'available' && assets.configurations.length > 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['configurations'],
+        message: `${assets.status} execution assets cannot contain candidates`,
+      });
+    }
+  });
 
 export type XcuitestExecutionAssets = z.infer<typeof XcuitestExecutionAssetsSchema>;
 
@@ -232,7 +249,7 @@ export interface ProjectAnalyzerBackend {
   /** 扫描资源统计（Asset Catalog、字体、本地化、权限） */
   scanResources(input: ResourceScanInput): Promise<ResourceFacts>;
 
-  /** Resolve runnable XCUITest configurations for a target-explicit session. */
+  /** Discover metadata-only XCUITest execution candidates for a target-explicit session. */
   discoverXcuitestExecutionAssets?(
     input: XcuitestExecutionAssetQuery,
   ): Promise<XcuitestExecutionAssets>;

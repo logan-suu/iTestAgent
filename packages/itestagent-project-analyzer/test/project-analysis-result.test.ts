@@ -36,7 +36,7 @@ const backend: ProjectAnalyzerBackend = {
 };
 
 describe('ADR-026 project analysis result', () => {
-  it('adds session-only runnable XCUITest assets without changing project-profile.v1', async () => {
+  it('adds session-only XCUITest candidates without changing project-profile.v1', async () => {
     const result = await analyzeProject(
       {
         ...backend,
@@ -47,13 +47,14 @@ describe('ADR-026 project analysis result', () => {
           xcuitestTargets: ['AppUITests'],
         }),
         discoverXcuitestExecutionAssets: async (input) => ({
+          status: 'available',
           configurations: [
             {
               scheme: 'App',
               targets: ['AppUITests'],
               targetKind: input.targetKind,
               isDefault: true,
-              evidence: ['xcodebuild enumeration succeeded'],
+              evidence: ['shared scheme TestAction metadata'],
               limitations: [],
             },
           ],
@@ -64,11 +65,28 @@ describe('ADR-026 project analysis result', () => {
       '/tmp/App',
     );
     expect(result.analysis.executionAssets?.configurations).toHaveLength(2);
+    expect(result.analysis.executionAssets?.status).toBe('available');
     expect(result.analysis.executionAssets?.configurations.map((item) => item.targetKind)).toEqual([
       'physical',
       'simulator',
     ]);
     expect('executionAssets' in result.profile).toBe(false);
+  });
+
+  it('keeps analyzer failures indeterminate instead of proving candidate absence', async () => {
+    const result = await analyzeProject(
+      {
+        ...backend,
+        discoverXcuitestExecutionAssets: async () => {
+          throw new Error('metadata unavailable');
+        },
+      },
+      '/tmp/App',
+    );
+    expect(result.analysis.executionAssets).toMatchObject({
+      status: 'indeterminate',
+      configurations: [],
+    });
   });
 
   it('wraps project-profile.v1 with explicit tier and limitations', async () => {

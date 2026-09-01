@@ -13,6 +13,39 @@ function asRecord(value: unknown): JsonRecord | undefined {
     : undefined;
 }
 
+const LEGACY_PERMISSION_ACTIONS: Readonly<Record<string, string>> = {
+  clear_data: 'clear_app_data',
+  reinstall: 'replace_device_app',
+  write_project: 'write_project_file',
+  store_credential: 'store_credential',
+  update_baseline: 'update_baseline',
+  overwrite_flow: 'overwrite_flow',
+  generate_draft: 'generate_draft_test',
+};
+
+function migrateSafety(record: JsonRecord): MigrationResult<JsonRecord> {
+  const safety = asRecord(record.safety);
+  if (!safety) return issue('missing_safety', 'legacy TestPlan.safety must be an object');
+  if (!Array.isArray(safety.highRiskActions)) {
+    return issue(
+      'invalid_high_risk_actions',
+      'legacy TestPlan.safety.highRiskActions must be an array',
+    );
+  }
+  const migrated: string[] = [];
+  for (const action of safety.highRiskActions) {
+    if (typeof action !== 'string' || !LEGACY_PERMISSION_ACTIONS[action]) {
+      return issue(
+        'unknown_high_risk_action',
+        `legacy TestPlan contains an unknown high-risk action: ${String(action)}`,
+      );
+    }
+    const canonical = LEGACY_PERMISSION_ACTIONS[action];
+    if (canonical && !migrated.includes(canonical)) migrated.push(canonical);
+  }
+  return { ok: true, value: { ...safety, highRiskActions: migrated } };
+}
+
 function inferResolvedExecution(
   execution: JsonRecord,
 ):
@@ -52,6 +85,8 @@ function migrateLegacyTestPlan(
   if (!execution) return issue('missing_execution', 'legacy TestPlan.execution must be an object');
   const resolution = inferResolvedExecution(execution);
   if ('code' in resolution) return { ok: false, issues: [resolution] };
+  const safety = migrateSafety(record);
+  if (!safety.ok) return safety;
 
   const { xcuitest: _legacyXcuitest, ...executionWithoutXcuitest } = execution;
   const migratedExecution: JsonRecord = {
@@ -66,6 +101,7 @@ function migrateLegacyTestPlan(
       ...record,
       schemaVersion: 'itestagent.test-plan.v3',
       execution: migratedExecution,
+      safety: safety.value,
     },
   };
 }

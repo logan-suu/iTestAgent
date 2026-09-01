@@ -53,7 +53,7 @@ describe('TestPlan → MvpExecutionInput field mapping', () => {
         prefer: 'auto',
         fallback: 'abort',
         resolvedPath: 'xcuitest',
-        selectionReason: 'runnable_xcuitest',
+        selectionReason: 'evidence_backed_xcuitest',
         xcuitest: { scheme: 'MyAppUITests', configuration: 'Debug' },
       },
     });

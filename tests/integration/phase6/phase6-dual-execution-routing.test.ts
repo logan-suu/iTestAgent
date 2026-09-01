@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import type { Intent, RunnableXcuitestConfiguration } from 'itestagent-contracts';
+import type { Intent, XcuitestExecutionCandidate } from 'itestagent-contracts';
 import {
   compileTestPlan,
   createDualExecutionDispatcher,
@@ -37,14 +37,14 @@ const intent: Intent = {
   sourceText: 'Use Simulator for login smoke',
 };
 
-function runnable(overrides: Partial<RunnableXcuitestConfiguration> = {}) {
+function runnable(overrides: Partial<XcuitestExecutionCandidate> = {}) {
   return {
     scheme: 'Demo',
     testPlan: 'Smoke',
     targets: ['DemoUITests'],
     targetKind: 'simulator' as const,
     isDefault: true,
-    evidence: ['xcodebuild enumeration succeeded'],
+    evidence: ['shared scheme TestAction metadata'],
     limitations: [],
     ...overrides,
   };
@@ -55,6 +55,7 @@ describe('Phase 6 dual execution routing', () => {
     const route = resolveExecutionRoute({
       preference: 'auto',
       targetKind: 'simulator',
+      discoveryStatus: 'available',
       configurations: [runnable()],
     });
     expect(route.status).toBe('resolved');
@@ -66,22 +67,23 @@ describe('Phase 6 dual execution routing', () => {
       execution: {
         prefer: 'auto',
         resolvedPath: 'xcuitest',
-        selectionReason: 'runnable_xcuitest',
+        selectionReason: 'evidence_backed_xcuitest',
         xcuitest: { scheme: 'Demo', testPlan: 'Smoke', targets: ['DemoUITests'] },
       },
     });
   });
 
-  it('uses DeviceBackend only when auto has no compatible runnable configuration', () => {
+  it('uses DeviceBackend only when auto has authoritative candidate absence', () => {
     const route = resolveExecutionRoute({
       preference: 'auto',
       targetKind: 'simulator',
-      configurations: [runnable({ targetKind: 'physical' })],
+      discoveryStatus: 'none',
+      configurations: [],
     });
     expect(route).toMatchObject({
       status: 'resolved',
       resolvedPath: 'device_backend',
-      selectionReason: 'no_runnable_xcuitest',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
     });
   });
 
@@ -89,6 +91,7 @@ describe('Phase 6 dual execution routing', () => {
     const route = resolveExecutionRoute({
       preference: 'auto',
       targetKind: 'simulator',
+      discoveryStatus: 'available',
       configurations: [runnable()],
     });
     if (route.status !== 'resolved') throw new Error('route did not resolve');

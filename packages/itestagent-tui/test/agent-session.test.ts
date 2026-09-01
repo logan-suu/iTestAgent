@@ -73,6 +73,12 @@ const FAKE_ANALYSIS = {
     analysisTier: 'tier1_static',
     enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
     limitations: ['Candidates require user confirmation.'],
+    executionAssets: {
+      status: 'none',
+      configurations: [],
+      evidence: ['Shared scheme metadata contains no XCUITest candidate.'],
+      limitations: [],
+    },
   },
 } as const;
 

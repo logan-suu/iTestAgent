@@ -296,9 +296,9 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
     expect(plan.execution).toMatchObject({
       prefer: 'auto',
       resolvedPath: 'device_backend',
-      selectionReason: 'no_runnable_xcuitest',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
     });
-    expect(plan.safety.highRiskActions).toContain('reinstall');
+    expect(plan.safety.highRiskActions).toContain('replace_device_app');
 
     makeValidTestPlan(plan);
   });

@@ -1041,6 +1041,50 @@ describe('custom tool handlers', () => {
     expect(events.some((event) => event.type === 'permission.resolved')).toBe(true);
   });
 
+  test('requires every declared permission action before invoking a custom handler', async () => {
+    const permissionEngine = new PermissionEngine();
+    const events: AgentEvent[] = [];
+    let invoked = false;
+    const dispatcher = new ToolDispatcher({
+      permissionEngine,
+      backendSelector: new BackendSelector(new BackendRegistry()),
+      onEvent: (event) => events.push(event),
+      customTools: {
+        execute_plan: {
+          action: 'execute_project_build',
+          additionalActions: ['replace_device_app'],
+          resource: 'confirmed-plan-target',
+          execute: async () => {
+            invoked = true;
+            return { success: true };
+          },
+        },
+      },
+    });
+
+    const pending = dispatcher.dispatch(
+      makeToolCall({ id: 'dual_permission', name: 'execute_plan', arguments: {} }),
+    );
+    await Bun.sleep(0);
+    expect(
+      events.some(
+        (event) =>
+          event.type === 'permission.requested' && event.action === 'execute_project_build',
+      ),
+    ).toBe(true);
+    permissionEngine.resolve('dual_permission', 'allow', false);
+    await Bun.sleep(0);
+    expect(
+      events.some(
+        (event) => event.type === 'permission.requested' && event.action === 'replace_device_app',
+      ),
+    ).toBe(true);
+    expect(invoked).toBe(false);
+    permissionEngine.resolve('dual_permission', 'allow', false);
+    expect((await pending).status).toBe('ok');
+    expect(invoked).toBe(true);
+  });
+
   test('rejects custom handlers that shadow built-in device tools', () => {
     expect(
       () =>

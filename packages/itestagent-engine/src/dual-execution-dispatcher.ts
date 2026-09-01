@@ -89,12 +89,22 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             fallbackHistory: [],
           };
         }
-        const readiness = await deps.revalidateXcuitest({
-          plan: input.plan,
-          workspace: input.workspace,
-          destination: input.destination,
-          signal: input.signal,
-        });
+        let readiness: { ready: boolean; reason?: string };
+        try {
+          readiness = await deps.revalidateXcuitest({
+            plan: input.plan,
+            workspace: input.workspace,
+            destination: input.destination,
+            signal: input.signal,
+          });
+        } catch (error) {
+          return {
+            status: 'blocked',
+            path,
+            error: error instanceof Error ? error.message : String(error),
+            fallbackHistory: [],
+          };
+        }
         if (!readiness.ready) {
           return {
             status: 'blocked',

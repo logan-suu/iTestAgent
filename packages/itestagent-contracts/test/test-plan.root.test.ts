@@ -142,9 +142,15 @@ describe('published schemas/test-plan.schema.json parity (B04)', () => {
       ['configuration', 'evidence', 'limitations', 'scheme', 'targets', 'testPlan'].sort(),
     );
 
-    // Not required — backward compatible with v2 plans authored before B04.
+    // Optional for DeviceBackend plans; the published conditional requires it for XCUITest.
     expect(executionPlan.required as string[]).not.toContain('xcuitest');
     expect((xcuitest.required as string[]).sort()).toEqual(['scheme']);
+    const conditional = (executionPlan.allOf as JsonRecord[])[0] as JsonRecord;
+    expect(conditional.if).toEqual({
+      properties: { resolvedPath: { const: 'xcuitest' } },
+      required: ['resolvedPath'],
+    });
+    expect(Reflect.get(conditional, 'then')).toEqual({ required: ['xcuitest'] });
   });
 
   it('publishes the confirmed route fields required by runtime v3', () => {

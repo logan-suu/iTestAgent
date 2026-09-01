@@ -6,6 +6,8 @@
 **关联任务**：T6.5
 **关联条目**：DEF-032
 
+> **2026-09-01 修订**：ADR-030 取代本文“确认前 generic `xcodebuild test -enumerate-tests` 证明 runnable”的部分。确认前现在只允许 metadata-only 结构候选；探测结果使用 available/none/indeterminate 三态；工程 build/test action 与设备安装分别经过 `execute_project_build`、`replace_device_app` 权限。本文关于确认路径、路径专属 readiness 与禁止执行后语义 fallback 的结论继续有效。
+
 ## 背景
 
 US-7.1 与既有架构把生产执行描述为“有 XCUITest target 时优先 `xcodebuild test`，否则进入 DeviceBackend 探索”。该描述不足以安全驱动生产调度：XCUITest target 的存在不证明存在包含该 target 的可执行 scheme/Test action，也不证明可选 test plan、destination 与当前 `targetKind` 相容。
@@ -28,22 +30,22 @@ US-7.1 与既有架构把生产执行描述为“有 XCUITest target 时优先 `
 
 缺点：把测试失败、基础设施失败和“无测试资产”混为一谈；执行中改变用户确认的语义；违反 R5。
 
-### 方案 C：确认前解析可执行配置，执行后禁止语义 fallback（决策）
+### 方案 C：确认前解析结构候选，执行后禁止语义 fallback（经 ADR-030 修订后继续采用）
 
-项目分析先产出带证据和 limitation 的可执行 XCUITest 配置候选；规划阶段按用户偏好和候选唯一性解析路径，将所选 scheme/test plan 写入待确认 TestPlan。用户确认后，S4 只重新验证该选择并生成 RunPlan，不得静默换路。
+项目分析先通过 metadata-only 读取产出带证据和 limitation 的 XCUITest 结构候选；规划阶段按用户偏好、探测状态和候选唯一性解析路径，将所选 scheme/test plan 写入待确认 TestPlan。用户确认后，S4 只重新验证该选择并生成 RunPlan，不得静默换路。
 
 ## 决策
 
-### 1. 可执行 XCUITest 配置
+### 1. XCUITest 执行候选
 
 生产调度中的“XCUITest 可用”必须由一个可执行配置证明：
 
 ```text
-runnableXcuitestConfiguration =
+xcuitestExecutionCandidate =
   scheme
   + scheme Test action 中至少一个 XCUITest target
   + 可选的关联/默认 test plan
-  + 与已选 targetKind 的 generic platform 相容；具体 destination readiness 留到确认后
+  + 声明的 targetKind 相容性；具体 destination readiness 留到确认后
   + 可追踪 evidence 与 limitations
 ```
 
@@ -52,8 +54,9 @@ runnableXcuitestConfiguration =
 - scheme 名称包含 `test` 不是可执行性证据。
 - 第一版把详细配置放入当次 `ProjectAnalysisResult.analysis`/执行资产快照，避免未经迁移直接改变持久化 `project-profile.v1`。
 - 被选中的 `scheme`、可选 `testPlan` 和目标过滤必须写入 TestPlan，使确认后的执行不依赖重新猜测。
-- 规划期资产探测禁止传入具体 Simulator/iPhone destination。必须使用对应 generic platform、关闭 code signing，并且不得安装 App 或 test runner；generic probe 仅允许“需要具体设备才能运行”这一预期 limitation，JSON 中其他 `errors` 必须 fail-closed。
-- 具体 destination、签名、provisioning、安装与 launch 仅在 TestPlan 确认且 `replace_device_app` 权限通过后执行。真机首次签名允许使用 `-allowProvisioningUpdates`，但不得在分析阶段提前触发。
+- 规划期资产探测只允许 metadata-only 读取，不得执行 Xcode build/test/archive action、scheme pre-action 或项目 Run Script。候选不得命名为 runnable，也不得宣称具体 build/signing/install/test 已验证。
+- 探测结果必须区分 `available`、`none`、`indeterminate`；只有权威 `none` 才能支持 auto 选择 DeviceBackend，`indeterminate` 必须 blocked。
+- TestPlan 确认后，工程 build/test action 必须先通过 `execute_project_build` 权限；具体 destination、签名、provisioning、App/test runner 安装或替换还必须通过 `replace_device_app` 权限。真机首次签名允许使用 `-allowProvisioningUpdates`，但不得在分析阶段提前触发。
 
 TestPlan canonical schema 升级为 `itestagent.test-plan.v3`，writer 必须补充：
 
@@ -61,8 +64,8 @@ TestPlan canonical schema 升级为 `itestagent.test-plan.v3`，writer 必须补
 execution.resolvedPath: xcuitest | device_backend
 execution.selectionReason:
   explicit_preference
-  | runnable_xcuitest
-  | no_runnable_xcuitest
+  | evidence_backed_xcuitest
+  | confirmed_no_xcuitest_candidate
   | user_selected_after_ambiguity
 execution.xcuitest: { scheme, testPlan?, targets? }  # resolvedPath=xcuitest 时必需
 ```
@@ -71,23 +74,24 @@ execution.xcuitest: { scheme, testPlan?, targets? }  # resolvedPath=xcuitest 时
 
 ### 2. 路由矩阵
 
-| `execution.prefer` | 可执行配置 | 解析结果 |
+| `execution.prefer` | 探测状态/候选 | 解析结果 |
 |---|---|---|
 | `device_backend` | 任意 | DeviceBackend；显式选择优先 |
-| `xcuitest` | 已唯一解析且相容 | XCUITest |
-| `xcuitest` | 缺失、歧义或不相容 | blocked；不得降级 |
-| `auto` | 唯一配置或存在明确默认配置 | XCUITest |
-| `auto` | 多个配置且无明确默认 | 在 TestPlan 确认前询问用户 |
-| `auto` | 无可执行配置 | DeviceBackend |
+| `xcuitest` | available 且已唯一解析、相容 | XCUITest |
+| `xcuitest` | none/indeterminate/歧义/不相容 | blocked；不得降级 |
+| `auto` | available 且唯一候选或存在明确默认候选 | XCUITest |
+| `auto` | available 且多个候选、无明确默认 | 在 TestPlan 确认前询问用户 |
+| `auto` | none | DeviceBackend |
+| `auto` | indeterminate | blocked；不得把分析失败当成无候选 |
 
-`execution.fallback=device_backend` 仅表示 `prefer=auto` 在规划阶段确认“无可执行 XCUITest 配置”时选择 DeviceBackend。它不表示 XCUITest 已开始后的失败降级。显式 `prefer=xcuitest` 必须使用 fail-closed/abort 语义。
+`execution.fallback=device_backend` 仅表示 `prefer=auto` 在规划阶段由 metadata-only 分析权威确认 `status=none` 时选择 DeviceBackend。它不表示 XCUITest 已开始后的失败降级。显式 `prefer=xcuitest` 必须使用 fail-closed/abort 语义。
 
 ### 3. 确认与重新验证
 
 - TUI 展示 TestPlan 时必须显示解析后的路径、选择原因、scheme/test plan（如适用）和 limitation。
 - 多个候选无法唯一解析时，必须在确认前询问；不得选择“第一个 scheme”。
 - 确认后的 TestPlan 是路径选择的单一事实源。
-- S4 可以用无安装 generic probe 重新检查 scheme、test plan 与 targetKind，并检查具体 destination/tool 状态；若事实已变化，RunPlan 标记 blocked 并要求修改/重新确认计划，不得换路。
+- S4 继续用 metadata-only 读取重新检查 scheme、Test action、test plan 与 targetKind 身份，并检查具体 destination/tool 状态；若事实已变化，RunPlan 标记 blocked 并要求修改/重新确认计划，不得换路。
 
 ### 4. 路径专属 readiness
 
@@ -95,7 +99,8 @@ execution.xcuitest: { scheme, testPlan?, targets? }  # resolvedPath=xcuitest 时
 共同前置：confirmed TestPlan + targetKind/destination + workspace/profile snapshot
 
 XCUITest readiness:
-  generic probe 的 scheme/Test action/test plan/targetKind
+  metadata-only revalidation 的 scheme/Test action/test plan/targetKind
+  + execute_project_build 权限
   + 确认后的具体 xcodebuild destination + build/signing/install permission
   不要求 Appium/WDA ready
 
@@ -119,7 +124,7 @@ DeviceBackend readiness:
 - T6.6 负责探索动作、逐 case checkpoint、RunStep/Flow，不把 T6.5 的路由选择与完整探索可靠性混为一项。
 - 自动化测试必须覆盖完整路由矩阵、歧义、显式选择、事实变化、路径专属 readiness 和禁止执行后 fallback。
 - XCUITest 路径宣称支持 physical + simulator，必须分别完成真实 iPhone G5 与 CoreSimulator G5-SIM；仅 mock/fixture 或组件测试不得宣称闭环通过。
-- G5 必须验证资产探测本身不选择具体设备、不安装 test runner；确认后的执行才可产生设备侧变更。
+- 自动化 sentinel 必须验证确认前资产探测不执行项目 Run Script；G5 必须验证资产探测不选择具体设备、不安装 test runner；确认后的执行才可产生 build/script 与设备侧变更。
 
 ## 后果
 

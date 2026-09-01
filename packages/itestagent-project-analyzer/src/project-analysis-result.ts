@@ -24,7 +24,7 @@ export const XCODEPROJ_TIER1_ANALYSIS: ProjectAnalysisMetadata = {
     'build_settings',
     'static_source_candidates',
     'resource_scan',
-    'runnable_xcuitest_execution_assets',
+    'xcuitest_execution_candidates',
   ],
   limitations: [
     'SwiftSyntax tier-2 structural analysis is not enabled.',
@@ -59,16 +59,27 @@ export async function analyzeProject(
           }),
         ),
       );
+      const statuses = snapshots.map((snapshot) => snapshot?.status ?? 'indeterminate');
+      const configurations = snapshots.flatMap((snapshot) => snapshot?.configurations ?? []);
+      const status = statuses.includes('indeterminate')
+        ? 'indeterminate'
+        : configurations.length > 0
+          ? 'available'
+          : 'none';
       executionAssets = {
-        configurations: snapshots.flatMap((snapshot) => snapshot?.configurations ?? []),
+        status,
+        configurations: status === 'available' ? configurations : [],
         evidence: snapshots.flatMap((snapshot) => snapshot?.evidence ?? []),
         limitations: snapshots.flatMap((snapshot) => snapshot?.limitations ?? []),
       };
     } catch {
       executionAssets = {
+        status: 'indeterminate',
         configurations: [],
         evidence: [],
-        limitations: ['Runnable XCUITest asset discovery failed; inspect the local analyzer log.'],
+        limitations: [
+          'XCUITest candidate metadata discovery failed; inspect the local analyzer log.',
+        ],
       };
     }
   }

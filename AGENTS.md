@@ -47,7 +47,8 @@
 | | `docs/decisions/ADR-010-agent-harness-runtime-boundary.md` | Harness 边界：自研/复用/禁止 |
 | | `docs/decisions/ADR-012-wda-lifecycle-separation.md` | WDA lifecycle separation and historical Route B/C evidence |
 | | `docs/decisions/ADR-028-physical-preflight-and-wda-readiness.md` | Current WDA preflight rule: Route B/C are evidence-gated candidates; active readiness probe is mandatory before T6.4 selects a default |
-| | `docs/decisions/ADR-029-dual-execution-route-resolution.md` | Confirmed runnable XCUITest routing, route-specific readiness, and no post-start semantic fallback |
+| | `docs/decisions/ADR-029-dual-execution-route-resolution.md` | Confirmed XCUITest routing, route-specific readiness, and no post-start semantic fallback |
+| | `docs/decisions/ADR-030-metadata-only-xcuitest-candidates.md` | Metadata-only pre-confirmation candidates, typed discovery outcomes, and project-build permission boundary |
 | **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
 | **实现 Project Analyzer / ProjectAnalyzerBackend** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer、§5.4 ProjectAnalyzerBackend |
@@ -293,7 +294,7 @@ artifact-index.json   artifacts[{id,type,path,relatedStep}]
 ## 6. 领域关键规则（务必内化）
 
 ```
-Execution routing  Explicit preference wins; auto selects a confirmed runnable XCUITest configuration, otherwise DeviceBackend; no cross-route fallback after execution starts (ADR-029)
+Execution routing  Explicit preference wins; auto selects an evidence-backed XCUITest candidate, uses DeviceBackend only after authoritative candidate absence, and blocks indeterminate discovery; no cross-route fallback after execution starts (ADR-029/030)
 断言       用户明确条件 > Profile 目标 > Agent 建议(需确认) > 仅探索；无断言不判 passed(explored/inconclusive/needs_assertion)
 性能       主推 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate；xctrace summary 实验性(保留原始 .trace)
 baseline   首次成功 run 建立；失败/crash 不建；后续对比趋势；接受新 baseline 需确认

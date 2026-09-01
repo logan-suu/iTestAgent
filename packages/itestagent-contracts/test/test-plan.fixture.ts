@@ -51,7 +51,7 @@ export function makeValidTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
       prefer: 'auto',
       fallback: 'device_backend',
       resolvedPath: 'device_backend',
-      selectionReason: 'no_runnable_xcuitest',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
       features: ['login', 'checkout'],
       testData: {
         allowAgentGeneratedData: true,
@@ -71,7 +71,7 @@ export function makeValidTestPlan(overrides: Partial<TestPlan> = {}): TestPlan {
     },
     safety: {
       defaultMode: 'ask',
-      highRiskActions: ['clear_data', 'reinstall', 'store_credential'],
+      highRiskActions: ['clear_app_data', 'replace_device_app', 'store_credential'],
     },
     ...overrides,
   };

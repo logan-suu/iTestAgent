@@ -95,7 +95,7 @@ const MOCK_TEST_PLAN: TestPlan = {
   },
   safety: {
     defaultMode: 'ask' as const,
-    highRiskActions: ['clear_data', 'reinstall'],
+    highRiskActions: ['clear_app_data', 'replace_device_app'],
   },
 };
 

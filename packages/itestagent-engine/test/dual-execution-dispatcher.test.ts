@@ -15,7 +15,8 @@ function plan(path: 'xcuitest' | 'device_backend'): TestPlan {
       prefer: 'auto',
       fallback: path === 'xcuitest' ? 'abort' : 'device_backend',
       resolvedPath: path,
-      selectionReason: path === 'xcuitest' ? 'runnable_xcuitest' : 'no_runnable_xcuitest',
+      selectionReason:
+        path === 'xcuitest' ? 'evidence_backed_xcuitest' : 'confirmed_no_xcuitest_candidate',
       features: ['Login'],
       testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
       assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
@@ -122,6 +123,33 @@ describe('createDualExecutionDispatcher', () => {
     const result = await dispatcher.dispatch(input(plan('xcuitest')));
     expect(result).toMatchObject({ status: 'blocked', path: 'xcuitest' });
     expect(runnerCalls).toBe(0);
+  });
+
+  it('normalizes rejected XCUITest revalidation without switching route', async () => {
+    const dispatcher = createDualExecutionDispatcher({
+      revalidateXcuitest: async () => {
+        throw new Error('metadata revalidation failed');
+      },
+      runXcuitest: async () => {
+        throw new Error('must not execute');
+      },
+      runDeviceBackend: async () => {
+        throw new Error('must not fallback');
+      },
+    });
+    const result = await dispatcher.dispatch({
+      plan: plan('xcuitest'),
+      confirmed: true,
+      workspace: '/workspace/Demo',
+      destination: { targetKind: 'physical', udid: 'PHONE' },
+      resultBundlePath: '/runs/tests.xcresult',
+    });
+    expect(result).toEqual({
+      status: 'blocked',
+      path: 'xcuitest',
+      error: 'metadata revalidation failed',
+      fallbackHistory: [],
+    });
   });
 
   it('rejects execution before confirmation', async () => {

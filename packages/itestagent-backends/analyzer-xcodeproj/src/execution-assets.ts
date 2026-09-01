@@ -1,162 +1,129 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import type {
-  RunnableXcuitestConfiguration,
   XcuitestExecutionAssetQuery,
   XcuitestExecutionAssets,
+  XcuitestExecutionCandidate,
 } from 'itestagent-contracts';
 import {
   XcuitestExecutionAssetQuerySchema,
   XcuitestExecutionAssetsSchema,
 } from 'itestagent-contracts';
-import { runCommand } from './xcodebuild-exec.js';
 
-function projectArgs(input: XcuitestExecutionAssetQuery): string[] {
-  if (input.discovery.xcworkspacePath) {
-    return ['-workspace', input.discovery.xcworkspacePath];
-  }
+function decodeXml(value: string): string {
+  return value
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
+}
+
+function sharedSchemeRoots(input: XcuitestExecutionAssetQuery): string[] {
+  const roots = new Set<string>();
   if (input.discovery.xcodeprojPath) {
-    return ['-project', input.discovery.xcodeprojPath];
+    roots.add(join(input.discovery.xcodeprojPath, 'xcshareddata', 'xcschemes'));
   }
-  return [];
-}
-
-function destinationArgument(targetKind: XcuitestExecutionAssetQuery['targetKind']): string {
-  return targetKind === 'physical' ? 'generic/platform=iOS' : 'generic/platform=iOS Simulator';
-}
-
-/** Parse the indented values printed by `xcodebuild -showTestPlans`. */
-export function parseShowTestPlans(stdout: string): string[] {
-  const plans: string[] = [];
-  let inList = false;
-  for (const rawLine of stdout.split('\n')) {
-    const line = rawLine.trim();
-    if (/^Test plans associated with (?:the )?scheme\b/i.test(line)) {
-      inList = true;
-      continue;
+  if (input.discovery.xcworkspacePath) {
+    roots.add(join(input.discovery.xcworkspacePath, 'xcshareddata', 'xcschemes'));
+  }
+  try {
+    for (const entry of readdirSync(input.root, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.endsWith('.xcodeproj')) {
+        roots.add(join(input.root, entry.name, 'xcshareddata', 'xcschemes'));
+      }
     }
-    if (!inList || line.length === 0 || line.endsWith(':')) continue;
-    if (/^(Information about|If no test plan)/i.test(line)) continue;
-    plans.push(line.replace(/\s+\(default\)$/i, ''));
+  } catch {
+    // The caller reports indeterminate when no readable shared scheme is found.
   }
-  return [...new Set(plans)];
+  return [...roots];
 }
 
-function collectMatchingTargets(
-  value: unknown,
-  knownTargets: ReadonlySet<string>,
-  found: Set<string>,
-): void {
-  if (typeof value === 'string') {
-    for (const target of knownTargets) {
-      if (value === target || value.startsWith(`${target}/`)) found.add(target);
-    }
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const entry of value) collectMatchingTargets(entry, knownTargets, found);
-    return;
-  }
-  if (typeof value === 'object' && value !== null) {
-    for (const entry of Object.values(value as Record<string, unknown>)) {
-      collectMatchingTargets(entry, knownTargets, found);
-    }
-  }
+function findSharedScheme(input: XcuitestExecutionAssetQuery, scheme: string): string | undefined {
+  return sharedSchemeRoots(input)
+    .map((root) => join(root, `${scheme}.xcscheme`))
+    .find((candidate) => existsSync(candidate));
 }
 
-/** Extract only graph-proven XCUITest targets from enumeration JSON. */
-export function parseEnumeratedXcuitestTargets(
-  stdout: string,
-  knownTargets: readonly string[],
-): string[] {
-  const parsed = JSON.parse(stdout) as unknown;
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('enumeration output is not an object');
-  }
-  const errors = (parsed as { errors?: unknown }).errors;
-  if (errors !== undefined && !Array.isArray(errors)) {
-    throw new Error('enumeration errors field is malformed');
-  }
-  if (Array.isArray(errors)) {
-    const unexpected = errors.filter(
-      (error) =>
-        typeof error !== 'string' || !/Tests must be run on a concrete device/i.test(error),
-    );
-    if (unexpected.length > 0) throw new Error('enumeration reported an unexpected error');
-  }
-  const found = new Set<string>();
-  collectMatchingTargets(parsed, new Set(knownTargets), found);
-  return knownTargets.filter((target) => found.has(target));
+interface ParsedSchemeTestAction {
+  targets: string[];
+  testPlans: Array<{ name: string; isDefault: boolean }>;
 }
 
-function enumerateConfiguration(
+/** Parse only the TestAction metadata needed for pre-confirmation route selection. */
+export function parseSchemeTestAction(
+  xml: string,
+  graphTargets: readonly string[],
+): ParsedSchemeTestAction {
+  const testAction = xml.match(/<TestAction\b[\s\S]*?<\/TestAction>/i)?.[0];
+  if (!testAction) return { targets: [], testPlans: [] };
+
+  const graphTargetSet = new Set(graphTargets);
+  const targets = new Set<string>();
+  for (const match of testAction.matchAll(/\bBlueprintName\s*=\s*"([^"]+)"/gi)) {
+    const target = decodeXml(match[1] ?? '');
+    if (graphTargetSet.has(target)) targets.add(target);
+  }
+
+  const testPlans: Array<{ name: string; isDefault: boolean }> = [];
+  for (const match of testAction.matchAll(
+    /<TestPlanReference\b([^>]*)\breference\s*=\s*"container:([^"]+\.xctestplan)"([^>]*)\/?\s*>/gi,
+  )) {
+    const attributes = `${match[1] ?? ''} ${match[3] ?? ''}`;
+    const name = basename(decodeXml(match[2] ?? ''), '.xctestplan');
+    if (name.length === 0) continue;
+    testPlans.push({ name, isDefault: /\bdefault\s*=\s*"YES"/i.test(attributes) });
+  }
+  return { targets: [...targets], testPlans };
+}
+
+function candidatesForScheme(
   input: XcuitestExecutionAssetQuery,
   scheme: string,
-  testPlan: string | undefined,
-): { configuration?: RunnableXcuitestConfiguration; limitation?: string } {
-  const args = [
-    'test',
-    ...projectArgs(input),
-    '-scheme',
-    scheme,
-    '-destination',
-    destinationArgument(input.targetKind),
-    'CODE_SIGNING_ALLOWED=NO',
-    ...(testPlan ? ['-testPlan', testPlan] : []),
-    '-quiet',
-    '-enumerate-tests',
-    '-test-enumeration-style',
-    'hierarchical',
-    '-test-enumeration-format',
-    'json',
-    '-test-enumeration-output-path',
-    '-',
+  schemePath: string,
+): XcuitestExecutionCandidate[] {
+  const parsed = parseSchemeTestAction(readFileSync(schemePath, 'utf8'), input.xcuitestTargets);
+  if (parsed.targets.length === 0) return [];
+
+  const evidence = [
+    `Shared scheme metadata ${schemePath} contains a Test action referencing graph-proven XCUITest target(s): ${parsed.targets.join(', ')}.`,
+    `Declared target platform kind: ${input.targetKind}.`,
   ];
-  const result = runCommand('xcodebuild', args, input.root);
-  if (result.exitCode !== 0) {
-    return {
-      limitation: `XCUITest enumeration failed for scheme ${scheme}${testPlan ? ` / test plan ${testPlan}` : ''} with exit ${result.exitCode}; inspect the local xcodebuild log.`,
-    };
-  }
+  const limitations = [
+    'Metadata-only discovery does not prove build, signing, installation, destination, or test runtime readiness.',
+  ];
 
-  let targets: string[];
-  try {
-    targets = parseEnumeratedXcuitestTargets(result.stdout, input.xcuitestTargets);
-  } catch {
-    return {
-      limitation: `XCUITest enumeration JSON was invalid for scheme ${scheme}${testPlan ? ` / test plan ${testPlan}` : ''}; inspect the local xcodebuild log.`,
-    };
+  if (parsed.testPlans.length === 0) {
+    return [
+      {
+        scheme,
+        targets: parsed.targets,
+        targetKind: input.targetKind,
+        isDefault: true,
+        evidence,
+        limitations,
+      },
+    ];
   }
-  if (targets.length === 0) {
-    return {
-      limitation: `Scheme ${scheme}${testPlan ? ` / test plan ${testPlan}` : ''} enumerated no graph-proven XCUITest target.`,
-    };
-  }
-
-  return {
-    configuration: {
-      scheme,
-      ...(testPlan ? { testPlan } : {}),
-      targets,
-      targetKind: input.targetKind,
-      isDefault: testPlan === undefined,
-      evidence: [
-        `Non-installing generic-platform xcodebuild test enumeration succeeded in resolving scheme ${scheme}${testPlan ? ` and test plan ${testPlan}` : ' using its configured default test plan'}.`,
-        `Enumerated XCUITest targets: ${targets.join(', ')}.`,
-        `Target platform kind verified without selecting a concrete destination: ${input.targetKind}.`,
-      ],
-      limitations: [
-        'Concrete destination build, signing, installation, and launch readiness are deferred until confirmed execution.',
-      ],
-    },
-  };
+  return parsed.testPlans.map((testPlan) => ({
+    scheme,
+    testPlan: testPlan.name,
+    targets: parsed.targets,
+    targetKind: input.targetKind,
+    isDefault: testPlan.isDefault,
+    evidence,
+    limitations,
+  }));
 }
 
-/** Resolve runnable scheme/Test action/test plan configurations via xcodebuild. */
+/** Discover XCUITest execution candidates without running any Xcode build or test action. */
 export async function discoverXcuitestExecutionAssets(
   rawInput: XcuitestExecutionAssetQuery,
 ): Promise<XcuitestExecutionAssets> {
   const input = XcuitestExecutionAssetQuerySchema.parse(rawInput);
   if (input.destination && input.destination.targetKind !== input.targetKind) {
     return XcuitestExecutionAssetsSchema.parse({
+      status: 'indeterminate',
       configurations: [],
       evidence: [],
       limitations: ['The selected destination targetKind does not match the requested targetKind.'],
@@ -164,38 +131,46 @@ export async function discoverXcuitestExecutionAssets(
   }
   if (input.xcuitestTargets.length === 0) {
     return XcuitestExecutionAssetsSchema.parse({
+      status: 'none',
       configurations: [],
       evidence: ['The project graph contains no XCUITest target.'],
       limitations: [],
     });
   }
 
-  const configurations: RunnableXcuitestConfiguration[] = [];
+  const configurations: XcuitestExecutionCandidate[] = [];
   const limitations: string[] = [];
+  let indeterminate = false;
   for (const scheme of input.discovery.schemes) {
-    const plansResult = runCommand(
-      'xcodebuild',
-      [...projectArgs(input), '-scheme', scheme, '-showTestPlans'],
-      input.root,
-    );
-    const testPlans = plansResult.exitCode === 0 ? parseShowTestPlans(plansResult.stdout) : [];
-    if (plansResult.exitCode !== 0) {
+    const schemePath = findSharedScheme(input, scheme);
+    if (!schemePath) {
+      indeterminate = true;
       limitations.push(
-        `Test-plan discovery failed for scheme ${scheme} with exit ${plansResult.exitCode}; inspect the local xcodebuild log.`,
+        `Shared metadata for scheme ${scheme} was not found; candidate absence cannot be proven.`,
       );
+      continue;
     }
-
-    for (const testPlan of [undefined, ...testPlans]) {
-      const result = enumerateConfiguration(input, scheme, testPlan);
-      if (result.configuration) configurations.push(result.configuration);
-      if (result.limitation) limitations.push(result.limitation);
+    try {
+      configurations.push(...candidatesForScheme(input, scheme, schemePath));
+    } catch {
+      indeterminate = true;
+      limitations.push(`Shared metadata for scheme ${scheme} could not be read or parsed.`);
     }
   }
 
+  if (indeterminate) {
+    return XcuitestExecutionAssetsSchema.parse({
+      status: 'indeterminate',
+      configurations: [],
+      evidence: [],
+      limitations,
+    });
+  }
   return XcuitestExecutionAssetsSchema.parse({
+    status: configurations.length > 0 ? 'available' : 'none',
     configurations,
     evidence: [
-      `Evaluated ${input.discovery.schemes.length} scheme(s) against ${input.xcuitestTargets.length} graph-proven XCUITest target(s).`,
+      `Read ${input.discovery.schemes.length} shared scheme(s) as metadata without running an Xcode build/test/archive action.`,
     ],
     limitations,
   });

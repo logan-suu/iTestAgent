@@ -83,7 +83,7 @@ function makeMinimalExecution() {
     prefer: 'auto',
     fallback: 'device_backend',
     resolvedPath: 'device_backend',
-    selectionReason: 'no_runnable_xcuitest',
+    selectionReason: 'confirmed_no_xcuitest_candidate',
     features: ['login'],
     testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
     assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
@@ -100,7 +100,7 @@ describe('ExecutionPlanSchema.xcuitest (B04 target-explicit override)', () => {
     const xcuitestExecution = {
       ...makeMinimalExecution(),
       resolvedPath: 'xcuitest' as const,
-      selectionReason: 'runnable_xcuitest' as const,
+      selectionReason: 'evidence_backed_xcuitest' as const,
     };
     expect(
       ExecutionPlanSchema.parse({ ...xcuitestExecution, xcuitest: { scheme: 'AppUITests' } })
@@ -220,16 +220,21 @@ describe('PermissionPolicyRefSchema (R7 high-risk coverage)', () => {
     const parsed = PermissionPolicyRefSchema.parse({
       defaultMode: 'ask',
       highRiskActions: [
-        'clear_data',
-        'reinstall',
-        'write_project',
+        'clear_app_data',
+        'uninstall_app',
+        'write_project_file',
         'store_credential',
         'update_baseline',
         'overwrite_flow',
-        'generate_draft',
+        'generate_draft_test',
+        'open_non_http_url',
+        'access_private_media',
+        'execute_project_build',
+        'replace_device_app',
+        'prepare_wda',
       ],
     });
-    expect(parsed.highRiskActions).toHaveLength(7);
+    expect(parsed.highRiskActions).toHaveLength(12);
   });
 
   it('rejects modes outside allow/ask/deny and unknown actions', () => {

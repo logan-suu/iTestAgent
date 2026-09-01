@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'bun:test';
-import type { RunnableXcuitestConfiguration } from 'itestagent-contracts';
+import type { XcuitestExecutionCandidate } from 'itestagent-contracts';
 import { resolveExecutionRoute } from '../src/execution-route-resolver.js';
 
 function configuration(
   scheme: string,
-  overrides: Partial<RunnableXcuitestConfiguration> = {},
-): RunnableXcuitestConfiguration {
+  overrides: Partial<XcuitestExecutionCandidate> = {},
+): XcuitestExecutionCandidate {
   return {
     scheme,
     targets: [`${scheme}UITests`],
     targetKind: 'physical',
     isDefault: true,
-    evidence: ['xcodebuild enumeration succeeded'],
+    evidence: ['shared scheme TestAction metadata'],
     limitations: [],
     ...overrides,
   };
@@ -23,6 +23,7 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
       resolveExecutionRoute({
         preference: 'device_backend',
         targetKind: 'physical',
+        discoveryStatus: 'available',
         configurations: [configuration('Demo')],
       }),
     ).toMatchObject({
@@ -32,17 +33,18 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
     });
   });
 
-  it('resolves auto to the unique runnable configuration', () => {
+  it('resolves auto to the unique evidence-backed candidate', () => {
     expect(
       resolveExecutionRoute({
         preference: 'auto',
         targetKind: 'physical',
+        discoveryStatus: 'available',
         configurations: [configuration('Demo')],
       }),
     ).toMatchObject({
       status: 'resolved',
       resolvedPath: 'xcuitest',
-      selectionReason: 'runnable_xcuitest',
+      selectionReason: 'evidence_backed_xcuitest',
       xcuitest: { scheme: 'Demo', targets: ['DemoUITests'] },
     });
   });
@@ -51,6 +53,7 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
     const result = resolveExecutionRoute({
       preference: 'auto',
       targetKind: 'physical',
+      discoveryStatus: 'available',
       configurations: [
         configuration('Demo', { testPlan: 'Smoke', isDefault: true }),
         configuration('Demo', { testPlan: 'Regression', isDefault: false }),
@@ -66,6 +69,7 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
     const result = resolveExecutionRoute({
       preference: 'auto',
       targetKind: 'physical',
+      discoveryStatus: 'available',
       configurations: [configuration('One'), configuration('Two')],
     });
     expect(result).toMatchObject({ status: 'ambiguous' });
@@ -76,6 +80,7 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
       resolveExecutionRoute({
         preference: 'xcuitest',
         targetKind: 'physical',
+        discoveryStatus: 'none',
         configurations: [],
       }),
     ).toMatchObject({ status: 'blocked', code: 'xcuitest_unavailable' });
@@ -83,6 +88,7 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
       resolveExecutionRoute({
         preference: 'xcuitest',
         targetKind: 'physical',
+        discoveryStatus: 'available',
         configurations: [configuration('One'), configuration('Two')],
       }),
     ).toMatchObject({ status: 'blocked', code: 'xcuitest_ambiguous' });
@@ -93,23 +99,24 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
       resolveExecutionRoute({
         preference: 'auto',
         targetKind: 'physical',
+        discoveryStatus: 'available',
         configurations: [configuration('Available')],
         selectedScheme: 'Missing',
       }),
     ).toMatchObject({ status: 'blocked', code: 'xcuitest_unavailable', candidates: [] });
   });
 
-  it('does not consider a configuration for the other target kind', () => {
+  it('blocks when available assets do not prove the requested target kind', () => {
     expect(
       resolveExecutionRoute({
         preference: 'auto',
         targetKind: 'simulator',
+        discoveryStatus: 'available',
         configurations: [configuration('DeviceOnly')],
       }),
     ).toMatchObject({
-      status: 'resolved',
-      resolvedPath: 'device_backend',
-      selectionReason: 'no_runnable_xcuitest',
+      status: 'blocked',
+      code: 'xcuitest_unavailable',
     });
   });
 
@@ -118,6 +125,7 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
       resolveExecutionRoute({
         preference: 'auto',
         targetKind: 'physical',
+        discoveryStatus: 'available',
         configurations: [configuration('One'), configuration('Two')],
         selectedScheme: 'Two',
         selectedAfterAmbiguity: true,
@@ -127,5 +135,31 @@ describe('resolveExecutionRoute (ADR-029 matrix)', () => {
       selectionReason: 'user_selected_after_ambiguity',
       xcuitest: { scheme: 'Two' },
     });
+  });
+
+  it('uses DeviceBackend only for authoritative candidate absence', () => {
+    expect(
+      resolveExecutionRoute({
+        preference: 'auto',
+        targetKind: 'physical',
+        discoveryStatus: 'none',
+        configurations: [],
+      }),
+    ).toMatchObject({
+      status: 'resolved',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    });
+  });
+
+  it('blocks indeterminate discovery instead of treating it as no candidate', () => {
+    expect(
+      resolveExecutionRoute({
+        preference: 'auto',
+        targetKind: 'physical',
+        discoveryStatus: 'indeterminate',
+        configurations: [],
+      }),
+    ).toMatchObject({ status: 'blocked', code: 'xcuitest_discovery_indeterminate' });
   });
 });

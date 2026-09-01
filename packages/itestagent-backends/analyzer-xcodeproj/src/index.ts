@@ -48,6 +48,5 @@ export function createXcodeProjAnalyzerBackend(): ProjectAnalyzerBackend {
 
 export {
   discoverXcuitestExecutionAssets,
-  parseEnumeratedXcuitestTargets,
-  parseShowTestPlans,
+  parseSchemeTestAction,
 } from './execution-assets.js';

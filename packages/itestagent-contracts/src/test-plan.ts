@@ -144,8 +144,8 @@ export const ExecutionPlanSchema = z.object({
   /** Auditable reason for the resolved route. */
   selectionReason: z.enum([
     'explicit_preference',
-    'runnable_xcuitest',
-    'no_runnable_xcuitest',
+    'evidence_backed_xcuitest',
+    'confirmed_no_xcuitest_candidate',
     'user_selected_after_ambiguity',
   ]),
   /** Feature names from ProjectProfile to cover */
@@ -205,13 +205,18 @@ export type PerformancePlan = z.infer<typeof PerformancePlanSchema>;
 // ─── Permission / Safety Policy ──────────────────────────────
 
 const HIGH_RISK_ACTION_VALUES = [
-  'clear_data',
-  'reinstall',
-  'write_project',
+  'clear_app_data',
+  'uninstall_app',
+  'write_project_file',
   'store_credential',
   'update_baseline',
   'overwrite_flow',
-  'generate_draft',
+  'generate_draft_test',
+  'open_non_http_url',
+  'access_private_media',
+  'execute_project_build',
+  'replace_device_app',
+  'prepare_wda',
 ] as const;
 
 export const PermissionPolicyRefSchema = z.object({

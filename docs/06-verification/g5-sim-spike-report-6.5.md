@@ -32,7 +32,7 @@ DeviceBackend 的动态探索动作属于 T6.6，本报告不宣称 DeviceBacken
 最终结果：
 
 - analyzer 找到 1 个 XCUITest 配置：scheme `SpikeApp`，target `SpikeAppUITests`；
-- `prefer=auto` 解析为 `resolvedPath=xcuitest`、`selectionReason=runnable_xcuitest`；
+- 首轮实现中 `prefer=auto` 解析为 `resolvedPath=xcuitest`、`selectionReason=runnable_xcuitest`；ADR-030 已将 canonical 名称修订为 `evidence_backed_xcuitest`，该历史记录不作为新 schema 示例；
 - dispatcher 只执行 XCUITest，不启动 Appium/WDA；
 - `xcodebuild test` exit code 0；
 - xcresultparser 得到 1 total / 1 passed / 0 failed / 0 skipped；
@@ -50,7 +50,7 @@ DeviceBackend 的动态探索动作属于 T6.6，本报告不宣称 DeviceBacken
 1. 对具体 iPhone 执行 `xcodebuild test -enumerate-tests` 会尝试安装 test runner，违反确认前无副作用边界；
 2. enumeration 可能在 JSON 中返回安装错误但进程仍 exit 0，仅检查 exit code/target 名称会产生假阳性。
 
-实现与 ADR-029 已同步修正：规划与重验只使用 generic platform、`CODE_SIGNING_ALLOWED=NO`，不选择具体设备；JSON 中只有“generic destination 需要具体设备”作为预期 limitation，其他 `errors` 全部 fail-closed。具体 destination、provisioning 与安装只在计划确认及 `replace_device_app` 权限后执行，真机 runner 此时才传 `-allowProvisioningUpdates`。
+> **2026-09-01 ADR-030 复审更正**：本段记录的是首轮 G5 后的历史修正，不能证明确认前 generic `xcodebuild test -enumerate-tests` 不执行工程 Run Script。当前规格已改为确认前 metadata-only 候选解析；工程 build/test action 在计划确认及 `execute_project_build` 权限后执行，具体 destination、provisioning 与安装还需 `replace_device_app`。本报告的真实设备/Simulator 结果仅证明确认后的执行链路，不构成旧探测方式的安全证据。
 
 修正后真机生产 dispatcher 成功完成：
 
