@@ -12,7 +12,7 @@ import { z } from 'zod';
  * 红线 R7：危险操作（清除数据/卸载重装/写项目/存凭证/更新 baseline）必须二次确认
  *
  * 架构设计 §8 风险操作列表：
- *   默认高风险动作集 DEFAULT_HIGH_RISK_ACTIONS 包含 9 项。
+ *   DEFAULT_HIGH_RISK_ACTIONS contains 11 high-risk actions.
  */
 
 // ─── 权限效果 ─────────────────────────────────────────────
@@ -61,7 +61,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
 // ─── 默认高风险操作集 ─────────────────────────────────────
 
 /**
- * 默认高风险操作列表（9 项）。
+ * Default high-risk action list (11 actions).
  *
  * 架构设计 §8 + 红线 R7 定义：
  *   clear_app_data     — 清除应用数据
@@ -73,6 +73,8 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
  *   generate_draft_test — 生成测试代码草稿
  *   open_non_http_url  — 打开非 HTTP 协议 URL
  *   access_private_media — 访问私有媒体文件
+ *   replace_device_app  — Replace or reinstall an application on a device
+ *   prepare_wda         — Build, re-sign, or replace WDA on a device
  */
 export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'clear_app_data',
@@ -84,6 +86,8 @@ export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'generate_draft_test',
   'open_non_http_url',
   'access_private_media',
+  'replace_device_app',
+  'prepare_wda',
 ];
 
 // ─── 工具函数 ─────────────────────────────────────────────

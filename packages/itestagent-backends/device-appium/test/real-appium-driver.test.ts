@@ -13,7 +13,10 @@ function makeMockWdioClient(
 ) {
   return {
     sessionId: MOCK_SESSION_ID,
-    capabilities: { 'appium:updatedWDABundleId': 'TEAMID.WebDriverAgentRunner' },
+    capabilities: {
+      'appium:udid': 'TEST-UDID',
+      'appium:updatedWDABundleId': 'TEAMID.WebDriverAgentRunner',
+    },
     deleteSession: mock(() => Promise.resolve()),
     getWindowSize: mock(() => Promise.resolve(MOCK_SCREEN)),
     getPageSource: mock(() =>
@@ -64,6 +67,7 @@ describe('RealAppiumDriver', () => {
       });
 
       expect(session.sessionId).toBe(MOCK_SESSION_ID);
+      expect(session.deviceUdid).toBe('TEST-UDID');
       expect(session.wdaBundleId).toBe('TEAMID.WebDriverAgentRunner');
       expect(driver.isSessionActive()).toBe(true);
       expect(driver.getSessionId()).toBe(MOCK_SESSION_ID);

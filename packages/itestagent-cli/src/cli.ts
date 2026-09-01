@@ -213,11 +213,8 @@ export function createProgram(): Command {
       'iOS version (required for appium RemoteXPC matching, e.g. 18.2.1)',
     )
     .option('--goal <goal>', 'verification goal — enables LLM assertion suggestions (AC4)')
-    .option(
-      '--wda-mode <mode>',
-      'WDA startup route: preinstalled | external-url | managed-xcodebuild',
-      'managed-xcodebuild',
-    )
+    .requiredOption('--wda-mode <mode>', 'WDA startup route: external-url | managed-xcodebuild')
+    .option('--wda-url <url>', 'active WDA endpoint (required for external-url route)')
     .option('--xcode-org-id <id>', 'signing team ID (managed-xcodebuild route)')
     .option('--wda-bundle-id <id>', 'WDA base bundle id (free-account slot reuse)')
     .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
@@ -232,6 +229,7 @@ export function createProgram(): Command {
         platformVersion?: string;
         goal?: string;
         wdaMode: string;
+        wdaUrl?: string;
         xcodeOrgId?: string;
         wdaBundleId?: string;
         appiumUrl: string;
@@ -242,6 +240,22 @@ export function createProgram(): Command {
         );
         const { createAppiumExplorationRuntime } = await import('itestagent-engine');
         const { loadConfig, resolveCredentials } = await import('./config/loader.js');
+
+        if (!['external-url', 'managed-xcodebuild'].includes(options.wdaMode)) {
+          throw new PublicCliError(
+            `Unsupported WDA route "${options.wdaMode}"; expected external-url or managed-xcodebuild`,
+          );
+        }
+        if (options.wdaMode === 'external-url' && !options.wdaUrl) {
+          throw new PublicCliError(
+            '--wda-url is required when --wda-mode external-url is selected',
+          );
+        }
+        if (options.wdaMode === 'managed-xcodebuild' && options.wdaUrl) {
+          throw new PublicCliError(
+            '--wda-url is only valid when --wda-mode external-url is selected',
+          );
+        }
 
         // LLM suggestion config from the three-layer model config + keychain key
         let llm: { baseUrl: string; apiKey: string; model: string; goal: string } | undefined;
@@ -307,10 +321,8 @@ export function createProgram(): Command {
             bundleId: options.bundleId,
             platformVersion,
             ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
-            wdaStartupMode: options.wdaMode as
-              | 'preinstalled'
-              | 'external-url'
-              | 'managed-xcodebuild',
+            wdaStartupMode: options.wdaMode as 'external-url' | 'managed-xcodebuild',
+            ...(options.wdaUrl ? { webDriverAgentUrl: options.wdaUrl } : {}),
             ...(options.xcodeOrgId ? { xcodeOrgId: options.xcodeOrgId } : {}),
             ...(options.wdaBundleId ? { wdaBundleId: options.wdaBundleId } : {}),
             appiumServerUrl: options.appiumUrl,

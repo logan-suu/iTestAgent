@@ -93,6 +93,42 @@ describe('resolveAppSource - user_specified', () => {
     expect(result.kind).toBe('user_provided');
     if (result.kind === 'user_provided') {
       expect(result.appPath).toBe(appPath);
+      expect(result.artifactType).toBe('app');
+    }
+  });
+
+  it('returns an explicit IPA as the highest-priority user artifact', () => {
+    const tmp = makeTempDir();
+    const ipaPath = join(tmp, 'MyApp.ipa');
+    writeFileSync(ipaPath, 'archive');
+
+    const result = resolveAppSource({
+      strategy: 'user_specified',
+      workspaceRoot: tmp,
+      userAppPath: ipaPath,
+    });
+
+    expect(result).toEqual({
+      kind: 'user_provided',
+      appPath: ipaPath,
+      artifactType: 'ipa',
+    });
+  });
+
+  it('rejects an existing explicit path that is not an app artifact', () => {
+    const tmp = makeTempDir();
+    const textPath = join(tmp, 'notes.txt');
+    writeFileSync(textPath, 'not an app');
+
+    const result = resolveAppSource({
+      strategy: 'user_specified',
+      workspaceRoot: tmp,
+      userAppPath: textPath,
+    });
+
+    expect(result.kind).toBe('unresolved');
+    if (result.kind === 'unresolved') {
+      expect(result.reason).toContain('.app directory or .ipa file');
     }
   });
 
@@ -116,7 +152,7 @@ describe('resolveAppSource - user_specified', () => {
 });
 
 describe('resolveAppSource - existing_artifact', () => {
-  it('finds .app in workspace build/ directory', () => {
+  it('selects one compatible artifact with complete traceability', () => {
     const tmp = makeTempDir();
     const buildDir = join(tmp, 'build');
     mkdirSync(buildDir, { recursive: true });
@@ -125,12 +161,29 @@ describe('resolveAppSource - existing_artifact', () => {
     const ctx: AppSourceContext = {
       strategy: 'existing_artifact' as AppSourceStrategy,
       workspaceRoot: tmp,
+      targetKind: 'physical',
+      destination: 'platform=iOS,id=DEVICE-1',
+      expectedBundleId: 'com.example.app',
+      scheme: 'MyApp',
+      configuration: 'Debug',
+      existingArtifacts: [
+        {
+          appPath,
+          targetKind: 'physical',
+          destination: 'platform=iOS,id=DEVICE-1',
+          bundleId: 'com.example.app',
+          scheme: 'MyApp',
+          configuration: 'Debug',
+        },
+      ],
     };
 
     const result = resolveAppSource(ctx);
     expect(result.kind).toBe('existing_artifact');
     if (result.kind === 'existing_artifact') {
       expect(result.appPath).toBe(appPath);
+      expect(result.artifactType).toBe('app');
+      expect(result.traceability.targetKind).toBe('physical');
     }
   });
 
@@ -146,7 +199,7 @@ describe('resolveAppSource - existing_artifact', () => {
     expect(result.kind).toBe('unresolved');
   });
 
-  it('returns unresolved when build dir exists but has no .app files', () => {
+  it('does not select an untracked .app discovered by directory order', () => {
     const tmp = makeTempDir();
     const buildDir = join(tmp, 'build');
     mkdirSync(buildDir, { recursive: true });
@@ -159,6 +212,36 @@ describe('resolveAppSource - existing_artifact', () => {
 
     const result = resolveAppSource(ctx);
     expect(result.kind).toBe('unresolved');
+  });
+
+  it('filters incompatible candidates and rejects ambiguous compatible candidates', () => {
+    const tmp = makeTempDir();
+    const first = createFakeAppBundle(tmp, 'First');
+    const second = createFakeAppBundle(tmp, 'Second');
+    const candidate = (appPath: string, targetKind: 'physical' | 'simulator') => ({
+      appPath,
+      targetKind,
+      destination: 'platform=iOS,id=DEVICE-1',
+      bundleId: 'com.example.app',
+      scheme: 'MyApp',
+      configuration: 'Debug',
+    });
+
+    const filtered = resolveAppSource({
+      strategy: 'existing_artifact',
+      workspaceRoot: tmp,
+      targetKind: 'physical',
+      existingArtifacts: [candidate(first, 'simulator'), candidate(second, 'physical')],
+    });
+    expect(filtered.kind).toBe('existing_artifact');
+
+    const ambiguous = resolveAppSource({
+      strategy: 'existing_artifact',
+      workspaceRoot: tmp,
+      targetKind: 'physical',
+      existingArtifacts: [candidate(first, 'physical'), candidate(second, 'physical')],
+    });
+    expect(ambiguous).toMatchObject({ kind: 'unresolved' });
   });
 });
 

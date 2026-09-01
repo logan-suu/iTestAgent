@@ -6,7 +6,8 @@
  * ADR-011: Dual targetKind support — devicectl for physical, simctl for simulator.
  * ADR-012: WdaManager owns WDA lifecycle. Appium handles WebDriver session only.
  *
- * Phase 3: Three mutually exclusive WdaStartupModes (preinstalled / external-url / managed-xcodebuild).
+ * The low-level capability vocabulary retains legacy preinstalled support for spike fixtures;
+ * production physical backends require explicit external-url (Route B) or managed-xcodebuild (Route C).
  *
  * Exports:
  *   - AppiumDeviceBackend: DeviceBackend implementation (dual-target: physical + simulator)
@@ -25,7 +26,7 @@
  */
 
 export { AppiumDeviceBackend } from './appium-device-backend.js';
-export type { AppiumDeviceBackendOptions } from './appium-device-backend.js';
+export type { AppiumDeviceBackendOptions, WdaStatusFetchFn } from './appium-device-backend.js';
 
 export { AppiumDriverError } from './appium-driver.js';
 export type {

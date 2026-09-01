@@ -2,16 +2,16 @@ import { z } from 'zod';
 
 /**
  * Physical MVP execution contract — B04 (promotion guide §11.3
- * "TestPlan/target execution", §6.2 "physical MVP/Route C").
+ * "TestPlan/target execution", §6.2 "physical MVP routes").
  *
  * Locks the vocabulary of the G5-verified physical path (ADR-012 + its G5
  * update) at the contracts layer:
  *
- *   - Route C (default, free-account verified): Appium manages the per-
+ *   - Route C: Appium manages the per-
  *     session WDA startup via managed xcodebuild +
  *     allowProvisioningDeviceRegistration; WdaManager is reduced to one-time
  *     build+install.
- *   - Route B (future, needs iproxy): WdaManager owns the full WDA lifecycle
+ *   - Route B: WdaManager owns the full WDA lifecycle
  *     and Appium connects as a WebDriver session only.
  *
  * Guide §6.2 generalization rule: team/device/app identity is INJECTED —
@@ -74,7 +74,7 @@ const ROUTE_ROLE_PAIRING: Record<PhysicalRoute, WdaLifecycleRole> = {
 };
 
 /**
- * Validates the ADR-012 (G5 update) route ↔ WDA-lifecycle-role pairing.
+ * Validates the ADR-012/ADR-028 route ↔ WDA-lifecycle-role pairing.
  * Pure function; returns typed issues, never throws.
  */
 export function validatePhysicalMvpContract(

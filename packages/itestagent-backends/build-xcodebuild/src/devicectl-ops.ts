@@ -14,6 +14,9 @@
  * AGENTS.md R12: All code/comments in English.
  */
 
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { SpawnAsyncFn, SpawnSyncFn, SyncSpawnResult } from './xcodebuild-build-driver.js';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -27,16 +30,37 @@ export interface DevicectlResult {
   stderr?: string;
 }
 
+export interface DevicectlAppInstallState extends DevicectlResult {
+  installed: boolean;
+}
+
 /** Injectable dependencies for devicectl operations. */
 export interface DevicectlDeps {
   spawnSync: SpawnSyncFn;
-  spawnAsync: SpawnAsyncFn;
+  spawnAsync: DevicectlSpawnAsyncFn;
 }
+
+export type DevicectlSpawnAsyncFn = (
+  cmd: string,
+  args: string[],
+  cwd?: string,
+  signal?: AbortSignal,
+) => ReturnType<SpawnAsyncFn>;
 
 /** Object returned by createDevicectlOps. */
 export interface DevicectlOps {
-  installApp(udid: string, appPath: string): Promise<DevicectlResult>;
-  launchApp(udid: string, bundleId: string, launchArgs?: string[]): Promise<DevicectlResult>;
+  isAppInstalled(
+    udid: string,
+    bundleId: string,
+    signal?: AbortSignal,
+  ): Promise<DevicectlAppInstallState>;
+  installApp(udid: string, appPath: string, signal?: AbortSignal): Promise<DevicectlResult>;
+  launchApp(
+    udid: string,
+    bundleId: string,
+    launchArgs?: string[],
+    signal?: AbortSignal,
+  ): Promise<DevicectlResult>;
   terminateApp(udid: string, bundleId: string): Promise<DevicectlResult>;
   openDeepLink(udid: string, bundleId: string, url: string): Promise<DevicectlResult>;
 }
@@ -63,12 +87,15 @@ const defaultSpawnSync: SpawnSyncFn = (cmd, args, cwd) => {
 };
 
 /** Default asynchronous spawn using Bun.spawn. */
-const defaultSpawnAsync: SpawnAsyncFn = async (cmd, args, cwd) => {
+const defaultSpawnAsync: DevicectlSpawnAsyncFn = async (cmd, args, cwd, signal) => {
   try {
+    signal?.throwIfAborted();
     const proc = Bun.spawn([cmd, ...args], {
       cwd,
       stdout: 'pipe',
       stderr: 'pipe',
+      signal,
+      killSignal: 'SIGTERM',
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -80,7 +107,8 @@ const defaultSpawnAsync: SpawnAsyncFn = async (cmd, args, cwd) => {
       stdout: stdout.trim(),
       stderr: stderr.trim(),
     };
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
     return { exitCode: -1, stdout: '', stderr: `command not found: ${cmd}` };
   }
 };
@@ -106,6 +134,24 @@ function categorizeDevicectlError(action: string, udid: string, result: SyncSpaw
   }
   if (stderr.includes('locked') || stderr.includes('passcode')) {
     return `${action} failed: device is locked. Unlock the iPhone and retry`;
+  }
+  // CoreDevice can wrap the free-profile app limit in an
+  // ApplicationVerificationFailed / integrity error. Prefer the actionable
+  // recovery suggestion over the outer error category.
+  if (
+    stderr.includes('maximum number of apps') ||
+    stderr.includes('maximum number of installed apps') ||
+    stderr.includes('free provisioning profile') ||
+    stderr.includes('free developer profile') ||
+    stderr.includes('three app')
+  ) {
+    return `${action} failed: the free-account device app limit was reached. No application was removed automatically; remove an app only after explicit confirmation`;
+  }
+  if (
+    stderr.includes('integrity could not be verified') ||
+    stderr.includes('applicationverificationfailed')
+  ) {
+    return `${action} failed: app signature or provisioning integrity could not be verified. Check that the provisioning profile includes this device and bundle ID, keep the iPhone online and unlocked, and trust the Developer App in Settings > General > VPN & Device Management when available`;
   }
   if (stderr.includes('app not installed') || stderr.includes('no such app')) {
     return `${action} failed: app not found on device. Verify the app was installed successfully`;
@@ -163,6 +209,57 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
   const spawnSync = deps?.spawnSync ?? defaultSpawnSync;
   const spawnAsync = deps?.spawnAsync ?? defaultSpawnAsync;
 
+  async function isAppInstalled(
+    udid: string,
+    bundleId: string,
+    signal?: AbortSignal,
+  ): Promise<DevicectlAppInstallState> {
+    const outputDir = mkdtempSync(join(tmpdir(), 'itestagent-devicectl-apps-'));
+    const outputPath = join(outputDir, 'apps.json');
+    try {
+      const result = await spawnAsync(
+        'xcrun',
+        ['devicectl', 'device', 'info', 'apps', '--device', udid, '--json-output', outputPath],
+        undefined,
+        signal,
+      );
+      if (result.exitCode !== 0) {
+        return {
+          success: false,
+          installed: false,
+          error: categorizeDevicectlError('devicectl app inventory', udid, result),
+          exitCode: result.exitCode,
+          stderr: result.stderr,
+        };
+      }
+
+      let parsed: { result?: { apps?: Array<{ bundleIdentifier?: string }> } };
+      try {
+        parsed = JSON.parse(readFileSync(outputPath, 'utf8')) as typeof parsed;
+      } catch (error) {
+        return {
+          success: false,
+          installed: false,
+          error: `devicectl app inventory returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+      const apps = parsed.result?.apps;
+      if (!Array.isArray(apps)) {
+        return {
+          success: false,
+          installed: false,
+          error: 'devicectl app inventory JSON is missing result.apps.',
+        };
+      }
+      return {
+        success: true,
+        installed: apps.some((app) => app.bundleIdentifier === bundleId),
+      };
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  }
+
   // ─── installApp ─────────────────────────────────────────────
 
   /**
@@ -170,16 +267,17 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
    *
    * Command: xcrun devicectl device install app --device <UDID> <appPath>
    */
-  async function installApp(udid: string, appPath: string): Promise<DevicectlResult> {
-    const result = await spawnAsync('xcrun', [
-      'devicectl',
-      'device',
-      'install',
-      'app',
-      '--device',
-      udid,
-      appPath,
-    ]);
+  async function installApp(
+    udid: string,
+    appPath: string,
+    signal?: AbortSignal,
+  ): Promise<DevicectlResult> {
+    const result = await spawnAsync(
+      'xcrun',
+      ['devicectl', 'device', 'install', 'app', '--device', udid, appPath],
+      undefined,
+      signal,
+    );
 
     if (result.exitCode !== 0) {
       return {
@@ -206,6 +304,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
     udid: string,
     bundleId: string,
     launchArgs?: string[],
+    signal?: AbortSignal,
   ): Promise<DevicectlResult> {
     const args: string[] = ['devicectl', 'device', 'process', 'launch', '--device', udid, bundleId];
 
@@ -214,7 +313,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
       args.push('--args', ...launchArgs);
     }
 
-    const result = await spawnAsync('xcrun', args);
+    const result = await spawnAsync('xcrun', args, undefined, signal);
 
     if (result.exitCode !== 0) {
       return {
@@ -335,6 +434,7 @@ export function createDevicectlOps(deps?: Partial<DevicectlDeps>): DevicectlOps 
   // ─── Return interface ───────────────────────────────────────
 
   return {
+    isAppInstalled,
     installApp,
     launchApp,
     terminateApp,

@@ -22,7 +22,7 @@
 | **任务状态** | `05-planning/` | `task-status.json` | Phase/任务动态清单、依赖关系、当前进度 |
 | **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
 | **Spike 验证 / G5/G5-SIM 报告** | `06-verification/` | phase-0-cross-evaluation-report.md / g5-sim-spike-report-*.md | Phase 0 横评结论、Simulator/真机 G5-SIM 验证证据 |
-| **架构决策** | `decisions/` | `ADR-*.md` | 重大技术决策与需求变更记录（含 ADR-011 iOS Simulator 同级支持、ADR-012 WDA 生命周期分离） |
+| **架构决策** | `decisions/` | `ADR-*.md` | 重大技术决策与需求变更记录（含 ADR-011 Simulator 同级支持、ADR-012 WDA 生命周期分离、ADR-028 真机主动 readiness） |
 | **项目宪法** | 仓库根目录 | `../AGENTS.md` | 红线 R1-R14、命名约定、EPCC-V 工作流、质量门禁 G1-G7+G5-SIM |
 | **Codex 工作流** | 仓库根目录 | `../.agents/skills/*/SKILL.md` | 任务、测试、提交、PR review/完成确认等可复用工作流 |
 | **Codex 项目配置** | 仓库根目录 | `../.codex/config.toml` | 指令容量与项目级 MCP（Argent）配置；仅受信任项目加载 |
@@ -40,6 +40,7 @@
 | Agent 编排循环 + 权限引擎 | `02-architecture/架构设计文档.md` §4 |
 | Harness Runtime 边界（自研/复用/禁止） | `decisions/ADR-010-agent-harness-runtime-boundary.md` |
 | Planning Cycle 状态与不可变快照边界 | `decisions/ADR-027-planning-cycle-state-and-snapshot-boundary.md` |
+| 真机 App/WDA 前置、Route B/C 与主动 readiness | `decisions/ADR-028-physical-preflight-and-wda-readiness.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-08-29T03:10:00Z",
+  "last_updated": "2026-09-01T07:14:04Z",
   "items": [
     {
       "id": "DEF-001",
@@ -565,9 +565,11 @@
       "item": "ensureFreshProfile trusts verify ready:true without testing WDA profile validity or usability",
       "detail": "CodeRabbit (PR #65, wda-manager.ts ensureFreshProfile): the verify-first branch returns { refreshed: false } whenever verifyPreinstalledWDA reports ready:true, but that verification only checks that the WDA Runner app exists on the device — it does not test profile expiry or WDA usability. After the 7-day free-account profile expires (DEF-G5-001 finding), verify still returns ready:true, ensureFreshProfile skips preparation, and the next WDA session fails. Verified in code: verifyPreinstalledWDA (wda-manager.ts:447-452) carries an explicit R5 note that profile expiry is best-effort because devicectl does not expose provisioning profile details. Deferral rationale: a proper fix requires either parsing the installed app's embedded provisioning profile (method unproven on-device — needs a real-device spike to validate, R3) or launching WDA for a /status usability probe (cross-component change pulling WdaManager lifecycle into preparation-time verification). Neither is safely implementable without new G5 spike evidence. Next step: extend the next physical G5 spike to test profile-expiry detection approaches (embedded mobileprovision read via devicectl/app inspection vs. WDA status probe), then implement the winning approach in WdaManager.verifyPreinstalledWDA so ensureFreshProfile's ready branch genuinely proves freshness.",
       "target_phase": 6,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-08-29T03:10:00Z"
+      "status": "resolved",
+      "resolved_by": "6.4 physical preflight active readiness implementation and same-device Route B/Route C G5",
+      "created_at": "2026-08-29T03:10:00Z",
+      "notes": "2026-08-31 approved specification review: ADR-028 assigns implementation and G5 closure ownership exclusively to T6.4. 2026-09-01 implementation and automated checks enforce route-specific active session/status evidence and prevent installed-app inventory from reporting ready (T6.4 related suite: 256 pass / 0 fail). On the same real iPhone, initial inventory existed while /status was unreachable and fail-closed; after the environment repair, Route B and Route C both completed active readiness, Appium session, UI tree, screenshot, Home action, and cleanup. The same-device App preflight also completed signed artifact normalization, install inventory verification, and launch. This closes the installed-vs-ready defect without claiming exact provisioning expiry detection. See docs/06-verification/g5-sim-spike-report-6.4.md.",
+      "resolved_at": "2026-09-01T05:32:59Z"
     },
     {
       "id": "DEF-032",
@@ -584,6 +586,22 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-08-29T03:10:00Z"
+    },
+    {
+      "id": "DEF-033",
+      "source": "Codex (self-review)",
+      "pr": 73,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/73",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.4",
+      "severity": "major",
+      "item": "Physical preflight accepts AbortSignal but production devicectl and permission wiring do not propagate cancellation",
+      "detail": "PR #73 review remediation now checks AbortSignal between every coordinator stage, propagates it into devicectl inventory/install/launch subprocesses with SIGTERM, and couples pending PermissionEngine asks to cancellation. Real-device revalidation now proves Route B observes runtime WDA identity from /status, returns fail-closed about 0.9 seconds after an abort issued during readiness, and leaves no WDA xcodebuild or iproxy process. Route C returns about 8.5 seconds after the same abort, then spends about 15 seconds in guarded cleanup and still leaves an Appium-owned xcodebuild that requires exact-PID termination; normal Route C session deletion also leaves that child. The remaining gap is therefore narrowed to end-to-end cancellation and ownership of in-flight Appium/WebDriverIO and Route C xcodebuild work, plus coordinator-level final cancellation classification. This remains assigned to T6.10. ADR-028 now records Route B as the current candidate preference and Route C as an explicit diagnostic route, while keeping the final production-default decision partial. T6.10 must close the Route C child-ownership gap and rerun the complete production abort chain before resolving this item; do not delete it.",
+      "target_phase": 6,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-09-01T06:05:27Z"
     }
   ]
 }

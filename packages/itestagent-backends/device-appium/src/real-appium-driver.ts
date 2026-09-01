@@ -83,13 +83,16 @@ export class RealAppiumDriver implements AppiumDriver {
       this.sessionId = this.client.sessionId;
       this.active = true;
 
-      const wdaBundleId = (this.client.capabilities as Record<string, unknown>)?.[
-        'appium:updatedWDABundleId'
-      ] as string | undefined;
+      const observedCapabilities = this.client.capabilities as Record<string, unknown>;
+      const wdaBundleId =
+        observedCapabilities['appium:updatedWDABundleId'] ??
+        observedCapabilities.updatedWDABundleId;
+      const deviceUdid = observedCapabilities['appium:udid'] ?? observedCapabilities.udid;
 
       return {
         sessionId: this.sessionId,
-        wdaBundleId: wdaBundleId ?? 'unknown',
+        ...(typeof deviceUdid === 'string' && deviceUdid.length > 0 ? { deviceUdid } : {}),
+        ...(typeof wdaBundleId === 'string' && wdaBundleId.length > 0 ? { wdaBundleId } : {}),
       };
     } catch (error) {
       const msg = sanitizeMessage(error);

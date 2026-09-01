@@ -60,8 +60,8 @@ test('PermissionRuleSchema rejects a rule missing effect', () => {
 
 // ─── DEFAULT_HIGH_RISK_ACTIONS ───────────────────────────────
 
-test('DEFAULT_HIGH_RISK_ACTIONS is non-empty and has exactly 9 items', () => {
-  expect(DEFAULT_HIGH_RISK_ACTIONS.length).toBe(9);
+test('DEFAULT_HIGH_RISK_ACTIONS includes all 11 confirmation-gated actions', () => {
+  expect(DEFAULT_HIGH_RISK_ACTIONS.length).toBe(11);
   expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('clear_app_data');
   expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('uninstall_app');
   expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('write_project_file');
@@ -71,6 +71,8 @@ test('DEFAULT_HIGH_RISK_ACTIONS is non-empty and has exactly 9 items', () => {
   expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('generate_draft_test');
   expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('open_non_http_url');
   expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('access_private_media');
+  expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('replace_device_app');
+  expect(DEFAULT_HIGH_RISK_ACTIONS).toContain('prepare_wda');
 });
 
 // ─── parsePermissionRule ────────────────────────────────────

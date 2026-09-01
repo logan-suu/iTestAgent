@@ -5,6 +5,8 @@
 **Deciders**: Logan Su + Sisyphus (AGENTS.md)
 **G5 Evidence**: G5 spike report 3.7 §3a-3c (devicectl install ✅, xcodebuild test-without-building ✅, Appium xcodebuild ❌)
 
+> **2026-09-01 supersession update**：本 ADR 的生命周期分离原则仍有效。ADR-028/T6.4 已在同一真机上验证 Route B/C 均通过主动 readiness 与 Appium session；PR review 后的 identity/abort 复验证明 Route B 正常与 abort 均无进程残留，而 Route C 仍会遗留 Appium-owned `xcodebuild`。Route B 因此成为当前候选偏好，Route C 保留为显式诊断路线；最终 production default 等待 DEF-033 收口，不得静默 fallback。WDA readiness 必须由主动启动/`/status` 或等价 session probe 证明，不能只检查安装状态。
+
 ---
 
 ## Context
@@ -63,8 +65,8 @@ WdaManager {
 ### AppiumDeviceBackend Changes
 
 - Constructor accepts an optional `WdaManager` instance
-- If a `WdaManager` is provided, `ensureSession()` calls `wdaManager.launch()` then connects Appium to `http://localhost:<port>` (skipping Appium's xcodebuild entirely)
-- If no `WdaManager`, falls back to Appium's built-in WDA startup (existing behavior, for compatibility)
+- Route B requires explicit `external-url`: either provide an active `webDriverAgentUrl`, or provide `WdaManager` so `ensureSession()` launches WDA before Appium attaches; missing both is rejected.
+- Route C requires explicit `managed-xcodebuild` and intentionally delegates WDA startup to Appium. Legacy implicit fallback is limited to non-production compatibility code.
 - Appium server still needed for WebDriver protocol — but only for session management, not WDA lifecycle
 
 ### Appium Capabilities
@@ -140,7 +142,7 @@ WdaManager 在 Route C 中的角色：仅用于 WDA 构建和安装（一次性�
 
 Route C partially reverses this ADR's original premise: Appium now manages WDA startup (xcodebuild with -allowProvisioningUpdates), while WdaManager is reduced to build+install only for the physical path.
 
-### Route B (Full WdaManager lifecycle) — Pending
+### Route B (Full WdaManager lifecycle) — 2026-07-25 snapshot; superseded by ADR-028
 
 Route B 要求 WdaManager 全权管理 WDA 生命周期（build → install → launch → /status → stop），Appium 仅通过 `webDriverAgentUrl` 连接。此路由需要 iproxy for USB port forwarding (`iproxy <localPort> 8100 <UDID>`)，当前环境未安装。在 iproxy 就绪后可作为未来优化路径（减少 xcodebuild 调用频率）。
 
@@ -148,8 +150,8 @@ Route B 要求 WdaManager 全权管理 WDA 生命周期（build → install → 
 
 原 ADR-012 描述的免费账号阻塞问题（Appium 不传 `-allowProvisioningUpdates`）已通过 `allowProvisioningDeviceRegistration: true` capability 解决。Appium 3.5.2 原生支持此 capability，无需修改 Appium 源码。此为 Route C 的核心突破。
 
-### Updated Architecture Notes
+### Updated Architecture Notes（2026-07-25 snapshot; route priority superseded by ADR-028）
 
 WdaManager 仍保留其完整生命周期管理能力（build/install/launch/connect/stop），但在 MVP 阶段：
-- **Route C（默认）**：WdaManager 仅用于 build + install；Appium 通过 `managed-xcodebuild` + `allowProvisioningDeviceRegistration` 管理每次 session 的 WDA 启动
-- **Route B（未来）**：WdaManager 管理完整 WDA 生命周期，Appium 仅 WebDriver session
+- **Route C（当时默认）**：WdaManager 仅用于 build + install；Appium 通过 `managed-xcodebuild` + `allowProvisioningDeviceRegistration` 管理每次 session 的 WDA 启动
+- **Route B（当时未来路线）**：WdaManager 管理完整 WDA 生命周期，Appium 仅 WebDriver session

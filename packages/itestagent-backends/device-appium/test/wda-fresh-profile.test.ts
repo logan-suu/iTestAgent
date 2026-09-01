@@ -6,8 +6,17 @@ import { describe, expect, it } from 'bun:test';
 import type { WdaPreinstallVerification } from '../src/wda-manager.js';
 import { type FreshProfileOps, ensureFreshProfile } from '../src/wda-manager.js';
 
-const READY: WdaPreinstallVerification = { ready: true, actualBundleId: 'T.WDA.xctrunner' };
-const NOT_READY: WdaPreinstallVerification = { ready: false, reason: 'profile expired' };
+const INSTALLED: WdaPreinstallVerification = {
+  installed: true,
+  ready: false,
+  actualBundleId: 'T.WDA.xctrunner',
+  reason: 'active readiness not probed',
+};
+const NOT_INSTALLED: WdaPreinstallVerification = {
+  installed: false,
+  ready: false,
+  reason: 'runner missing',
+};
 
 function makeOps(
   verifyResult: WdaPreinstallVerification,
@@ -37,20 +46,22 @@ const INPUT = {
 };
 
 describe('ensureFreshProfile', () => {
-  it('skips the rebuild pipeline when the profile is already fresh', async () => {
-    const { ops, calls } = makeOps(READY);
+  it('skips the rebuild pipeline when the runner is already installed', async () => {
+    const { ops, calls } = makeOps(INSTALLED);
     const result = await ensureFreshProfile(INPUT, ops);
     expect(result.refreshed).toBe(false);
-    expect(result.verification.ready).toBe(true);
+    expect(result.verification.installed).toBe(true);
+    expect(result.verification.ready).toBe(false);
     expect(calls.verify).toBe(1);
     expect(calls.prepare).toBe(0);
   });
 
-  it('runs the rebuild pipeline when the profile is not ready', async () => {
-    const { ops, calls } = makeOps(NOT_READY, READY);
+  it('runs the rebuild pipeline when the runner is not installed', async () => {
+    const { ops, calls } = makeOps(NOT_INSTALLED, INSTALLED);
     const result = await ensureFreshProfile(INPUT, ops);
     expect(result.refreshed).toBe(true);
-    expect(result.verification.ready).toBe(true);
+    expect(result.verification.installed).toBe(true);
+    expect(result.verification.ready).toBe(false);
     expect(calls.verify).toBe(1);
     expect(calls.prepare).toBe(1);
   });
@@ -58,7 +69,7 @@ describe('ensureFreshProfile', () => {
   it('propagates the R7 confirmation error from prepare', async () => {
     const ops: FreshProfileOps = {
       async verify() {
-        return NOT_READY;
+        return NOT_INSTALLED;
       },
       async prepare() {
         throw new Error(

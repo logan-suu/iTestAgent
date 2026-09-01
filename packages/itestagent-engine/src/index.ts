@@ -157,6 +157,13 @@ export type {
   PhysicalMvpRunCoordinatorDeps,
   PhysicalMvpRunResult,
 } from './physical-mvp-run-coordinator.js';
+export { createPhysicalPreflightCoordinator } from './physical-preflight-coordinator.js';
+export type {
+  PhysicalPreflightCoordinatorDeps,
+  PhysicalPreflightInput,
+} from './physical-preflight-coordinator.js';
+export { createPhysicalPreflightDeps } from './physical-preflight-wiring.js';
+export type { PhysicalPreflightWiringInput } from './physical-preflight-wiring.js';
 export { createSimulatorMvpAdapter } from './simulator-mvp-adapter.js';
 export type { SimulatorMvpAdapterDeps } from './simulator-mvp-adapter.js';
 export { resolveMvpRunId } from './physical-mvp-run-support.js';

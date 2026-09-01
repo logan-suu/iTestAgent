@@ -10,7 +10,7 @@
  *   - Lazy session creation: session is established on first action requiring Appium
  *   - Coordinate conversion: normalized [0,1] ↔ Appium pixel coordinates
  *   - Error handling: all AppiumDriverError caught and converted to ActionResult (R5)
- *   - WdaStartupMode routing: preinstalled / external-url / managed-xcodebuild (Phase 3)
+ *   - Physical production routing: explicit external-url / managed-xcodebuild
  *
  * R2: Uses Appium/WDA (mature open-source), does not re-implement device control.
  * R5: All errors are explicit — never silently degrade. Unsupported operations
@@ -41,9 +41,15 @@ import type {
   TerminateAppInput,
   TypeTextInput,
   UiTreeSnapshot,
+  WdaReadinessProbe,
 } from 'itestagent-contracts';
 
-import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
+import type {
+  AppiumDriver,
+  AppiumPoint,
+  AppiumScreenSize,
+  AppiumSession,
+} from './appium-driver.js';
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -93,6 +99,11 @@ function isElementLookupError(error: unknown): boolean {
 // ─── Types ────────────────────────────────────────────────────────────────
 
 /** Options for AppiumDeviceBackend construction. */
+export type WdaStatusFetchFn = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
 export interface AppiumDeviceBackendOptions {
   /** Device UDID (required). */
   udid: string;
@@ -107,7 +118,7 @@ export interface AppiumDeviceBackendOptions {
   wdaBundleId?: string;
   /**
    * WDA startup mode (physical only). Mutually exclusive — only ONE mode per session.
-   * Default: 'preinstalled' (Route A — primary strategy for free accounts).
+   * Physical callers must select external-url (Route B) or managed-xcodebuild (Route C).
    * Ignored for simulator targetKind.
    */
   wdaStartupMode?: WdaStartupMode;
@@ -116,6 +127,8 @@ export interface AppiumDeviceBackendOptions {
    * Required when wdaStartupMode is 'external-url'.
    */
   webDriverAgentUrl?: string;
+  /** HTTP transport for Route B WDA status identity observation. */
+  wdaStatusFetch?: WdaStatusFetchFn;
   /**
    * USB tunnel manager for real devices (G5 spike recipe): WDA listens on the
    * device's localhost only, so Route B needs `iproxy` before waitForReady can
@@ -223,6 +236,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       | 'derivedDataPath'
       | 'wdaManager'
       | 'webDriverAgentUrl'
+      | 'wdaStatusFetch'
       | 'wdaProjectPath'
       | 'xcodeOrgId'
       | 'xcodeSigningId'
@@ -244,17 +258,30 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private driver: AppiumDriver;
   private readonly wdaManager: WdaManager | undefined;
   private readonly iproxyTunnel: IProxyTunnel | undefined;
+  private readonly wdaStatusFetch: WdaStatusFetchFn;
   private sessionActive = false;
+  private activeSession: AppiumSession | null = null;
   private sessionMutex: Promise<void> | null = null;
   private screenSize: AppiumScreenSize | null = null;
 
   constructor(driver: AppiumDriver, options: AppiumDeviceBackendOptions) {
     this.logger = createRedactingLogger('AppiumDeviceBackend');
     this.driver = driver;
+    this.wdaStatusFetch = options.wdaStatusFetch ?? globalThis.fetch;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
     this.iproxyTunnel = options.iproxyTunnel;
-    this.wdaStartupMode = options.wdaStartupMode ?? 'preinstalled';
+    if (options.targetKind === 'physical' && options.wdaStartupMode === undefined) {
+      throw new Error(
+        'Physical Appium sessions require an explicit WDA route: external-url (Route B) or managed-xcodebuild (Route C).',
+      );
+    }
+    if (options.targetKind === 'physical' && options.wdaStartupMode === 'preinstalled') {
+      throw new Error(
+        'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
+      );
+    }
+    this.wdaStartupMode = options.wdaStartupMode ?? 'managed-xcodebuild';
     this.opts = {
       udid: options.udid,
       targetKind: options.targetKind,
@@ -288,7 +315,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * is ever created.
    *
    * ADR-012 / Phase 3: WDA lifecycle varies by WdaStartupMode.
-   *   - preinstalled: verify WDA on device, do NOT call wdaManager.launch()
+   *   - preinstalled: rejected for physical production sessions (legacy capability only)
    *   - external-url: launch WDA via wdaManager → waitForReady → pass webDriverAgentUrl
    *   - managed-xcodebuild: Appium manages WDA internally
    */
@@ -323,7 +350,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         caps = await this.buildPhysicalCaps();
       }
 
-      await this.driver.createSession(caps);
+      this.activeSession = await this.driver.createSession(caps);
       this.sessionActive = true;
 
       this.screenSize = await this.driver.getScreenSize();
@@ -338,6 +365,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
           // Best-effort — the server may have already dropped it
         }
         this.sessionActive = false;
+        this.activeSession = null;
         this.screenSize = null;
       }
       // Clean up WDA if it was started during this attempt (external-url mode)
@@ -393,10 +421,10 @@ export class AppiumDeviceBackend implements DeviceBackend {
   }
 
   /**
-   * Route A (preinstalled): WDA already on device — skip ALL Appium xcodebuild.
+   * Legacy Route A capability builder retained for historical spike compatibility.
    *
-   * Verifies preinstalled WDA exists before session creation.
-   * Does NOT call wdaManager.launch().
+   * Physical production construction rejects this mode before it can execute;
+   * installed inventory alone cannot establish readiness.
    */
   private async buildPreinstalledCaps(): Promise<Record<string, unknown>> {
     // Verify preinstalled WDA if WdaManager is available
@@ -466,6 +494,10 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: '', // Configured per-deployment via WdaManager
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        teamId: this.opts.xcodeOrgId,
+        codeSignIdentity: this.opts.xcodeSigningId,
+        derivedDataPath: this.opts.derivedDataPath,
+        productBundleIdentifier: this.opts.wdaBundleId,
       });
     }
 
@@ -503,6 +535,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        derivedDataPath: this.opts.derivedDataPath,
+        productBundleIdentifier: this.opts.wdaBundleId,
       });
     }
 
@@ -552,6 +586,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         // Best-effort cleanup — don't throw on delete failure
       }
       this.sessionActive = false;
+      this.activeSession = null;
       this.screenSize = null;
     }
 
@@ -631,6 +666,127 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return this.simulatorHealthcheck(deviceId, signal);
     }
     return this.physicalHealthcheck(deviceId, signal);
+  }
+
+  /**
+   * Prove physical WDA readiness through the configured Route B/C session.
+   * Installed-app inventory is deliberately insufficient (ADR-028 / DEF-031).
+   */
+  async probePhysicalReadiness(signal?: AbortSignal): Promise<WdaReadinessProbe> {
+    signal?.throwIfAborted();
+    if (this.targetKind !== 'physical') {
+      throw new Error('Physical WDA readiness cannot be probed for a simulator backend.');
+    }
+    if (!this.opts.wdaBundleId) {
+      throw new Error('Physical WDA readiness requires an explicit WDA bundle ID.');
+    }
+
+    const route =
+      this.wdaStartupMode === 'external-url'
+        ? 'route_b_wda_manager_managed'
+        : 'route_c_appium_managed';
+    const startedAt = Date.now();
+    try {
+      await this.ensureSession();
+      if (signal?.aborted) {
+        await this.closeSession();
+        signal.throwIfAborted();
+      }
+      const expectedWdaBundleId = this.opts.wdaBundleId.endsWith('.xctrunner')
+        ? this.opts.wdaBundleId
+        : `${this.opts.wdaBundleId}.xctrunner`;
+      const observedWdaBaseBundleId =
+        this.wdaStartupMode === 'external-url'
+          ? await this.observeExternalWdaBundleId(signal)
+          : this.activeSession?.wdaBundleId;
+      const observedWdaBundleId = observedWdaBaseBundleId?.endsWith('.xctrunner')
+        ? observedWdaBaseBundleId
+        : observedWdaBaseBundleId
+          ? `${observedWdaBaseBundleId}.xctrunner`
+          : undefined;
+      if (
+        this.activeSession?.deviceUdid !== this.opts.udid ||
+        observedWdaBundleId !== expectedWdaBundleId
+      ) {
+        return {
+          route,
+          stage: 'wda_status',
+          ready: false,
+          targetDeviceUdid: this.activeSession?.deviceUdid ?? 'unobserved',
+          targetWdaBundleId: observedWdaBundleId ?? 'unobserved',
+          waitedMs: Date.now() - startedAt,
+          failureCode: 'wda_identity_mismatch',
+          details: 'The active route did not report the expected device and WDA bundle identities.',
+        };
+      }
+      return {
+        route,
+        stage: 'ready',
+        ready: true,
+        targetDeviceUdid: this.activeSession.deviceUdid,
+        targetWdaBundleId: observedWdaBundleId,
+        waitedMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const signingFailure = /sign|provision|development team|xcodeorgid/iu.test(message);
+      const tunnelFailure = /iproxy|tunnel|usbmux/iu.test(message);
+      const launchFailure = /launch|xcodebuild/iu.test(message);
+      const failureCode = signingFailure
+        ? 'wda_signing_or_configuration_failed'
+        : tunnelFailure
+          ? 'wda_tunnel_failed'
+          : this.wdaStartupMode === 'managed-xcodebuild'
+            ? 'appium_session_failed'
+            : launchFailure
+              ? 'wda_launch_failed'
+              : 'wda_status_failed';
+      const stage = signingFailure
+        ? 'wda_launch'
+        : tunnelFailure
+          ? 'wda_tunnel'
+          : this.wdaStartupMode === 'managed-xcodebuild'
+            ? 'appium_session'
+            : launchFailure
+              ? 'wda_launch'
+              : 'wda_status';
+      return {
+        route,
+        stage,
+        ready: false,
+        targetDeviceUdid: this.opts.udid,
+        targetWdaBundleId: this.opts.wdaBundleId.endsWith('.xctrunner')
+          ? this.opts.wdaBundleId
+          : `${this.opts.wdaBundleId}.xctrunner`,
+        waitedMs: Date.now() - startedAt,
+        failureCode,
+        details: message,
+      };
+    }
+  }
+
+  /**
+   * Route B bypasses Appium's WDA startup, so returned Appium capabilities do
+   * not reliably contain updatedWDABundleId. Observe the identity from the
+   * active WDA endpoint instead of treating the requested capability as fact.
+   */
+  private async observeExternalWdaBundleId(signal?: AbortSignal): Promise<string | undefined> {
+    const endpoint = new URL(
+      this.opts.webDriverAgentUrl ?? `http://127.0.0.1:${this.opts.wdaLocalPort}`,
+    );
+    endpoint.pathname = `${endpoint.pathname.replace(/\/$/u, '')}/status`;
+    const timeout = AbortSignal.timeout(5_000);
+    const response = await this.wdaStatusFetch(endpoint, {
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    if (!response.ok) {
+      throw new Error(`WDA status identity probe returned HTTP ${response.status}`);
+    }
+    const body = (await response.json()) as {
+      value?: { build?: { productBundleIdentifier?: unknown } };
+    };
+    const bundleId = body.value?.build?.productBundleIdentifier;
+    return typeof bundleId === 'string' && bundleId.length > 0 ? bundleId : undefined;
   }
 
   private async physicalHealthcheck(

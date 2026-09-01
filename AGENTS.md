@@ -45,7 +45,8 @@
 | **实现 Server/Engine** | `docs/02-architecture/架构设计文档.md` | §4 核心流程、§3 组件职责 |
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
 | | `docs/decisions/ADR-010-agent-harness-runtime-boundary.md` | Harness 边界：自研/复用/禁止 |
-| | `docs/decisions/ADR-012-wda-lifecycle-separation.md` | WDA 生命周期分离：iTestAgent 自管 WDA（Route C: WdaManager 构建+安装；Appium 管理启动+WebDriver 会话） |
+| | `docs/decisions/ADR-012-wda-lifecycle-separation.md` | WDA lifecycle separation and historical Route B/C evidence |
+| | `docs/decisions/ADR-028-physical-preflight-and-wda-readiness.md` | Current WDA preflight rule: Route B/C are evidence-gated candidates; active readiness probe is mandatory before T6.4 selects a default |
 | **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
 | **实现 Project Analyzer / ProjectAnalyzerBackend** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer、§5.4 ProjectAnalyzerBackend |
@@ -66,7 +67,7 @@
 | **技术选型决策** | `docs/02-architecture/技术选型文档.md` | 对应章节 |
 | **查阅开发计划/任务** | `docs/05-planning/开发计划安排文档.md` | 里程碑、时间线 |
 | | `docs/05-planning/task-status.json` | 当前任务状态、依赖关系 |
-| **查阅重大决策** | `docs/decisions/` | ADR-001~012 |
+| **Read major decisions** | `docs/decisions/` | Read the exact `ADR-*.md` files selected by INDEX and task `documents_required` |
 | **执行 Spike/验证任务** | `docs/06-verification/phase-0-cross-evaluation-report.md` | Phase 0 横评结构与结论 |
 | | `docs/06-verification/g5-sim-spike-report-*.md` | G5-SIM 验证报告模板（环境、证据、风险、集成笔记） |
 

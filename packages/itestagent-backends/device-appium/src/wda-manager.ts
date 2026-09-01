@@ -80,6 +80,14 @@ export interface WdaLaunchOptions {
   wdaPort?: number;
   /** Minimum iOS deployment target. */
   deploymentTarget?: string;
+  /** Match the DEVELOPMENT_TEAM used by build-for-testing. */
+  teamId?: string;
+  /** Match the CODE_SIGN_IDENTITY used by build-for-testing. */
+  codeSignIdentity?: string;
+  /** Match the custom DerivedData directory used by build-for-testing. */
+  derivedDataPath?: string;
+  /** Match the base PRODUCT_BUNDLE_IDENTIFIER used by build-for-testing. */
+  productBundleIdentifier?: string;
   /** AbortSignal for cancelling the WDA launch subprocess. */
   signal?: AbortSignal;
 }
@@ -126,7 +134,9 @@ export interface WdaVersionInfo {
 
 /** Result of preinstalled WDA verification. */
 export interface WdaPreinstallVerification {
-  /** Whether the preinstalled WDA is ready for use. */
+  /** Whether the expected Runner bundle is present in device inventory. */
+  installed: boolean;
+  /** Always false for inventory-only verification; active readiness needs Route B/C. */
   ready: boolean;
   /** Human-readable reason if not ready. */
   reason?: string;
@@ -170,18 +180,16 @@ export interface FreshProfileResult {
 }
 
 /**
- * Ensure the device has a fresh (non-expired) preinstalled WDA profile.
- *
- * Free-account profiles expire after 7 days (G5 finding) — this routine
- * verifies first and only rebuilds/reinstalls when the profile is not ready.
- * The R7 confirmation gate is enforced by prepare (propagated on failure).
+ * Ensure the expected WDA Runner is installed.
+ * Inventory cannot prove profile freshness or runtime readiness (ADR-028), so
+ * callers must run an active Route B/C probe after this routine.
  */
 export async function ensureFreshProfile(
   input: FreshProfileInput,
   ops: FreshProfileOps,
 ): Promise<FreshProfileResult> {
   const initial = await ops.verify();
-  if (initial.ready) {
+  if (initial.installed) {
     return { refreshed: false, verification: initial };
   }
   return { refreshed: true, verification: await ops.prepare() };
@@ -240,6 +248,7 @@ export class WdaManager {
         );
       }
       args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+      args.push(`WDA_PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
     }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
@@ -315,6 +324,21 @@ export class WdaManager {
       `id=${options.udid}`,
       `IPHONEOS_DEPLOYMENT_TARGET=${target}`,
     ];
+
+    if (options.teamId) args.push(`DEVELOPMENT_TEAM=${options.teamId}`);
+    if (options.codeSignIdentity) args.push(`CODE_SIGN_IDENTITY=${options.codeSignIdentity}`);
+    if (options.productBundleIdentifier) {
+      if (options.productBundleIdentifier.endsWith('.xctrunner')) {
+        throw new Error(
+          `productBundleIdentifier must be base ID (no .xctrunner), got: ${options.productBundleIdentifier}`,
+        );
+      }
+      args.push(`PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+      args.push(`WDA_PRODUCT_BUNDLE_IDENTIFIER=${options.productBundleIdentifier}`);
+    }
+    if (options.derivedDataPath) {
+      args.push('-derivedDataPath', options.derivedDataPath);
+    }
 
     const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
       stdout: 'pipe',
@@ -398,12 +422,14 @@ export class WdaManager {
   }
 
   /**
-   * Verify that a preinstalled WDA Runner exists on the device and is usable.
+   * Inspect whether a preinstalled WDA Runner exists on the device.
    *
    * Checks:
    *   - Runner exists on device
-   *   - Profile not expired
    *   - Bundle ID matches expected base ID
+   *
+   * This inventory check never reports active readiness. Route B/C must launch
+   * WDA and prove /status or an Appium session separately (ADR-028 / DEF-031).
    *
    * @param udid - Target device UDID
    * @param expectedBundleId - Expected WDA base bundle ID (no .xctrunner)
@@ -426,6 +452,7 @@ export class WdaManager {
 
       if (exitCode !== 0 || !stdout.trim()) {
         return {
+          installed: false,
           ready: false,
           reason: 'devicectl device info apps failed — device may be disconnected',
         };
@@ -439,19 +466,21 @@ export class WdaManager {
 
       if (!runnerApp) {
         return {
+          installed: false,
           ready: false,
           reason: `WDA Runner "${expectedRunner}" not found on device. Run preparePreinstalledWDA() first.`,
         };
       }
 
-      // R5: Profile expiry check is best-effort — devicectl may not expose
-      // Profile details directly. The G5 spike must verify this manually.
       return {
-        ready: true,
+        installed: true,
+        ready: false,
         actualBundleId: expectedRunner,
+        reason: 'Runner is installed; active Route B/C readiness has not been probed.',
       };
     } catch (err) {
       return {
+        installed: false,
         ready: false,
         reason: `Verification error: ${err instanceof Error ? err.message : String(err)}`,
       };
@@ -459,11 +488,11 @@ export class WdaManager {
   }
 
   /**
-   * Full prepare-preinstalled-WDA pipeline: build → sign → install → verify.
+   * WDA repair pipeline: build → sign → install → inventory verification.
    *
    * Builds WDA with -allowProvisioningUpdates, installs to the target device,
-   * and verifies the installation. This is the primary workflow for Route A
-   * (preinstalled mode).
+   * and verifies installation inventory. A Route B/C active probe must still run
+   * afterward before the physical preflight may report ready.
    *
    * R7: Installation modifies the target device — must be confirmed by user.
    * Pass `confirmed: true` to proceed. Throws if called without explicit confirmation.
@@ -505,8 +534,8 @@ export class WdaManager {
   }
 
   /**
-   * Fresh-profile routine (7-day free-profile re-sign, G5 recipe):
-   * verify → skip when ready → rebuild/reinstall (R7-gated) otherwise.
+   * Inventory routine: verify → skip when installed → rebuild/reinstall
+   * (R7-gated) otherwise. An active Route B/C probe is still required.
    */
   async ensureFreshProfile(input: FreshProfileInput): Promise<FreshProfileResult> {
     return ensureFreshProfile(input, {

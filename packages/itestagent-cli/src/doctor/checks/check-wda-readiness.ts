@@ -117,7 +117,7 @@ export async function checkWdaReadiness(port?: number): Promise<DoctorCheckResul
       message: `WDA is not running on port ${wdaPort} (connection refused).`,
       fixGuide: [
         'Launch WDA via WdaManager.launch() (Route B)',
-        'Or build + install WDA via WdaManager.preparePreinstalledWDA() (Route A)',
+        'Or build + install WDA via WdaManager.preparePreinstalledWDA(), then re-run an active probe',
         'Or let Appium manage WDA (Route C: managed-xcodebuild)',
         'Verify port availability: lsof -i :8100',
         'Start WDA manually: xcodebuild test-without-building -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination "platform=iOS,id=<UDID>"',
