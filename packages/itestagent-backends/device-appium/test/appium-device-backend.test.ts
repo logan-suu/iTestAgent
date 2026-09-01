@@ -119,6 +119,7 @@ class MockAppiumDriver implements AppiumDriver {
   readonly swipes: Array<{ from: AppiumPoint; to: AppiumPoint; durationMs?: number }> = [];
   readonly typedTexts: string[] = [];
   readonly pressedButtons: string[] = [];
+  lastSessionCaps: Record<string, unknown> | undefined;
 
   constructor(config?: MockDriverConfig) {
     this.config = config ?? {};
@@ -130,8 +131,9 @@ class MockAppiumDriver implements AppiumDriver {
 
   // ── Session ──────────────────────────────────────────────────
 
-  async createSession(_caps: Record<string, unknown>): Promise<AppiumSession> {
+  async createSession(caps: Record<string, unknown>): Promise<AppiumSession> {
     this.calls.push('createSession');
+    this.lastSessionCaps = caps;
     if (this.config.createSessionError) throw this.config.createSessionError;
     const session = this.config.createSessionResult ?? DEFAULT_SESSION;
     this.sessionActive = true;
@@ -1508,7 +1510,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
       udid: TEST_UDID,
       targetKind: 'physical',
       wdaStartupMode: 'external-url',
-      webDriverAgentUrl: 'http://127.0.0.1:8100',
+      webDriverAgentUrl: 'http://127.0.0.1:8200',
       wdaManager: wdaManager as unknown as WdaManager,
     });
 
@@ -1628,13 +1630,16 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
   });
 
   it('proves Route B readiness through an active Appium session', async () => {
-    const backend = new AppiumDeviceBackend(new MockAppiumDriver(), {
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
       bundleId: TEST_BUNDLE_ID,
       wdaBundleId: 'TEAMID.WebDriverAgentRunner',
       wdaStartupMode: 'external-url',
-      webDriverAgentUrl: 'http://127.0.0.1:8100',
+      webDriverAgentUrl: 'http://127.0.0.1:8200',
+      wdaLocalPort: 8200,
+      mjpegServerPort: 9200,
       wdaStatusFetch: async () =>
         Response.json({
           value: { build: { productBundleIdentifier: 'TEAMID.WebDriverAgentRunner' } },
@@ -1648,6 +1653,8 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
       ready: true,
       targetDeviceUdid: TEST_UDID,
     });
+    expect(driver.lastSessionCaps?.['appium:wdaLocalPort']).toBe(8200);
+    expect(driver.lastSessionCaps?.['appium:mjpegServerPort']).toBe(9200);
     await backend.closeSession();
   });
 

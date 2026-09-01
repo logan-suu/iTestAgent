@@ -14,7 +14,10 @@
  * R2: Uses devicectl + xcodebuild (Apple official), does not re-implement WDA.
  * R5: All errors are explicit — never silently degrade.
  */
+import { randomUUID } from 'node:crypto';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Subprocess } from 'bun';
 
@@ -444,13 +447,24 @@ export class WdaManager {
       ? expectedBundleId
       : `${expectedBundleId}.xctrunner`;
 
+    const jsonPath = join(tmpdir(), `itestagent-wda-apps-${process.pid}-${randomUUID()}.json`);
     try {
-      const { stdout, exitCode } = await spawnAsync(
-        ['xcrun', 'devicectl', 'device', 'info', 'apps', '--device', udid, '--json'],
+      const { exitCode } = await spawnAsync(
+        [
+          'xcrun',
+          'devicectl',
+          'device',
+          'info',
+          'apps',
+          '--device',
+          udid,
+          '--json-output',
+          jsonPath,
+        ],
         signal,
       );
 
-      if (exitCode !== 0 || !stdout.trim()) {
+      if (exitCode !== 0 || !existsSync(jsonPath)) {
         return {
           installed: false,
           ready: false,
@@ -458,7 +472,7 @@ export class WdaManager {
         };
       }
 
-      const parsed = JSON.parse(stdout) as {
+      const parsed = JSON.parse(readFileSync(jsonPath, 'utf-8')) as {
         result?: { apps?: Array<{ bundleIdentifier?: string }> };
       };
       const apps = parsed?.result?.apps ?? [];
@@ -484,6 +498,12 @@ export class WdaManager {
         ready: false,
         reason: `Verification error: ${err instanceof Error ? err.message : String(err)}`,
       };
+    } finally {
+      try {
+        rmSync(jsonPath, { force: true });
+      } catch {
+        // Best-effort cleanup must not change the inventory result.
+      }
     }
   }
 

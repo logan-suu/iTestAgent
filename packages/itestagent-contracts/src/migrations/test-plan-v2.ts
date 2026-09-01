@@ -19,6 +19,7 @@ const LEGACY_PERMISSION_ACTIONS: Readonly<Record<string, string>> = {
   write_project: 'write_project_file',
   store_credential: 'store_credential',
   update_baseline: 'update_baseline',
+  save_flow: 'save_flow',
   overwrite_flow: 'overwrite_flow',
   generate_draft: 'generate_draft_test',
 };

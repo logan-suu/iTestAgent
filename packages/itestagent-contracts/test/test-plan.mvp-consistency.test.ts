@@ -77,15 +77,9 @@ describe('metric vocabulary consistency', () => {
 // ─── 2. Artifact vocabulary ──────────────────────────────────
 
 describe('artifact vocabulary consistency (TestPlan ⊆ store-driver)', () => {
-  it('every plannable artifact type except the known syslog gap is storable', () => {
-    // KNOWN GAP, intentionally not "fixed" here: TestPlan's collect enum and
-    // the data-flow spec list `syslog`, but the runtime artifact type
-    // vocabulary deliberately excludes it — B03 locked "no syslog at
-    // runtime" because the pre-migration published schema carried it as a
-    // stale value (see artifact-index-contract.test.ts). Resolving whether
-    // syslog becomes a first-class stored artifact (or drops out of
-    // TestPlan) is a spec-level decision deferred to the store/report
-    // batches; this test records the seam so the drift stays visible.
+  it('every plannable artifact type is storable', () => {
+    // Task 6.6 closes the historical syslog vocabulary gap so every
+    // TestPlan artifact policy value is directly storable.
     const artifactPolicyTypes = [
       'screenshot',
       'video',
@@ -95,15 +89,14 @@ describe('artifact vocabulary consistency (TestPlan ⊆ store-driver)', () => {
       'trace',
       'uitree',
     ];
-    const storableTypes = artifactPolicyTypes.filter((t) => t !== 'syslog');
-    expect(storableTypes).toHaveLength(6);
+    const storableTypes = artifactPolicyTypes;
+    expect(storableTypes).toHaveLength(7);
 
     const storeTypes = ArtifactInputSchema.shape.type;
     for (const artifactType of storableTypes) {
       expect(storeTypes.safeParse(artifactType).success).toBe(true);
     }
-    // The gap itself: syslog is plannable but NOT storable today.
-    expect(storeTypes.safeParse('syslog').success).toBe(false);
+    expect(storeTypes.safeParse('syslog').success).toBe(true);
   });
 });
 

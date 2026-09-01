@@ -443,6 +443,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'preinstalled',
       bundleId: this.opts.bundleId,
@@ -465,6 +466,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return buildPhysicalCapabilities({
         udid: this.opts.udid,
         wdaLocalPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
         newCommandTimeout: 600,
         wdaStartupMode: 'external-url',
         webDriverAgentUrl: this.opts.webDriverAgentUrl,
@@ -509,6 +511,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'external-url',
       webDriverAgentUrl: wdaUrl,
@@ -543,6 +546,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'managed-xcodebuild',
       usePrebuiltWDA: !hasSigning,

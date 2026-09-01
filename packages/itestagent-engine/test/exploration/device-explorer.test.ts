@@ -374,7 +374,7 @@ test('getSteps returns updated steps after additional explores', async () => {
   const steps2 = await explorer.explore([
     { action: 'swipe', target: 'scrolling', direction: 'down' },
   ]);
-  expect(steps2).toHaveLength(4); // previous 2 + new launch + new swipe
+  expect(steps2).toHaveLength(3); // launch once + first tap + second swipe
 
   // getSteps should reflect all steps
   expect(explorer.getSteps()).toEqual(steps2);

@@ -118,11 +118,14 @@ function explanation(overrides: Partial<FailureExplanation> = {}): FailureExplan
 function step(overrides: Partial<RunStep> & { stepId?: string } = {}): RunStep {
   return {
     stepId: overrides.stepId ?? 'step-1',
+    sequence: 1,
     backend: 'appium',
+    targetKind: 'physical',
     action: 'tap',
     target: 'loginButton',
     input: { x: 0.5, y: 0.8 },
     result: { success: true },
+    status: 'completed',
     artifacts: ['screenshot-001'],
     startedAt: '2026-07-28T10:00:01.000Z',
     durationMs: 450,

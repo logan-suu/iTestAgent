@@ -511,19 +511,24 @@ export class InteractiveRecorder {
 
     try {
       const startMs = Date.now();
+      const startedAt = new Date(startMs).toISOString();
       const execResult = await this.actionExecutor(action);
       const duration = Date.now() - startMs;
 
       const step: RecordingStep = {
         step: {
           stepId: execResult.stepId,
+          sequence: this.stepIndex + 1,
           backend: this.config.backend,
+          targetKind: this.config.targetKind,
+          caseId: this.config.featureName,
           action: action.action,
           target: action.target,
           input: action.text ?? action.direction ?? null,
           result: execResult.result,
+          status: 'completed',
           artifacts: execResult.artifacts,
-          startedAt: new Date().toISOString(),
+          startedAt,
           durationMs: duration,
         },
         originalSuggestion: action,
@@ -549,11 +554,15 @@ export class InteractiveRecorder {
       const step: RecordingStep = {
         step: {
           stepId: `error-${this.stepIndex}`,
+          sequence: this.stepIndex + 1,
           backend: this.config.backend,
+          targetKind: this.config.targetKind,
+          caseId: this.config.featureName,
           action: action.action,
           target: action.target,
           input: action.text ?? action.direction ?? null,
           result: { error: errorMsg },
+          status: 'failed',
           artifacts: [],
           startedAt: new Date().toISOString(),
           durationMs: duration,
@@ -565,7 +574,6 @@ export class InteractiveRecorder {
 
       this.steps.push(step);
       this.stepIndex++;
-      this.confirmedCount++;
       this.callbacks.onStepRecorded({ step, stepIndex: this.stepIndex - 1 });
       this.callbacks.onError({ message: errorMsg, recoverable: true });
     }

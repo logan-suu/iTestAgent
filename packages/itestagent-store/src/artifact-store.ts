@@ -20,6 +20,7 @@ function extensionForType(type: ArtifactInput['type']): string {
     case 'uitree':
       return '.json';
     case 'log':
+    case 'syslog':
     case 'crashlog':
     case 'text':
       return '.log';
@@ -98,6 +99,7 @@ export function createArtifactStore(artifactsRoot: string): ArtifactStore {
         sizeBytes,
         sha256,
         relatedStep: input.relatedStep,
+        relatedCase: input.relatedCase,
         redactionStatus: 'raw-local-only',
       };
 

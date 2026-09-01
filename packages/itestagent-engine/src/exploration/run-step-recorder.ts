@@ -19,7 +19,10 @@ import type { LocatorResult } from './types.js';
 /** Internal state for a step in progress. */
 interface StepRecord {
   stepId: string;
+  sequence: number;
   backend: string;
+  targetKind: 'physical' | 'simulator';
+  caseId?: string;
   action: string;
   target?: string;
   locator?: LocatorResult;
@@ -44,9 +47,11 @@ export class RunStepRecorder {
   private active: Map<string, StepRecord> = new Map();
   private stepCounter = 0;
   private readonly backend: string;
+  private readonly targetKind: 'physical' | 'simulator';
 
-  constructor(backend: string) {
+  constructor(backend: string, targetKind: 'physical' | 'simulator' = 'physical') {
     this.backend = backend;
+    this.targetKind = targetKind;
   }
 
   /**
@@ -57,12 +62,15 @@ export class RunStepRecorder {
    * @param locator - LocatorResult from ElementLocator (optional)
    * @returns stepId for use with completeStep/failStep
    */
-  startStep(action: string, target: string, locator?: LocatorResult): string {
+  startStep(action: string, target: string, locator?: LocatorResult, caseId?: string): string {
     this.stepCounter += 1;
     const stepId = createId('s');
     const record: StepRecord = {
       stepId,
+      sequence: this.stepCounter,
       backend: this.backend,
+      targetKind: this.targetKind,
+      caseId,
       action,
       target,
       locator,
@@ -89,7 +97,10 @@ export class RunStepRecorder {
 
     this.steps.push({
       stepId: record.stepId,
+      sequence: record.sequence,
       backend: record.backend,
+      targetKind: record.targetKind,
+      caseId: record.caseId,
       action: record.action,
       target: record.target,
       input: {
@@ -103,6 +114,7 @@ export class RunStepRecorder {
           : undefined,
       },
       result: sanitizedResult ?? { ok: true },
+      status: 'completed',
       artifacts: [...record.artifacts, ...artifacts],
       startedAt: new Date(record.startedAt).toISOString(),
       durationMs,
@@ -117,7 +129,7 @@ export class RunStepRecorder {
    * @param stepId - The step ID from startStep()
    * @param error - The error message or degradation explanation
    */
-  failStep(stepId: string, error: string): void {
+  failStep(stepId: string, error: string, artifacts: string[] = [], blocked = false): void {
     const record = this.active.get(stepId);
     if (!record) return;
 
@@ -125,7 +137,10 @@ export class RunStepRecorder {
 
     this.steps.push({
       stepId: record.stepId,
+      sequence: record.sequence,
       backend: record.backend,
+      targetKind: record.targetKind,
+      caseId: record.caseId,
       action: record.action,
       target: record.target,
       input: {
@@ -143,7 +158,8 @@ export class RunStepRecorder {
         degradation: true,
         ac4_note: 'Element location failed or action was unreliable — explicitly degraded per AC4.',
       }),
-      artifacts: record.artifacts,
+      status: blocked ? 'blocked' : 'failed',
+      artifacts: [...record.artifacts, ...artifacts],
       startedAt: new Date(record.startedAt).toISOString(),
       durationMs,
     });
@@ -158,6 +174,19 @@ export class RunStepRecorder {
     const record = this.active.get(stepId);
     if (record) {
       record.artifacts.push(artifactId);
+    }
+  }
+
+  /** Link an artifact after a step has completed (used by post-action checkpoints). */
+  linkArtifact(stepId: string, artifactId: string): void {
+    const active = this.active.get(stepId);
+    if (active) {
+      active.artifacts.push(artifactId);
+      return;
+    }
+    const completed = this.steps.find((step) => step.stepId === stepId);
+    if (completed && !completed.artifacts.includes(artifactId)) {
+      completed.artifacts.push(artifactId);
     }
   }
 

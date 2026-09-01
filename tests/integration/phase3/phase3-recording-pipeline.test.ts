@@ -41,7 +41,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'step-1',
+            sequence: 1,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'launchApp',
             target: 'mainApp',
             input: null,
@@ -57,7 +60,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'step-2',
+            sequence: 2,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'tap',
             target: 'Login',
             input: null,
@@ -80,7 +86,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'step-3',
+            sequence: 3,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'typeText',
             target: 'phoneField',
             input: '13800138000',
@@ -122,7 +131,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-1',
+            sequence: 1,
             backend: 'appium',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'launchApp',
             target: 'mainApp',
             input: null,
@@ -138,7 +150,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-2',
+            sequence: 2,
             backend: 'appium',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'tap',
             target: 'LoginButton',
             input: null,
@@ -154,7 +169,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-3',
+            sequence: 3,
             backend: 'appium',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'typeText',
             target: 'usernameField',
             input: 'testuser',
@@ -202,7 +220,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-1',
+            sequence: 1,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'tap',
             target: 'Tab1',
             input: null,
@@ -225,7 +246,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-2',
+            sequence: 2,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'tap',
             target: 'Item',
             input: null,
@@ -265,7 +289,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-1',
+            sequence: 1,
             backend: 'appium',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'launchApp',
             target: 'mainApp',
             input: null,
@@ -281,7 +308,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-2',
+            sequence: 2,
             backend: 'appium',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'tap',
             target: 'AddToCart',
             input: null,
@@ -297,7 +327,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-3',
+            sequence: 3,
             backend: 'appium',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'swipe',
             target: 'checkout',
             input: 'up',
@@ -346,7 +379,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-1',
+            sequence: 1,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'launchApp',
             target: 'mainApp',
             input: null,
@@ -387,7 +423,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 's-1',
+            sequence: 1,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'input',
             target: 'searchField',
             input: 'modified text',
@@ -453,7 +492,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'x-1',
+            sequence: 1,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'launchApp',
             target: 'mainApp',
             input: null,
@@ -469,7 +511,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'x-2',
+            sequence: 2,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'tap',
             target: 'Button',
             input: null,
@@ -485,7 +530,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'x-3',
+            sequence: 3,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'typeText',
             target: 'Field',
             input: 'hello',
@@ -501,7 +549,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'x-4',
+            sequence: 4,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'swipe',
             target: 'List',
             input: 'up',
@@ -517,7 +568,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'x-5',
+            sequence: 5,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'screenshot',
             target: 'screen',
             input: null,
@@ -533,7 +587,10 @@ describe('Phase 3 Recording Pipeline', () => {
         {
           step: {
             stepId: 'x-6',
+            sequence: 6,
             backend: 'mock',
+            targetKind: 'simulator',
+            status: 'completed',
             action: 'wait',
             target: 'settle',
             input: null,

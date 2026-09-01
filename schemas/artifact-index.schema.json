@@ -32,6 +32,7 @@
               "video",
               "uitree",
               "log",
+              "syslog",
               "crashlog",
               "trace",
               "xcresult",
@@ -48,6 +49,7 @@
           "sizeBytes": { "type": "integer", "minimum": 0, "description": "File size in bytes." },
           "sha256": { "type": "string", "description": "SHA-256 checksum of the file contents." },
           "relatedStep": { "type": "string", "description": "Run step ID that produced this artifact." },
+          "relatedCase": { "type": "string", "description": "Test case ID this artifact proves." },
           "backend": { "type": "string", "description": "Backend that produced this artifact." },
           "redactionStatus": {
             "type": "string",

@@ -71,8 +71,18 @@ export interface RealDeviceRunOptions {
   readonly deviceId: string;
   /** Target kind for the explorer (physical|simulator). */
   readonly targetKind: 'physical' | 'simulator';
-  /** Ordered exploration actions. */
-  readonly actions: readonly ExplorationAction[];
+  /** Ordered precomputed actions (primarily tests and explicit replay-like callers). */
+  readonly actions?: readonly ExplorationAction[];
+  /** Dynamic low-risk Agent exploration inside confirmed TestPlan feature boundaries. */
+  readonly dynamicActions?: {
+    readonly cases: readonly string[];
+    readonly maxStepsPerCase?: number;
+    readonly suggest: (input: {
+      caseId: string;
+      uiTree: string;
+      history: readonly RunStep[];
+    }) => Promise<ExplorationAction | 'done'>;
+  };
   /** User/profile assertions to evaluate against the captured trees (tier 1/2). */
   readonly assertions?: readonly UserAssertion[];
   /** Assertion policy override. Default: user_goal_then_profile_then_agent_confirmed. */
@@ -98,6 +108,7 @@ export interface RealDeviceRunOptions {
       | 'video'
       | 'uitree'
       | 'log'
+      | 'syslog'
       | 'crashlog'
       | 'trace'
       | 'xcresult'
@@ -118,6 +129,54 @@ export interface RealDeviceRunResult {
   /** LLM-proposed tier-3 suggestions when llmSuggest was used (AC4). */
   readonly llmSuggestions?: readonly UserAssertion[];
   readonly llmReason?: string;
+}
+
+/** Ask the configured model for one low-risk action within a confirmed case. */
+export async function suggestExplorationAction(input: {
+  generate: (prompt: string) => Promise<string>;
+  caseId: string;
+  uiTree: string;
+  history: readonly RunStep[];
+}): Promise<ExplorationAction | 'done'> {
+  const response = await input.generate(
+    [
+      'You are exploring an iOS app inside a confirmed TestPlan case.',
+      `CASE: ${input.caseId}`,
+      `COMPLETED ACTIONS: ${input.history.map((step) => `${step.action}:${step.target ?? ''}:${step.status}`).join(', ') || '(none)'}`,
+      'CURRENT UI TREE:',
+      input.uiTree.slice(0, 12000),
+      '',
+      'Return exactly one JSON object. Allowed low-risk actions are tap, swipe, input, screenshot, wait.',
+      'Use {"action":"done"} when the case goal is reached or no safe progress is possible.',
+      'For an action include target and, when applicable, text, direction, or waitMs.',
+    ].join('\n'),
+  );
+  const match = response.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`exploration_suggestion_invalid: no JSON action for ${input.caseId}`);
+  const parsed = JSON.parse(match[0]) as Record<string, unknown>;
+  if (parsed.action === 'done') return 'done';
+  if (!['tap', 'swipe', 'input', 'screenshot', 'wait'].includes(String(parsed.action))) {
+    throw new Error(
+      `exploration_suggestion_blocked: unsupported or high-risk action "${String(parsed.action)}"`,
+    );
+  }
+  if (typeof parsed.target !== 'string' || parsed.target.length === 0) {
+    throw new Error(`exploration_suggestion_invalid: target is required for ${input.caseId}`);
+  }
+  return {
+    action: parsed.action as ExplorationAction['action'],
+    target: parsed.target,
+    ...(typeof parsed.text === 'string' ? { text: parsed.text } : {}),
+    ...(parsed.direction === 'up' ||
+    parsed.direction === 'down' ||
+    parsed.direction === 'left' ||
+    parsed.direction === 'right'
+      ? { direction: parsed.direction }
+      : {}),
+    ...(typeof parsed.waitMs === 'number' && Number.isFinite(parsed.waitMs)
+      ? { waitMs: Math.max(1, Math.trunc(parsed.waitMs)) }
+      : {}),
+  };
 }
 
 /** Wrap a DeviceBackend subset as the explorer's tool dispatcher. */
@@ -261,17 +320,39 @@ export async function runRealDeviceExploration(
     options.artifactStore,
   );
 
-  const steps = await explorer.explore([...options.actions]);
-
-  // Capture a fresh tree per case for observation mapping.
-  const assertions = options.assertions ?? [];
-  const caseIds = [...new Set(assertions.map((a) => a.caseId))];
-  const uiTrees: UiTreeCapture[] = [];
-  for (const caseId of caseIds) {
-    const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
-    uiTrees.push({ caseId, raw: tree.raw });
+  if (options.dynamicActions) {
+    // The first model observation must describe the confirmed AUT, not whichever app was active.
+    await explorer.explore([]);
+    const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
+    for (const caseId of options.dynamicActions.cases) {
+      for (let index = 0; index < maxSteps; index += 1) {
+        const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
+        const suggestion = await options.dynamicActions.suggest({
+          caseId,
+          uiTree: tree.raw,
+          history: explorer.getSteps().filter((step) => step.caseId === caseId),
+        });
+        if (suggestion === 'done') break;
+        await explorer.explore([{ ...suggestion, caseId }]);
+      }
+    }
+  } else {
+    await explorer.explore([...(options.actions ?? [])]);
   }
-  if (caseIds.length === 0 && options.llmSuggest) {
+  const steps = explorer.getSteps();
+
+  const assertions = options.assertions ?? [];
+  const latestCheckpointByCase = new Map<string, UiTreeCapture>();
+  for (const checkpoint of explorer.getCheckpoints()) {
+    const owner = steps.find((step) => step.stepId === checkpoint.stepId);
+    if (owner?.status !== 'completed') continue;
+    latestCheckpointByCase.set(checkpoint.caseId, {
+      caseId: checkpoint.caseId,
+      raw: checkpoint.raw,
+    });
+  }
+  const uiTrees = [...latestCheckpointByCase.values()];
+  if (uiTrees.length === 0 && options.llmSuggest) {
     const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
     uiTrees.push({ caseId: 'exploration', raw: tree.raw });
   }
@@ -312,14 +393,19 @@ export async function runRealDeviceExploration(
   artifactCount = refs.length;
   if (refs.length > 0) {
     const index: ArtifactIndex = {
-      schemaVersion: 'itestagent.artifact-index.v1',
+      schemaVersion: '1.0',
       runId: options.runId,
-      artifacts: refs.map((a) => ({
-        id: a.id,
-        type: a.type,
-        path: a.path,
-        redactionStatus: 'safe',
-      })),
+      artifacts: refs.map((a) => {
+        const owner = steps.find((step) => step.artifacts.includes(a.id));
+        return {
+          id: a.id,
+          type: a.type,
+          path: a.path,
+          relatedStep: owner?.stepId,
+          relatedCase: owner?.caseId,
+          redactionStatus: 'safe' as const,
+        };
+      }),
     };
     const result = writeArtifactIndex(`${options.runDir}/artifacts`, index);
     artifactIndexPath = result.indexPath;

@@ -186,6 +186,9 @@ function compileStep(recStep: RecordingStep, stepIndex: number): FlowStepV2 | nu
   // No underlying RunStep: nothing to replay
   if (!recStep.step) return null;
 
+  // Only a user-confirmed action that actually completed may become replayable.
+  if (recStep.step.status !== 'completed') return null;
+
   const runStep = recStep.step;
   const rawAction = runStep.action ?? 'unknown';
 

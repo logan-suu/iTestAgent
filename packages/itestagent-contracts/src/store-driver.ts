@@ -25,6 +25,7 @@ export const ArtifactInputSchema = z.object({
     'video',
     'uitree',
     'log',
+    'syslog',
     'crashlog',
     'trace',
     'xcresult',
@@ -39,6 +40,8 @@ export const ArtifactInputSchema = z.object({
   mimeType: z.string().optional(),
   /** 关联的 run step id（可选） */
   relatedStep: z.string().optional(),
+  /** Related test case ID (optional). */
+  relatedCase: z.string().optional(),
   /** 产生此产物的 backend 名称（可选） */
   backend: z.string().optional(),
 });

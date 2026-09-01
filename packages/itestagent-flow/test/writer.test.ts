@@ -74,6 +74,31 @@ describe('Flow YAML file write', () => {
 });
 
 describe('saveFlow R7 confirmation gate', () => {
+  it('rejects every save without save_flow confirmation', async () => {
+    await expect(saveFlow(sampleFlow, { dataRoot: testDir })).rejects.toThrow('save_flow');
+  });
+
+  it('writes a new Flow only after save_flow confirmation', async () => {
+    const unique = { ...sampleFlow, flowId: 'confirmed-new-flow' };
+    const result = await saveFlow(unique, { dataRoot: testDir, saveConfirmed: true });
+    expect(await exists(result.defaultPath)).toBe(true);
+  });
+
+  it('requires a distinct overwrite_flow confirmation for an existing Flow', async () => {
+    const unique = { ...sampleFlow, flowId: 'confirmed-overwrite-flow' };
+    await saveFlow(unique, { dataRoot: testDir, saveConfirmed: true });
+    await expect(saveFlow(unique, { dataRoot: testDir, saveConfirmed: true })).rejects.toThrow(
+      'overwrite_flow',
+    );
+    await expect(
+      saveFlow(unique, {
+        dataRoot: testDir,
+        saveConfirmed: true,
+        overwriteConfirmed: true,
+      }),
+    ).resolves.toBeDefined();
+  });
+
   it('rejects project write when projectConfirmed is false', async () => {
     await expect(
       saveFlow(sampleFlow, { projectPath: '/tmp/p', projectConfirmed: false }),

@@ -512,14 +512,14 @@ test('published artifact entries match the runtime entry shape exactly', () => {
   expect((items.required as string[]).slice().sort()).toEqual(requiredKeysOf(entryShape).sort());
 });
 
-test('published artifact type enum has exactly the 9 runtime values (no syslog)', () => {
+test('published artifact type enum has exactly the 10 runtime values including syslog', () => {
   const published = loadPublishedSchemaAt(ARTIFACT_INDEX_PUBLISHED_PATH);
   const artifacts = (published.properties as JsonRecord).artifacts as JsonRecord;
   const type = ((artifacts.items as JsonRecord).properties as JsonRecord).type as JsonRecord;
   expect(type.type).toBe('string');
-  expect(type.enum as string[]).toHaveLength(9);
+  expect(type.enum as string[]).toHaveLength(10);
   expect((type.enum as string[]).slice().sort()).toEqual([...ArtifactTypeSchema.options].sort());
-  expect(type.enum as string[]).not.toContain('syslog');
+  expect(type.enum as string[]).toContain('syslog');
 });
 
 test('published redactionStatus enum mirrors RedactionStatusSchema', () => {

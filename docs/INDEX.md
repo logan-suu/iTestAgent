@@ -43,6 +43,7 @@
 | 真机 App/WDA 前置、Route B/C 与主动 readiness | `decisions/ADR-028-physical-preflight-and-wda-readiness.md` |
 | XCUITest/DeviceBackend 双路径解析、确认与 fallback 边界 | `decisions/ADR-029-dual-execution-route-resolution.md` |
 | XCUITest metadata-only 候选、探测三态与构建权限边界 | `decisions/ADR-030-metadata-only-xcuitest-candidates.md` |
+| Run/Case/Step/Evidence 关联、自包含 run 目录与探索/Flow 边界 | `decisions/ADR-031-run-case-evidence-and-self-contained-run.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -159,4 +160,4 @@
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~030（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径与 metadata-only 候选边界）
+- ADR 记录：ADR-020~031（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界与自包含 run 契约）

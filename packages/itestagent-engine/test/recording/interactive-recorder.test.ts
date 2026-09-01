@@ -349,7 +349,7 @@ test('error during execution records a failed step', async () => {
   expect(spy.errors[0]?.recoverable).toBe(true);
 });
 
-test('error during execution still increments confirmedCount', async () => {
+test('error during execution does not count as a Flow-eligible confirmed step', async () => {
   const { recorder } = createAutoRespondingRecorder({
     config: { maxSteps: 1 },
     events: [makeSuggestionEvent(tapSuggestionJson())],
@@ -358,7 +358,8 @@ test('error during execution still increments confirmedCount', async () => {
   });
 
   const result = await recorder.start();
-  expect(result.confirmedCount).toBe(1);
+  expect(result.confirmedCount).toBe(0);
+  expect(result.steps[0]?.step?.status).toBe('failed');
 });
 
 // ═══════════════════════════════════════════════════════════════════

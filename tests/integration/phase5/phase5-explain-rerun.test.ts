@@ -175,11 +175,14 @@ afterAll(() => {
 
 const CRASH_STEP: RunStep = {
   stepId: 'step-crash',
+  sequence: 1,
   backend: 'appium',
+  targetKind: 'physical',
   action: 'tap',
   target: 'Login',
   input: { x: 0.5, y: 0.5 },
   result: { success: false, error: 'App crashed' },
+  status: 'failed',
   artifacts: [],
   startedAt: NOW,
   durationMs: 1200,

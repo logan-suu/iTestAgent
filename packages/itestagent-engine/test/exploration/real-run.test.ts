@@ -118,7 +118,7 @@ describe('runRealDeviceExploration', () => {
         bundleId: 'com.example.app',
         deviceId: 'UDID-1',
         targetKind: 'physical',
-        actions: [{ action: 'screenshot', target: 'capture' }],
+        actions: [{ action: 'screenshot', target: 'capture', caseId: 'login' }],
         assertions: [userAssertion()],
         artifactRefs: [{ id: 'shot_1', type: 'screenshot', path: join(tmpdir(), 'shot_1.png') }],
       });
@@ -142,7 +142,7 @@ describe('runRealDeviceExploration', () => {
     }
   });
 
-  it('reports failed for an unsatisfied user assertion', async () => {
+  it('reports failed for an unsatisfied user assertion at its immediate checkpoint', async () => {
     const calls: { tool: string }[] = [];
     const backend = {
       async getUiTree(_input: { deviceId: string }) {
@@ -171,7 +171,7 @@ describe('runRealDeviceExploration', () => {
         bundleId: 'com.example.app',
         deviceId: 'UDID-1',
         targetKind: 'physical',
-        actions: [],
+        actions: [{ action: 'wait', target: 'settle login', waitMs: 1, caseId: 'login' }],
         assertions: [userAssertion()],
       });
       expect(result.assertion.status).toBe('failed');
@@ -192,7 +192,7 @@ describe('runRealDeviceExploration', () => {
       bundleId: 'com.example.app',
       deviceId: 'UDID-1',
       targetKind: 'physical',
-      actions: [],
+      actions: [{ action: 'wait', target: 'observe login', waitMs: 1, caseId: 'login' }],
     });
     expect(result.assertion.status).toBe('explored');
   });
@@ -257,7 +257,7 @@ describe('runRealDeviceExploration llmSuggest', () => {
       bundleId: 'com.example.app',
       deviceId: 'UDID-1',
       targetKind: 'physical',
-      actions: [],
+      actions: [{ action: 'wait', target: 'observe login', waitMs: 1, caseId: 'login' }],
       assertions: [userAssertion()],
       llmSuggest: {
         generate: async () => {

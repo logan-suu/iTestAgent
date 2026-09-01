@@ -61,7 +61,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
 // ─── 默认高风险操作集 ─────────────────────────────────────
 
 /**
- * Default high-risk action list (12 actions).
+ * Default high-risk action list (13 actions).
  *
  * 架构设计 §8 + 红线 R7 定义：
  *   clear_app_data     — 清除应用数据
@@ -69,6 +69,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
  *   write_project_file — 写项目目录文件
  *   store_credential   — 存储凭证
  *   update_baseline    — 更新性能 baseline
+ *   save_flow          — first-time Flow save
  *   overwrite_flow     — 覆盖已有 Flow
  *   generate_draft_test — 生成测试代码草稿
  *   open_non_http_url  — 打开非 HTTP 协议 URL
@@ -83,6 +84,7 @@ export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'write_project_file',
   'store_credential',
   'update_baseline',
+  'save_flow',
   'overwrite_flow',
   'generate_draft_test',
   'open_non_http_url',

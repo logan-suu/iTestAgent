@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-09-01T15:03:53Z",
+  "last_updated": "2026-09-01T23:00:47Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1244,18 +1244,20 @@
           "id": "6.6",
           "title": "真机探索执行与 Flow 记录：动态动作、逐 case checkpoint、断言确认、run steps",
           "story": "US-8.1~8.2, US-9.1, US-11.1, US-13.1",
-          "status": "ready",
-          "last_updated": "2026-09-01T15:03:53Z",
+          "status": "in_progress",
+          "last_updated": "2026-09-01T23:15:00Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md",
-            "docs/03-implementation/开发避坑与关键注意点手册.md"
+            "docs/03-implementation/开发避坑与关键注意点手册.md",
+            "docs/decisions/ADR-031-run-case-evidence-and-self-contained-run.md",
+            "schemas/flow.schema.json"
           ],
           "dependencies": [
             "6.5"
           ],
           "test_file": "tests/integration/phase6/phase6-exploration-flow-recording.test.ts",
-          "notes": "用已确认 TestPlan/Agent 动态动作替代固定 launch+screenshot；每个 case 动作后立即捕获 UI tree/证据，避免最终页面冒充早期断言；Agent 建议断言未经确认不得判 passed。负责核查 DEF-030。"
+          "notes": "实现已确认 TestPlan feature 驱动的 Agent 动态低风险动作，CLI/TUI production device_backend 路径不再使用固定 launch+screenshot；RunStep 增加 sequence/targetKind/caseId/status，case action settle 后立即采集 UI tree checkpoint 并关联 relatedStep/relatedCase；失败/blocked checkpoint 不参与 passed 判定；交互录制失败步骤不计 confirmedCount 且不可编译进 Flow；首次保存、覆盖、项目目录写入分别经过 save_flow/overwrite_flow/write_project_file 确认；syslog runtime/published vocabulary 已对齐。最终全仓门禁通过：typecheck、lint、build 通过，bun test 为 3484 pass/13 skip/0 fail；Phase 6 contract 中 T6.6 两项由红转绿。G5-SIM 在 iPhone 16 Pro iOS 18.2 + Settings + Appium 3.6.0 上通过。用户确认 prepare_wda 后，真机 G5 在 iPhone 14 Plus iOS 18.2.1 上通过：刷新并覆盖同一 WDA Runner，主动 readiness 5.6s，Appium external-url session 完成两个 case，RunStep sequence=[1,2,3]，两个独立即时 UI-tree checkpoint 均关联 relatedStep/relatedCase；teardown 无本轮 xcodebuild/iproxy/8200/9200 残留。G5 同时修复 Xcode 26 devicectl inventory 的 --json-output 兼容和 physical mjpegServerPort 透传。最终 RunStore/steps.json/三件套 artifact-index 合并仍由 T6.8 负责。任务按代码类状态机保持 in_progress，等待 PR 合并。报告：docs/06-verification/g5-sim-spike-report-6.6.md。DEF-030 已 resolved。"
         },
         {
           "id": "6.7",
@@ -1278,20 +1280,23 @@
           "id": "6.8",
           "title": "单一 RunStore 与报告贯通：plan、run steps、三件套和 artifacts 同 run 落盘",
           "story": "US-13.1, US-15.1, US-19.1",
-          "status": "ready",
-          "last_updated": "2026-09-01T15:03:53Z",
+          "status": "pending",
+          "last_updated": "2026-09-01T21:58:53Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md",
             "schemas/test-plan.schema.json",
             "schemas/result.schema.json",
-            "schemas/artifact-index.schema.json"
+            "schemas/artifact-index.schema.json",
+            "docs/decisions/ADR-022-persisted-schema-migrations.md",
+            "docs/decisions/ADR-031-run-case-evidence-and-self-contained-run.md"
           ],
           "dependencies": [
-            "6.5"
+            "6.5",
+            "6.6"
           ],
           "test_file": "tests/integration/phase6/phase6-run-report-persistence.test.ts",
-          "notes": "生产执行写入 ~/.itestagent/runs/<run_id>/，生成 plan.yaml、summary.md、result.json、artifact-index.json、artifacts/；禁止只在 /tmp 生成孤立 artifact-index。"
+          "notes": "依赖 T6.6 先锁定 case/step/evidence 语义。生产执行由单一 RunStore/RunWriter 写入 ~/.itestagent/runs/<run_id>/，生成 plan.yaml、steps.json、summary.md、result.json、artifact-index.json、artifacts/；报告三件套保持不变；禁止只在 /tmp 生成孤立 artifact-index。Persisted schema 变更与迁移遵循 ADR-022/031。"
         },
         {
           "id": "6.9",

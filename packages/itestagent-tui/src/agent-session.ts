@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
-import type { LanguageModel } from 'ai';
+import { type LanguageModel, generateText } from 'ai';
 import type {
   AgentEvent,
   DeviceBackend,
@@ -20,8 +20,11 @@ import {
   PermissionEngine,
   PlanningSession,
   ToolDispatcher,
+  createBackendToolDispatcher,
   createProductionAgentSessionDependencies,
   createProductionDualExecutionDispatcher,
+  runRealDeviceExploration,
+  suggestExplorationAction,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
 import { parse as parseJsonc } from 'jsonc-parser';
@@ -316,10 +319,36 @@ export async function createAgentSession(
       if (plan.execution.resolvedPath === 'xcuitest') {
         mkdirSync(dirname(resultBundlePath), { recursive: true });
       }
-      const dispatcher = createProductionDualExecutionDispatcher(async () => {
-        throw new Error(
-          'device_backend_exploration_plan_required: autonomous exploration actions are owned by task 6.6',
+      const dispatcher = createProductionDualExecutionDispatcher(async ({ plan: routedPlan }) => {
+        const analysis = await analyzeOnce();
+        const bundleId = analysis.profile.app.bundleId;
+        if (!bundleId) {
+          throw new Error('device_backend_blocked: project profile has no confirmed bundleId');
+        }
+        const backend = (dependencies.createDeviceBackend ?? production.createDeviceBackend)(
+          device,
         );
+        const runDir = join(homedir(), '.itestagent', 'runs', routedPlan.runId);
+        return runRealDeviceExploration({
+          backend,
+          toolDispatcher: createBackendToolDispatcher(backend),
+          runDir,
+          runId: routedPlan.runId,
+          bundleId,
+          deviceId: device.udid,
+          targetKind: device.targetKind,
+          dynamicActions: {
+            cases: routedPlan.execution.features,
+            suggest: ({ caseId, uiTree, history }) =>
+              suggestExplorationAction({
+                generate: async (prompt) => (await generateText({ model, prompt })).text,
+                caseId,
+                uiTree,
+                history,
+              }),
+          },
+          policy: routedPlan.execution.assertion.policy,
+        });
       });
       return dispatcher.dispatch({
         plan,

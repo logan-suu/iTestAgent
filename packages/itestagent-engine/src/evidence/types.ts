@@ -36,6 +36,9 @@ export interface EvidenceOptions {
   /** Run step ID to associate evidence with (AC2). */
   stepId: string;
 
+  /** Case ID when the failing step participates in case evaluation. */
+  caseId?: string;
+
   /** Run directory (`~/.itestagent/runs/<run_id>/`). Artifacts stored under `<runDir>/artifacts/`. */
   runDir: string;
 

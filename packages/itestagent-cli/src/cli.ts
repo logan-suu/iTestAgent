@@ -206,6 +206,7 @@ export function createProgram(): Command {
   program
     .command('explore')
     .description('run real-device exploration: launch AUT, interact, assert, persist evidence')
+    .requiredOption('--plan <path>', 'confirmed TestPlan YAML')
     .requiredOption('--udid <udid>', 'device hardware UDID')
     .requiredOption('--bundle-id <id>', 'AUT bundle identifier')
     .option(
@@ -224,6 +225,7 @@ export function createProgram(): Command {
     )
     .action(
       async (options: {
+        plan: string;
         udid: string;
         bundleId: string;
         platformVersion?: string;
@@ -235,11 +237,28 @@ export function createProgram(): Command {
         appiumUrl: string;
         useConfigLlm?: boolean;
       }) => {
-        const { runRealDeviceExploration, createBackendToolDispatcher } = await import(
-          'itestagent-engine'
-        );
+        const {
+          runRealDeviceExploration,
+          createBackendToolDispatcher,
+          parseTestPlanYaml,
+          suggestExplorationAction,
+        } = await import('itestagent-engine');
         const { createAppiumExplorationRuntime } = await import('itestagent-engine');
         const { loadConfig, resolveCredentials } = await import('./config/loader.js');
+        const confirmedPlan = parseTestPlanYaml(readFileSync(options.plan, 'utf-8'));
+        if (confirmedPlan.execution.resolvedPath !== 'device_backend') {
+          throw new PublicCliError(
+            `Plan ${confirmedPlan.runId} resolved to ${confirmedPlan.execution.resolvedPath}; explore cannot change the confirmed route`,
+          );
+        }
+        if (confirmedPlan.device.kind !== 'physical') {
+          throw new PublicCliError(
+            `Plan ${confirmedPlan.runId} targets ${confirmedPlan.device.kind}; this command currently requires a physical target`,
+          );
+        }
+        if (confirmedPlan.execution.features.length === 0) {
+          throw new PublicCliError('Confirmed TestPlan has no feature cases to explore');
+        }
 
         if (!['external-url', 'managed-xcodebuild'].includes(options.wdaMode)) {
           throw new PublicCliError(
@@ -259,7 +278,7 @@ export function createProgram(): Command {
 
         // LLM suggestion config from the three-layer model config + keychain key
         let llm: { baseUrl: string; apiKey: string; model: string; goal: string } | undefined;
-        if (options.useConfigLlm && options.goal) {
+        if (options.useConfigLlm) {
           const { config: merged } = await loadConfig();
           const { resolvedApiKey } = await resolveCredentials(merged);
           if (merged.model.baseURL && resolvedApiKey && merged.model.model) {
@@ -267,7 +286,7 @@ export function createProgram(): Command {
               baseUrl: merged.model.baseURL,
               apiKey: resolvedApiKey,
               model: merged.model.model,
-              goal: options.goal,
+              goal: options.goal ?? confirmedPlan.execution.features.join(', '),
             };
           } else {
             console.error(
@@ -315,6 +334,12 @@ export function createProgram(): Command {
           }
         }
 
+        if (!llm) {
+          throw new PublicCliError(
+            'Dynamic exploration requires --use-config-llm with a configured model and keychain API key',
+          );
+        }
+
         const runtime = createAppiumExplorationRuntime(
           {
             udid: options.udid,
@@ -329,8 +354,12 @@ export function createProgram(): Command {
           },
           llm,
         );
+        const explorationGenerator = runtime.llmSuggest?.generate;
+        if (!explorationGenerator) {
+          throw new PublicCliError('Dynamic exploration model generator is unavailable');
+        }
 
-        const runId = `explore_${Date.now()}`;
+        const runId = confirmedPlan.runId;
         let lastAssertionStatus: string | undefined;
         const runDir = join(tmpdir(), 'itestagent', 'runs', runId);
         // CodeRabbit r3: cleanup must run even when exploration rejects —
@@ -344,10 +373,16 @@ export function createProgram(): Command {
             bundleId: options.bundleId,
             deviceId: options.udid,
             targetKind: 'physical',
-            actions: [
-              { action: 'launch', target: options.bundleId },
-              { action: 'screenshot', target: 'explore' },
-            ],
+            dynamicActions: {
+              cases: confirmedPlan.execution.features,
+              suggest: ({ caseId, uiTree, history }) =>
+                suggestExplorationAction({
+                  generate: explorationGenerator,
+                  caseId,
+                  uiTree,
+                  history,
+                }),
+            },
             ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
           });
 

@@ -157,7 +157,10 @@ describe('Phase 1 Integration: TUI State + Contracts Alignment', () => {
     test('validates complete step', () => {
       const s = {
         stepId: 's1',
+        sequence: 1,
         backend: 'appium',
+        targetKind: 'physical',
+        status: 'completed',
         action: 'tap',
         target: 'btn',
         input: { x: 0.5, y: 0.5 },
