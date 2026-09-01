@@ -10,7 +10,7 @@
  *   - Lazy session creation: session is established on first action requiring Appium
  *   - Coordinate conversion: normalized [0,1] ↔ Appium pixel coordinates
  *   - Error handling: all AppiumDriverError caught and converted to ActionResult (R5)
- *   - WdaStartupMode routing: preinstalled / external-url / managed-xcodebuild (Phase 3)
+ *   - Physical production routing: explicit external-url / managed-xcodebuild
  *
  * R2: Uses Appium/WDA (mature open-source), does not re-implement device control.
  * R5: All errors are explicit — never silently degrade. Unsupported operations
@@ -41,6 +41,7 @@ import type {
   TerminateAppInput,
   TypeTextInput,
   UiTreeSnapshot,
+  WdaReadinessProbe,
 } from 'itestagent-contracts';
 
 import type { AppiumDriver, AppiumPoint, AppiumScreenSize } from './appium-driver.js';
@@ -107,7 +108,7 @@ export interface AppiumDeviceBackendOptions {
   wdaBundleId?: string;
   /**
    * WDA startup mode (physical only). Mutually exclusive — only ONE mode per session.
-   * Default: 'preinstalled' (Route A — primary strategy for free accounts).
+   * Physical callers must select external-url (Route B) or managed-xcodebuild (Route C).
    * Ignored for simulator targetKind.
    */
   wdaStartupMode?: WdaStartupMode;
@@ -254,7 +255,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
     this.iproxyTunnel = options.iproxyTunnel;
-    this.wdaStartupMode = options.wdaStartupMode ?? 'preinstalled';
+    if (options.targetKind === 'physical' && options.wdaStartupMode === undefined) {
+      throw new Error(
+        'Physical Appium sessions require an explicit WDA route: external-url (Route B) or managed-xcodebuild (Route C).',
+      );
+    }
+    if (options.targetKind === 'physical' && options.wdaStartupMode === 'preinstalled') {
+      throw new Error(
+        'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
+      );
+    }
+    this.wdaStartupMode = options.wdaStartupMode ?? 'managed-xcodebuild';
     this.opts = {
       udid: options.udid,
       targetKind: options.targetKind,
@@ -288,7 +299,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * is ever created.
    *
    * ADR-012 / Phase 3: WDA lifecycle varies by WdaStartupMode.
-   *   - preinstalled: verify WDA on device, do NOT call wdaManager.launch()
+   *   - preinstalled: rejected for physical production sessions (legacy capability only)
    *   - external-url: launch WDA via wdaManager → waitForReady → pass webDriverAgentUrl
    *   - managed-xcodebuild: Appium manages WDA internally
    */
@@ -393,10 +404,10 @@ export class AppiumDeviceBackend implements DeviceBackend {
   }
 
   /**
-   * Route A (preinstalled): WDA already on device — skip ALL Appium xcodebuild.
+   * Legacy Route A capability builder retained for historical spike compatibility.
    *
-   * Verifies preinstalled WDA exists before session creation.
-   * Does NOT call wdaManager.launch().
+   * Physical production construction rejects this mode before it can execute;
+   * installed inventory alone cannot establish readiness.
    */
   private async buildPreinstalledCaps(): Promise<Record<string, unknown>> {
     // Verify preinstalled WDA if WdaManager is available
@@ -631,6 +642,73 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return this.simulatorHealthcheck(deviceId, signal);
     }
     return this.physicalHealthcheck(deviceId, signal);
+  }
+
+  /**
+   * Prove physical WDA readiness through the configured Route B/C session.
+   * Installed-app inventory is deliberately insufficient (ADR-028 / DEF-031).
+   */
+  async probePhysicalReadiness(): Promise<WdaReadinessProbe> {
+    if (this.targetKind !== 'physical') {
+      throw new Error('Physical WDA readiness cannot be probed for a simulator backend.');
+    }
+    if (!this.opts.wdaBundleId) {
+      throw new Error('Physical WDA readiness requires an explicit WDA bundle ID.');
+    }
+
+    const route =
+      this.wdaStartupMode === 'external-url'
+        ? 'route_b_wda_manager_managed'
+        : 'route_c_appium_managed';
+    const startedAt = Date.now();
+    try {
+      await this.ensureSession();
+      return {
+        route,
+        stage: 'ready',
+        ready: true,
+        targetDeviceUdid: this.opts.udid,
+        targetWdaBundleId: this.opts.wdaBundleId.endsWith('.xctrunner')
+          ? this.opts.wdaBundleId
+          : `${this.opts.wdaBundleId}.xctrunner`,
+        waitedMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const signingFailure = /sign|provision|development team|xcodeorgid/iu.test(message);
+      const tunnelFailure = /iproxy|tunnel|usbmux/iu.test(message);
+      const launchFailure = /launch|xcodebuild/iu.test(message);
+      const failureCode = signingFailure
+        ? 'wda_signing_or_configuration_failed'
+        : tunnelFailure
+          ? 'wda_tunnel_failed'
+          : this.wdaStartupMode === 'managed-xcodebuild'
+            ? 'appium_session_failed'
+            : launchFailure
+              ? 'wda_launch_failed'
+              : 'wda_status_failed';
+      const stage = signingFailure
+        ? 'wda_launch'
+        : tunnelFailure
+          ? 'wda_tunnel'
+          : this.wdaStartupMode === 'managed-xcodebuild'
+            ? 'appium_session'
+            : launchFailure
+              ? 'wda_launch'
+              : 'wda_status';
+      return {
+        route,
+        stage,
+        ready: false,
+        targetDeviceUdid: this.opts.udid,
+        targetWdaBundleId: this.opts.wdaBundleId.endsWith('.xctrunner')
+          ? this.opts.wdaBundleId
+          : `${this.opts.wdaBundleId}.xctrunner`,
+        waitedMs: Date.now() - startedAt,
+        failureCode,
+        details: message,
+      };
+    }
   }
 
   private async physicalHealthcheck(

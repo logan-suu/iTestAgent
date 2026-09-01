@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-08-31T16:53:48Z",
+  "last_updated": "2026-09-01T06:08:37Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1198,21 +1198,24 @@
         },
         {
           "id": "6.4",
-          "title": "真机执行前置链：App 来源、构建安装启动、WDA 签名与可用性自愈",
-          "story": "US-1.2, US-2.1~2.2, US-6.1~6.2",
-          "status": "ready",
-          "last_updated": "2026-08-31T11:35:25Z",
+          "title": "真机执行前置链：App 来源归一化、构建安装启动、WDA 主动可用性与自愈",
+          "story": "US-1.2, US-2.2, US-6.1~6.2",
+          "status": "in_progress",
+          "last_updated": "2026-09-01T06:08:37Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
+            "docs/02-architecture/架构设计文档.md",
             "docs/02-architecture/技术选型文档.md",
+            "docs/02-architecture/数据流全链路技术说明文档.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md",
-            "docs/decisions/ADR-012-wda-lifecycle-separation.md"
+            "docs/decisions/ADR-012-wda-lifecycle-separation.md",
+            "docs/decisions/ADR-028-physical-preflight-and-wda-readiness.md"
           ],
           "dependencies": [
             "6.1"
           ],
           "test_file": "tests/integration/phase6/phase6-physical-app-wda-preflight.test.ts",
-          "notes": "贯通 appSource -> xcodebuild -> devicectl install/launch -> WDA/Appium preflight。不能仅凭已安装判断免费账号 profile 有效；需用 G5 证据验证过期探测/重新签名路径。负责核查 DEF-031。"
+          "notes": "已按 ADR-028 实现 appSource 归一化/兼容性验证、xcodebuild 与安装边界、R7 覆盖安装/WDA 准备确认、devicectl install/launch、显式 Route B/C 主动 WDA/Appium preflight 及修复后重新探测。最终自动化门禁：T6.4 相关 13 个测试文件 258 pass / 0 fail，全库 3420 pass / 13 skip / 0 fail，typecheck/lint/diff check 通过。同设备真实 iPhone G5：Route B/C 均完成主动 readiness、Appium session、45,457 字符 UI tree、截图、Home 动作与清理；Route C 为 production default，Route B 保留显式优化路线；DEF-031 resolved。Xcode Accounts 登录后 IntegrationApp 构建成功，生产归一化验证 iPhoneOS/arm64/严格签名均通过；CoreDevice 结构化 recovery suggestion 确认初始安装阻塞为免费开发者 profile 的设备 App 数量上限，错误分类已修正为优先采用具体原因且绝不自动卸载。用户自行释放一个免费开发者 App 名额后，同一产物再次通过严格签名与 inventory=false 前置检查，随后首次安装成功、inventory 精确匹配目标 bundle、launch 成功，iTestAgent 未触碰其他 App。自审修复了 WDA 探针跨设备与修复后 route 身份校验；完整 AbortSignal 链路作为 DEF-033 交由 T6.10。实现与 Verify 已完成，证据见 docs/06-verification/g5-sim-spike-report-6.4.md；任务按状态机保持 in_progress，等待 commit/PR。"
         },
         {
           "id": "6.5",
@@ -1305,16 +1308,17 @@
         },
         {
           "id": "6.10",
-          "title": "真机闭环可靠性与安全收口：TUI、session、WDA freshness、权限、abort 与脱敏",
+          "title": "真机闭环可靠性与安全收口：TUI、session、readiness 门禁回归、权限、abort 与脱敏",
           "story": "US-4.1, US-10.1~10.2, US-17.2, US-18.3",
           "status": "pending",
-          "last_updated": "2026-08-31T09:46:43Z",
+          "last_updated": "2026-09-01T04:34:11Z",
           "documents_required": [
             "AGENTS.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md",
             "docs/decisions/ADR-008-tui-backend-opentui-ink.md",
             "docs/decisions/ADR-010-agent-harness-runtime-boundary.md",
             "docs/decisions/ADR-012-wda-lifecycle-separation.md",
+            "docs/decisions/ADR-028-physical-preflight-and-wda-readiness.md",
             "docs/05-planning/deferred-items.json"
           ],
           "dependencies": [
@@ -1324,7 +1328,7 @@
             "6.9"
           ],
           "test_file": "tests/integration/phase6/phase6-physical-reliability-security.test.ts",
-          "notes": "处理真实交互 renderer、closeSession 悬空删除、WDA 过期、AbortSignal、R7 确认与 R6 脱敏。负责核查 DEF-025/029/031；只有修复并验证后才能在 deferred-items.json 标 resolved。"
+          "notes": "处理真实交互 renderer、closeSession 悬空删除、AbortSignal、R7 确认与 R6 脱敏，并验证 T6.4 已建立的 WDA readiness 门禁在完整 session/rerun 链中不回归。负责核查 DEF-025/029/033；不重复实现或关闭 DEF-031。只有对应修复并验证后才能在 deferred-items.json 标 resolved。"
         },
         {
           "id": "6.11",

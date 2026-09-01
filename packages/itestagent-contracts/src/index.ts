@@ -49,6 +49,27 @@ export type {
 } from './permission.js';
 
 export {
+  PHYSICAL_PREFLIGHT_STAGE_VALUES,
+  PhysicalPreflightStageSchema,
+  WDA_READINESS_STAGE_VALUES,
+  WdaReadinessStageSchema,
+  PHYSICAL_PREFLIGHT_FAILURE_CODE_VALUES,
+  PhysicalPreflightFailureCodeSchema,
+  PhysicalAppArtifactSchema,
+  WdaReadinessProbeSchema,
+  PhysicalPreflightResultSchema,
+} from './physical-preflight.js';
+
+export type {
+  PhysicalPreflightStage,
+  WdaReadinessStage,
+  PhysicalPreflightFailureCode,
+  PhysicalAppArtifact,
+  WdaReadinessProbe,
+  PhysicalPreflightResult,
+} from './physical-preflight.js';
+
+export {
   TargetKindSchema,
   ArtifactTypeSchema,
   RedactionStatusSchema,

@@ -282,7 +282,7 @@ G5 真机验证于 2026-07-25 在 **iPhone 14 Plus (iOS 18.2.1)** 上执行，Ap
 | **Route A** | `usePreinstalledWDA` | ❌ **G5 TIMEOUT** | Appium 内部 `preinstalledWDA` RemoteXPC 启动超时 60s |
 | **Route B** | `webDriverAgentUrl` | ⏸️ **NOT TESTED** | 需要 iproxy for USB port forwarding（未安装） |
 
-**Route C 是当前 MVP 下免费 Apple Developer 账号真机路径的唯一可用方式。**
+**当前结论（2026-09-01）**：T6.4 已在同一真机上按相同标准验证 Route B/C 均通过主动 readiness、Appium session、UI/动作与清理。Route C 因无独立 tunnel、清理边界更简单选为 production default；Route B 保留为显式优化路线且不得静默 fallback。详情见 ADR-028 与 `docs/06-verification/g5-sim-spike-report-6.4.md`。
 
 ### 8.2 Route C 详情：`managed-xcodebuild` + `allowProvisioningDeviceRegistration` ✅
 

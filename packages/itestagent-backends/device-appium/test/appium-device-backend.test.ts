@@ -296,6 +296,8 @@ function createBackend(config?: MockDriverConfig): {
     udid: TEST_UDID,
     targetKind: 'physical',
     bundleId: TEST_BUNDLE_ID,
+    wdaBundleId: 'TEAMID.WebDriverAgentRunner',
+    wdaStartupMode: 'managed-xcodebuild',
   });
   return { backend, mock };
 }
@@ -998,19 +1000,26 @@ import { buildPhysicalCapabilities, buildSimulatorCapabilities } from '../src/in
 const IS_CI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
 describe('buildPhysicalCapabilities', () => {
-  it('builds minimum capabilities with udid (default preinstalled mode)', () => {
-    const caps = buildPhysicalCapabilities({ udid: TEST_UDID });
+  it('builds minimum capabilities with an explicit managed route', () => {
+    const caps = buildPhysicalCapabilities({
+      udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
+    });
 
     expect(caps.platformName).toBe('iOS');
     expect(caps['appium:automationName']).toBe('XCUITest');
     expect(caps['appium:udid']).toBe(TEST_UDID);
-    expect(caps['appium:usePreinstalledWDA']).toBe(true);
+    expect(caps['appium:usePreinstalledWDA']).toBeUndefined();
     expect(caps['appium:usePrebuiltWDA']).toBeUndefined();
     expect(caps['appium:noReset']).toBe(true);
   });
 
   it('includes bundleId when provided', () => {
-    const caps = buildPhysicalCapabilities({ udid: TEST_UDID, bundleId: 'com.example.app' });
+    const caps = buildPhysicalCapabilities({
+      udid: TEST_UDID,
+      bundleId: 'com.example.app',
+      wdaStartupMode: 'managed-xcodebuild',
+    });
 
     expect(caps['appium:bundleId']).toBe('com.example.app');
   });
@@ -1018,6 +1027,7 @@ describe('buildPhysicalCapabilities', () => {
   it('includes base wdaBundleId without .xctrunner suffix', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner',
     });
 
@@ -1028,6 +1038,7 @@ describe('buildPhysicalCapabilities', () => {
     expect(() =>
       buildPhysicalCapabilities({
         udid: TEST_UDID,
+        wdaStartupMode: 'managed-xcodebuild',
         wdaBundleId: 'UJ876FXT32.WebDriverAgentRunner.xctrunner',
       }),
     ).toThrow(/without .xctrunner suffix/);
@@ -1036,6 +1047,7 @@ describe('buildPhysicalCapabilities', () => {
   it('respects custom port options', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       wdaLocalPort: 8200,
       mjpegServerPort: 9200,
     });
@@ -1047,6 +1059,7 @@ describe('buildPhysicalCapabilities', () => {
   it('sets fullReset when requested', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       fullReset: true,
     });
 
@@ -1056,6 +1069,7 @@ describe('buildPhysicalCapabilities', () => {
   it('includes optional deviceName and platformVersion', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       deviceName: 'iPhone 15 Pro',
       platformVersion: '18.3',
     });
@@ -1065,12 +1079,19 @@ describe('buildPhysicalCapabilities', () => {
   });
 
   it('sets default newCommandTimeout to 600 seconds', () => {
-    const caps = buildPhysicalCapabilities({ udid: TEST_UDID });
+    const caps = buildPhysicalCapabilities({
+      udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
+    });
     expect(caps['appium:newCommandTimeout']).toBe(600);
   });
 
   it('accepts custom newCommandTimeout', () => {
-    const caps = buildPhysicalCapabilities({ udid: TEST_UDID, newCommandTimeout: 300 });
+    const caps = buildPhysicalCapabilities({
+      udid: TEST_UDID,
+      newCommandTimeout: 300,
+      wdaStartupMode: 'managed-xcodebuild',
+    });
     expect(caps['appium:newCommandTimeout']).toBe(300);
   });
 });
@@ -1270,6 +1291,7 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
         udid: TEST_UDID,
         targetKind: 'physical',
         bundleId: TEST_BUNDLE_ID,
+        wdaStartupMode: 'managed-xcodebuild',
       });
 
       const caps = physical.capabilities;
@@ -1282,6 +1304,7 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
       const physical = new AppiumDeviceBackend(driver, {
         udid: TEST_UDID,
         targetKind: 'physical',
+        wdaStartupMode: 'managed-xcodebuild',
       });
       const devices = await physical.listDevices();
       // devicectl may not be available in test env — still returns array (R5)
@@ -1424,9 +1447,13 @@ class MockWdaManager {
   async verifyPreinstalledWDA(
     _udid: string,
     _expectedBundleId: string,
-  ): Promise<{ ready: boolean; reason?: string; actualBundleId?: string }> {
+  ): Promise<{ installed: boolean; ready: boolean; reason?: string; actualBundleId?: string }> {
     this.calls.push('verifyPreinstalledWDA');
-    return { ready: true, actualBundleId: `${_expectedBundleId}.xctrunner` };
+    return {
+      installed: true,
+      ready: false,
+      actualBundleId: `${_expectedBundleId}.xctrunner`,
+    };
   }
 
   async preparePreinstalledWDA(): Promise<{ ready: boolean; reason?: string }> {
@@ -1452,6 +1479,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
+      wdaStartupMode: 'managed-xcodebuild',
       wdaManager: wdaManager as unknown as WdaManager,
     });
 
@@ -1518,6 +1546,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
+      wdaStartupMode: 'managed-xcodebuild',
       wdaManager: wdaManager as unknown as WdaManager,
     });
 
@@ -1538,6 +1567,7 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     const backend = new AppiumDeviceBackend(driver, {
       udid: TEST_UDID,
       targetKind: 'physical',
+      wdaStartupMode: 'managed-xcodebuild',
       wdaManager: wdaManager as unknown as WdaManager,
     });
 
@@ -1573,5 +1603,69 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
     await backend.closeSession();
     // Simulator still calls stop on WdaManager if present
     expect(wdaManager.calls).toContain('stop');
+  });
+});
+
+describe('AppiumDeviceBackend — active physical readiness', () => {
+  it('rejects implicit and inventory-only physical WDA routes', () => {
+    const driver = new MockAppiumDriver();
+    expect(
+      () =>
+        new AppiumDeviceBackend(driver, {
+          udid: TEST_UDID,
+          targetKind: 'physical',
+        }),
+    ).toThrow(/explicit WDA route/);
+    expect(
+      () =>
+        new AppiumDeviceBackend(driver, {
+          udid: TEST_UDID,
+          targetKind: 'physical',
+          wdaStartupMode: 'preinstalled',
+        }),
+    ).toThrow(/inventory-only/);
+  });
+
+  it('proves Route B readiness through an active Appium session', async () => {
+    const backend = new AppiumDeviceBackend(new MockAppiumDriver(), {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      bundleId: TEST_BUNDLE_ID,
+      wdaBundleId: 'TEAMID.WebDriverAgentRunner',
+      wdaStartupMode: 'external-url',
+      webDriverAgentUrl: 'http://127.0.0.1:8100',
+    });
+
+    const probe = await backend.probePhysicalReadiness();
+    expect(probe).toMatchObject({
+      route: 'route_b_wda_manager_managed',
+      stage: 'ready',
+      ready: true,
+      targetDeviceUdid: TEST_UDID,
+    });
+    await backend.closeSession();
+  });
+
+  it('classifies Route C session failures without claiming readiness', async () => {
+    const backend = new AppiumDeviceBackend(
+      new MockAppiumDriver({
+        createSessionError: new AppiumDriverError('session_create_failed', 'provisioning failed'),
+      }),
+      {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaBundleId: 'TEAMID.WebDriverAgentRunner',
+        wdaStartupMode: 'managed-xcodebuild',
+      },
+    );
+
+    const probe = await backend.probePhysicalReadiness();
+    expect(probe).toMatchObject({
+      route: 'route_c_appium_managed',
+      stage: 'wda_launch',
+      ready: false,
+      failureCode: 'wda_signing_or_configuration_failed',
+    });
   });
 });

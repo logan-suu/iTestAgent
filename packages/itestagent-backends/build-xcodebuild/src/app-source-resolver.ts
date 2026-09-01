@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
  * strategy + workspace root + optional user-provided path.
  *
  * Priority chain (US-6.1 AC2):
- *   1. user_specified path exists → user_provided
+ *   1. user_specified .app/.ipa exists → user_provided
  *   2. Scan workspace build/ for .app bundles → existing_artifact
  *   3. findProjectFile() detects .xcworkspace / .xcodeproj → build_required
  *   4. Nothing found → unresolved
@@ -52,8 +52,8 @@ export type ProjectType = 'xcworkspace' | 'xcodeproj';
  * - `unresolved`: nothing matched — the caller must surface this to the user.
  */
 export type AppSourceResolution =
-  | { kind: 'user_provided'; appPath: string }
-  | { kind: 'existing_artifact'; appPath: string }
+  | { kind: 'user_provided'; appPath: string; artifactType: 'app' | 'ipa' }
+  | { kind: 'existing_artifact'; appPath: string; artifactType: 'app' }
   | { kind: 'build_required'; workspacePath: string; projectType: ProjectType }
   | { kind: 'unresolved'; reason: string };
 
@@ -150,7 +150,18 @@ export function resolveAppSource(ctx: AppSourceContext): AppSourceResolution {
     userPathAbs = resolve(ctx.userAppPath);
 
     if (existsSync(userPathAbs)) {
-      return { kind: 'user_provided', appPath: userPathAbs };
+      const artifactType = userPathAbs.toLowerCase().endsWith('.ipa')
+        ? 'ipa'
+        : userPathAbs.toLowerCase().endsWith('.app')
+          ? 'app'
+          : undefined;
+      if (!artifactType) {
+        return {
+          kind: 'unresolved',
+          reason: `userAppPath must be an .app directory or .ipa file: ${userPathAbs}`,
+        };
+      }
+      return { kind: 'user_provided', appPath: userPathAbs, artifactType };
     }
 
     // If the user-provided path doesn't exist, fall through to
@@ -161,7 +172,7 @@ export function resolveAppSource(ctx: AppSourceContext): AppSourceResolution {
   // ── 2. Scan build/ directory for .app artifacts ───────────────
   const foundApp = scanBuildDir(absRoot);
   if (foundApp) {
-    return { kind: 'existing_artifact', appPath: foundApp };
+    return { kind: 'existing_artifact', appPath: foundApp, artifactType: 'app' };
   }
 
   // ── 3. Detect project file (.xcworkspace / .xcodeproj) ────────

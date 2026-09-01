@@ -150,12 +150,21 @@ test('BuildResultSchema parses success result; durationMs must be non-negative i
   const ok = BuildResultSchema.parse({
     success: true,
     appPath: '/repo/build/App.app',
-    installed: true,
     log: 'BUILD SUCCEEDED',
     durationMs: 42000,
   });
   expect(ok.success).toBe(true);
   expect(ok.durationMs).toBe(42000);
+
+  expect(() =>
+    BuildResultSchema.parse({
+      success: true,
+      appPath: '/repo/build/App.app',
+      installed: true,
+      log: 'BUILD SUCCEEDED',
+      durationMs: 42000,
+    }),
+  ).toThrow();
 
   expect(() => BuildResultSchema.parse({ success: false, log: 'x', durationMs: -1 })).toThrow();
   expect(() => BuildResultSchema.parse({ success: false, log: 'x', durationMs: 1.5 })).toThrow();

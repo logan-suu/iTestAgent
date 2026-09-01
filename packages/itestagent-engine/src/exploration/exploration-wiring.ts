@@ -25,8 +25,8 @@ export interface ExplorationSurfaceConfig {
   bundleId: string;
   /** iOS version — REQUIRED for appium's RemoteXPC device matching on iOS 17+ (G5 finding). */
   platformVersion?: string;
-  /** WDA startup route. Default: managed-xcodebuild. */
-  wdaStartupMode?: 'preinstalled' | 'external-url' | 'managed-xcodebuild';
+  /** Explicit WDA startup route. Inventory-only preinstalled mode is not executable. */
+  wdaStartupMode: 'external-url' | 'managed-xcodebuild';
   /** Signing team ID (managed-xcodebuild route). */
   xcodeOrgId?: string;
   xcodeSigningId?: string;
@@ -84,7 +84,7 @@ export function createAppiumExplorationRuntime(
       // matching on iOS 17+ — without it session creation fails with
       // "Unknown device or simulator UDID".
       platformVersion: config.platformVersion,
-      wdaStartupMode: config.wdaStartupMode ?? 'managed-xcodebuild',
+      wdaStartupMode: config.wdaStartupMode,
       xcodeOrgId: config.xcodeOrgId,
       xcodeSigningId: config.xcodeSigningId ?? 'Apple Development',
       wdaBundleId: config.wdaBundleId,

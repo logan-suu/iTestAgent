@@ -7,7 +7,9 @@
 
  * Appium W3C capabilities builders for physical and simulator iOS targets.
  *
- * Physical: three mutually exclusive WDA startup modes (Phase 3 Gate 4.1).
+ * Physical production sessions use explicit Route B or Route C. The legacy
+ * preinstalled capability remains only for historical spike compatibility and
+ * cannot establish readiness from installed-app inventory.
  * Simulator: no code signing needed — Appium auto-builds WDA (G5-SIM T1.6 verified).
  *
  * ADR-011: iOS Simulator first-class support — separate capability builder per targetKind.
@@ -25,11 +27,11 @@ import type { AppiumW3CCapabilities } from './appium-driver.js';
  *
  * Mutually exclusive — only ONE mode applies per session.
  *
- * - 'managed-xcodebuild': Appium builds + signs + launches WDA (default for paid accounts).
+ * - 'managed-xcodebuild': Appium builds + signs + launches WDA.
  *   Passes xcodeOrgId + xcodeSigningId + allowProvisioningDeviceRegistration.
  *
- * - 'preinstalled': WDA is already built, signed, and installed on the device.
- *   Appium skips ALL xcodebuild. Requires iOS 17+. Use after WdaManager.preparePreinstalledWDA().
+ * - 'preinstalled': legacy low-level spike capability. Production physical
+ *   backend construction rejects it because installed inventory is not readiness.
  *
  * - 'external-url': WDA is running externally (launched by iTestAgent WdaManager).
  *   Appium connects via webDriverAgentUrl. Use when iTestAgent manages WDA lifecycle completely.
@@ -94,10 +96,9 @@ export interface PhysicalCapabilitiesOptions {
    */
   wdaBundleId?: string;
   /**
-   * WDA startup mode. Mutually exclusive — only ONE mode per session.
-   * Default: 'preinstalled' (primary Route A strategy for free accounts).
+   * WDA startup mode. Required and mutually exclusive — only ONE mode per session.
    */
-  wdaStartupMode?: WdaStartupMode;
+  wdaStartupMode: WdaStartupMode;
   /**
    * For 'external-url' mode: WDA URL (e.g. "http://127.0.0.1:8100").
    * Required when wdaStartupMode is 'external-url'.
@@ -147,7 +148,7 @@ export interface PhysicalCapabilitiesOptions {
  *
  * Three mutually exclusive WDA startup modes:
  *
- *   'preinstalled' (Route A, default):
+ *   'preinstalled' (legacy inventory-attached mode):
  *     - Generates usePreinstalledWDA: true (NOT usePrebuiltWDA)
  *     - Generates updatedWDABundleId (base ID, no .xctrunner)
  *     - Skips ALL Appium xcodebuild — WDA must already be on device
@@ -168,7 +169,10 @@ export interface PhysicalCapabilitiesOptions {
 export function buildPhysicalCapabilities(
   opts: PhysicalCapabilitiesOptions,
 ): AppiumW3CCapabilities {
-  const mode: WdaStartupMode = opts.wdaStartupMode ?? 'preinstalled';
+  const mode = opts.wdaStartupMode;
+  if (mode === undefined) {
+    throw new Error('wdaStartupMode is required; select an explicit WDA route.');
+  }
 
   // ── Validate mutual exclusivity ───────────────────────────────────
   if (mode === 'preinstalled') {

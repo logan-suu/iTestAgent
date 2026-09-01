@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-08-29T03:10:00Z",
+  "last_updated": "2026-09-01T06:05:27Z",
   "items": [
     {
       "id": "DEF-001",
@@ -565,9 +565,11 @@
       "item": "ensureFreshProfile trusts verify ready:true without testing WDA profile validity or usability",
       "detail": "CodeRabbit (PR #65, wda-manager.ts ensureFreshProfile): the verify-first branch returns { refreshed: false } whenever verifyPreinstalledWDA reports ready:true, but that verification only checks that the WDA Runner app exists on the device — it does not test profile expiry or WDA usability. After the 7-day free-account profile expires (DEF-G5-001 finding), verify still returns ready:true, ensureFreshProfile skips preparation, and the next WDA session fails. Verified in code: verifyPreinstalledWDA (wda-manager.ts:447-452) carries an explicit R5 note that profile expiry is best-effort because devicectl does not expose provisioning profile details. Deferral rationale: a proper fix requires either parsing the installed app's embedded provisioning profile (method unproven on-device — needs a real-device spike to validate, R3) or launching WDA for a /status usability probe (cross-component change pulling WdaManager lifecycle into preparation-time verification). Neither is safely implementable without new G5 spike evidence. Next step: extend the next physical G5 spike to test profile-expiry detection approaches (embedded mobileprovision read via devicectl/app inspection vs. WDA status probe), then implement the winning approach in WdaManager.verifyPreinstalledWDA so ensureFreshProfile's ready branch genuinely proves freshness.",
       "target_phase": 6,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-08-29T03:10:00Z"
+      "status": "resolved",
+      "resolved_by": "6.4 physical preflight active readiness implementation and same-device Route B/Route C G5",
+      "created_at": "2026-08-29T03:10:00Z",
+      "notes": "2026-08-31 approved specification review: ADR-028 assigns implementation and G5 closure ownership exclusively to T6.4. 2026-09-01 implementation and automated checks enforce route-specific active session/status evidence and prevent installed-app inventory from reporting ready (T6.4 related suite: 256 pass / 0 fail). On the same real iPhone, initial inventory existed while /status was unreachable and fail-closed; after the environment repair, Route B and Route C both completed active readiness, Appium session, UI tree, screenshot, Home action, and cleanup. The same-device App preflight also completed signed artifact normalization, install inventory verification, and launch. This closes the installed-vs-ready defect without claiming exact provisioning expiry detection. See docs/06-verification/g5-sim-spike-report-6.4.md.",
+      "resolved_at": "2026-09-01T05:32:59Z"
     },
     {
       "id": "DEF-032",
@@ -584,6 +586,22 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-08-29T03:10:00Z"
+    },
+    {
+      "id": "DEF-033",
+      "source": "Codex (self-review)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.4",
+      "severity": "major",
+      "item": "Physical preflight accepts AbortSignal but production devicectl and permission wiring do not propagate cancellation",
+      "detail": "Self-review of T6.4 found that PhysicalPreflightCoordinatorDeps exposes AbortSignal for healthcheck, inventory, install, launch, WDA probe, and preparation, but createPhysicalPreflightDeps currently drops the signal for devicectl inventory/install/launch and requestPermission has no coupled cancellation callback. An aborted run can therefore leave a CoreDevice subprocess or permission ask active after the coordinator caller stops waiting. Fixing this safely requires extending the shared devicectl subprocess seam with AbortSignal-driven child termination and coupling PermissionEngine.cancel(callId, reason) to the same signal, then exercising the complete session/rerun teardown path. This is intentionally deferred to T6.10, whose assigned scope explicitly owns abort and redaction reliability; T6.4 has no production caller yet and must not claim abort completion. Next step: T6.10 should propagate one AbortSignal through coordinator, devicectl/Appium/WDA child processes and pending permission asks, verify cleanup on a real device, then mark this item resolved without deleting it.",
+      "target_phase": 6,
+      "status": "open",
+      "resolved_by": null,
+      "created_at": "2026-09-01T06:05:27Z"
     }
   ]
 }

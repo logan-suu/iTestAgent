@@ -5,6 +5,8 @@
 **决策人**: AI Agent（基于 T0.2 + T0.2b 横评实测）
 **关联**: ADR-005、T0.2/T0.2b 横评文档
 
+> **2026-08-31 supersession note**：Appium/WDA 作为主 backend 的决策保持不变；本 ADR 的 2026-07-25 route 优先级仅代表当时证据，已由 ADR-028 的 Route B/Route C 主动 readiness 与当前 G5 决策门禁取代。
+
 ## 背景
 
 iTestAgent 需要在 iPhone 真机上执行 UI 自动化（截图、UI tree、tap/swipe/typeText）。ADR-005 确定了可插拔 Backend 架构，Phase 0 需对 DeviceBackend 候选做多路横评。
@@ -82,7 +84,7 @@ G5 真机验证发现免费 Apple Developer 账号下有三种 Appium/WDA 启动
 
 ### Route C (G5 VERIFIED): `managed-xcodebuild` + `allowProvisioningDeviceRegistration`
 
-这是当前唯一在免费账号下可用的 Appium 真机路径。
+这是 2026-07-25 证据下唯一已验证的免费账号 Appium 真机路径；当前路线优先级见 ADR-028。
 
 **Capabilities**：
 ```json

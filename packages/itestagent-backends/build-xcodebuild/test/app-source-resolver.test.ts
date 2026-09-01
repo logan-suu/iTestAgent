@@ -93,6 +93,42 @@ describe('resolveAppSource - user_specified', () => {
     expect(result.kind).toBe('user_provided');
     if (result.kind === 'user_provided') {
       expect(result.appPath).toBe(appPath);
+      expect(result.artifactType).toBe('app');
+    }
+  });
+
+  it('returns an explicit IPA as the highest-priority user artifact', () => {
+    const tmp = makeTempDir();
+    const ipaPath = join(tmp, 'MyApp.ipa');
+    writeFileSync(ipaPath, 'archive');
+
+    const result = resolveAppSource({
+      strategy: 'user_specified',
+      workspaceRoot: tmp,
+      userAppPath: ipaPath,
+    });
+
+    expect(result).toEqual({
+      kind: 'user_provided',
+      appPath: ipaPath,
+      artifactType: 'ipa',
+    });
+  });
+
+  it('rejects an existing explicit path that is not an app artifact', () => {
+    const tmp = makeTempDir();
+    const textPath = join(tmp, 'notes.txt');
+    writeFileSync(textPath, 'not an app');
+
+    const result = resolveAppSource({
+      strategy: 'user_specified',
+      workspaceRoot: tmp,
+      userAppPath: textPath,
+    });
+
+    expect(result.kind).toBe('unresolved');
+    if (result.kind === 'unresolved') {
+      expect(result.reason).toContain('.app directory or .ipa file');
     }
   });
 
@@ -131,6 +167,7 @@ describe('resolveAppSource - existing_artifact', () => {
     expect(result.kind).toBe('existing_artifact');
     if (result.kind === 'existing_artifact') {
       expect(result.appPath).toBe(appPath);
+      expect(result.artifactType).toBe('app');
     }
   });
 

@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import { writeFileSync } from 'node:fs';
 import { createDevicectlOps } from '../src/devicectl-ops.js';
 import type { SpawnAsyncFn, SpawnSyncFn } from '../src/xcodebuild-build-driver.js';
 
@@ -36,6 +37,61 @@ async function asyncErr(
 function noopSync(): SpawnSyncFn {
   return () => syncOk();
 }
+
+describe('isAppInstalled', () => {
+  it('reads exact bundle identity from devicectl JSON output', async () => {
+    const ops = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async (_cmd, args) => {
+        const outputPath = args.at(-1) as string;
+        writeFileSync(
+          outputPath,
+          JSON.stringify({
+            result: {
+              apps: [
+                { bundleIdentifier: 'com.example.app' },
+                { bundleIdentifier: 'com.example.other' },
+              ],
+            },
+          }),
+        );
+        return asyncOk();
+      },
+    });
+
+    await expect(ops.isAppInstalled('UDID-123', 'com.example.app')).resolves.toMatchObject({
+      success: true,
+      installed: true,
+    });
+    await expect(ops.isAppInstalled('UDID-123', 'com.missing.app')).resolves.toMatchObject({
+      success: true,
+      installed: false,
+    });
+  });
+
+  it('reports invalid or failed inventory without guessing install state', async () => {
+    const invalid = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async (_cmd, args) => {
+        writeFileSync(args.at(-1) as string, '{}');
+        return asyncOk();
+      },
+    });
+    await expect(invalid.isAppInstalled('UDID-123', 'com.example.app')).resolves.toMatchObject({
+      success: false,
+      installed: false,
+    });
+
+    const failed = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async () => asyncErr('device locked'),
+    });
+    await expect(failed.isAppInstalled('UDID-123', 'com.example.app')).resolves.toMatchObject({
+      success: false,
+      installed: false,
+    });
+  });
+});
 
 // ─── installApp (uses spawnAsync) ─────────────────────────────────
 
@@ -91,6 +147,45 @@ describe('installApp', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('locked');
     expect(result.error).toContain('Unlock');
+  });
+
+  it('classifies device-side signature integrity rejection', async () => {
+    const ops = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async () =>
+        asyncErr('This app cannot be installed because its integrity could not be verified.'),
+    });
+    const result = await ops.installApp('UDID-123', '/path/to/app.app');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('signature or provisioning integrity');
+    expect(result.error).toContain('VPN & Device Management');
+  });
+
+  it('classifies free-account app limit without suggesting automatic removal', async () => {
+    const ops = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async () => asyncErr('The maximum number of apps for free provisioning profiles'),
+    });
+    const result = await ops.installApp('UDID-123', '/path/to/app.app');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('free-account device app limit');
+    expect(result.error).toContain('No application was removed automatically');
+  });
+
+  it('prefers the free-profile app-limit recovery over the outer integrity error', async () => {
+    const ops = createDevicectlOps({
+      spawnSync: noopSync(),
+      spawnAsync: async () =>
+        asyncErr(
+          'This app cannot be installed because its integrity could not be verified. ' +
+            'ApplicationVerificationFailed. This device has reached the maximum number of installed apps using a free developer profile.',
+        ),
+    });
+    const result = await ops.installApp('UDID-123', '/path/to/app.app');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('free-account device app limit');
+    expect(result.error).toContain('No application was removed automatically');
+    expect(result.error).not.toContain('signature or provisioning integrity');
   });
 
   it('returns generic error with stderr', async () => {

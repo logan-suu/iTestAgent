@@ -1,20 +1,18 @@
 /**
- * WDA preinstalled on physical device check — doctor physical readiness lane.
+ * WDA installation inventory check — doctor physical readiness lane.
  *
  * US-1.2 AC1: pass/fail/manual three-state.
  * US-1.3 AC1: recognizes "WDA not installed" scenario for physical devices.
  *
  * Checks whether the WebDriverAgentRunner is already installed on the target
- * physical device. This is critical for the Appium free-account unblock flow
- * (Route A — preinstalled mode).
+ * physical device. Inventory is a prerequisite only and never proves active
+ * WDA readiness (ADR-028 / DEF-031).
  *
  * Uses `xcrun devicectl device info app` to query installed apps on the
  * connected device by bundle ID pattern (*WebDriverAgentRunner*).
- * Also checks provisioning profile expiry.
- *
  * Returns:
- *   - 'pass' if WDA Runner installed + provisioning profile valid
- *   - 'fail' if not installed or profile expired
+ *   - 'manual' if WDA Runner is installed and needs an active Route B/C probe
+ *   - 'fail' if not installed
  *   - 'manual' if no device connected or devicectl unavailable
  *
  * AGENTS.md §2 (R2): uses devicectl (Apple official tool), no private APIs.
@@ -31,13 +29,16 @@ import { exec } from '../utils.js';
 function findWdaBundleIds(stdout: string): string[] {
   try {
     const parsed = JSON.parse(stdout) as {
-      apps?: Array<{
-        bundleIdentifier?: string;
-        name?: string;
-        version?: string;
-      }>;
+      result?: {
+        apps?: Array<{
+          bundleIdentifier?: string;
+          name?: string;
+          version?: string;
+        }>;
+      };
+      apps?: Array<{ bundleIdentifier?: string; name?: string; version?: string }>;
     };
-    const apps = parsed?.apps ?? [];
+    const apps = parsed.result?.apps ?? parsed.apps ?? [];
     return apps
       .filter((app) => app.bundleIdentifier && /WebDriverAgentRunner/i.test(app.bundleIdentifier))
       .map((app) => app.bundleIdentifier as string);
@@ -68,44 +69,6 @@ function getPhysicalDeviceUdids(): string[] {
   return udids;
 }
 
-/**
- * Check if a provisioning profile has expired via devicectl app info.
- *
- * devicectl may include profileExpiry or profileIsValid fields.
- * This is a best-effort check (R5: explicit uncertainty).
- */
-function checkProfileExpiry(appInfo: string): { valid: boolean; expiry?: string } {
-  try {
-    const parsed = JSON.parse(appInfo) as {
-      apps?: Array<{
-        bundleIdentifier?: string;
-        profileIsValid?: boolean;
-        profileExpiryDate?: string;
-      }>;
-    };
-    const wdaApps = (parsed?.apps ?? []).filter(
-      (app) => app.bundleIdentifier && /WebDriverAgentRunner/i.test(app.bundleIdentifier),
-    );
-
-    if (wdaApps.length === 0) {
-      return { valid: false };
-    }
-
-    const wdaApp = wdaApps[0];
-    if (!wdaApp) {
-      return { valid: false };
-    }
-    if (wdaApp.profileIsValid === false) {
-      return { valid: false, expiry: wdaApp.profileExpiryDate };
-    }
-
-    return { valid: true };
-  } catch {
-    // JSON parse failed — cannot determine from text output
-    return { valid: true }; // Assume valid, flag as uncertain
-  }
-}
-
 export async function checkWdaPreinstalled(): Promise<DoctorCheckResult> {
   const details: string[] = [];
   const issues: string[] = [];
@@ -128,10 +91,7 @@ export async function checkWdaPreinstalled(): Promise<DoctorCheckResult> {
 
   details.push(`Connected devices: ${deviceUdids.length}`);
   let anyWdaFound = false;
-  let allProfilesValid = true;
-  let anyProfileExpired = false;
   const foundBundleIds: string[] = [];
-  const expiredBundleIds: string[] = [];
   const unavailableDevices: string[] = [];
 
   // ── Step 2: Check each device for WDA ──────────────────────────
@@ -158,16 +118,7 @@ export async function checkWdaPreinstalled(): Promise<DoctorCheckResult> {
       foundBundleIds.push(...wdaIds);
       details.push(`  Device ${udid.slice(0, 8)}...: WDA found (${wdaIds.join(', ')})`);
 
-      // Check provisioning profile expiry
-      const { valid, expiry } = checkProfileExpiry(appInfo.stdout);
-      if (!valid) {
-        allProfilesValid = false;
-        anyProfileExpired = true;
-        expiredBundleIds.push(...wdaIds);
-        details.push(`    ⚠ Profile expired${expiry ? ` (expired: ${expiry})` : ''}`);
-      } else {
-        details.push('    Profile: valid');
-      }
+      details.push('    Active readiness: not probed by inventory');
     } else {
       details.push(`  Device ${udid.slice(0, 8)}...: WDA not found`);
     }
@@ -190,31 +141,16 @@ export async function checkWdaPreinstalled(): Promise<DoctorCheckResult> {
     };
   }
 
-  // WDA found but profile expired
-  if (anyWdaFound && anyProfileExpired) {
+  // Inventory is not active readiness (ADR-028).
+  if (anyWdaFound) {
     return {
       name: 'WDA Preinstalled',
-      status: 'fail',
-      message: `WDA Runner provisioning profile expired for: ${expiredBundleIds.join(', ')}.`,
+      status: 'manual',
+      message: `WDA Runner is installed (${foundBundleIds.join(', ')}), but active readiness is not proven.`,
       fixGuide: [
-        'Rebuild WDA with a fresh provisioning profile: run preparePreinstalledWDA()',
-        'Use WdaManager.preparePreinstalledWDA() to rebuild + reinstall + verify',
-        'Or use external-url mode as fallback (Route B)',
-        'Check profile expiry in Xcode: Window > Devices and Simulators',
-      ],
-      details: details.join('\n'),
-    };
-  }
-
-  // WDA found and profiles valid
-  if (anyWdaFound && allProfilesValid) {
-    return {
-      name: 'WDA Preinstalled',
-      status: 'pass',
-      message: `WDA Runner preinstalled on device (${foundBundleIds.join(', ')}). Profiles valid.`,
-      fixGuide: [
-        'Route A (preinstalled) is ready — use wdaStartupMode: "preinstalled"',
-        'Ensure iOS 17+ for usePreinstalledWDA capability',
+        'Select Route B (external-url) or Route C (managed-xcodebuild) explicitly',
+        'Run an active WDA /status or Appium session probe on the selected device',
+        'If the active probe reports signing or launch failure, prepare WDA after confirmation',
       ],
       details: details.join('\n'),
     };
@@ -226,10 +162,10 @@ export async function checkWdaPreinstalled(): Promise<DoctorCheckResult> {
     status: 'fail',
     message: 'WDA Runner not installed on any connected physical device.',
     fixGuide: [
-      'Route A (preinstalled): build + install WDA via WdaManager.preparePreinstalledWDA()',
+      'Build + install WDA via WdaManager.preparePreinstalledWDA() after confirmation',
       'Build command: xcodebuild -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination "platform=iOS,id=<UDID>" build-for-testing',
       'Install via: xcrun devicectl device install app --device <UDID> <WDA-Runner.app>',
-      'Alternatively, use Route B (external-url) or Route C (managed-xcodebuild)',
+      'Then use Route B (external-url) or Route C (managed-xcodebuild) for active readiness',
       'See AGENTS.md Phase 0 Appium/WDA notes for free account workaround',
     ],
     details: details.join('\n'),

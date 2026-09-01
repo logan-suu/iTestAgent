@@ -36,8 +36,7 @@ export interface ProductionAppiumConfig {
    */
   wdaBaseBundleId?: string;
   /**
-   * WDA startup mode (physical only).
-   * Default: 'preinstalled' (Route A).
+   * WDA startup mode (physical only). Required for physical sessions.
    */
   wdaStartupMode?: WdaStartupMode;
   /**
@@ -108,7 +107,17 @@ export interface AppiumBackendAssembly {
  */
 export function createAppiumDeviceBackend(config: ProductionAppiumConfig): AppiumBackendAssembly {
   const targetKind = config.targetKind;
-  const wdaStartupMode: WdaStartupMode = config.wdaStartupMode ?? 'preinstalled';
+  if (targetKind === 'physical' && config.wdaStartupMode === undefined) {
+    throw new Error(
+      'Physical Appium sessions require an explicit WDA route: external-url (Route B) or managed-xcodebuild (Route C).',
+    );
+  }
+  if (targetKind === 'physical' && config.wdaStartupMode === 'preinstalled') {
+    throw new Error(
+      'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
+    );
+  }
+  const wdaStartupMode: WdaStartupMode = config.wdaStartupMode ?? 'managed-xcodebuild';
   const appiumServerUrl = config.appiumServerUrl ?? 'http://127.0.0.1:4723';
 
   const realDriver = new RealAppiumDriver(appiumServerUrl);

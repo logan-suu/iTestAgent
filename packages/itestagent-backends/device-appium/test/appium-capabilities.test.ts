@@ -92,6 +92,7 @@ describe('buildPhysicalCapabilities — wdaBundleId validation', () => {
     expect(() =>
       buildPhysicalCapabilities({
         udid: TEST_UDID,
+        wdaStartupMode: 'managed-xcodebuild',
         wdaBundleId: 'TEAMID.WebDriverAgentRunner.xctrunner',
       }),
     ).toThrow(/without .xctrunner suffix/);
@@ -100,6 +101,7 @@ describe('buildPhysicalCapabilities — wdaBundleId validation', () => {
   it('accepts base wdaBundleId without .xctrunner', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       wdaBundleId: 'TEAMID.WebDriverAgentRunner',
     });
     expect(caps['appium:updatedWDABundleId']).toBe('TEAMID.WebDriverAgentRunner');
@@ -233,6 +235,7 @@ describe('buildPhysicalCapabilities — common options', () => {
   it('forwards bundleId, deviceName, and platformVersion', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       bundleId: 'com.example.myapp',
       deviceName: 'iPhone 15 Pro',
       platformVersion: '18.3',
@@ -246,6 +249,7 @@ describe('buildPhysicalCapabilities — common options', () => {
   it('forwards wdaLocalPort, mjpegServerPort, and derivedDataPath', () => {
     const caps = buildPhysicalCapabilities({
       udid: TEST_UDID,
+      wdaStartupMode: 'managed-xcodebuild',
       wdaLocalPort: 8200,
       mjpegServerPort: 9200,
       derivedDataPath: '/tmp/custom-wda-build',
@@ -256,12 +260,12 @@ describe('buildPhysicalCapabilities — common options', () => {
     expect(caps['appium:derivedDataPath']).toBe('/tmp/custom-wda-build');
   });
 
-  it('defaults wdaStartupMode to preinstalled when omitted', () => {
-    const caps = buildPhysicalCapabilities({ udid: TEST_UDID });
-
-    expect(caps['appium:usePreinstalledWDA']).toBe(true);
-    expect(caps['appium:usePrebuiltWDA']).toBeUndefined();
-    expect(caps['appium:webDriverAgentUrl']).toBeUndefined();
+  it('rejects an omitted WDA route', () => {
+    expect(() =>
+      buildPhysicalCapabilities({ udid: TEST_UDID } as Parameters<
+        typeof buildPhysicalCapabilities
+      >[0]),
+    ).toThrow(/wdaStartupMode is required/);
   });
 });
 
