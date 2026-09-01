@@ -214,6 +214,9 @@ export {
   SourceFactsSchema,
   ResourceScanInputSchema,
   ResourceFactsSchema,
+  XcuitestExecutionAssetQuerySchema,
+  RunnableXcuitestConfigurationSchema,
+  XcuitestExecutionAssetsSchema,
 } from './project-analyzer-backend.js';
 
 export type {
@@ -225,6 +228,9 @@ export type {
   SourceFacts,
   ResourceScanInput,
   ResourceFacts,
+  XcuitestExecutionAssetQuery,
+  RunnableXcuitestConfiguration,
+  XcuitestExecutionAssets,
   ProjectAnalyzerBackend,
 } from './project-analyzer-backend.js';
 

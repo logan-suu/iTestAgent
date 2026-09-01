@@ -60,6 +60,11 @@ export const IntentSchema = z.object({
   metricsHint: z.string().optional(),
   /** Test scope */
   scope: ScopeSchema,
+  /** Optional route preference stated by the user; omitted means auto. */
+  executionPreference: z.enum(['auto', 'xcuitest', 'device_backend']).optional(),
+  /** Optional target-explicit XCUITest scheme/test plan selection. */
+  xcuitestScheme: z.string().min(1).optional(),
+  xcuitestTestPlan: z.string().min(1).optional(),
   /** Original user input (immutable audit trail) */
   sourceText: z.string().min(1),
 });

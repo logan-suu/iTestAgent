@@ -61,7 +61,7 @@ const MOCK_INTENT: Intent = {
 };
 
 const MOCK_TEST_PLAN: TestPlan = {
-  schemaVersion: 'itestagent.test-plan.v2' as const,
+  schemaVersion: 'itestagent.test-plan.v3' as const,
   runId: 'run-001',
   projectProfileRef: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   target: { type: 'current_workspace' },
@@ -75,6 +75,8 @@ const MOCK_TEST_PLAN: TestPlan = {
   execution: {
     prefer: 'device_backend' as const,
     fallback: 'abort' as const,
+    resolvedPath: 'device_backend' as const,
+    selectionReason: 'explicit_preference' as const,
     features: ['Login Flow'],
     testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
     assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' as const },

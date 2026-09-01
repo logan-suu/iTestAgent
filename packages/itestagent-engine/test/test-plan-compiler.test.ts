@@ -90,7 +90,7 @@ describe('compileTestPlan', () => {
   describe('AC1: unified TestPlan from Intent + Profile', () => {
     it('compiles a valid TestPlan from physical intent + profile', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
+      expect(plan.schemaVersion).toBe('itestagent.test-plan.v3');
       expect(plan.runId).toMatch(
         /^run_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       );
@@ -140,7 +140,9 @@ describe('compileTestPlan', () => {
 
     it('includes execution with features/testData/assertion', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.execution.prefer).toBe('device_backend'); // no XCUITest
+      expect(plan.execution.prefer).toBe('auto');
+      expect(plan.execution.resolvedPath).toBe('device_backend');
+      expect(plan.execution.selectionReason).toBe('no_runnable_xcuitest');
       expect(plan.execution.features).toContain('Login');
       expect(plan.execution.testData.allowAgentGeneratedData).toBe(true);
       expect(plan.execution.assertion.policy).toBe('user_goal_then_profile_then_agent_confirmed');
@@ -190,7 +192,7 @@ describe('compileTestPlan', () => {
 
     it('includes schemaVersion for audit trail', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.schemaVersion).toBe('itestagent.test-plan.v2');
+      expect(plan.schemaVersion).toBe('itestagent.test-plan.v3');
     });
 
     it('same input produces equivalent plan (different runId only)', () => {
@@ -221,7 +223,7 @@ describe('compileTestPlan', () => {
   // ── Execution path logic ───────────────────────────────────
 
   describe('execution path selection', () => {
-    it('prefers XCUITest when project has XCUITest targets', () => {
+    it('does not treat hasXCUITest as a runnable execution configuration', () => {
       const profileWithXCUITest = makeProfile({
         testAssets: {
           hasXCUITest: true,
@@ -231,11 +233,13 @@ describe('compileTestPlan', () => {
       });
       const plan = compileTestPlan(makeIntent(), profileWithXCUITest);
       expect(plan.execution.prefer).toBe('auto');
+      expect(plan.execution.resolvedPath).toBe('device_backend');
     });
 
-    it('prefers device_backend when no XCUITest targets', () => {
+    it('resolves auto to DeviceBackend when no runnable configuration is supplied', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.execution.prefer).toBe('device_backend');
+      expect(plan.execution.prefer).toBe('auto');
+      expect(plan.execution.resolvedPath).toBe('device_backend');
     });
   });
 

@@ -9,7 +9,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "itestagent.test-plan.v2"
+      "const": "itestagent.test-plan.v3"
     },
     "runId": {
       "type": "string",
@@ -141,6 +141,15 @@
           "type": "string",
           "enum": ["device_backend", "abort"]
         },
+        "resolvedPath": {
+          "type": "string",
+          "enum": ["xcuitest", "device_backend"],
+          "description": "Execution route resolved and confirmed before execution."
+        },
+        "selectionReason": {
+          "type": "string",
+          "enum": ["explicit_preference", "runnable_xcuitest", "no_runnable_xcuitest", "user_selected_after_ambiguity"]
+        },
         "features": {
           "type": "array",
           "description": "Feature names from ProjectProfile to cover.",
@@ -182,14 +191,28 @@
         "xcuitest": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Explicit XCUITest target override (target-explicit principle). Presence of scheme signals an XCUITest lane at the contracts layer.",
+          "description": "Confirmed XCUITest configuration for the resolved route.",
           "properties": {
             "scheme": { "type": "string" },
-            "configuration": { "type": "string" }
-          }
+            "configuration": { "type": "string" },
+            "testPlan": { "type": "string" },
+            "targets": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "limitations": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["scheme"]
         }
       },
-      "required": ["prefer", "fallback", "features", "testData", "assertion"]
+      "required": ["prefer", "fallback", "resolvedPath", "selectionReason", "features", "testData", "assertion"]
     },
     "ArtifactPolicy": {
       "type": "object",

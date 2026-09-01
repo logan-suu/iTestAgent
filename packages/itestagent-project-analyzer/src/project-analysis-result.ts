@@ -1,4 +1,4 @@
-import type { ProjectAnalyzerBackend } from 'itestagent-contracts';
+import type { ProjectAnalyzerBackend, XcuitestExecutionAssets } from 'itestagent-contracts';
 import { generateProjectProfile } from './profile-generator.js';
 import type { ProjectProfile } from './profile-io.js';
 
@@ -8,6 +8,7 @@ export interface ProjectAnalysisMetadata {
   readonly analysisTier: ProjectAnalysisTier;
   readonly enabledCapabilities: readonly string[];
   readonly limitations: readonly string[];
+  readonly executionAssets?: XcuitestExecutionAssets;
 }
 
 export interface ProjectAnalysisResult {
@@ -23,6 +24,7 @@ export const XCODEPROJ_TIER1_ANALYSIS: ProjectAnalysisMetadata = {
     'build_settings',
     'static_source_candidates',
     'resource_scan',
+    'runnable_xcuitest_execution_assets',
   ],
   limitations: [
     'SwiftSyntax tier-2 structural analysis is not enabled.',
@@ -40,12 +42,44 @@ export async function analyzeProject(
   root: string,
   analysis: ProjectAnalysisMetadata = XCODEPROJ_TIER1_ANALYSIS,
 ): Promise<ProjectAnalysisResult> {
+  const profile = await generateProjectProfile(backend, root);
+  let executionAssets: XcuitestExecutionAssets | undefined;
+  if (backend.discoverXcuitestExecutionAssets) {
+    try {
+      const discovery = await backend.discover(root);
+      const graph = await backend.graph(discovery);
+      const xcuitestTargets = graph.xcuitestTargets ?? [];
+      const snapshots = await Promise.all(
+        (['physical', 'simulator'] as const).map((targetKind) =>
+          backend.discoverXcuitestExecutionAssets?.({
+            root,
+            discovery,
+            xcuitestTargets,
+            targetKind,
+          }),
+        ),
+      );
+      executionAssets = {
+        configurations: snapshots.flatMap((snapshot) => snapshot?.configurations ?? []),
+        evidence: snapshots.flatMap((snapshot) => snapshot?.evidence ?? []),
+        limitations: snapshots.flatMap((snapshot) => snapshot?.limitations ?? []),
+      };
+    } catch {
+      executionAssets = {
+        configurations: [],
+        evidence: [],
+        limitations: ['Runnable XCUITest asset discovery failed; inspect the local analyzer log.'],
+      };
+    }
+  }
+
   return {
-    profile: await generateProjectProfile(backend, root),
+    profile,
     analysis: {
       analysisTier: analysis.analysisTier,
       enabledCapabilities: [...analysis.enabledCapabilities],
       limitations: [...analysis.limitations],
+      ...(executionAssets ? { executionAssets } : {}),
     },
   };
 }

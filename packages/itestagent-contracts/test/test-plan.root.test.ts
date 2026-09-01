@@ -32,9 +32,9 @@ describe('TestPlanSchema (root)', () => {
   });
 
   it('locks the schemaVersion literal to the exported constant', () => {
-    expect(TEST_PLAN_SCHEMA_VERSION).toBe('itestagent.test-plan.v2');
+    expect(TEST_PLAN_SCHEMA_VERSION).toBe('itestagent.test-plan.v3');
     const wrongVersion = makeValidTestPlan({
-      schemaVersion: 'itestagent.test-plan.v1' as 'itestagent.test-plan.v2',
+      schemaVersion: 'itestagent.test-plan.v1' as 'itestagent.test-plan.v3',
     });
     expect(TestPlanSchema.safeParse(wrongVersion).success).toBe(false);
   });
@@ -134,16 +134,26 @@ describe('published schemas/test-plan.schema.json parity (B04)', () => {
     const executionPlan = defs.ExecutionPlan as JsonRecord;
     const props = executionPlan.properties as JsonRecord;
 
-    // Runtime: optional strict object {scheme?, configuration?}.
+    // Runtime: optional strict object with a required scheme.
     expect(props.xcuitest).toBeDefined();
     const xcuitest = props.xcuitest as JsonRecord;
     expect(xcuitest.additionalProperties).toBe(false);
     expect(Object.keys(xcuitest.properties as JsonRecord).sort()).toEqual(
-      ['configuration', 'scheme'].sort(),
+      ['configuration', 'evidence', 'limitations', 'scheme', 'targets', 'testPlan'].sort(),
     );
 
     // Not required — backward compatible with v2 plans authored before B04.
     expect(executionPlan.required as string[]).not.toContain('xcuitest');
+    expect((xcuitest.required as string[]).sort()).toEqual(['scheme']);
+  });
+
+  it('publishes the confirmed route fields required by runtime v3', () => {
+    const published = loadPublished();
+    const defs = published.$defs as JsonRecord;
+    const executionPlan = defs.ExecutionPlan as JsonRecord;
+    const required = executionPlan.required as string[];
+    expect(required).toContain('resolvedPath');
+    expect(required).toContain('selectionReason');
   });
 
   it('publishes the same schemaVersion literal as the runtime constant', () => {

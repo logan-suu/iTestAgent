@@ -83,8 +83,8 @@ itestagent rerun --failed-only
 | US-4.1 | TUI 从真实 workspace 和设备状态启动生产会话 | RED：TUI 使用 mock/固定结果 | T6.2 |
 | US-5.2 | 显示并允许修改/确认/取消计划；未确认不执行 | RED：生产 TUI 无完整计划确认到执行链 | T6.3 |
 | US-6.1~6.2 | TestPlan 驱动 App 来源、构建、安装和生命周期 | RED：未接 TUI 同一 run | T6.4 |
-| US-7.1 | 有 XCUITest 时走 xcodebuild -> xcresult -> parser -> report | 部分组件存在，未接生产闭环 | T6.5/T6.8 |
-| US-8.1 | 无 XCUITest 时由 DeviceBackend 执行动态动作并记录 steps | RED：CLI 固定 launch+screenshot | T6.5/T6.6 |
+| US-7.1 | 确认前解析并锁定可执行 XCUITest 配置，走 xcodebuild -> xcresult -> parser -> report；执行后不跨路径 fallback | 部分组件存在，未接生产闭环 | T6.5/T6.8 |
+| US-8.1 | 显式选择或 auto 无可执行 XCUITest 配置时由 DeviceBackend 执行，并禁止从已失败 XCUITest 静默切入 | RED：CLI 固定 launch+screenshot | T6.5/T6.6 |
 | US-9.1 | 每步记录动作、目标、结果和证据引用 | 部分组件存在，未接生产 run | T6.6 |
 | US-9.2 | 可重放 Flow，生产执行不得静默 mock | RED：Appium import 失败切换 mock | T6.7 |
 | US-13.1 | 证据关联具体 run step/case | RED：探索只输出临时 artifact index | T6.6/T6.8 |

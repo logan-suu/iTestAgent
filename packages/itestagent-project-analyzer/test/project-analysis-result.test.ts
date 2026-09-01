@@ -36,6 +36,41 @@ const backend: ProjectAnalyzerBackend = {
 };
 
 describe('ADR-026 project analysis result', () => {
+  it('adds session-only runnable XCUITest assets without changing project-profile.v1', async () => {
+    const result = await analyzeProject(
+      {
+        ...backend,
+        graph: async () => ({
+          targets: [{ name: 'AppUITests', type: 'test', dependencies: [] }],
+          hasXCUITests: true,
+          hasUnitTests: false,
+          xcuitestTargets: ['AppUITests'],
+        }),
+        discoverXcuitestExecutionAssets: async (input) => ({
+          configurations: [
+            {
+              scheme: 'App',
+              targets: ['AppUITests'],
+              targetKind: input.targetKind,
+              isDefault: true,
+              evidence: ['xcodebuild enumeration succeeded'],
+              limitations: [],
+            },
+          ],
+          evidence: [],
+          limitations: [],
+        }),
+      },
+      '/tmp/App',
+    );
+    expect(result.analysis.executionAssets?.configurations).toHaveLength(2);
+    expect(result.analysis.executionAssets?.configurations.map((item) => item.targetKind)).toEqual([
+      'physical',
+      'simulator',
+    ]);
+    expect('executionAssets' in result.profile).toBe(false);
+  });
+
   it('wraps project-profile.v1 with explicit tier and limitations', async () => {
     const result = await analyzeProject(backend, '/tmp/App');
     expect(result.profile.schemaVersion).toBe('itestagent.project-profile.v1');

@@ -4,6 +4,10 @@ import type {
   ProjectAnalysisResult,
   ProjectProfile,
 } from 'itestagent-project-analyzer';
+import {
+  type ExecutionRouteResolution,
+  resolveExecutionRoute,
+} from './execution-route-resolver.js';
 import { parseIntent } from './intent-parser.js';
 import { compileTestPlan } from './test-plan-compiler.js';
 
@@ -11,6 +15,8 @@ export type PlanningStatus =
   | 'idle'
   | 'awaiting_clarification'
   | 'awaiting_candidate_confirmation'
+  | 'awaiting_execution_route_selection'
+  | 'execution_route_blocked'
   | 'awaiting_plan_confirmation'
   | 'confirmed'
   | 'cancelled';
@@ -21,6 +27,7 @@ export interface PlanningSnapshot {
   readonly intentResult: IntentParseResult | null;
   readonly candidates: readonly CandidateLink[];
   readonly plan: TestPlan | null;
+  readonly executionRoute: ExecutionRouteResolution | null;
 }
 
 export class PlanningSessionError extends Error {
@@ -28,6 +35,8 @@ export class PlanningSessionError extends Error {
     | 'intent_incomplete'
     | 'candidate_confirmation_required'
     | 'candidate_not_confirmed'
+    | 'execution_route_selection_required'
+    | 'execution_route_blocked'
     | 'plan_unavailable'
     | 'invalid_transition';
 
@@ -49,6 +58,7 @@ export class PlanningSession {
   private candidates: CandidateLink[];
   private reviewedProfile: ProjectProfile;
   private plan: TestPlan | null = null;
+  private executionRoute: ExecutionRouteResolution | null = null;
   private conversation: string[] = [];
 
   constructor(analysis: ProjectAnalysisResult) {
@@ -123,14 +133,38 @@ export class PlanningSession {
       ...this.intentResult.intent,
       features: confirmed.map((candidate) => candidate.name),
     };
-    const plan = compileTestPlan(intent, reviewedProfile, { confirmedOnly: true });
-
     this.candidates = candidates;
     this.reviewedProfile = reviewedProfile;
     this.intentResult = { status: 'complete', intent };
-    this.plan = plan;
-    this.status = 'awaiting_plan_confirmation';
-    return this.snapshot();
+    return this.resolvePlan(intent);
+  }
+
+  selectExecutionRoute(scheme: string, testPlan?: string): PlanningSnapshot {
+    this.requireStatus('awaiting_execution_route_selection', 'select execution route');
+    if (!this.intentResult || this.intentResult.status !== 'complete') {
+      throw new PlanningSessionError(
+        'intent_incomplete',
+        'complete the intent before route review',
+      );
+    }
+    const intent: Intent = {
+      ...this.intentResult.intent,
+      xcuitestScheme: scheme,
+      ...(testPlan ? { xcuitestTestPlan: testPlan } : {}),
+    };
+    return this.resolvePlan(intent, true);
+  }
+
+  selectExecutionRouteFromInput(input: string): PlanningSnapshot {
+    this.requireStatus('awaiting_execution_route_selection', 'select execution route');
+    const parsed = parseIntent(input, this.reviewedProfile).intent;
+    if (!parsed.xcuitestScheme) {
+      throw new PlanningSessionError(
+        'execution_route_selection_required',
+        'specify the route as: scheme <name> [test plan <name>]',
+      );
+    }
+    return this.selectExecutionRoute(parsed.xcuitestScheme, parsed.xcuitestTestPlan);
   }
 
   modifyPlan(input: string): PlanningSnapshot {
@@ -170,21 +204,19 @@ export class PlanningSession {
       ...currentIntent,
       goal: parsed.intent.goal || currentIntent.goal,
       targetKind: parsed.intent.targetKind ?? currentIntent.targetKind,
+      executionPreference: parsed.intent.executionPreference ?? currentIntent.executionPreference,
+      xcuitestScheme: parsed.intent.xcuitestScheme ?? currentIntent.xcuitestScheme,
+      xcuitestTestPlan: parsed.intent.xcuitestTestPlan ?? currentIntent.xcuitestTestPlan,
       features,
       metricsRequested: parsed.intent.metricsRequested || currentIntent.metricsRequested,
       scope: parsed.intent.scope === 'custom' ? currentIntent.scope : parsed.intent.scope,
       sourceText: `${currentIntent.sourceText}\nModification: ${input}`,
     };
-    const plan = compileTestPlan(intent, this.reviewedProfile, {
-      confirmedOnly: true,
+    this.intentResult = { status: 'complete', intent };
+    return this.resolvePlan(intent, false, {
       runId: this.plan.runId,
       projectProfileRef: this.plan.projectProfileRef,
     });
-
-    this.intentResult = { status: 'complete', intent };
-    this.plan = plan;
-    this.status = 'awaiting_plan_confirmation';
-    return this.snapshot();
   }
 
   confirmPlan(): TestPlan {
@@ -236,7 +268,43 @@ export class PlanningSession {
       intentResult: this.intentResult,
       candidates: this.candidates,
       plan: this.plan,
+      executionRoute: this.executionRoute,
     });
+  }
+
+  private resolvePlan(
+    intent: Intent,
+    selectedAfterAmbiguity = false,
+    identity?: { runId: string; projectProfileRef: string },
+  ): PlanningSnapshot {
+    const resolution = resolveExecutionRoute({
+      preference: intent.executionPreference ?? 'auto',
+      targetKind: intent.targetKind ?? 'physical',
+      configurations: this.analysis.analysis.executionAssets?.configurations ?? [],
+      ...(intent.xcuitestScheme ? { selectedScheme: intent.xcuitestScheme } : {}),
+      ...(intent.xcuitestTestPlan ? { selectedTestPlan: intent.xcuitestTestPlan } : {}),
+      selectedAfterAmbiguity,
+    });
+    this.executionRoute = resolution;
+    this.intentResult = { status: 'complete', intent };
+    this.plan = null;
+
+    if (resolution.status === 'ambiguous') {
+      this.status = 'awaiting_execution_route_selection';
+      return this.snapshot();
+    }
+    if (resolution.status === 'blocked') {
+      this.status = 'execution_route_blocked';
+      return this.snapshot();
+    }
+
+    this.plan = compileTestPlan(intent, this.reviewedProfile, {
+      confirmedOnly: true,
+      executionRoute: resolution,
+      ...(identity ?? {}),
+    });
+    this.status = 'awaiting_plan_confirmation';
+    return this.snapshot();
   }
 }
 

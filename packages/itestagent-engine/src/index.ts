@@ -183,6 +183,20 @@ export { buildMemoryProfileIntent } from './memory-profile-intent.js';
 export type { MemoryProfileIntent, MemoryProfileIntentOverrides } from './memory-profile-intent.js';
 
 export { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
+export { resolveExecutionRoute } from './execution-route-resolver.js';
+export type {
+  ExecutionRoutePreference,
+  ExecutionRouteResolution,
+  ResolveExecutionRouteInput,
+} from './execution-route-resolver.js';
+export { createDualExecutionDispatcher } from './dual-execution-dispatcher.js';
+export type {
+  XcuitestReadinessResult,
+  DeviceBackendDispatchInput,
+  ConfirmedExecutionDispatchInput,
+  ConfirmedExecutionDispatchResult,
+  DualExecutionDispatcherDeps,
+} from './dual-execution-dispatcher.js';
 export { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
 export { createAppiumExplorationRuntime } from './exploration/exploration-wiring.js';
 export type {
@@ -212,4 +226,8 @@ export type {
 } from './exploration/assertion-suggester.js';
 
 export { createProductionAgentSessionDependencies } from './production-agent-session.js';
+export {
+  createProductionDualExecutionDispatcher,
+  revalidateProductionXcuitest,
+} from './production-agent-session.js';
 export type { ProductionAgentSessionDependencies } from './production-agent-session.js';

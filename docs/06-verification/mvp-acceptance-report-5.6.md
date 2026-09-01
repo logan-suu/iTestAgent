@@ -158,7 +158,9 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 
 ---
 
-### Item 9 — XCUITest Execution (US-7.1, P0) ✅
+### Item 9 — XCUITest Execution (US-7.1, P0) — PARTIAL（2026-09-01 复审；原框架级结论 ✅）
+
+> **2026-09-01 规格复审更正（ADR-029）**：下述历史结论只证明 framework/component coverage，不构成 XCUITest 生产闭环 G5/G5-SIM。生产调度必须基于可执行 scheme/Test action/test plan/destination 配置，而非 `hasXCUITest`；真实 physical 与 simulator XCUITest 闭环由 T6.5 补证。在证据完成前，本项按当前规格应标记为 partial，不得沿用本节标题中的历史 ✅ 宣称当前闭环通过。
 
 | Target | Status | Evidence |
 |---|---|---|

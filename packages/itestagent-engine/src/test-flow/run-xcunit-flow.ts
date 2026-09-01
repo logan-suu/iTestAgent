@@ -2,6 +2,10 @@ import type {
   XcresultParseResult,
   XcresultParserOptions,
 } from 'itestagent-backends-analyzer-xcresult';
+import type {
+  XcodebuildTestRunInput,
+  XcodebuildTestRunOutput,
+} from 'itestagent-backends-build-xcodebuild';
 /**
  * XCUITest flow — engine composition over two backend components:
  *
@@ -14,25 +18,12 @@ import type {
  */
 import type { BuildDestination } from 'itestagent-contracts';
 
-/** Minimal test-run surface (mirrors XcodebuildTestRunInput/Output). */
-export interface XcunitTestRunInput {
-  projectRoot: string;
-  scheme: string;
-  destination?: BuildDestination;
-  only?: string[];
-}
-
-export interface XcunitTestRunOutput {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-  durationMs: number;
-}
-
 export interface XcunitFlowInput {
   /** Project/workspace directory passed as the child process cwd. */
   projectRoot: string;
   scheme: string;
+  testPlan?: string;
+  allowProvisioningUpdates?: boolean;
   destination?: BuildDestination;
   /** Test identifiers filtered as -only-testing. */
   only?: string[];
@@ -43,13 +34,7 @@ export interface XcunitFlowInput {
 }
 
 export interface XcunitFlowDeps {
-  runTests(input: {
-    projectRoot: string;
-    scheme: string;
-    destination?: BuildDestination;
-    only?: string[];
-    extraArgs: string[];
-  }): Promise<XcunitTestRunOutput>;
+  runTests(input: XcodebuildTestRunInput): Promise<XcodebuildTestRunOutput>;
   parse(options: XcresultParserOptions): Promise<XcresultParseResult>;
 }
 
@@ -75,6 +60,8 @@ export async function runXcunitFlow(
   const run = await deps.runTests({
     projectRoot: input.projectRoot,
     scheme: input.scheme,
+    testPlan: input.testPlan,
+    allowProvisioningUpdates: input.allowProvisioningUpdates,
     destination: input.destination,
     only: input.only,
     extraArgs: ['-resultBundlePath', input.resultBundlePath],

@@ -152,10 +152,24 @@ function formatExecutionSection(plan: TestPlan): PlanSection {
       },
       {
         key: 'fallback',
-        label: 'Fallback',
+        label: 'Planning Fallback',
         value: plan.execution.fallback,
         kind: 'enum',
-        editable: true,
+        editable: false,
+      },
+      {
+        key: 'resolvedPath',
+        label: 'Resolved Path',
+        value: plan.execution.resolvedPath,
+        kind: 'enum',
+        editable: false,
+      },
+      {
+        key: 'selectionReason',
+        label: 'Selection Reason',
+        value: plan.execution.selectionReason,
+        kind: 'enum',
+        editable: false,
       },
       {
         key: 'assertion',
@@ -164,6 +178,50 @@ function formatExecutionSection(plan: TestPlan): PlanSection {
         kind: 'enum',
         editable: true,
       },
+      ...(plan.execution.xcuitest
+        ? [
+            {
+              key: 'xcuitestScheme',
+              label: 'XCUITest Scheme',
+              value: plan.execution.xcuitest.scheme,
+              kind: 'text' as const,
+              editable: false,
+            },
+            ...(plan.execution.xcuitest.testPlan
+              ? [
+                  {
+                    key: 'xcuitestTestPlan',
+                    label: 'XCUITest Test Plan',
+                    value: plan.execution.xcuitest.testPlan,
+                    kind: 'text' as const,
+                    editable: false,
+                  },
+                ]
+              : []),
+            ...(plan.execution.xcuitest.targets?.length
+              ? [
+                  {
+                    key: 'xcuitestTargets',
+                    label: 'XCUITest Targets',
+                    value: plan.execution.xcuitest.targets.join(', '),
+                    kind: 'list' as const,
+                    editable: false,
+                  },
+                ]
+              : []),
+            ...(plan.execution.xcuitest.limitations?.length
+              ? [
+                  {
+                    key: 'xcuitestLimitations',
+                    label: 'Limitations',
+                    value: plan.execution.xcuitest.limitations.join('; '),
+                    kind: 'list' as const,
+                    editable: false,
+                  },
+                ]
+              : []),
+          ]
+        : []),
     ],
   };
 }
@@ -308,14 +366,15 @@ export function navigatePlanSection(
  * Format the execution path for display.
  *
  * Examples:
- *   - "auto (XCUITest preferred, device_backend fallback)"
- *   - "xcuitest only (abort on failure)"
+ *   - "auto (resolved before confirmation; no runtime route fallback)"
+ *   - "xcuitest (fail closed)"
  *   - "device_backend (exploration only)"
  */
 export function formatExecutionPath(prefer: string, fallback: string): string {
-  const preferLabel = prefer === 'auto' ? 'auto (XCUITest preferred)' : prefer;
-  const fallbackLabel = fallback === 'abort' ? 'abort on failure' : `${fallback} fallback`;
-  return `${preferLabel}, ${fallbackLabel}`;
+  if (prefer === 'auto') {
+    return `auto (planning fallback: ${fallback}; no runtime route fallback)`;
+  }
+  return prefer === 'xcuitest' ? 'xcuitest (fail closed)' : 'device_backend (exploration only)';
 }
 
 /**

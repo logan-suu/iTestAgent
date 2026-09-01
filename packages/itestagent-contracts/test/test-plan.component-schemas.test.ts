@@ -82,6 +82,8 @@ function makeMinimalExecution() {
   return {
     prefer: 'auto',
     fallback: 'device_backend',
+    resolvedPath: 'device_backend',
+    selectionReason: 'no_runnable_xcuitest',
     features: ['login'],
     testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
     assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
@@ -94,22 +96,40 @@ describe('ExecutionPlanSchema.xcuitest (B04 target-explicit override)', () => {
     expect(parsed.xcuitest).toBeUndefined();
   });
 
-  it('accepts scheme-only, configuration-only, and both', () => {
+  it('accepts a required scheme plus optional configuration, test plan, and targets', () => {
+    const xcuitestExecution = {
+      ...makeMinimalExecution(),
+      resolvedPath: 'xcuitest' as const,
+      selectionReason: 'runnable_xcuitest' as const,
+    };
     expect(
-      ExecutionPlanSchema.parse({ ...makeMinimalExecution(), xcuitest: { scheme: 'AppUITests' } })
+      ExecutionPlanSchema.parse({ ...xcuitestExecution, xcuitest: { scheme: 'AppUITests' } })
         .xcuitest?.scheme,
     ).toBe('AppUITests');
+    const complete = ExecutionPlanSchema.parse({
+      ...xcuitestExecution,
+      xcuitest: {
+        scheme: 'AppUITests',
+        configuration: 'Debug',
+        testPlan: 'Smoke',
+        targets: ['AppUITests'],
+      },
+    });
+    expect(complete.xcuitest).toEqual({
+      scheme: 'AppUITests',
+      configuration: 'Debug',
+      testPlan: 'Smoke',
+      targets: ['AppUITests'],
+    });
+  });
+
+  it('rejects an XCUITest configuration without a scheme', () => {
     expect(
-      ExecutionPlanSchema.parse({
+      ExecutionPlanSchema.safeParse({
         ...makeMinimalExecution(),
         xcuitest: { configuration: 'Release' },
-      }).xcuitest?.configuration,
-    ).toBe('Release');
-    const both = ExecutionPlanSchema.parse({
-      ...makeMinimalExecution(),
-      xcuitest: { scheme: 'AppUITests', configuration: 'Debug' },
-    });
-    expect(both.xcuitest).toEqual({ scheme: 'AppUITests', configuration: 'Debug' });
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects unknown keys inside the xcuitest object (strict)', () => {

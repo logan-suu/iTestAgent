@@ -14,8 +14,11 @@ export interface XcodebuildTestRunInput {
   /** Project/workspace directory passed as the child process cwd. */
   projectRoot: string;
   scheme: string;
+  testPlan?: string;
+  /** Permit Xcode-managed signing updates after an explicit high-risk confirmation. */
+  allowProvisioningUpdates?: boolean;
   destination?: BuildDestination;
-  /** Test identifiers filtered as `-only-testing:<scheme>/<item>`. */
+  /** Test identifiers filtered as `-only-testing:<target>[/suite[/case]]`. */
   only?: string[];
   extraArgs?: string[];
 }
@@ -35,8 +38,10 @@ export async function runXcodebuildTests(
   runner: XcodebuildProcessRunner,
 ): Promise<XcodebuildTestRunOutput> {
   const args = ['test', '-scheme', input.scheme, ...destinationArgs(input.destination)];
+  if (input.testPlan) args.push('-testPlan', input.testPlan);
+  if (input.allowProvisioningUpdates) args.push('-allowProvisioningUpdates');
   for (const item of input.only ?? []) {
-    args.push(`-only-testing:${input.scheme}/${item}`);
+    args.push(`-only-testing:${item}`);
   }
   args.push(...(input.extraArgs ?? []));
 

@@ -1,6 +1,7 @@
 import type { ProjectAnalyzerBackend } from 'itestagent-contracts';
 import { buildSettings } from './build-settings.js';
 import { discover } from './discover.js';
+import { discoverXcuitestExecutionAssets } from './execution-assets.js';
 import { graph } from './graph.js';
 import { scanResources } from './scan-resources.js';
 import { scanSources } from './scan-sources.js';
@@ -41,5 +42,12 @@ export function createXcodeProjAnalyzerBackend(): ProjectAnalyzerBackend {
     buildSettings,
     scanSources,
     scanResources,
+    discoverXcuitestExecutionAssets,
   };
 }
+
+export {
+  discoverXcuitestExecutionAssets,
+  parseEnumeratedXcuitestTargets,
+  parseShowTestPlans,
+} from './execution-assets.js';

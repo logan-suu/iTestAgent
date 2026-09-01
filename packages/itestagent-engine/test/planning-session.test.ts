@@ -38,7 +38,63 @@ function analysis(): ProjectAnalysisResult {
   };
 }
 
+function analysisWithRoutes(): ProjectAnalysisResult {
+  const source = analysis();
+  return {
+    ...source,
+    analysis: {
+      ...source.analysis,
+      executionAssets: {
+        configurations: ['One', 'Two'].map((scheme) => ({
+          scheme,
+          targets: [`${scheme}UITests`],
+          targetKind: 'physical' as const,
+          isDefault: true,
+          evidence: ['xcodebuild enumeration succeeded'],
+          limitations: [],
+        })),
+        evidence: [],
+        limitations: [],
+      },
+    },
+  };
+}
+
 describe('PlanningSession', () => {
+  it('requires route selection before plan confirmation when auto is ambiguous', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('用本机 iPhone 跑登录 smoke');
+    const routed = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(routed.status).toBe('awaiting_execution_route_selection');
+    expect(routed.plan).toBeNull();
+
+    const planned = session.selectExecutionRoute('Two');
+    expect(planned.status).toBe('awaiting_plan_confirmation');
+    expect(planned.plan?.execution).toMatchObject({
+      resolvedPath: 'xcuitest',
+      selectionReason: 'user_selected_after_ambiguity',
+      xcuitest: { scheme: 'Two' },
+    });
+  });
+
+  it('blocks an explicit ambiguous XCUITest preference without fallback', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('用本机 iPhone 通过 XCUITest 跑登录 smoke');
+    const routed = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(routed.status).toBe('execution_route_blocked');
+    expect(routed.executionRoute).toMatchObject({ status: 'blocked', code: 'xcuitest_ambiguous' });
+    expect(routed.plan).toBeNull();
+  });
   it('supports clarification before candidate review', () => {
     const session = new PlanningSession(analysis());
     expect(session.begin('跑登录 smoke').status).toBe('awaiting_clarification');

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import * as aiReal from 'ai';
-import type { DeviceBackend, DeviceInfo } from 'itestagent-contracts';
+import type { DeviceBackend, DeviceInfo, TestPlan } from 'itestagent-contracts';
 import type {
   AgentSessionDependencies,
   TuiAgentSession,
@@ -83,6 +83,7 @@ const FAKE_MODEL = {
 };
 
 let createAgentSession: typeof import('../src/agent-session.js').createAgentSession;
+let selectConfirmedPlanDevice: typeof import('../src/agent-session.js').selectConfirmedPlanDevice;
 
 function dependencies(overrides: Partial<AgentSessionDependencies> = {}): AgentSessionDependencies {
   return {
@@ -137,7 +138,50 @@ async function nextPatchOfType(
 beforeEach(async () => {
   capturedStreamArgs = null;
   streamScenario = async function* () {};
-  ({ createAgentSession } = await import('../src/agent-session.js'));
+  ({ createAgentSession, selectConfirmedPlanDevice } = await import('../src/agent-session.js'));
+});
+
+describe('confirmed-plan target selection', () => {
+  it('selects only the target named by the confirmed plan', () => {
+    const otherPhysical = { ...PHYSICAL_DEVICE, udid: 'other-udid', name: 'Other iPhone' };
+    const plan = {
+      device: {
+        kind: 'physical',
+        physical: { selector: 'by_udid', udid: PHYSICAL_DEVICE.udid },
+      },
+    } as TestPlan;
+
+    expect(selectConfirmedPlanDevice(plan, [otherPhysical, PHYSICAL_DEVICE])).toEqual(
+      PHYSICAL_DEVICE,
+    );
+  });
+
+  it('blocks when a confirmed selector still matches multiple targets', () => {
+    const duplicateName = { ...PHYSICAL_DEVICE, udid: 'other-udid' };
+    const plan = {
+      device: {
+        kind: 'physical',
+        physical: { selector: 'by_name', name: PHYSICAL_DEVICE.name },
+      },
+    } as TestPlan;
+
+    expect(() => selectConfirmedPlanDevice(plan, [PHYSICAL_DEVICE, duplicateName])).toThrow(
+      'device_selection_required',
+    );
+  });
+
+  it('does not silently create a Simulator requested by profile', () => {
+    const plan = {
+      device: {
+        kind: 'simulator',
+        simulator: { selector: 'create_from_profile' },
+      },
+    } as TestPlan;
+
+    expect(() => selectConfirmedPlanDevice(plan, [SIMULATOR_DEVICE])).toThrow(
+      'no_device_available',
+    );
+  });
 });
 
 describe('createAgentSession production composition', () => {
@@ -222,6 +266,32 @@ describe('createAgentSession production composition', () => {
 });
 
 describe('AgentSession tools', () => {
+  it('dispatches the exact confirmed v3 plan instead of returning the task 6.5 placeholder', async () => {
+    const dispatched: Array<{ runId: string; device: string }> = [];
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        executeConfirmedPlan: async ({ plan, device }) => {
+          dispatched.push({ runId: plan.runId, device: device.udid });
+          return { status: 'completed', path: plan.execution.resolvedPath };
+        },
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    const confirmed = session.confirmPlan();
+    expect(confirmed.some((patch) => patch.payload.confirmed === true)).toBe(true);
+
+    const outputPromise = sdkTool('executeTestPlan').execute({}, { toolCallId: 'execute-1' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    session.resolvePermission('execute-1', 'allow');
+    const output = await outputPromise;
+    expect(output).toEqual({ status: 'completed', path: 'device_backend' });
+    expect(dispatched).toEqual([
+      { runId: session.getConfirmedPlan()?.runId as string, device: PHYSICAL_DEVICE.udid },
+    ]);
+  });
+
   it('returns the real analyzer envelope supplied by the production seam', async () => {
     let analyzedRoot = '';
     const session = await createAgentSession(

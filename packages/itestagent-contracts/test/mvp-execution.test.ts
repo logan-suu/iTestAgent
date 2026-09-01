@@ -68,42 +68,59 @@ describe('compileMvpExecution (happy path)', () => {
 });
 
 describe('compileMvpExecution executionPath decision table', () => {
-  it('prefer=device_backend forces the backend path even with an explicit xcuitest scheme', () => {
+  it('consumes the confirmed DeviceBackend route without re-inferring it', () => {
     const plan = makeValidTestPlan({
       execution: {
         ...makeValidTestPlan().execution,
         prefer: 'device_backend',
-        xcuitest: { scheme: 'AppUITests' },
+        resolvedPath: 'device_backend',
+        selectionReason: 'explicit_preference',
       },
     });
     expect(compileMvpExecution(plan).executionPath).toBe('device_backend');
   });
 
-  it('prefer=xcuitest selects the xcuitest path', () => {
+  it('consumes the confirmed XCUITest route', () => {
     const plan = makeValidTestPlan({
       execution: {
         ...makeValidTestPlan().execution,
         prefer: 'xcuitest',
+        fallback: 'abort',
+        resolvedPath: 'xcuitest',
+        selectionReason: 'explicit_preference',
         xcuitest: { scheme: 'AppUITests' },
       },
     });
     expect(compileMvpExecution(plan).executionPath).toBe('xcuitest');
   });
 
-  it('prefer=auto upgrades to xcuitest only when an explicit scheme is present', () => {
-    const withScheme = makeValidTestPlan({
+  it('rejects a route/configuration mismatch instead of applying a fallback', () => {
+    const mismatched = makeValidTestPlan({
       execution: {
         ...makeValidTestPlan().execution,
         prefer: 'auto',
+        resolvedPath: 'device_backend',
+        selectionReason: 'no_runnable_xcuitest',
         xcuitest: { scheme: 'AppUITests' },
       },
     });
-    expect(compileMvpExecution(withScheme).executionPath).toBe('xcuitest');
+    expect(() => compileMvpExecution(mismatched)).toThrow(
+      'device_route_with_xcuitest_configuration',
+    );
+  });
 
-    const withoutScheme = makeValidTestPlan({
-      execution: { ...makeValidTestPlan().execution, prefer: 'auto' },
+  it('rejects runtime fallback semantics for an auto-resolved XCUITest route', () => {
+    const invalidFallback = makeValidTestPlan({
+      execution: {
+        ...makeValidTestPlan().execution,
+        prefer: 'auto',
+        fallback: 'device_backend',
+        resolvedPath: 'xcuitest',
+        selectionReason: 'runnable_xcuitest',
+        xcuitest: { scheme: 'AppUITests' },
+      },
     });
-    expect(compileMvpExecution(withoutScheme).executionPath).toBe('device_backend');
+    expect(() => compileMvpExecution(invalidFallback)).toThrow('xcuitest_route_requires_abort');
   });
 });
 

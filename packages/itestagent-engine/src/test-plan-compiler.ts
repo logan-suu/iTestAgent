@@ -13,8 +13,10 @@ import {
   createId,
   parseTestPlan,
 } from 'itestagent-contracts';
+import { migrateTestPlanToV3 } from 'itestagent-contracts/migrations';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
 import YAML from 'yaml';
+import type { ExecutionRouteResolution } from './execution-route-resolver.js';
 
 // Re-export schema types for convenience
 export type { TestPlan, DeviceSelector, ExecutionPlan, AssertionPolicy };
@@ -59,7 +61,7 @@ export function compileTestPlan(
   };
 
   const plan: TestPlan = {
-    schemaVersion: 'itestagent.test-plan.v2',
+    schemaVersion: 'itestagent.test-plan.v3',
     runId,
     projectProfileRef,
     target: { type: 'current_workspace' },
@@ -98,6 +100,8 @@ export interface CompileOptions {
   confirmedOnly?: true;
   /** Override test data policy (defaults: allowAgentGeneratedData=true, askUserInTuiWhenRequired=true). */
   testData?: Partial<{ allowAgentGeneratedData: boolean; askUserInTuiWhenRequired: boolean }>;
+  /** Route resolved from session execution assets before plan confirmation. */
+  executionRoute?: Extract<ExecutionRouteResolution, { status: 'resolved' }>;
 }
 
 // ─── Private helpers ─────────────────────────────────────────
@@ -143,15 +147,17 @@ function buildExecutionPlan(
     throw new TestPlanConfirmationError(intent.features);
   }
 
-  // XCUITest path decision
-  const prefer = profile.testAssets.hasXCUITest ? 'auto' : 'device_backend';
+  const prefer = intent.executionPreference ?? 'auto';
+  const route = options?.executionRoute ?? defaultExecutionRoute(prefer);
 
   // Metrics selection
   const metrics = resolveMetrics(intent);
 
   return {
     prefer,
-    fallback: 'device_backend',
+    fallback: route.resolvedPath === 'xcuitest' ? 'abort' : 'device_backend',
+    resolvedPath: route.resolvedPath,
+    selectionReason: route.selectionReason,
     features,
     testData: {
       allowAgentGeneratedData: options?.testData?.allowAgentGeneratedData ?? true,
@@ -159,7 +165,31 @@ function buildExecutionPlan(
     },
     assertion: resolveAssertionPolicy(intent),
     metrics,
+    ...(route.xcuitest ? { xcuitest: route.xcuitest } : {}),
   };
+}
+
+function defaultExecutionRoute(
+  prefer: 'auto' | 'xcuitest' | 'device_backend',
+): Extract<ExecutionRouteResolution, { status: 'resolved' }> {
+  if (prefer === 'xcuitest') {
+    throw new ExecutionRouteConfirmationError(
+      'explicit XCUITest selection requires a uniquely resolved runnable configuration',
+    );
+  }
+  return {
+    status: 'resolved',
+    prefer,
+    resolvedPath: 'device_backend',
+    selectionReason: prefer === 'device_backend' ? 'explicit_preference' : 'no_runnable_xcuitest',
+  };
+}
+
+export class ExecutionRouteConfirmationError extends Error {
+  constructor(message: string) {
+    super(`execution_route_not_confirmed: ${message}`);
+    this.name = 'ExecutionRouteConfirmationError';
+  }
 }
 
 /** Raised when S3 is attempted without a user-confirmed candidate link. */
@@ -236,5 +266,18 @@ export function testPlanToYaml(plan: TestPlan): string {
  */
 export function parseTestPlanYaml(yamlStr: string): TestPlan {
   const obj = YAML.parse(yamlStr);
-  return parseTestPlan(obj);
+  const migrated = migrateTestPlanToV3(obj);
+  if (!migrated.ok) {
+    throw new TestPlanMigrationError(migrated.issues);
+  }
+  return parseTestPlan(migrated.value);
+}
+
+export class TestPlanMigrationError extends Error {
+  constructor(readonly issues: readonly { code: string; message: string }[]) {
+    super(
+      `test_plan_migration_failed: ${issues.map((issue) => `${issue.code}: ${issue.message}`).join('; ')}`,
+    );
+    this.name = 'TestPlanMigrationError';
+  }
 }

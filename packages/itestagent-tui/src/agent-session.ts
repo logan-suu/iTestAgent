@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel } from 'ai';
 import type {
@@ -21,6 +21,7 @@ import {
   PlanningSession,
   ToolDispatcher,
   createProductionAgentSessionDependencies,
+  createProductionDualExecutionDispatcher,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
 import { parse as parseJsonc } from 'jsonc-parser';
@@ -97,7 +98,7 @@ export const AGENT_TOOLS: Record<
   },
   executeTestPlan: {
     description:
-      'Execute a user-confirmed test plan on an explicitly selected target. This capability may report that its owning task is not wired yet.',
+      'Dispatch a user-confirmed test plan to its pre-resolved XCUITest or DeviceBackend route on an explicitly selected target.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
   generateReport: {
@@ -117,7 +118,7 @@ Use tools for project and device facts. Project source findings are candidates w
 
 function capabilityNotWired(capability: string, ownerTask: string): never {
   throw new Error(
-    `capability_not_wired: ${capability} is owned by task ${ownerTask} and is not available in task 6.2`,
+    `capability_not_wired: ${capability} is owned by task ${ownerTask} and is not available yet`,
   );
 }
 
@@ -131,12 +132,54 @@ function isReadyDevice(device: DeviceInfo): boolean {
   return device.targetKind === 'physical' || device.state === 'booted';
 }
 
+export function selectConfirmedPlanDevice(
+  plan: TestPlan,
+  devices: readonly DeviceInfo[],
+): DeviceInfo {
+  let candidates = devices.filter(
+    (device) => device.targetKind === plan.device.kind && isReadyDevice(device),
+  );
+  if (plan.device.kind === 'physical') {
+    const selector = plan.device.physical;
+    if (selector?.selector === 'by_udid') {
+      candidates = candidates.filter((device) => device.udid === selector.udid);
+    } else if (selector?.selector === 'by_name') {
+      candidates = candidates.filter((device) => device.name === selector.name);
+    }
+  } else {
+    const selector = plan.device.simulator;
+    if (selector?.selector === 'by_udid') {
+      candidates = candidates.filter((device) => device.udid === selector.udid);
+    } else if (selector?.selector === 'by_name') {
+      candidates = candidates.filter((device) => device.name === selector.name);
+    } else if (selector?.selector === 'create_from_profile') {
+      candidates = [];
+    }
+  }
+  if (candidates.length === 0) {
+    throw new Error(
+      `no_device_available: no ready ${plan.device.kind} target matches the confirmed selector`,
+    );
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `device_selection_required: ${candidates.length} ${plan.device.kind} targets match the confirmed selector`,
+    );
+  }
+  return candidates[0] as DeviceInfo;
+}
+
 export interface AgentSessionDependencies {
   loadApiKey?: () => Promise<string | null>;
   createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
   listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
+  executeConfirmedPlan?: (input: {
+    plan: TestPlan;
+    workspace: string;
+    device: DeviceInfo;
+  }) => Promise<unknown>;
 }
 
 export interface TuiAgentSession {
@@ -259,6 +302,37 @@ export async function createAgentSession(
     return cachedAnalysis;
   };
 
+  const executeConfirmedPlan =
+    dependencies.executeConfirmedPlan ??
+    (async ({ plan, workspace: executionWorkspace, device }) => {
+      const resultBundlePath = join(
+        homedir(),
+        '.itestagent',
+        'runs',
+        plan.runId,
+        'artifacts',
+        'tests.xcresult',
+      );
+      if (plan.execution.resolvedPath === 'xcuitest') {
+        mkdirSync(dirname(resultBundlePath), { recursive: true });
+      }
+      const dispatcher = createProductionDualExecutionDispatcher(async () => {
+        throw new Error(
+          'device_backend_exploration_plan_required: autonomous exploration actions are owned by task 6.6',
+        );
+      });
+      return dispatcher.dispatch({
+        plan,
+        confirmed: true,
+        workspace: executionWorkspace,
+        destination:
+          device.targetKind === 'physical'
+            ? { targetKind: 'physical', udid: device.udid }
+            : { targetKind: 'simulator', simulatorId: device.udid },
+        resultBundlePath,
+      });
+    });
+
   const toolDispatcher = new ToolDispatcher({
     permissionEngine,
     backendSelector: new BackendSelector(registry),
@@ -318,16 +392,18 @@ export async function createAgentSession(
         },
       },
       executeTestPlan: {
-        action: 'execute_test_plan',
-        resource: physicalDevice ? `deviceId:${physicalDevice.udid}` : 'device:unselected',
+        action: 'replace_device_app',
+        resource: 'confirmed-plan-target',
         backendName: 'itestagent-engine',
         execute: async () => {
-          if (!planningSession?.getConfirmedPlan()) {
+          const plan = planningSession?.getConfirmedPlan();
+          if (!plan) {
             throw new Error(
               'plan_confirmation_required: confirm the displayed TestPlan before execution',
             );
           }
-          return capabilityNotWired('test-plan execution', '6.5');
+          const selectedDevice = selectConfirmedPlanDevice(plan, devices);
+          return executeConfirmedPlan({ plan, workspace, device: selectedDevice });
         },
       },
       generateReport: {
@@ -395,6 +471,10 @@ export async function createAgentSession(
             planningSnapshot = planningSession.begin(explicitGoal ?? input);
           } else if (planningSession.getSnapshot().status === 'awaiting_clarification') {
             planningSnapshot = planningSession.clarify(input);
+          } else if (
+            planningSession.getSnapshot().status === 'awaiting_execution_route_selection'
+          ) {
+            planningSnapshot = planningSession.selectExecutionRouteFromInput(input);
           }
           if (planningSnapshot) {
             if (explicitGoal !== null) {
@@ -535,6 +615,36 @@ function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): 
       },
     });
     patches.push({ type: 'mode_change', payload: { mode: 'candidate_review' } });
+  }
+  if (snapshot.status === 'awaiting_execution_route_selection') {
+    const candidates =
+      snapshot.executionRoute?.status === 'ambiguous' ? snapshot.executionRoute.candidates : [];
+    patches.push({ type: 'mode_change', payload: { mode: 'chat' } });
+    patches.push({
+      type: 'message_add',
+      payload: {
+        role: 'system',
+        text: `Multiple runnable XCUITest configurations require selection before plan confirmation:\n${candidates
+          .map(
+            (candidate) =>
+              `- scheme ${candidate.scheme}${candidate.testPlan ? `, test plan ${candidate.testPlan}` : ' (scheme default)'}`,
+          )
+          .join('\n')}\nReply with: scheme <name> [test plan <name>]`,
+      },
+    });
+  }
+  if (snapshot.status === 'execution_route_blocked') {
+    const route = snapshot.executionRoute;
+    patches.push({ type: 'mode_change', payload: { mode: 'chat' } });
+    patches.push({
+      type: 'error',
+      payload: {
+        message:
+          route?.status === 'blocked'
+            ? `${route.code}: explicit XCUITest selection could not be uniquely resolved; no DeviceBackend fallback was applied`
+            : 'execution_route_blocked',
+      },
+    });
   }
   if (snapshot.status === 'awaiting_plan_confirmation' && snapshot.plan) {
     patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });

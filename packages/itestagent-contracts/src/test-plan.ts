@@ -17,7 +17,7 @@ import { TargetKindSchema } from './device-types.js';
 // ─── Vocabulary constants (single source for cross-module consistency) ──────
 
 /** Canonical schemaVersion literal for TestPlan documents (G2). */
-export const TEST_PLAN_SCHEMA_VERSION = 'itestagent.test-plan.v2';
+export const TEST_PLAN_SCHEMA_VERSION = 'itestagent.test-plan.v3';
 
 /**
  * Plannable performance metric names (AGENTS.md §6: 主推 hitches/hangs/
@@ -123,8 +123,12 @@ const METRIC_VALUES = TEST_PLAN_METRIC_VALUES;
  */
 export const XcuitestTargetSchema = z
   .object({
-    scheme: z.string().optional(),
+    scheme: z.string().min(1),
     configuration: z.string().optional(),
+    testPlan: z.string().optional(),
+    targets: z.array(z.string().min(1)).optional(),
+    evidence: z.array(z.string().min(1)).optional(),
+    limitations: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -135,6 +139,15 @@ export const ExecutionPlanSchema = z.object({
   prefer: z.enum(['auto', 'xcuitest', 'device_backend']),
   /** Fallback when preferred path fails: device_backend | abort */
   fallback: z.enum(['device_backend', 'abort']),
+  /** Route resolved before confirmation; execution must never infer it again. */
+  resolvedPath: z.enum(['xcuitest', 'device_backend']),
+  /** Auditable reason for the resolved route. */
+  selectionReason: z.enum([
+    'explicit_preference',
+    'runnable_xcuitest',
+    'no_runnable_xcuitest',
+    'user_selected_after_ambiguity',
+  ]),
   /** Feature names from ProjectProfile to cover */
   features: z.array(z.string()),
   /** Flow YAML IDs to replay */
@@ -145,7 +158,7 @@ export const ExecutionPlanSchema = z.object({
   assertion: AssertionPolicySchema,
   /** Performance metrics to collect */
   metrics: z.array(z.enum(METRIC_VALUES)).optional(),
-  /** Explicit XCUITest target (scheme/configuration); optional, backward compatible */
+  /** Confirmed XCUITest configuration; required when resolvedPath=xcuitest. */
   xcuitest: XcuitestTargetSchema.optional(),
 });
 

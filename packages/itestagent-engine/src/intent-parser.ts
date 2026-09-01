@@ -38,6 +38,8 @@ export function parseIntent(input: string, profile?: ProjectProfile): IntentPars
 
   const goal = extractGoal(normalized, scope, features);
 
+  const executionSelection = extractExecutionSelection(input, normalized);
+
   // ── 6. Build intent ──────────────────────────────────────
 
   const intent: Intent = {
@@ -46,6 +48,7 @@ export function parseIntent(input: string, profile?: ProjectProfile): IntentPars
     features,
     metricsRequested,
     scope,
+    ...executionSelection,
     sourceText,
   };
 
@@ -78,6 +81,32 @@ export function parseIntent(input: string, profile?: ProjectProfile): IntentPars
   return {
     status: 'complete',
     intent,
+  };
+}
+
+function extractExecutionSelection(
+  input: string,
+  normalized: string,
+): Pick<Intent, 'executionPreference' | 'xcuitestScheme' | 'xcuitestTestPlan'> {
+  const deviceBackend =
+    /\bdevice[ _-]?backend\b/i.test(input) ||
+    /\bappium\b/i.test(input) ||
+    normalized.includes('探索路径');
+  const xcuitest =
+    /\bxcuitest\b/i.test(input) ||
+    /\bxcodebuild\s+test\b/i.test(input) ||
+    normalized.includes('ui 测试路径');
+  const scheme = input.match(/\bscheme\s*[=:]?[ \t]+([^,;\s]+)/i)?.[1];
+  const testPlan = input.match(/\btest[ _-]?plan\s*[=:]?[ \t]+([^,;\s]+)/i)?.[1];
+
+  return {
+    ...(deviceBackend
+      ? { executionPreference: 'device_backend' as const }
+      : xcuitest
+        ? { executionPreference: 'xcuitest' as const }
+        : {}),
+    ...(scheme ? { xcuitestScheme: scheme } : {}),
+    ...(testPlan ? { xcuitestTestPlan: testPlan } : {}),
   };
 }
 

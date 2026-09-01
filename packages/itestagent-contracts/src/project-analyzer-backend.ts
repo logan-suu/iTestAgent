@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { BuildDestinationSchema } from './build-driver.js';
+import { TargetKindSchema } from './device-types.js';
 
 /**
  * ProjectAnalyzerBackend — 项目分析 Backend 接口 + Zod schemas
@@ -167,6 +169,45 @@ export const ResourceFactsSchema = z
 
 export type ResourceFacts = z.infer<typeof ResourceFactsSchema>;
 
+// ─── 6. Runnable XCUITest execution assets (ADR-029) ─────────────
+
+export const XcuitestExecutionAssetQuerySchema = z
+  .object({
+    root: z.string(),
+    discovery: ProjectDiscoverySchema,
+    xcuitestTargets: z.array(z.string().min(1)),
+    targetKind: TargetKindSchema,
+    destination: BuildDestinationSchema.optional(),
+  })
+  .strict();
+
+export type XcuitestExecutionAssetQuery = z.infer<typeof XcuitestExecutionAssetQuerySchema>;
+
+export const RunnableXcuitestConfigurationSchema = z
+  .object({
+    scheme: z.string().min(1),
+    testPlan: z.string().min(1).optional(),
+    targets: z.array(z.string().min(1)).min(1),
+    targetKind: TargetKindSchema,
+    destination: BuildDestinationSchema.optional(),
+    isDefault: z.boolean(),
+    evidence: z.array(z.string().min(1)).min(1),
+    limitations: z.array(z.string()),
+  })
+  .strict();
+
+export type RunnableXcuitestConfiguration = z.infer<typeof RunnableXcuitestConfigurationSchema>;
+
+export const XcuitestExecutionAssetsSchema = z
+  .object({
+    configurations: z.array(RunnableXcuitestConfigurationSchema),
+    evidence: z.array(z.string()),
+    limitations: z.array(z.string()),
+  })
+  .strict();
+
+export type XcuitestExecutionAssets = z.infer<typeof XcuitestExecutionAssetsSchema>;
+
 // ─── 6. Backend 接口 ─────────────────────────────────────────
 
 /**
@@ -190,4 +231,9 @@ export interface ProjectAnalyzerBackend {
 
   /** 扫描资源统计（Asset Catalog、字体、本地化、权限） */
   scanResources(input: ResourceScanInput): Promise<ResourceFacts>;
+
+  /** Resolve runnable XCUITest configurations for a target-explicit session. */
+  discoverXcuitestExecutionAssets?(
+    input: XcuitestExecutionAssetQuery,
+  ): Promise<XcuitestExecutionAssets>;
 }
