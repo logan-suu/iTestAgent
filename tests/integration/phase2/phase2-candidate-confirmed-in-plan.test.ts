@@ -6,8 +6,29 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { type TestPlan, TestPlanSchema } from 'itestagent-contracts';
-import { compileTestPlan, parseIntent, parseTestPlanYaml, testPlanToYaml } from 'itestagent-engine';
+import {
+  compileTestPlan as compileTestPlanCore,
+  parseIntent,
+  parseTestPlanYaml,
+  testPlanToYaml,
+} from 'itestagent-engine';
 import type { CandidateLink, ProjectProfile } from 'itestagent-project-analyzer';
+
+function compileTestPlan(
+  intent: Parameters<typeof compileTestPlanCore>[0],
+  profile: Parameters<typeof compileTestPlanCore>[1],
+  options: Parameters<typeof compileTestPlanCore>[2] = {},
+) {
+  return compileTestPlanCore(intent, profile, {
+    ...options,
+    executionRoute: options.executionRoute ?? {
+      status: 'resolved',
+      prefer: 'auto',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    },
+  });
+}
 
 // ─── Helpers ─────────────────────────────────────────────────
 

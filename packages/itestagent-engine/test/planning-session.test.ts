@@ -35,7 +35,7 @@ function analysis(): ProjectAnalysisResult {
       enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
       limitations: ['Candidates require confirmation.'],
       executionAssets: {
-        status: 'none',
+        statusByTargetKind: { physical: 'none', simulator: 'none' },
         configurations: [],
         evidence: ['Shared scheme metadata contains no XCUITest candidate.'],
         limitations: [],
@@ -51,7 +51,7 @@ function analysisWithRoutes(): ProjectAnalysisResult {
     analysis: {
       ...source.analysis,
       executionAssets: {
-        status: 'available',
+        statusByTargetKind: { physical: 'available', simulator: 'none' },
         configurations: ['One', 'Two'].map((scheme) => ({
           scheme,
           targets: [`${scheme}UITests`],
@@ -68,6 +68,22 @@ function analysisWithRoutes(): ProjectAnalysisResult {
 }
 
 describe('PlanningSession', () => {
+  it('uses the selected target status when another target kind has candidates', () => {
+    const session = new PlanningSession(analysisWithRoutes());
+    const snapshot = session.begin('Run the login smoke test on the booted Simulator');
+    const planned = session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(planned.status).toBe('awaiting_plan_confirmation');
+    expect(planned.plan?.execution).toMatchObject({
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    });
+  });
+
   it('requires route selection before plan confirmation when auto is ambiguous', () => {
     const session = new PlanningSession(analysisWithRoutes());
     const snapshot = session.begin('用本机 iPhone 跑登录 smoke');

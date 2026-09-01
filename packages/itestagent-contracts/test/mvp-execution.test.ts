@@ -8,9 +8,8 @@
  *
  *   - fail-closed: invalid cross-field plans throw MvpCompilationError with
  *     the typed issues from validateTestPlan (never a bare ZodError);
- *   - executionPath decision table for prefer=auto|xcuitest|device_backend,
- *     where auto uses an explicit ExecutionPlan.xcuitest.scheme as the
- *     XCUITest-presence signal at the contracts layer;
+ *   - executionPath consumes the confirmed resolvedPath and never infers a
+ *     route from execution.xcuitest.scheme or other pre-confirmation hints;
  *   - discriminated device selector passthrough.
  */
 import { describe, expect, it } from 'bun:test';

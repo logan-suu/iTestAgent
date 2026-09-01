@@ -317,10 +317,12 @@ export class PlanningSession {
     selectedAfterAmbiguity = false,
     identity?: { runId: string; projectProfileRef: string },
   ): PlanningSnapshot {
+    const targetKind = intent.targetKind ?? 'physical';
     const resolution = resolveExecutionRoute({
       preference: intent.executionPreference ?? 'auto',
-      targetKind: intent.targetKind ?? 'physical',
-      discoveryStatus: this.analysis.analysis.executionAssets?.status ?? 'indeterminate',
+      targetKind,
+      discoveryStatus:
+        this.analysis.analysis.executionAssets?.statusByTargetKind[targetKind] ?? 'indeterminate',
       configurations: this.analysis.analysis.executionAssets?.configurations ?? [],
       ...(intent.xcuitestScheme ? { selectedScheme: intent.xcuitestScheme } : {}),
       ...(intent.xcuitestTestPlan ? { selectedTestPlan: intent.xcuitestTestPlan } : {}),

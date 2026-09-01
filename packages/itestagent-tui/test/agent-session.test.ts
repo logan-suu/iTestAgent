@@ -74,7 +74,7 @@ const FAKE_ANALYSIS = {
     enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
     limitations: ['Candidates require user confirmation.'],
     executionAssets: {
-      status: 'none',
+      statusByTargetKind: { physical: 'none', simulator: 'none' },
       configurations: [],
       evidence: ['Shared scheme metadata contains no XCUITest candidate.'],
       limitations: [],

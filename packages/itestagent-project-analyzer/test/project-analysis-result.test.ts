@@ -65,7 +65,10 @@ describe('ADR-026 project analysis result', () => {
       '/tmp/App',
     );
     expect(result.analysis.executionAssets?.configurations).toHaveLength(2);
-    expect(result.analysis.executionAssets?.status).toBe('available');
+    expect(result.analysis.executionAssets?.statusByTargetKind).toEqual({
+      physical: 'available',
+      simulator: 'available',
+    });
     expect(result.analysis.executionAssets?.configurations.map((item) => item.targetKind)).toEqual([
       'physical',
       'simulator',
@@ -84,9 +87,47 @@ describe('ADR-026 project analysis result', () => {
       '/tmp/App',
     );
     expect(result.analysis.executionAssets).toMatchObject({
-      status: 'indeterminate',
+      statusByTargetKind: { physical: 'indeterminate', simulator: 'indeterminate' },
       configurations: [],
     });
+  });
+
+  it('preserves independent discovery status for each target kind', async () => {
+    const result = await analyzeProject(
+      {
+        ...backend,
+        graph: async () => ({
+          targets: [{ name: 'AppUITests', type: 'test', dependencies: [] }],
+          hasXCUITests: true,
+          hasUnitTests: false,
+          xcuitestTargets: ['AppUITests'],
+        }),
+        discoverXcuitestExecutionAssets: async (input) =>
+          input.targetKind === 'physical'
+            ? {
+                status: 'available',
+                configurations: [
+                  {
+                    scheme: 'App',
+                    targets: ['AppUITests'],
+                    targetKind: 'physical',
+                    isDefault: true,
+                    evidence: ['shared scheme TestAction metadata'],
+                    limitations: [],
+                  },
+                ],
+                evidence: [],
+                limitations: [],
+              }
+            : { status: 'none', configurations: [], evidence: [], limitations: [] },
+      },
+      '/tmp/App',
+    );
+    expect(result.analysis.executionAssets?.statusByTargetKind).toEqual({
+      physical: 'available',
+      simulator: 'none',
+    });
+    expect(result.analysis.executionAssets?.configurations).toHaveLength(1);
   });
 
   it('wraps project-profile.v1 with explicit tier and limitations', async () => {

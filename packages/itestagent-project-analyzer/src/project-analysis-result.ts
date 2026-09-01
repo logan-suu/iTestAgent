@@ -1,14 +1,26 @@
-import type { ProjectAnalyzerBackend, XcuitestExecutionAssets } from 'itestagent-contracts';
+import type {
+  ProjectAnalyzerBackend,
+  TargetKind,
+  XcuitestExecutionAssets,
+  XcuitestExecutionCandidate,
+} from 'itestagent-contracts';
 import { generateProjectProfile } from './profile-generator.js';
 import type { ProjectProfile } from './profile-io.js';
 
 export type ProjectAnalysisTier = 'tier1_static' | 'tier2_syntax' | 'tier3_semantic';
 
+export interface TargetExplicitXcuitestExecutionAssets {
+  readonly statusByTargetKind: Readonly<Record<TargetKind, XcuitestExecutionAssets['status']>>;
+  readonly configurations: readonly XcuitestExecutionCandidate[];
+  readonly evidence: readonly string[];
+  readonly limitations: readonly string[];
+}
+
 export interface ProjectAnalysisMetadata {
   readonly analysisTier: ProjectAnalysisTier;
   readonly enabledCapabilities: readonly string[];
   readonly limitations: readonly string[];
-  readonly executionAssets?: XcuitestExecutionAssets;
+  readonly executionAssets?: TargetExplicitXcuitestExecutionAssets;
 }
 
 export interface ProjectAnalysisResult {
@@ -43,7 +55,7 @@ export async function analyzeProject(
   analysis: ProjectAnalysisMetadata = XCODEPROJ_TIER1_ANALYSIS,
 ): Promise<ProjectAnalysisResult> {
   const profile = await generateProjectProfile(backend, root);
-  let executionAssets: XcuitestExecutionAssets | undefined;
+  let executionAssets: TargetExplicitXcuitestExecutionAssets | undefined;
   if (backend.discoverXcuitestExecutionAssets) {
     try {
       const discovery = await backend.discover(root);
@@ -59,22 +71,22 @@ export async function analyzeProject(
           }),
         ),
       );
-      const statuses = snapshots.map((snapshot) => snapshot?.status ?? 'indeterminate');
-      const configurations = snapshots.flatMap((snapshot) => snapshot?.configurations ?? []);
-      const status = statuses.includes('indeterminate')
-        ? 'indeterminate'
-        : configurations.length > 0
-          ? 'available'
-          : 'none';
+      const physical = snapshots[0];
+      const simulator = snapshots[1];
       executionAssets = {
-        status,
-        configurations: status === 'available' ? configurations : [],
+        statusByTargetKind: {
+          physical: physical?.status ?? 'indeterminate',
+          simulator: simulator?.status ?? 'indeterminate',
+        },
+        configurations: snapshots.flatMap((snapshot) =>
+          snapshot?.status === 'available' ? snapshot.configurations : [],
+        ),
         evidence: snapshots.flatMap((snapshot) => snapshot?.evidence ?? []),
         limitations: snapshots.flatMap((snapshot) => snapshot?.limitations ?? []),
       };
     } catch {
       executionAssets = {
-        status: 'indeterminate',
+        statusByTargetKind: { physical: 'indeterminate', simulator: 'indeterminate' },
         configurations: [],
         evidence: [],
         limitations: [

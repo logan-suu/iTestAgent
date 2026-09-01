@@ -178,17 +178,16 @@ function buildExecutionPlan(
 function defaultExecutionRoute(
   prefer: 'auto' | 'xcuitest' | 'device_backend',
 ): Extract<ExecutionRouteResolution, { status: 'resolved' }> {
-  if (prefer === 'xcuitest') {
+  if (prefer !== 'device_backend') {
     throw new ExecutionRouteConfirmationError(
-      'explicit XCUITest selection requires a uniquely resolved runnable configuration',
+      `${prefer} selection requires an evidence-backed target-explicit route resolution`,
     );
   }
   return {
     status: 'resolved',
     prefer,
     resolvedPath: 'device_backend',
-    selectionReason:
-      prefer === 'device_backend' ? 'explicit_preference' : 'confirmed_no_xcuitest_candidate',
+    selectionReason: 'explicit_preference',
   };
 }
 

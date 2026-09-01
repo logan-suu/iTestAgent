@@ -58,14 +58,14 @@ xcuitestExecutionCandidate =
 ### 2. 探测结果必须显式区分三种状态
 
 ```text
-executionAssets.status = available | none | indeterminate
+executionAssets.statusByTargetKind[targetKind] = available | none | indeterminate
 ```
 
-- `available`：存在一个或多个证据充分的结构候选。
+- `available`：当前 `targetKind` 存在一个或多个证据充分的结构候选。
 - `none`：metadata-only 分析权威完成，确认不存在候选。
 - `indeterminate`：读取、解析或工具调用失败，无法得出有无候选的结论。
 
-`prefer=auto` 只有在 `status=none` 时才能选择 DeviceBackend；`indeterminate` 必须 blocked。用户显式选择 `device_backend` 时仍尊重显式选择。
+physical 与 Simulator 的状态必须分别保留，不得折叠为全局状态。`prefer=auto` 只有在当前 TestPlan 所选 `targetKind` 的状态为 `none` 时才能选择 DeviceBackend；`indeterminate` 必须 blocked。另一种 `targetKind` 存在候选不得阻止当前目标的权威 `none` 选择 DeviceBackend。用户显式选择 `device_backend` 时仍尊重显式选择。
 
 ### 3. 确认、权限与真实执行
 

@@ -42,7 +42,7 @@ const ANALYSIS: ProjectAnalysisResult = {
     enabledCapabilities: ['xcodebuild_discovery', 'static_source_candidates'],
     limitations: ['Candidates require confirmation.'],
     executionAssets: {
-      status: 'none',
+      statusByTargetKind: { physical: 'none', simulator: 'none' },
       configurations: [],
       evidence: ['Shared scheme metadata contains no XCUITest TestAction entries.'],
       limitations: [],

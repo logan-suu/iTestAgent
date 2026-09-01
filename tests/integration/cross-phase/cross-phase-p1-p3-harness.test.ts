@@ -23,7 +23,7 @@ import {
   ContextBuilder,
   PermissionEngine,
   RunStateMachine,
-  compileTestPlan,
+  compileTestPlan as compileTestPlanCore,
   parseIntent,
 } from 'itestagent-engine';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
@@ -35,6 +35,22 @@ import {
   initStore,
   schema,
 } from 'itestagent-store';
+
+function compileTestPlan(
+  intent: Parameters<typeof compileTestPlanCore>[0],
+  profile: Parameters<typeof compileTestPlanCore>[1],
+  options: Parameters<typeof compileTestPlanCore>[2] = {},
+) {
+  return compileTestPlanCore(intent, profile, {
+    ...options,
+    executionRoute: options.executionRoute ?? {
+      status: 'resolved',
+      prefer: 'auto',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+    },
+  });
+}
 
 // ─── Mock DB ─────────────────────────────────────────────────
 

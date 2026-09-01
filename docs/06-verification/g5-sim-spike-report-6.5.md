@@ -84,10 +84,11 @@ DeviceBackend 的动态探索动作属于 T6.6，本报告不宣称 DeviceBacken
 - discovery/build/dispatcher/TUI/Phase 6 定向用例：82 pass / 0 fail（真机安全修正后）；
 - 最终相关 contracts/engine/analyzer/build/TUI、Phase 2/6 与架构套件：1952 pass / 11 skip / 0 fail；
 - 提交前自评进一步收紧旧 v1/v2 `auto + scheme` migration 和 XCUITest route 的 `fallback=abort` 交叉字段约束；新增回归后全仓 `bun test`：3468 pass / 13 skip / 0 fail；
+- PR review 按 ADR-030 修订并补充 target-explicit 状态隔离回归后，在当前完整 checkout 执行全仓命令 `bun test`：3478 pass / 13 skip / 0 fail（327 个测试文件）；
 - `bun run lint`、`bun run typecheck` 与 `git diff --check` 全部通过。
 
 ## 当前限制
 
 - 真机 G5 仅覆盖无 AUT host 的系统 Settings case，不覆盖 SpikeApp AUT 真机安装；
-- XCUITest 的 AbortSignal 尚未贯通 generic revalidation、test 与 parse 子进程，继续由 DEF-033/T6.10 跟踪；本报告不宣称取消验证；
+- XCUITest 的 AbortSignal 尚未贯通确认后的 test 与 parse 子进程，继续由 DEF-033/T6.10 跟踪；本报告不宣称取消验证；
 - DeviceBackend 动态动作与逐 case checkpoint 属于 T6.6。

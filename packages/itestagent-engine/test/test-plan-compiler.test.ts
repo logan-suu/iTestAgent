@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'bun:test';
 import type { Intent, TestPlan } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
-import { compileTestPlan, parseTestPlanYaml, testPlanToYaml } from '../src/test-plan-compiler.js';
+import {
+  compileTestPlan as compileTestPlanCore,
+  parseTestPlanYaml,
+  testPlanToYaml,
+} from '../src/test-plan-compiler.js';
+
+const AUTHORITATIVE_NO_XCUITEST_ROUTE = {
+  status: 'resolved' as const,
+  prefer: 'auto' as const,
+  resolvedPath: 'device_backend' as const,
+  selectionReason: 'confirmed_no_xcuitest_candidate' as const,
+};
+
+function compileTestPlan(
+  intent: Intent,
+  profile: ProjectProfile,
+  options: Parameters<typeof compileTestPlanCore>[2] = {},
+) {
+  return compileTestPlanCore(intent, profile, {
+    ...options,
+    executionRoute: options.executionRoute ?? AUTHORITATIVE_NO_XCUITEST_ROUTE,
+  });
+}
 
 // ─── Fixtures ────────────────────────────────────────────────
 
@@ -223,7 +245,13 @@ describe('compileTestPlan', () => {
   // ── Execution path logic ───────────────────────────────────
 
   describe('execution path selection', () => {
-    it('does not treat hasXCUITest as a runnable execution configuration', () => {
+    it('requires target-explicit route evidence for auto compilation', () => {
+      expect(() => compileTestPlanCore(makeIntent(), makeProfile())).toThrow(
+        'execution_route_not_confirmed',
+      );
+    });
+
+    it('does not treat hasXCUITest as an execution candidate', () => {
       const profileWithXCUITest = makeProfile({
         testAssets: {
           hasXCUITest: true,
@@ -236,7 +264,7 @@ describe('compileTestPlan', () => {
       expect(plan.execution.resolvedPath).toBe('device_backend');
     });
 
-    it('resolves auto to DeviceBackend when no runnable configuration is supplied', () => {
+    it('compiles the authoritative no-candidate route to DeviceBackend', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
       expect(plan.execution.prefer).toBe('auto');
       expect(plan.execution.resolvedPath).toBe('device_backend');
