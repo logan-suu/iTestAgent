@@ -604,7 +604,7 @@
       "status": "open",
       "resolved_by": null,
       "created_at": "2026-09-01T06:05:27Z",
-      "notes": "2026-09-01 T6.5 self-check extends the same T6.10 cancellation audit to the new XCUITest production route: ConfirmedExecutionDispatchInput accepts signal, but runnable-asset revalidation still uses synchronous analyzer xcodebuild calls and runXcunitFlow does not yet pass the signal into xcodebuild test or xcresult parse. Fixing this requires changing shared analyzer/build/parser subprocess contracts and verifying child cleanup, so it remains in DEF-033/T6.10 rather than being hidden or duplicated. T6.5 G5/G5-SIM must not claim cancellation coverage."
+      "notes": "2026-09-01 T6.5 self-check extends the same T6.10 cancellation audit to the confirmed XCUITest production route. ADR-030 removed analyzer xcodebuild execution from pre-confirmation discovery and reduced candidate revalidation to metadata-only reads, but runXcunitFlow still does not pass the accepted signal into confirmed xcodebuild test or xcresult parsing subprocesses. Fixing the remaining gap requires changing shared build/parser subprocess contracts and verifying child cleanup, so it remains in DEF-033/T6.10 rather than being hidden or duplicated. T6.5 G5/G5-SIM must not claim cancellation coverage."
     }
   ]
 }
