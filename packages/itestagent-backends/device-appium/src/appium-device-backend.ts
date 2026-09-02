@@ -105,6 +105,8 @@ export type WdaStatusFetchFn = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+export type PhysicalDeviceDiscoveryFn = (signal?: AbortSignal) => Promise<DeviceInfo[]>;
+
 export interface AppiumDeviceBackendOptions {
   /** Device UDID (required). */
   udid: string;
@@ -114,6 +116,8 @@ export interface AppiumDeviceBackendOptions {
   bundleId?: string;
   /** Run-scoped directory for raw screenshot artifacts. */
   artifactDirectory?: string;
+  /** Injectable physical-device discovery seam for deterministic unit tests. */
+  physicalDeviceDiscovery?: PhysicalDeviceDiscoveryFn;
   /**
    * WDA base bundle ID for free-account workaround (physical only).
    * MUST be base ID WITHOUT .xctrunner suffix (e.g. "TEAMID.WebDriverAgentRunner").
@@ -233,6 +237,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       AppiumDeviceBackendOptions,
       | 'bundleId'
       | 'artifactDirectory'
+      | 'physicalDeviceDiscovery'
       | 'wdaBundleId'
       | 'iproxyTunnel'
       | 'derivedDataPath'
@@ -262,6 +267,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private readonly wdaManager: WdaManager | undefined;
   private readonly iproxyTunnel: IProxyTunnel | undefined;
   private readonly wdaStatusFetch: WdaStatusFetchFn;
+  private readonly physicalDeviceDiscovery: PhysicalDeviceDiscoveryFn;
   private sessionActive = false;
   private activeSession: AppiumSession | null = null;
   private sessionMutex: Promise<void> | null = null;
@@ -271,6 +277,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     this.logger = createRedactingLogger('AppiumDeviceBackend');
     this.driver = driver;
     this.wdaStatusFetch = options.wdaStatusFetch ?? globalThis.fetch;
+    this.physicalDeviceDiscovery = options.physicalDeviceDiscovery ?? discoverPhysicalDevices;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
     this.iproxyTunnel = options.iproxyTunnel;
@@ -666,7 +673,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     if (this.targetKind === 'simulator') {
       return discoverSimulatorDevices(signal);
     }
-    return discoverPhysicalDevices(signal);
+    return this.physicalDeviceDiscovery(signal);
   }
 
   // ────────── healthcheck ─────────────────────────────────────────
@@ -804,7 +811,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     signal?: AbortSignal,
   ): Promise<HealthCheckResult> {
     try {
-      const devices = await discoverPhysicalDevices(signal);
+      const devices = await this.physicalDeviceDiscovery(signal);
 
       if (devices.length === 0) {
         return {

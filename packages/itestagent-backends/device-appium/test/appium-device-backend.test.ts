@@ -304,6 +304,7 @@ function createBackend(config?: MockDriverConfig): {
     bundleId: TEST_BUNDLE_ID,
     wdaBundleId: 'TEAMID.WebDriverAgentRunner',
     wdaStartupMode: 'managed-xcodebuild',
+    physicalDeviceDiscovery: async () => [],
   });
   return { backend, mock };
 }
@@ -1324,6 +1325,7 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
         targetKind: 'physical',
         bundleId: TEST_BUNDLE_ID,
         wdaStartupMode: 'managed-xcodebuild',
+        physicalDeviceDiscovery: async () => [],
       });
 
       const caps = physical.capabilities;
@@ -1331,16 +1333,21 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
       expect(caps.supportsCrashLogs).toBe(true);
     });
 
-    it('physical backend listDevices uses devicectl (not simctl)', async () => {
+    it('physical backend listDevices uses physical discovery (not simctl)', async () => {
       const driver = new MockAppiumDriver();
+      let discoveryCalls = 0;
       const physical = new AppiumDeviceBackend(driver, {
         udid: TEST_UDID,
         targetKind: 'physical',
         wdaStartupMode: 'managed-xcodebuild',
+        physicalDeviceDiscovery: async () => {
+          discoveryCalls += 1;
+          return [];
+        },
       });
       const devices = await physical.listDevices();
-      // devicectl may not be available in test env — still returns array (R5)
       expect(Array.isArray(devices)).toBe(true);
+      expect(discoveryCalls).toBe(1);
       expect(physical.capabilities.supportedTargetKinds).toEqual(['physical']);
     });
   });

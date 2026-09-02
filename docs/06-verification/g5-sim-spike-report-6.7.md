@@ -27,6 +27,7 @@
 | `bun test` | PASS：3534 pass / 13 skip / 0 fail（330 files） |
 | `bun run gate:g7` | PASS：7 pass / 0 fail |
 | T6.7 changed-scope suite | PASS：原实现 278 pass / 0 fail；PR review 修复后相关回归 153 pass / 0 fail |
+| Linux CI portability regression | PASS：Appium backend 99 pass / 4 platform skip / 0 fail；物理发现使用 injectable seam，生产默认仍为 devicectl |
 
 全仓测试在完整本机权限下执行；沙箱内首次运行的 Keychain/CoreDevice/doctor 超时不作为代码失败，完整权限复跑为全绿。
 
@@ -96,6 +97,7 @@ PR #76 的自动审查意见没有直接按现有文档机械实施，而是先�
 - 空 `typeText` 是无效果输入，显式 blocked；清空字段应由未来独立语义动作表达，不能把空字符串隐式解释为 clear。
 - cleanup 失败返回结构化 infrastructure failure，同时保留已经发生的 replay steps、evidence 与原始失败事实。
 - evidence 强制 per-run 隔离、路径 containment、普通非空文件、无 symlink，并采用目录 `0700` / 文件 `0600` 权限。
+- 首次远端复验暴露一个既有单元测试直接调用宿主 `devicectl`，Linux runner 在 5 秒测试截止前未返回；现已为 Appium backend 增加可注入的物理发现 seam，使单测使用确定性 fake，生产默认路径不变。完整权限全仓复跑仍为 3534 pass / 13 skip / 0 fail。
 
 10 条 inline review thread 已逐条验证：8 条实现缺陷完成修复，2 条与确认后的 ADR-032 / readiness 分层冲突的建议以文档和真机证据说明后拒绝；CodeRabbit review body 的 6 条建议也逐条覆盖或说明。
 
