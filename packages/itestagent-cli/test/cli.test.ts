@@ -1,7 +1,7 @@
 import { describe, expect, it, test } from 'bun:test';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { createProgram } from '../src/cli.js';
+import { assertSafeRunId, createProgram, selectConfirmedPhysicalDevice } from '../src/cli.js';
 import { VERSION } from '../src/version.js';
 
 const cliPath = join(import.meta.dir, '..', 'src', 'cli.ts');
@@ -51,6 +51,52 @@ test('explore exposes an explicit WDA URL for Route B', () => {
   const explore = program.commands.find((cmd) => cmd.name() === 'explore');
   expect(explore).toBeDefined();
   expect(explore?.options.some((option) => option.flags.includes('--wda-url'))).toBe(true);
+});
+
+test('explore rejects unsafe run identifiers', () => {
+  expect(() => assertSafeRunId('../../outside')).toThrow('not a safe identifier');
+  expect(() => assertSafeRunId('run-safe_1.0')).not.toThrow();
+});
+
+test('explore cannot override a confirmed physical selector', () => {
+  const observedDevices = [
+    {
+      hardwareProperties: { udid: 'UDID-1' },
+      deviceProperties: { name: 'Primary iPhone', osVersionNumber: '18.2' },
+    },
+    {
+      hardwareProperties: { udid: 'UDID-2' },
+      deviceProperties: { name: 'Other iPhone', osVersionNumber: '18.2' },
+    },
+  ];
+  expect(() =>
+    selectConfirmedPhysicalDevice({
+      cliUdid: 'UDID-2',
+      selector: { selector: 'by_udid', udid: 'UDID-1' },
+      observedDevices,
+    }),
+  ).toThrow('does not match confirmed UDID');
+  expect(
+    selectConfirmedPhysicalDevice({
+      cliUdid: 'UDID-1',
+      selector: { selector: 'by_name', name: 'Primary iPhone' },
+      observedDevices,
+    }).hardwareProperties?.udid,
+  ).toBe('UDID-1');
+  expect(() =>
+    selectConfirmedPhysicalDevice({
+      cliUdid: 'UDID-1',
+      selector: { selector: 'local_connected' },
+      observedDevices,
+    }),
+  ).toThrow('does not uniquely match');
+  expect(
+    selectConfirmedPhysicalDevice({
+      cliUdid: 'UDID-1',
+      selector: { selector: 'local_connected' },
+      observedDevices: [observedDevices[0] as (typeof observedDevices)[number]],
+    }).hardwareProperties?.udid,
+  ).toBe('UDID-1');
 });
 
 test('no subcommand action outputs TUI placeholder (US-18.1 AC1: no login required)', () => {

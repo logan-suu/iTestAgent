@@ -45,10 +45,13 @@ function artifact(overrides: Partial<ArtifactRef> = {}): ArtifactRef {
 function step(overrides: Partial<RunStep> & { stepId?: string } = {}): RunStep {
   return {
     stepId: overrides.stepId ?? 's1',
+    sequence: 1,
     backend: 'appium',
+    targetKind: 'physical',
     action: 'tap',
     input: { x: 0.5, y: 0.5 },
     result: { success: true },
+    status: 'completed',
     artifacts: ['art-1'],
     startedAt: '2026-07-28T10:00:00.000Z',
     durationMs: 450,

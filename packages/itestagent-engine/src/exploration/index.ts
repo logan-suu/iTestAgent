@@ -8,7 +8,7 @@ export {
   observationsFromUiTrees,
 } from './assertion-observations.js';
 export type { UiTreeCapture } from './assertion-observations.js';
-export { runRealDeviceExploration } from './real-run.js';
+export { runRealDeviceExploration, suggestExplorationAction } from './real-run.js';
 export {
   collectDispatcherArtifactRefs,
   createBackendToolDispatcher,

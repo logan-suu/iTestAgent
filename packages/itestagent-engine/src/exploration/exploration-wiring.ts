@@ -36,6 +36,8 @@ export interface ExplorationSurfaceConfig {
   wdaBundleId?: string;
   /** Mac-side WDA port (default 8100). */
   wdaLocalPort?: number;
+  /** Mac-side MJPEG forwarding port (default 9100). */
+  mjpegServerPort?: number;
   /** Appium server URL (default http://127.0.0.1:4723). */
   appiumServerUrl?: string;
   /** iproxy binary path override (external-url route tunnel). */
@@ -92,6 +94,7 @@ export function createAppiumExplorationRuntime(
       xcodeSigningId: config.xcodeSigningId ?? 'Apple Development',
       wdaBundleId: config.wdaBundleId,
       wdaLocalPort: config.wdaLocalPort ?? 8100,
+      mjpegServerPort: config.mjpegServerPort ?? 9100,
       iproxyTunnel: tunnel,
     },
   );

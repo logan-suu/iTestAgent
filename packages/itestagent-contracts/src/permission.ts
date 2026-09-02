@@ -12,7 +12,7 @@ import { z } from 'zod';
  * 红线 R7：危险操作（清除数据/卸载重装/写项目/存凭证/更新 baseline）必须二次确认
  *
  * 架构设计 §8 风险操作列表：
- *   DEFAULT_HIGH_RISK_ACTIONS contains 12 high-risk actions.
+ *   DEFAULT_HIGH_RISK_ACTIONS contains the default confirmation-gated actions.
  */
 
 // ─── 权限效果 ─────────────────────────────────────────────
@@ -61,7 +61,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
 // ─── 默认高风险操作集 ─────────────────────────────────────
 
 /**
- * Default high-risk action list (12 actions).
+ * Default high-risk action list (13 actions).
  *
  * 架构设计 §8 + 红线 R7 定义：
  *   clear_app_data     — 清除应用数据
@@ -69,6 +69,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
  *   write_project_file — 写项目目录文件
  *   store_credential   — 存储凭证
  *   update_baseline    — 更新性能 baseline
+ *   save_flow          — first-time Flow save
  *   overwrite_flow     — 覆盖已有 Flow
  *   generate_draft_test — 生成测试代码草稿
  *   open_non_http_url  — 打开非 HTTP 协议 URL
@@ -76,6 +77,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
  *   execute_project_build — Execute workspace build/test actions and project scripts
  *   replace_device_app  — Replace or reinstall an application on a device
  *   prepare_wda         — Build, re-sign, or replace WDA on a device
+ *   interact_sensitive_ui — Perform a UI action with sensitive semantic side effects
  */
 export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'clear_app_data',
@@ -83,6 +85,7 @@ export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'write_project_file',
   'store_credential',
   'update_baseline',
+  'save_flow',
   'overwrite_flow',
   'generate_draft_test',
   'open_non_http_url',
@@ -90,6 +93,7 @@ export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'execute_project_build',
   'replace_device_app',
   'prepare_wda',
+  'interact_sensitive_ui',
 ];
 
 // ─── 工具函数 ─────────────────────────────────────────────

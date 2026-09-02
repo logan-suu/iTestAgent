@@ -32,6 +32,7 @@ export const ArtifactTypeSchema = z.enum([
   'video',
   'uitree',
   'log',
+  'syslog',
   'crashlog',
   'trace',
   'xcresult',
@@ -74,6 +75,8 @@ export const ArtifactRefSchema = z.object({
   sha256: z.string().optional(),
   /** 关联的 run step id（可选） */
   relatedStep: z.string().optional(),
+  /** Related test case ID; required for evidence used in case evaluation. */
+  relatedCase: z.string().optional(),
   /** 产生此产物的 backend（可选） */
   backend: z.string().optional(),
   /** 脱敏状态 */

@@ -38,11 +38,15 @@ const VALID_RECORDING_RESULT = {
     {
       step: {
         stepId: 's1',
+        sequence: 1,
         backend: 'appium',
+        targetKind: 'physical' as const,
+        caseId: 'login',
         action: 'launch',
         target: 'com.example.app',
         input: null,
         result: { success: true },
+        status: 'completed' as const,
         artifacts: [],
         startedAt: '2026-07-23T10:00:00.000Z',
         durationMs: 1200,
@@ -59,11 +63,15 @@ const VALID_RECORDING_RESULT = {
     {
       step: {
         stepId: 's2',
+        sequence: 2,
         backend: 'appium',
+        targetKind: 'physical' as const,
+        caseId: 'login',
         action: 'tap',
         target: 'Login button',
         input: null,
         result: { success: true, screenAfter: 'home_screen' },
+        status: 'completed' as const,
         artifacts: ['artifact_screenshot_1'],
         startedAt: '2026-07-23T10:00:02.000Z',
         durationMs: 450,
@@ -146,11 +154,15 @@ test('valid recording result with modified steps passes', () => {
       {
         step: {
           stepId: 's1',
+          sequence: 1,
           backend: 'appium',
+          targetKind: 'physical' as const,
+          caseId: 'login',
           action: 'swipe',
           target: 'Scroll down',
           input: 'down',
           result: { success: true },
+          status: 'completed' as const,
           artifacts: [],
           startedAt: '2026-07-23T10:00:00.000Z',
           durationMs: 300,
@@ -199,6 +211,16 @@ test('valid recording result with simulator targetKind passes', () => {
 
   const result = parseRecordingResult(data);
   expect(result.device.targetKind).toBe('simulator');
+});
+
+test('recording RunStep sequences must start at 1 and increase strictly', () => {
+  const startsAtTwo = structuredClone(VALID_RECORDING_RESULT);
+  if (startsAtTwo.steps[0]?.step) startsAtTwo.steps[0].step.sequence = 2;
+  expect(() => parseRecordingResult(startsAtTwo)).toThrow('RunStep sequence must start at 1');
+
+  const duplicate = structuredClone(VALID_RECORDING_RESULT);
+  if (duplicate.steps[1]?.step) duplicate.steps[1].step.sequence = 1;
+  expect(() => parseRecordingResult(duplicate)).toThrow('RunStep sequence must increase strictly');
 });
 
 // ═══════════════════════════════════════════════════════════════════

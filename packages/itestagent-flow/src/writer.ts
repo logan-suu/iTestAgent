@@ -8,6 +8,7 @@
  * Security: R7 — flow write to project directory requires user confirmation.
  * R6 — sensitive data never written to flow files (valueRef only).
  */
+import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -37,8 +38,8 @@ function validateFlowId(flowId: string): void {
 /**
  * Get the default flow directory: ~/.itestagent/flows/
  */
-function getDefaultFlowDir(): string {
-  return join(homedir(), '.itestagent', 'flows');
+function getDefaultFlowDir(dataRoot?: string): string {
+  return dataRoot ? join(dataRoot, 'flows') : join(homedir(), '.itestagent', 'flows');
 }
 
 /**
@@ -51,6 +52,12 @@ function getProjectFlowDir(projectPath: string): string {
 // ─── Save Options ─────────────────────────────────────────────────
 
 export interface SaveFlowOptions {
+  /** Override ~/.itestagent for isolated tests. */
+  dataRoot?: string;
+  /** Explicit PermissionEngine confirmation for the save_flow action. */
+  saveConfirmed?: boolean;
+  /** Explicit PermissionEngine confirmation when the destination already exists. */
+  overwriteConfirmed?: boolean;
   /**
    * Optional project path. If provided, the flow is also written to
    * <projectPath>/.itestagent/flows/<flowId>.yaml (R7: requires user confirmation).
@@ -100,10 +107,34 @@ export async function saveFlow(
   const yamlContent = serializeFlowYaml(flow);
   const filename = `${flow.flowId}.yaml`;
 
-  // Always write to default location
-  const defaultDir = getDefaultFlowDir();
-  await mkdir(defaultDir, { recursive: true });
+  if (options.saveConfirmed !== true) {
+    throw new Error(
+      'R7: Saving a Flow requires explicit save_flow confirmation from PermissionEngine.',
+    );
+  }
+
+  if (options.projectPath && options.projectConfirmed !== true) {
+    throw new Error(
+      'R7: Writing flow to project directory (.itestagent/flows/) requires user confirmation.',
+    );
+  }
+
+  const defaultDir = getDefaultFlowDir(options.dataRoot);
   const defaultPath = join(defaultDir, filename);
+  const projectFilePath = options.projectPath
+    ? join(getProjectFlowDir(options.projectPath), filename)
+    : undefined;
+  if (
+    (existsSync(defaultPath) || (projectFilePath ? existsSync(projectFilePath) : false)) &&
+    options.overwriteConfirmed !== true
+  ) {
+    throw new Error(
+      'R7: Overwriting an existing Flow requires explicit overwrite_flow confirmation from PermissionEngine.',
+    );
+  }
+
+  // All permission checks happen before the first filesystem mutation.
+  await mkdir(defaultDir, { recursive: true });
   await writeFile(defaultPath, yamlContent, 'utf-8');
 
   const result: SaveFlowResult = {
@@ -114,18 +145,9 @@ export async function saveFlow(
 
   // Optional: write to project directory
   if (options.projectPath) {
-    // R7: project write requires explicit user confirmation
-    if (options.projectConfirmed !== true) {
-      throw new Error(
-        'R7: Writing flow to project directory (.itestagent/flows/) requires user confirmation. ' +
-          'Set projectConfirmed: true to proceed, or omit projectPath to save only to ~/.itestagent/flows/.',
-      );
-    }
-
     const projectDir = getProjectFlowDir(options.projectPath);
     await mkdir(projectDir, { recursive: true });
-    const projectFilePath = join(projectDir, filename);
-    await writeFile(projectFilePath, yamlContent, 'utf-8');
+    await writeFile(projectFilePath as string, yamlContent, 'utf-8');
 
     result.projectPath = projectFilePath;
     result.projectWritten = true;

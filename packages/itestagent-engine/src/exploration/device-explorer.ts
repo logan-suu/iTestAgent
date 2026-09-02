@@ -46,6 +46,13 @@ export interface ExplorerToolDispatcher {
   }>;
 }
 
+export interface CaseCheckpoint {
+  readonly caseId: string;
+  readonly stepId: string;
+  readonly raw: string;
+  readonly artifactId?: string;
+}
+
 // ─── DeviceExplorer ─────────────────────────────────────────────
 
 export class DeviceExplorer {
@@ -56,7 +63,9 @@ export class DeviceExplorer {
   private readonly recorder: RunStepRecorder;
   private readonly evidenceCollector: EvidenceCollector;
   private readonly artifactStore?: ArtifactStore;
+  private checkpoints: CaseCheckpoint[] = [];
   private callCounter = 0;
+  private launched = false;
 
   constructor(
     toolDispatcher: ExplorerToolDispatcher,
@@ -73,7 +82,7 @@ export class DeviceExplorer {
     } as Required<ExplorationOptions>;
     this.locator = new ElementLocator();
     this.alertHandler = new SystemAlertHandler();
-    this.recorder = new RunStepRecorder(this.options.backendName);
+    this.recorder = new RunStepRecorder(this.options.backendName, this.options.targetKind);
     this.evidenceCollector = new EvidenceCollector();
     this.artifactStore = artifactStore;
   }
@@ -87,14 +96,20 @@ export class DeviceExplorer {
    * @returns Array of recorded RunStep entries
    */
   async explore(actions: ExplorationAction[]): Promise<RunStep[]> {
-    // Launch the app first
-    await this.executeLaunch();
+    if (!this.launched) {
+      const launched = await this.executeLaunch();
+      if (!launched) return this.recorder.getSteps();
+      this.launched = true;
+    }
 
     // Execute each action sequentially (per-device serial execution)
     for (const action of actions) {
       await this.executeAction(action);
       // Settle: wait for UI to stabilize after each action
       await this.sleep(this.options.settleMs);
+      if (action.caseId) {
+        await this.captureCheckpoint(action.caseId);
+      }
     }
 
     return this.recorder.getSteps();
@@ -107,19 +122,26 @@ export class DeviceExplorer {
     return this.recorder.getSteps();
   }
 
+  /** Case-scoped UI trees captured immediately after their owning action. */
+  getCheckpoints(): readonly CaseCheckpoint[] {
+    return [...this.checkpoints];
+  }
+
   /**
    * Reset the recorder for a new exploration run.
    */
   reset(): void {
     this.recorder.reset();
+    this.checkpoints = [];
     this.callCounter = 0;
+    this.launched = false;
   }
 
   // ─── Private: Launch ────────────────────────────────────────
 
-  private async executeLaunch(bundleIdOverride?: string): Promise<void> {
+  private async executeLaunch(bundleIdOverride?: string, caseId?: string): Promise<boolean> {
     const bundleId = bundleIdOverride ?? this.options.bundleId;
-    const stepId = this.recorder.startStep('launch', bundleId);
+    const stepId = this.recorder.startStep('launch', bundleId, undefined, caseId);
 
     const result = await this.toolDispatcher.dispatch({
       id: this.nextCallId(),
@@ -132,15 +154,20 @@ export class DeviceExplorer {
 
     if (result.status === 'ok') {
       this.recorder.completeStep(stepId, result.output);
-    } else {
-      await this.failStepWithEvidence(stepId, `Launch failed: ${JSON.stringify(result.output)}`);
+      return true;
     }
+    await this.failStepWithEvidence(
+      stepId,
+      `Launch failed: ${JSON.stringify(result.output)}`,
+      caseId,
+    );
+    return false;
   }
 
   // ─── Private: Action Execution ──────────────────────────────
 
   private async executeAction(action: ExplorationAction): Promise<void> {
-    await this.checkForAlerts();
+    await this.checkForAlerts(action.caseId);
 
     switch (action.action) {
       case 'tap':
@@ -159,7 +186,7 @@ export class DeviceExplorer {
         await this.executeWait(action);
         break;
       case 'launch':
-        await this.executeLaunch(action.bundleId);
+        await this.executeLaunch(action.bundleId, action.caseId);
         break;
     }
   }
@@ -169,16 +196,20 @@ export class DeviceExplorer {
   private async executeTap(action: ExplorationAction): Promise<void> {
     if (!action.target) {
       // No target specified — skip with degradation
-      const stepId = this.recorder.startStep('tap', '(no target)');
-      await this.failStepWithEvidence(stepId, 'No target specified for tap action');
+      const stepId = this.recorder.startStep('tap', '(no target)', undefined, action.caseId);
+      await this.failStepWithEvidence(stepId, 'No target specified for tap action', action.caseId);
       return;
     }
 
     // Get UI tree for element location
     const uiTree = await this.getUiTree();
     if (!uiTree) {
-      const stepId = this.recorder.startStep('tap', action.target);
-      await this.failStepWithEvidence(stepId, 'Failed to get UI tree — cannot locate element');
+      const stepId = this.recorder.startStep('tap', action.target, undefined, action.caseId);
+      await this.failStepWithEvidence(
+        stepId,
+        'Failed to get UI tree — cannot locate element',
+        action.caseId,
+      );
       return;
     }
 
@@ -186,7 +217,7 @@ export class DeviceExplorer {
     const alertResult = this.alertHandler.detectAndHandle(uiTree);
     let currentTree = uiTree;
     if (alertResult.detected) {
-      await this.handleAlert(alertResult);
+      await this.handleAlert(alertResult, action.caseId);
       currentTree = (await this.getUiTree()) ?? uiTree;
     }
 
@@ -196,22 +227,27 @@ export class DeviceExplorer {
     if (!locatorResult.found && locatorResult.confidence === 'low') {
       // Even coordinate fallback "found" it — but with low confidence
       // For explicit not-found, we degrade
-      const stepId = this.recorder.startStep('tap', action.target, locatorResult);
+      const stepId = this.recorder.startStep('tap', action.target, locatorResult, action.caseId);
       await this.failStepWithEvidence(
         stepId,
         locatorResult.degradation ?? 'Element not found in UI tree',
+        action.caseId,
       );
       return;
     }
 
     if (!locatorResult.element) {
-      const stepId = this.recorder.startStep('tap', action.target, locatorResult);
-      await this.failStepWithEvidence(stepId, 'Locator returned no element coordinates');
+      const stepId = this.recorder.startStep('tap', action.target, locatorResult, action.caseId);
+      await this.failStepWithEvidence(
+        stepId,
+        'Locator returned no element coordinates',
+        action.caseId,
+      );
       return;
     }
 
     // Execute tap via ToolDispatcher
-    const stepId = this.recorder.startStep('tap', action.target, locatorResult);
+    const stepId = this.recorder.startStep('tap', action.target, locatorResult, action.caseId);
     const result = await this.toolDispatcher.dispatch({
       id: this.nextCallId(),
       name: 'tap',
@@ -232,11 +268,14 @@ export class DeviceExplorer {
       const artifacts: string[] = [];
       if (screenshotArtifact) {
         artifacts.push(screenshotArtifact.id);
-        this.recorder.addArtifact(stepId, screenshotArtifact.id);
       }
       this.recorder.completeStep(stepId, result.output, artifacts);
     } else {
-      await this.failStepWithEvidence(stepId, `Tap failed: ${JSON.stringify(result.output)}`);
+      await this.failStepWithEvidence(
+        stepId,
+        `Tap failed: ${JSON.stringify(result.output)}`,
+        action.caseId,
+      );
     }
   }
 
@@ -244,7 +283,12 @@ export class DeviceExplorer {
 
   private async executeSwipe(action: ExplorationAction): Promise<void> {
     const direction = action.direction ?? 'down';
-    const stepId = this.recorder.startStep('swipe', action.target ?? `swipe_${direction}`);
+    const stepId = this.recorder.startStep(
+      'swipe',
+      action.target ?? `swipe_${direction}`,
+      undefined,
+      action.caseId,
+    );
 
     // Default swipe geometry: center of screen, swipe half the height
     const { fromX, fromY, toX, toY } = this.swipeCoordinates(direction);
@@ -273,6 +317,7 @@ export class DeviceExplorer {
       await this.failStepWithEvidence(
         stepId,
         `Swipe ${direction} failed: ${JSON.stringify(result.output)}`,
+        action.caseId,
       );
     }
   }
@@ -281,12 +326,27 @@ export class DeviceExplorer {
 
   private async executeInput(action: ExplorationAction): Promise<void> {
     if (!action.text) {
-      const stepId = this.recorder.startStep('input', action.target ?? '(no text)');
-      await this.failStepWithEvidence(stepId, 'No text specified for input action');
+      const stepId = this.recorder.startStep(
+        'input',
+        action.target ?? '(no text)',
+        undefined,
+        action.caseId,
+      );
+      await this.failStepWithEvidence(stepId, 'No text specified for input action', action.caseId);
       return;
     }
 
-    const stepId = this.recorder.startStep('type_text', action.target ?? action.text);
+    const secretInput =
+      /\b(password|passcode|otp|one[- ]?time|verification code|token|secret|card|cvv|account)\b/i.test(
+        action.target ?? '',
+      );
+    const recordedText = secretInput ? '[SECRET_REF:runtime]' : action.text;
+    const stepId = this.recorder.startStep(
+      'type_text',
+      action.target ?? action.text,
+      undefined,
+      action.caseId,
+    );
 
     const result = await this.toolDispatcher.dispatch({
       id: this.nextCallId(),
@@ -299,13 +359,16 @@ export class DeviceExplorer {
 
     if (result.status === 'ok') {
       this.recorder.completeStep(stepId, {
-        text: action.text,
-        result: result.output,
+        text: recordedText,
+        result: secretInput ? { success: true, redacted: true } : result.output,
       });
     } else {
       await this.failStepWithEvidence(
         stepId,
-        `Input "${action.text}" failed: ${JSON.stringify(result.output)}`,
+        secretInput
+          ? 'Sensitive input failed; backend details redacted'
+          : `Input "${action.text}" failed: ${JSON.stringify(result.output)}`,
+        action.caseId,
       );
     }
   }
@@ -313,13 +376,22 @@ export class DeviceExplorer {
   // ─── Private: Screenshot ────────────────────────────────────
 
   private async executeScreenshot(action: ExplorationAction): Promise<void> {
-    const stepId = this.recorder.startStep('screenshot', action.target ?? 'screenshot');
+    const stepId = this.recorder.startStep(
+      'screenshot',
+      action.target ?? 'screenshot',
+      undefined,
+      action.caseId,
+    );
 
     const artifact = await this.takeScreenshot();
     if (artifact) {
       this.recorder.completeStep(stepId, { artifactId: artifact.id }, [artifact.id]);
     } else {
-      await this.failStepWithEvidence(stepId, 'Screenshot failed — backend returned no artifact');
+      await this.failStepWithEvidence(
+        stepId,
+        'Screenshot failed — backend returned no artifact',
+        action.caseId,
+      );
     }
   }
 
@@ -377,11 +449,16 @@ export class DeviceExplorer {
    * @param stepId - The failing step ID.
    * @param error - Error message.
    */
-  private async failStepWithEvidence(stepId: string, error: string): Promise<void> {
+  private async failStepWithEvidence(
+    stepId: string,
+    error: string,
+    caseId?: string,
+  ): Promise<void> {
     const redactedError = redactValue(error);
-    this.recorder.failStep(stepId, redactedError);
-
-    if (!this.artifactStore || !this.options.runDir) return;
+    if (!this.artifactStore || !this.options.runDir) {
+      this.recorder.failStep(stepId, redactedError);
+      return;
+    }
 
     try {
       const summary = await this.evidenceCollector.collectOnFailure(this.artifactStore, {
@@ -395,29 +472,41 @@ export class DeviceExplorer {
         tracePath: this.options.tracePath,
         recordingActive: this.options.recordingActive,
         dsymPath: this.options.dsymPath,
+        caseId,
       });
-
-      for (const artifact of summary.artifacts) {
-        this.recorder.addArtifact(stepId, artifact.id);
-      }
+      this.recorder.failStep(
+        stepId,
+        redactedError,
+        summary.artifacts.map((artifact) => artifact.id),
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(
         `[DeviceExplorer] Evidence collection failed for step ${stepId}: ${redactValue(msg)}`,
       );
+      this.recorder.failStep(stepId, redactedError);
     }
   }
 
   /**
    * Handle a detected system alert by tapping the dismiss button.
    */
-  private async handleAlert(_alert: SystemAlertResult): Promise<void> {
-    const stepId = this.recorder.startStep('dismiss_alert', _alert.alertText ?? 'system_alert');
+  private async handleAlert(_alert: SystemAlertResult, caseId?: string): Promise<void> {
+    const stepId = this.recorder.startStep(
+      'dismiss_alert',
+      _alert.alertText ?? 'system_alert',
+      undefined,
+      caseId,
+    );
 
     const uiTree = await this.getUiTree();
     const dismissCoords = uiTree ? this.alertHandler.getDismissCoordinates(uiTree) : null;
     if (!dismissCoords) {
-      await this.failStepWithEvidence(stepId, 'Could not compute dismiss coordinates for alert');
+      await this.failStepWithEvidence(
+        stepId,
+        'Could not compute dismiss coordinates for alert',
+        caseId,
+      );
       return;
     }
 
@@ -437,6 +526,7 @@ export class DeviceExplorer {
       await this.failStepWithEvidence(
         stepId,
         `Alert dismiss failed: ${JSON.stringify(result.output)}`,
+        caseId,
       );
     }
   }
@@ -445,13 +535,13 @@ export class DeviceExplorer {
    * Check for and dismiss system alerts before executing an action.
    * Applies to all action types — any action can encounter a system alert.
    */
-  private async checkForAlerts(): Promise<void> {
+  private async checkForAlerts(caseId?: string): Promise<void> {
     const uiTree = await this.getUiTree();
     if (!uiTree) return;
 
     const alertResult = this.alertHandler.detectAndHandle(uiTree);
     if (alertResult.detected) {
-      await this.handleAlert(alertResult);
+      await this.handleAlert(alertResult, caseId);
     }
   }
 
@@ -460,9 +550,39 @@ export class DeviceExplorer {
    */
   private async executeWait(action: ExplorationAction): Promise<void> {
     const waitMs = action.waitMs ?? 1000;
-    const stepId = this.recorder.startStep('wait', action.target ?? `wait_${waitMs}ms`);
+    const stepId = this.recorder.startStep(
+      'wait',
+      action.target ?? `wait_${waitMs}ms`,
+      undefined,
+      action.caseId,
+    );
     await this.sleep(waitMs);
     this.recorder.completeStep(stepId, { waitMs });
+  }
+
+  /** Capture the case state immediately after the case action settles. */
+  private async captureCheckpoint(caseId: string): Promise<void> {
+    const step = [...this.recorder.getSteps()].reverse().find((item) => item.caseId === caseId);
+    if (!step) return;
+
+    const raw = await this.getUiTree();
+    if (raw === null) return;
+
+    let artifactId: string | undefined;
+    if (this.artifactStore) {
+      const artifact = await this.artifactStore.put({
+        type: 'uitree',
+        data: Buffer.from(raw, 'utf8'),
+        mimeType: 'application/xml',
+        relatedStep: step.stepId,
+        relatedCase: caseId,
+        backend: this.options.backendName,
+      });
+      artifactId = artifact.id;
+      this.recorder.linkArtifact(step.stepId, artifact.id);
+    }
+
+    this.checkpoints.push({ caseId, stepId: step.stepId, raw, artifactId });
   }
 
   /**

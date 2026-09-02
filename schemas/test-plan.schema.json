@@ -283,7 +283,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["clear_app_data", "uninstall_app", "write_project_file", "store_credential", "update_baseline", "overwrite_flow", "generate_draft_test", "open_non_http_url", "access_private_media", "execute_project_build", "replace_device_app", "prepare_wda"]
+            "enum": ["clear_app_data", "uninstall_app", "write_project_file", "store_credential", "update_baseline", "save_flow", "overwrite_flow", "generate_draft_test", "open_non_http_url", "access_private_media", "execute_project_build", "replace_device_app", "prepare_wda"]
           }
         }
       },

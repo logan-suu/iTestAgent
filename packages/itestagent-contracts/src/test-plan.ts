@@ -210,6 +210,7 @@ const HIGH_RISK_ACTION_VALUES = [
   'write_project_file',
   'store_credential',
   'update_baseline',
+  'save_flow',
   'overwrite_flow',
   'generate_draft_test',
   'open_non_http_url',

@@ -179,11 +179,15 @@ test('FailureExplanationSchema parses all 7 explanation types', () => {
 test('RunStepSchema parses valid run step with artifacts', () => {
   const result = RunStepSchema.parse({
     stepId: 'step-login-tap',
+    sequence: 1,
     backend: 'appium',
+    targetKind: 'physical',
+    caseId: 'login',
     action: 'tap',
     target: '#login-button',
     input: { x: 0.5, y: 0.8 },
     result: { success: true },
+    status: 'completed',
     artifacts: ['art-screenshot-login'],
     startedAt: '2026-07-17T10:00:01.000Z',
     durationMs: 450,
@@ -200,11 +204,14 @@ test('RunStepSchema parses valid run step with artifacts', () => {
 test('RunStepSchema parses step with safetyGate', () => {
   const result = RunStepSchema.parse({
     stepId: 'step-clear-data',
+    sequence: 2,
     backend: 'appium',
+    targetKind: 'physical',
     action: 'clear_app_data',
     target: 'com.example.app',
     input: { bundleId: 'com.example.app' },
     result: { success: true },
+    status: 'completed',
     artifacts: [],
     safetyGate: 'ask',
     startedAt: '2026-07-17T10:00:02.000Z',

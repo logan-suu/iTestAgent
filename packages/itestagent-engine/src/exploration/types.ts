@@ -75,6 +75,8 @@ export interface LocatorResult {
  * one or more exploration actions targeting specific UI elements.
  */
 export interface ExplorationAction {
+  /** Case owning this action; omit only for run-level setup/teardown. */
+  caseId?: string;
   /** Action type */
   action: 'tap' | 'swipe' | 'input' | 'screenshot' | 'wait' | 'launch';
   /** Human-readable target description for RunStep recording */

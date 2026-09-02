@@ -554,6 +554,11 @@ export class ToolDispatcher {
     }
   }
 
+  /** Run a standalone semantic authorization through the same PermissionEngine/event boundary. */
+  async authorize(callId: string, action: string, resource: string): Promise<boolean> {
+    return !(await this.checkPermission(callId, action, resource)).denied;
+  }
+
   // ─── Private helpers ─────────────────────────────────────────
 
   private async checkPermission(

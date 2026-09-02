@@ -16,11 +16,14 @@ type StepOverrides = Partial<NonNullable<RecordingStep['step']>>;
 function makeStepFixture(overrides: StepOverrides = {}): NonNullable<RecordingStep['step']> {
   return {
     stepId: 's1',
+    sequence: 1,
     backend: 'appium',
+    targetKind: 'physical',
     action: 'tap',
     target: 'Login button',
     input: {},
     result: { ok: true },
+    status: 'completed',
     artifacts: [],
     startedAt: new Date().toISOString(),
     durationMs: 120,
@@ -94,6 +97,18 @@ function makeRecordingResult(overrides: Partial<RecordingResult> = {}): Recordin
 // ─── Basic Compilation ────────────────────────────────────────────
 
 describe('compileFlow', () => {
+  it('excludes confirmed suggestions whose execution failed', () => {
+    const recording = makeRecordingResult();
+    recording.steps.push({
+      step: makeStepFixture({ stepId: 'failed', sequence: 2, status: 'failed' }),
+      originalSuggestion: makeSuggestedAction({ target: 'Broken button' }),
+      userModified: false,
+      skipped: false,
+    });
+    const flow = compileFlow(recording);
+    expect(flow.steps).toHaveLength(3);
+  });
+
   it('compiles a complete recording to FlowV2', () => {
     const flow = compileFlow(makeRecordingResult());
 
@@ -312,6 +327,25 @@ describe('compileFlow', () => {
       }),
     );
     expect(flow.steps[0]?.value).toBe('hello@test.com');
+  });
+
+  it('replaces sensitive input values with a runtime secret reference', () => {
+    const flow = compileFlow(
+      makeRecordingResult({
+        steps: [
+          makeRecordingStep({
+            step: makeStepFixture({ stepId: 's1', action: 'input', target: 'OTP field' }),
+            originalSuggestion: makeSuggestedAction({
+              action: 'input',
+              target: 'OTP field',
+              text: '123456',
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(flow.steps[0]?.value).toBe('[SECRET_REF:runtime]');
+    expect(JSON.stringify(flow)).not.toContain('123456');
   });
 
   it('preserves direction from SuggestedAction', () => {

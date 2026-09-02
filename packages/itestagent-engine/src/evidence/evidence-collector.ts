@@ -156,6 +156,7 @@ export class EvidenceCollector {
             path: outputPath,
             mimeType: 'image/png',
             relatedStep: stepId,
+            relatedCase: options.caseId,
             backend: 'simctl',
           });
           return {
@@ -232,10 +233,11 @@ export class EvidenceCollector {
 
         if (simctlRef) {
           const stored = await artifactStore.put({
-            type: 'log',
+            type: 'syslog',
             path: outputPath,
             mimeType: 'text/plain',
             relatedStep: stepId,
+            relatedCase: options.caseId,
             backend: 'simctl',
           });
           return {
@@ -285,6 +287,7 @@ export class EvidenceCollector {
               path: crashPath,
               mimeType: 'text/plain',
               relatedStep: stepId,
+              relatedCase: options.caseId,
               backend: crashRef.backend,
             });
 
@@ -302,6 +305,7 @@ export class EvidenceCollector {
                     path: symPath,
                     mimeType: 'text/plain',
                     relatedStep: stepId,
+                    relatedCase: options.caseId,
                     backend: `${crashRef.backend}_symbolicated`,
                   });
                 }
@@ -375,6 +379,7 @@ export class EvidenceCollector {
         path: destPath,
         mimeType: 'application/octet-stream',
         relatedStep: stepId,
+        relatedCase: options.caseId,
         backend: 'xcodebuild',
       });
 
@@ -418,6 +423,7 @@ export class EvidenceCollector {
         path: destPath,
         mimeType: 'application/octet-stream',
         relatedStep: stepId,
+        relatedCase: options.caseId,
         backend: 'xctrace',
       });
 

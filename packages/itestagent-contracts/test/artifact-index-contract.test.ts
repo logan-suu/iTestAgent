@@ -69,12 +69,13 @@ test('parses a complete artifact index with all optional fields', () => {
   }
 });
 
-test('accepts every one of the 9 documented artifact types', () => {
+test('accepts every one of the 10 documented artifact types', () => {
   const types = [
     'screenshot',
     'video',
     'uitree',
     'log',
+    'syslog',
     'crashlog',
     'trace',
     'xcresult',
@@ -116,10 +117,8 @@ test('sizeBytes accepts zero (non-negative boundary)', () => {
 
 // ─── Rejections ──────────────────────────────────────────────────────────────
 
-test('rejects an artifact type outside the documented enum (syslog is NOT a type)', () => {
-  // Locks that the runtime enum has exactly 9 values: 'syslog' was present in
-  // the stale pre-migration published schema but does NOT exist at runtime.
-  const bad = { ...entry(), type: 'syslog' };
+test('rejects an artifact type outside the documented enum', () => {
+  const bad = { ...entry(), type: 'archive' };
   expect(() =>
     ArtifactIndexSchema.parse({
       schemaVersion: '1.0',

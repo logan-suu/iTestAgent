@@ -49,7 +49,7 @@ export type {
   StateChangeHandler,
 } from './run-state-machine.js';
 
-export { ContextBuilder, redactValue } from './context-builder.js';
+export { ContextBuilder, redactUiTreeForModel, redactValue } from './context-builder.js';
 
 export type {
   BuildContextInput,
@@ -208,7 +208,11 @@ export type {
   XcunitFlowInput,
   XcunitFlowResult,
 } from './test-flow/run-xcunit-flow.js';
-export { runRealDeviceExploration, createBackendToolDispatcher } from './exploration/real-run.js';
+export {
+  runRealDeviceExploration,
+  createBackendToolDispatcher,
+  suggestExplorationAction,
+} from './exploration/real-run.js';
 export type {
   RealDeviceRunOptions,
   RealDeviceRunResult,

@@ -39,11 +39,14 @@ function makeTraceSummary(overrides?: Partial<TraceSummary>): TraceSummary {
 function fixtureRunStep(overrides?: Partial<RunStep>): RunStep {
   return {
     stepId: 's1',
+    sequence: 1,
     backend: 'appium',
+    targetKind: 'physical',
     action: 'tap',
     target: 'login_button',
     input: { target: 'login_button' },
     result: { success: false, error: 'AppiumDriverError: session_not_found' },
+    status: 'failed',
     artifacts: ['screenshot_err_001', 'uitree_err_001'],
     startedAt: new Date().toISOString(),
     durationMs: 1200,

@@ -186,6 +186,9 @@ function compileStep(recStep: RecordingStep, stepIndex: number): FlowStepV2 | nu
   // No underlying RunStep: nothing to replay
   if (!recStep.step) return null;
 
+  // Only a user-confirmed action that actually completed may become replayable.
+  if (recStep.step.status !== 'completed') return null;
+
   const runStep = recStep.step;
   const rawAction = runStep.action ?? 'unknown';
 
@@ -212,7 +215,13 @@ function compileStep(recStep: RecordingStep, stepIndex: number): FlowStepV2 | nu
   // Copy optional fields from SuggestedAction
   if (recStep.originalSuggestion) {
     const sug = recStep.originalSuggestion;
-    if (sug.text) flowStep.value = sug.text;
+    if (sug.text) {
+      const secretTarget =
+        /\b(password|passcode|otp|one[- ]?time|verification code|token|secret|card|cvv|account)\b/i.test(
+          sug.target,
+        );
+      flowStep.value = secretTarget ? '[SECRET_REF:runtime]' : sug.text;
+    }
     if (sug.direction) flowStep.direction = sug.direction;
     if (sug.waitMs) flowStep.durationMs = flowStep.durationMs ?? sug.waitMs;
     if (sug.bundleId && normalizedAction === 'launchApp') {

@@ -34,6 +34,7 @@ export const ArtifactIndexSchema = z.object({
         'video',
         'uitree',
         'log',
+        'syslog',
         'crashlog',
         'trace',
         'xcresult',
@@ -50,6 +51,8 @@ export const ArtifactIndexSchema = z.object({
       sha256: z.string().optional(),
       /** 关联步骤 ID（可选） */
       relatedStep: z.string().optional(),
+      /** Related test case ID (optional). */
+      relatedCase: z.string().optional(),
       /** 产生此产物的 backend（可选） */
       backend: z.string().optional(),
       /** 脱敏状态 */

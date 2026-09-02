@@ -178,8 +178,14 @@ export type FailureExplanation = z.infer<typeof FailureExplanationSchema>;
 export const RunStepSchema = z.object({
   /** 步骤唯一标识 */
   stepId: z.string(),
+  /** Strictly increasing run-local execution order, starting at 1. */
+  sequence: z.number().int().positive(),
   /** 执行此步骤的 backend 名称 */
   backend: z.string(),
+  /** Target kind used for the actual execution. */
+  targetKind: TargetKindSchema,
+  /** Owning case ID; run-level setup and teardown steps may omit it. */
+  caseId: z.string().min(1).optional(),
   /** 动作类型 */
   action: z.string(),
   /** 动作目标（可选） */
@@ -188,6 +194,8 @@ export const RunStepSchema = z.object({
   input: z.unknown(),
   /** 步骤输出（任意 JSON） */
   result: z.unknown(),
+  /** Actual execution status; blocked and failed steps are never successful. */
+  status: z.enum(['completed', 'failed', 'blocked']),
   /** 关联产物 ID 列表 */
   artifacts: z.array(z.string()),
   /** 安全门判定（可选） */

@@ -128,8 +128,8 @@ R2 不自研已复用底座：WDA / Appium / xcodebuild / xctrace / xcresult 解
 R3 真机能力不得“看代码就算过”，必须真机 spike 实测(G5)；Simulator 能力必须 CoreSimulator runtime 端到端验证(G5-SIM，ADR-011)
 R4 不把“从代码推断的核心链路”当既定事实，只能候选+证据+用户确认
 R5 不静默降级/臆造指标(尤其 FPS、xctrace summary)，不确定必须显式标注
-R6 敏感数据(账号/OTP/token)不落盘明文、不入日志/报告/提交
-R7 高风险操作必须二次确认(清数据/卸载重装/写项目/存凭证/更新 baseline/覆盖 Flow/生成草稿)
+R6 账号/OTP/token 等 secret 不落盘明文、不入日志/报告/提交；截图/视频/UI tree 等原始设备证据仅可在 run artifacts 中以 raw-local-only 保存，禁止进入模型上下文或外传，跨出本地证据边界前必须生成脱敏派生内容（ADR-032）
+R7 高风险操作必须二次确认（清数据/卸载重装/写项目/存凭证/更新 baseline/保存或覆盖 Flow/生成草稿，以及删除、支付、账号、安全设置、授权变更或语义不确定的敏感 UI 动作）；已确认 TestPlan 范围内的普通导航与非敏感输入无需逐点击确认（ADR-032）
 R8 未经人确认的实现计划不得进入编码
 R9 组件命名统一 itestagent-*，禁止使用 qa-*
 R10 不引入 Effect-TS / SQLite 事件溯源等重型编排；不 fork/不 import OpenCode 私有核心
@@ -275,7 +275,7 @@ Harness 边界（ADR-010）：
   db/itestagent.db
   projects/<project-hash>/project-profile.json
   sessions/  flows/  baselines/
-  runs/<run_id>/{plan.yaml,summary.md,result.json,artifact-index.json,artifacts/}
+  runs/<run_id>/{plan.yaml,steps.json,summary.md,result.json,artifact-index.json,artifacts/}
 ```
 
 配置分层：`~/.itestagent/config/itestagent.jsonc` < 项目 `.itestagent/itestagent.jsonc` < `<project>/itestagent.jsonc`。
@@ -285,11 +285,13 @@ Harness 边界（ADR-010）：
 ```
 project-profile.json  app/features(evidence+confidence)/testAssets/suggestedSmoke
 plan.yaml             TestPlan：target/device/appSource/execution/features/testData/assertion/flows/metrics/performance/artifacts/report
+steps.json            Canonical Run Steps: sequence/targetKind/caseId?/action/result/artifact refs; audit sidecar (ADR-031)
 result.json           run 状态/Profile 引用/设备/执行方式/metrics/baselineDelta/artifactRefs/explanation
-artifact-index.json   artifacts[{id,type,path,relatedStep}]
+artifact-index.json   artifacts[{id,type,path,relatedStep?,relatedCase?}]
 ```
 
 报告固定三件套：`summary.md + result.json + artifact-index.json`，**不输出 report.html**。
+`steps.json` is an audit sidecar, not a fourth report; it keeps each run directory independently auditable (ADR-031).
 
 ## 6. 领域关键规则（务必内化）
 

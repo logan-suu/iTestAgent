@@ -96,7 +96,26 @@ export const RecordingResultSchema = z.object({
     'cancelled',
   ]),
   /** All recorded steps in order */
-  steps: z.array(RecordingStepSchema),
+  steps: z.array(RecordingStepSchema).superRefine((steps, ctx) => {
+    const sequences = steps.flatMap((item) => (item.step ? [item.step.sequence] : []));
+    if (sequences.length === 0) return;
+    if (sequences[0] !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'RunStep sequence must start at 1',
+      });
+      return;
+    }
+    for (let index = 1; index < sequences.length; index += 1) {
+      if ((sequences[index] as number) <= (sequences[index - 1] as number)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'RunStep sequence must increase strictly',
+        });
+        return;
+      }
+    }
+  }),
   /** ISO 8601 timestamp when recording started */
   startedAt: z.string(),
   /** ISO 8601 timestamp when recording ended (if completed/cancelled) */

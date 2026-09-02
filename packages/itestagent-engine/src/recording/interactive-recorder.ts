@@ -17,6 +17,7 @@
 
 import { createId } from 'itestagent-contracts';
 import type { AgentRuntime, AgentTurnInput } from 'itestagent-contracts';
+import { redactUiTreeForModel, redactValue } from '../context-builder.js';
 import type {
   RecordingEvent,
   RecordingResult,
@@ -68,6 +69,18 @@ interface PauseState {
   reject: (error: Error) => void;
 }
 
+const SECRET_INPUT_TARGET =
+  /\b(password|passcode|otp|one[- ]?time|verification code|token|secret|card|cvv|account)\b/i;
+
+function isSecretInputAction(action: SuggestedAction): boolean {
+  return action.action === 'input' && SECRET_INPUT_TARGET.test(action.target);
+}
+
+function sanitizeRecordedAction(action: SuggestedAction): SuggestedAction {
+  if (!isSecretInputAction(action) || action.text === undefined) return action;
+  return { ...action, text: '[SECRET_REF:runtime]' };
+}
+
 // ─── InteractiveRecorder ──────────────────────────────────────────
 
 export class InteractiveRecorder {
@@ -96,6 +109,7 @@ export class InteractiveRecorder {
   private confirmedCount = 0;
   private skippedCount = 0;
   private stepIndex = 0;
+  private runStepSequence = 0;
 
   // ── System prompt ──
   private systemPromptBuilder:
@@ -304,10 +318,11 @@ export class InteractiveRecorder {
    * constructs a basic prompt inline.
    */
   private buildSystemPrompt(uiTree: string): string {
+    const modelSafeUiTree = redactUiTreeForModel(uiTree);
     if (this.systemPromptBuilder) {
       return this.systemPromptBuilder({
         featureName: this.config.featureName,
-        uiTree,
+        uiTree: modelSafeUiTree,
         historySteps: this.steps
           .filter((s) => !s.skipped && s.step !== null)
           .map((s) => ({
@@ -333,7 +348,7 @@ export class InteractiveRecorder {
       '',
       'CURRENT SCREEN UI TREE:',
       '```',
-      uiTree.slice(0, 4000), // Truncate to prevent context overflow
+      modelSafeUiTree.slice(0, 4000), // Truncate after redaction
       '```',
       '',
       'Suggest the NEXT single action to record.',
@@ -482,11 +497,11 @@ export class InteractiveRecorder {
         // Add a comment-only step (no execution)
         const commentStep: RecordingStep = {
           step: null,
-          originalSuggestion,
+          originalSuggestion: sanitizeRecordedAction(originalSuggestion),
           userModified: false,
           skipped: true,
-          skipReason: `User comment: ${response.comment}`,
-          userComment: response.comment,
+          skipReason: `User comment: ${redactValue(response.comment)}`,
+          userComment: redactValue(response.comment),
         };
         this.steps.push(commentStep);
         this.stepIndex++;
@@ -511,22 +526,29 @@ export class InteractiveRecorder {
 
     try {
       const startMs = Date.now();
+      const startedAt = new Date(startMs).toISOString();
       const execResult = await this.actionExecutor(action);
       const duration = Date.now() - startMs;
+      this.runStepSequence += 1;
+      const recordedAction = sanitizeRecordedAction(action);
 
       const step: RecordingStep = {
         step: {
           stepId: execResult.stepId,
+          sequence: this.runStepSequence,
           backend: this.config.backend,
+          targetKind: this.config.targetKind,
+          caseId: this.config.featureName,
           action: action.action,
           target: action.target,
-          input: action.text ?? action.direction ?? null,
+          input: recordedAction.text ?? action.direction ?? null,
           result: execResult.result,
+          status: 'completed',
           artifacts: execResult.artifacts,
-          startedAt: new Date().toISOString(),
+          startedAt,
           durationMs: duration,
         },
-        originalSuggestion: action,
+        originalSuggestion: recordedAction,
         userModified,
         skipped: false,
       };
@@ -543,29 +565,35 @@ export class InteractiveRecorder {
     } catch (error) {
       // Record failed step
       const startMs = Date.now();
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const rawError = error instanceof Error ? error.message : String(error);
+      const recordedAction = sanitizeRecordedAction(action);
+      const errorMsg = isSecretInputAction(action) ? '[REDACTED]' : redactValue(rawError);
       const duration = Date.now() - startMs;
+      this.runStepSequence += 1;
 
       const step: RecordingStep = {
         step: {
           stepId: `error-${this.stepIndex}`,
+          sequence: this.runStepSequence,
           backend: this.config.backend,
+          targetKind: this.config.targetKind,
+          caseId: this.config.featureName,
           action: action.action,
           target: action.target,
-          input: action.text ?? action.direction ?? null,
+          input: recordedAction.text ?? action.direction ?? null,
           result: { error: errorMsg },
+          status: 'failed',
           artifacts: [],
           startedAt: new Date().toISOString(),
           durationMs: duration,
         },
-        originalSuggestion: action,
+        originalSuggestion: recordedAction,
         userModified,
         skipped: false,
       };
 
       this.steps.push(step);
       this.stepIndex++;
-      this.confirmedCount++;
       this.callbacks.onStepRecorded({ step, stepIndex: this.stepIndex - 1 });
       this.callbacks.onError({ message: errorMsg, recoverable: true });
     }
@@ -577,10 +605,10 @@ export class InteractiveRecorder {
   private async recordSkip(suggestion: SuggestedAction, reason?: string): Promise<void> {
     const step: RecordingStep = {
       step: null,
-      originalSuggestion: suggestion,
+      originalSuggestion: sanitizeRecordedAction(suggestion),
       userModified: false,
       skipped: true,
-      skipReason: reason ?? 'User skipped',
+      skipReason: reason ? redactValue(reason) : 'User skipped',
     };
 
     this.steps.push(step);

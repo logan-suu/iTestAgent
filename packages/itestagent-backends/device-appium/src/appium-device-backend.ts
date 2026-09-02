@@ -443,6 +443,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'preinstalled',
       bundleId: this.opts.bundleId,
@@ -465,6 +466,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return buildPhysicalCapabilities({
         udid: this.opts.udid,
         wdaLocalPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
         newCommandTimeout: 600,
         wdaStartupMode: 'external-url',
         webDriverAgentUrl: this.opts.webDriverAgentUrl,
@@ -494,6 +496,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: '', // Configured per-deployment via WdaManager
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
         teamId: this.opts.xcodeOrgId,
         codeSignIdentity: this.opts.xcodeSigningId,
         derivedDataPath: this.opts.derivedDataPath,
@@ -509,6 +512,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'external-url',
       webDriverAgentUrl: wdaUrl,
@@ -535,6 +539,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
         derivedDataPath: this.opts.derivedDataPath,
         productBundleIdentifier: this.opts.wdaBundleId,
       });
@@ -543,6 +548,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     return buildPhysicalCapabilities({
       udid: this.opts.udid,
       wdaLocalPort: this.opts.wdaLocalPort,
+      mjpegServerPort: this.opts.mjpegServerPort,
       newCommandTimeout: 600,
       wdaStartupMode: 'managed-xcodebuild',
       usePrebuiltWDA: !hasSigning,

@@ -151,7 +151,7 @@ export class RealAppiumDriver implements AppiumDriver {
   async launchApp(bundleId: string): Promise<AppiumActionResult> {
     const c = this.requireClient();
     try {
-      await c.execute('mobile:launchApp', [{ bundleId }] as unknown[]);
+      await c.execute('mobile:launchApp', { bundleId } as unknown as unknown[]);
       return { success: true, message: `Launched ${bundleId}` };
     } catch (error) {
       throw new AppiumDriverError(
@@ -164,7 +164,7 @@ export class RealAppiumDriver implements AppiumDriver {
   async terminateApp(bundleId: string): Promise<AppiumActionResult> {
     const c = this.requireClient();
     try {
-      await c.execute('mobile:terminateApp', [{ bundleId }] as unknown[]);
+      await c.execute('mobile:terminateApp', { bundleId } as unknown as unknown[]);
       return { success: true, message: `Terminated ${bundleId}` };
     } catch (error) {
       throw new AppiumDriverError(
@@ -177,7 +177,7 @@ export class RealAppiumDriver implements AppiumDriver {
   async activateApp(bundleId: string): Promise<AppiumActionResult> {
     const c = this.requireClient();
     try {
-      await c.execute('mobile:activateApp', [{ bundleId }] as unknown[]);
+      await c.execute('mobile:activateApp', { bundleId } as unknown as unknown[]);
       return { success: true, message: `Activated ${bundleId}` };
     } catch (error) {
       throw new AppiumDriverError(
@@ -301,7 +301,7 @@ export class RealAppiumDriver implements AppiumDriver {
   async pressButton(button: string): Promise<AppiumActionResult> {
     const c = this.requireClient();
     try {
-      await c.execute('mobile:pressButton', [{ name: button }] as unknown[]);
+      await c.execute('mobile:pressButton', { name: button } as unknown as unknown[]);
       return { success: true, message: `Pressed ${button}` };
     } catch (error) {
       throw new AppiumDriverError(
@@ -317,9 +317,9 @@ export class RealAppiumDriver implements AppiumDriver {
     const c = this.requireClient();
     try {
       if (bundleId) {
-        await c.execute('mobile:deepLink', [{ url, bundleId }] as unknown[]);
+        await c.execute('mobile:deepLink', { url, bundleId } as unknown as unknown[]);
       } else {
-        await c.execute('mobile:deepLink', [{ url }] as unknown[]);
+        await c.execute('mobile:deepLink', { url } as unknown as unknown[]);
       }
       return { success: true, message: `Opened ${url}` };
     } catch (error) {
