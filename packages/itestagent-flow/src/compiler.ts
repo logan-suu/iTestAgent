@@ -123,30 +123,49 @@ function normalizeLocator(suggestedLocator?: {
 
 // ─── Capability Inference ─────────────────────────────────────────
 
-/**
- * Backend-name → required capabilities mapping.
- *
- * Architecture §6.7: "requiredCapabilities — normalized, not Appium-specific".
- * The capabilities describe WHAT the flow needs, not HOW a specific backend provides it.
- */
-const BACKEND_CAPABILITY_MAP: Record<string, string[]> = {
-  appium: ['uiTree', 'coordinateTap', 'swipe', 'screenshot', 'textInput'],
-  'appium-wda': ['uiTree', 'coordinateTap', 'swipe', 'screenshot', 'textInput'],
-  'mobile-mcp': ['uiTree', 'coordinateTap', 'screenshot', 'location', 'push'],
-  'iphone-use': ['visualScreenshot', 'visualTap'],
+const ACTION_CAPABILITIES: Partial<Record<FlowStepV2['action'], readonly string[]>> = {
+  launchApp: ['appLifecycle'],
+  terminateApp: ['appLifecycle'],
+  tap: ['coordinateTap'],
+  longPress: ['coordinateTap'],
+  swipe: ['swipe'],
+  typeText: ['textInput'],
+  pressButton: ['pressButton'],
+  openUrl: ['openUrl'],
+  screenshot: ['screenshot'],
+  getUiTree: ['uiTree'],
+  startRecording: ['video'],
+  stopRecording: ['video'],
+  collectLogs: ['logs'],
+  assertVisible: ['uiTree'],
+  assertNotVisible: ['uiTree'],
+  assertText: ['uiTree'],
 };
 
-/**
- * Infer required capabilities from the backend name.
- *
- * Falls back to a conservative list for unknown backends.
- */
-function inferCapabilities(backendName: string): string[] {
-  const lower = backendName.toLowerCase();
-  for (const [key, caps] of Object.entries(BACKEND_CAPABILITY_MAP)) {
-    if (lower.includes(key)) return caps;
+/** Infer canonical replay capabilities from the actual compiled steps. */
+export function inferRequiredCapabilities(steps: readonly FlowStepV2[]): string[] {
+  const capabilities = new Set<string>();
+  for (const step of steps) {
+    if (
+      (step.action === 'tap' || step.action === 'longPress') &&
+      step.locator?.strategy === 'image'
+    ) {
+      capabilities.add('visualScreenshot');
+      capabilities.add('visualTap');
+      continue;
+    }
+    if (
+      (step.action === 'tap' || step.action === 'longPress') &&
+      step.locator !== undefined &&
+      step.locator.strategy !== 'coordinate'
+    ) {
+      capabilities.add('uiTree');
+    }
+    for (const capability of ACTION_CAPABILITIES[step.action] ?? []) {
+      capabilities.add(capability);
+    }
   }
-  return ['uiTree', 'coordinateTap']; // conservative default
+  return [...capabilities];
 }
 
 // ─── kebab-case Generator ─────────────────────────────────────────
@@ -198,6 +217,7 @@ function compileStep(recStep: RecordingStep, stepIndex: number): FlowStepV2 | nu
   if (!normalizedAction) {
     return {
       action: 'comment',
+      caseId: runStep.caseId,
       comment: `[unmapped: ${rawAction}] target="${runStep.target ?? 'unknown'}" — original step ${stepIndex}`,
     };
   }
@@ -206,6 +226,7 @@ function compileStep(recStep: RecordingStep, stepIndex: number): FlowStepV2 | nu
 
   const flowStep: FlowStepV2 = {
     action: normalizedAction,
+    caseId: runStep.caseId,
     target: runStep.target,
     locator,
     durationMs: runStep.durationMs,
@@ -246,11 +267,12 @@ function compileStep(recStep: RecordingStep, stepIndex: number): FlowStepV2 | nu
  *   1. Generate flowId from featureName
  *   2. Filter skipped/null steps
  *   3. Normalize actions and locators
- *   4. Infer capabilities from backend name
+ *   4. Infer canonical capabilities from the compiled steps
  *   5. Build validated target from device info
  *   6. Set flow status based on recording endState
  *
- * US-9.2 AC3: Flow contains flowId/source/status/steps.
+ * US-9.2 AC3: Flow v2 includes identity, status, target portability,
+ * capability requirements, validation history, and steps.
  * US-8.2 AC3: Exploration is NOT replayable until solidified as Flow.
  *
  * @param recording - The RecordingResult from task 3.13 interactive recording
@@ -285,7 +307,7 @@ export function compileFlow(recording: RecordingResult): FlowV2 {
     kind: recording.device.targetKind,
     udid: recording.device.udid,
     // Full device info (deviceTypeIdentifier, runtimeIdentifier, model, osVersion)
-    // is populated lazily by the replay engine — compiler does not shell out.
+    // remains absent until an explicitly approved canonical Flow write-back; replay is immutable.
   };
 
   // Step 4: Map endState to flow status
@@ -321,7 +343,7 @@ export function compileFlow(recording: RecordingResult): FlowV2 {
     source: 'agent-recorded',
     status,
     supportedTargetKinds: [recording.device.targetKind],
-    requiredCapabilities: inferCapabilities(recording.backend),
+    requiredCapabilities: inferRequiredCapabilities(compiledSteps),
     lastValidatedTargets: [validatedTarget],
     steps: compiledSteps,
     notes: contextNotes,

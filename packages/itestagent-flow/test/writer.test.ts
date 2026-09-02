@@ -9,7 +9,7 @@ import { exists, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FlowV2 } from '../src/schema.js';
-import { readFlowFile, saveFlow } from '../src/writer.js';
+import { readFlowFile, resolveFlowFile, saveFlow } from '../src/writer.js';
 import { serializeFlowYaml } from '../src/yaml.js';
 
 const sampleFlow: FlowV2 = {
@@ -148,5 +148,46 @@ describe('readFlowFile error handling', () => {
   it('accepts valid flowId with hyphens and underscores', async () => {
     // Should NOT throw on validation — will throw "not found" because file doesn't exist
     await expect(readFlowFile('my-flow_v2')).rejects.toThrow('not found');
+  });
+});
+
+describe('resolveFlowFile lookup precedence', () => {
+  it('reads only the global location when projectPath is omitted', async () => {
+    const flow = { ...sampleFlow, flowId: 'global-only-flow', notes: 'global' };
+    await saveFlow(flow, { dataRoot: testDir, saveConfirmed: true });
+    const result = await resolveFlowFile(flow.flowId, { dataRoot: testDir });
+    expect(result.source).toBe('global');
+    expect(result.path).toBe(join(testDir, 'flows', `${flow.flowId}.yaml`));
+  });
+
+  it('prefers project-local and reports its actual source', async () => {
+    const flowId = 'project-wins-flow';
+    await saveFlow(
+      { ...sampleFlow, flowId, notes: 'global' },
+      { dataRoot: testDir, saveConfirmed: true },
+    );
+    const projectPath = join(testDir, 'project-wins');
+    const projectFlowPath = join(projectPath, '.itestagent', 'flows', `${flowId}.yaml`);
+    await mkdir(join(projectPath, '.itestagent', 'flows'), { recursive: true });
+    await writeFile(
+      projectFlowPath,
+      serializeFlowYaml({ ...sampleFlow, flowId, notes: 'project' }),
+      'utf-8',
+    );
+
+    const result = await resolveFlowFile(flowId, { dataRoot: testDir, projectPath });
+    expect(result.source).toBe('project');
+    expect(result.path).toBe(projectFlowPath);
+    expect((result.data as FlowV2).notes).toBe('project');
+  });
+
+  it('falls back to global when project-local is absent', async () => {
+    const flow = { ...sampleFlow, flowId: 'project-fallback-flow' };
+    await saveFlow(flow, { dataRoot: testDir, saveConfirmed: true });
+    const result = await resolveFlowFile(flow.flowId, {
+      dataRoot: testDir,
+      projectPath: join(testDir, 'empty-project'),
+    });
+    expect(result.source).toBe('global');
   });
 });

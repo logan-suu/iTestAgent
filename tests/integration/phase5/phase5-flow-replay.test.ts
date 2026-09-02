@@ -94,7 +94,7 @@ function makeMockDeviceBackend(): DeviceBackend {
       return {
         id: 'ss-mock-001',
         type: 'screenshot',
-        path: 'artifacts/ss-mock-001.png',
+        path: import.meta.path,
         mimeType: 'image/png',
         redactionStatus: 'safe',
       };
@@ -239,6 +239,7 @@ describe('Phase 5: Flow Replay Pipeline', () => {
   describe('replayFlow basic', () => {
     it('replays a simple flow successfully', async () => {
       const result: ReplayResult = await replayFlow(BASIC_FLOW, backend, {
+        targetKind: 'simulator',
         deviceId,
         bundleId: 'com.example.app',
       });
@@ -251,13 +252,13 @@ describe('Phase 5: Flow Replay Pipeline', () => {
       expect(failedSteps.length).toBe(0);
     });
 
-    it('produces overallStatus passed when all steps pass', async () => {
-      const result = await replayFlow(BASIC_FLOW, backend, { deviceId });
-      expect(result.overallStatus).toBe('passed');
+    it('reports blocked when required locators cannot be resolved', async () => {
+      const result = await replayFlow(BASIC_FLOW, backend, { targetKind: 'simulator', deviceId });
+      expect(result.overallStatus).toBe('blocked');
     });
 
     it('records step timestamps', async () => {
-      const result = await replayFlow(BASIC_FLOW, backend, { deviceId });
+      const result = await replayFlow(BASIC_FLOW, backend, { targetKind: 'simulator', deviceId });
       expect(result.startedAt).toBeDefined();
       expect(result.completedAt).toBeDefined();
       expect(new Date(result.startedAt).getTime()).toBeLessThanOrEqual(
@@ -268,13 +269,17 @@ describe('Phase 5: Flow Replay Pipeline', () => {
 
   describe('replayFlow edge cases', () => {
     it('handles coordinate-based locators', async () => {
-      const result = await replayFlow(FLOW_WITH_COORDINATE_LOCATOR, backend, { deviceId });
+      const result = await replayFlow(FLOW_WITH_COORDINATE_LOCATOR, backend, {
+        targetKind: 'simulator',
+        deviceId,
+      });
       expect(result.steps.length).toBe(1);
       expect(result.overallStatus).toBe('passed');
     });
 
     it('respects collectEvidence disabled option', async () => {
       const result = await replayFlow(BASIC_FLOW, backend, {
+        targetKind: 'simulator',
         deviceId,
         collectEvidence: false,
       });
@@ -304,14 +309,14 @@ describe('Phase 5: Flow Replay Pipeline', () => {
         ],
       };
 
-      const result = await replayFlow(commentFlow, backend, { deviceId });
+      const result = await replayFlow(commentFlow, backend, { targetKind: 'simulator', deviceId });
       expect(result.steps.length).toBe(1);
     });
   });
 
   describe('replayFlow targetKind isolation (ADR-011)', () => {
     it('includes targetKind in replay result', async () => {
-      const result = await replayFlow(BASIC_FLOW, backend, { deviceId });
+      const result = await replayFlow(BASIC_FLOW, backend, { targetKind: 'simulator', deviceId });
       expect(result.targetKind).toBeDefined();
     });
   });

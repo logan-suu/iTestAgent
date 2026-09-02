@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 /**
  * Replay engine — B08 module split (promotion guide §11.3 "Flow
  * replay/redaction"). Moved verbatim from the former replay.ts monolith.
@@ -15,6 +17,7 @@ import type { DeviceBackend, TargetKind } from 'itestagent-contracts';
 import {
   type ReplayResult,
   type ReplayStepResult,
+  correlateReplayStep,
   createEmptySummary,
   skippedStep,
 } from './replay-result.js';
@@ -73,6 +76,7 @@ export async function replayFlow(
   options: ReplayOptions,
 ): Promise<ReplayResult> {
   const {
+    targetKind,
     deviceId,
     bundleId,
     signal,
@@ -85,16 +89,27 @@ export async function replayFlow(
   const steps: ReplayStepResult[] = [];
   const summary = createEmptySummary(flow.steps.length);
 
-  // Determine targetKind from the backend capabilities or options
-  // We infer targetKind from the backend's capabilities or from the flow itself
-  const targetKind: TargetKind = flow.supportedTargetKinds[0] ?? 'physical';
+  const compatibility = checkTargetCompatibility(flow, targetKind);
+  if (!compatibility.ok) {
+    throw new Error(compatibility.reason);
+  }
+  const runId = options.runId ?? `replay-${Date.now()}`;
+  const evidenceDirectory =
+    options.evidenceDirectory ?? join(tmpdir(), 'itestagent', 'flow-replay', runId, 'artifacts');
 
   for (let i = 0; i < flow.steps.length; i++) {
     if (signal?.aborted) {
       for (let j = i; j < flow.steps.length; j++) {
         const s = flow.steps[j];
         if (!s) continue;
-        steps.push(skippedStep(j, s.action, s.target, 'Replay aborted'));
+        steps.push(
+          correlateReplayStep(skippedStep(j, s.action, s.target, 'Replay aborted'), {
+            stepId: `${runId}-step-${j + 1}`,
+            sequence: j + 1,
+            targetKind,
+            caseId: s.caseId,
+          }),
+        );
         summary.skipped++;
       }
       break;
@@ -114,12 +129,24 @@ export async function replayFlow(
       signal,
       collectEvidenceFlag,
       onSafetyGate,
+      {
+        evidenceDirectory,
+        stepId: `${runId}-step-${i + 1}`,
+        caseId: step.caseId,
+        resolveValueRef: options.resolveValueRef,
+      },
     );
 
-    steps.push(result);
+    const correlated = correlateReplayStep(result, {
+      stepId: `${runId}-step-${i + 1}`,
+      sequence: i + 1,
+      targetKind,
+      caseId: step.caseId,
+    });
+    steps.push(correlated);
 
     // Update summary
-    switch (result.status) {
+    switch (correlated.status) {
       case 'passed':
         summary.passed++;
         break;
@@ -141,7 +168,7 @@ export async function replayFlow(
   let overallStatus: ReplayResult['overallStatus'];
   if (summary.total === 0) {
     overallStatus = 'passed';
-  } else if (summary.blocked === summary.total) {
+  } else if (summary.blocked > 0 || summary.skipped > 0) {
     overallStatus = 'blocked';
   } else if (summary.failed > 0) {
     overallStatus = 'failed';

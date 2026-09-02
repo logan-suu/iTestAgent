@@ -22,6 +22,15 @@ const physicalFixture = {
         connectionProperties: { transportType: 'wireless', pairingState: 'unpaired' },
         hardwareProperties: { udid: 'IGNORED' },
       },
+      {
+        connectionProperties: {
+          transportType: 'localNetwork',
+          pairingState: 'paired',
+          tunnelState: 'disconnected',
+        },
+        hardwareProperties: { udid: 'PHONE-XCODE-26', productType: 'iPhone14,8' },
+        deviceProperties: { name: 'Xcode 26 iPhone', osVersionNumber: '18.2.1' },
+      },
     ],
   },
 };
@@ -68,6 +77,14 @@ describe('shared Appium device discovery', () => {
         platform: 'ios',
         targetKind: 'physical',
       },
+      {
+        udid: 'PHONE-XCODE-26',
+        name: 'Xcode 26 iPhone',
+        model: 'iPhone14,8',
+        osVersion: '18.2.1',
+        platform: 'ios',
+        targetKind: 'physical',
+      },
     ]);
   });
 
@@ -98,7 +115,7 @@ describe('shared Appium device discovery', () => {
 
   it('discovers and orders physical before simulator devices', async () => {
     const devices = await discoverDevices(undefined, createRuntime());
-    expect(devices.map((device) => device.udid)).toEqual(['PHONE-1', 'SIM-1']);
+    expect(devices.map((device) => device.udid)).toEqual(['PHONE-1', 'PHONE-XCODE-26', 'SIM-1']);
   });
 
   it('removes the devicectl JSON output after discovery', async () => {

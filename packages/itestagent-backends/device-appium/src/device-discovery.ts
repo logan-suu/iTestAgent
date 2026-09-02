@@ -53,9 +53,11 @@ const defaultRuntime: DeviceDiscoveryRuntime = {
     const forwardAbort = () => controller.abort(signal?.reason);
     if (signal?.aborted) forwardAbort();
     else signal?.addEventListener('abort', forwardAbort, { once: true });
+    // CoreDevice cold-start regularly exceeds three seconds on real hosts.
+    // Keep the probe bounded, but allow enough time for devicectl to initialise.
     const timeout = setTimeout(
       () => controller.abort(new Error(`Device discovery timed out: ${command.join(' ')}`)),
-      3_000,
+      15_000,
     );
     try {
       const proc = Bun.spawn([...command], {
@@ -96,7 +98,10 @@ export function parsePhysicalDevices(parsed: DevicectlListOutput): DeviceInfo[] 
     .filter((device) => {
       const connection = device.connectionProperties;
       if (!connection) return false;
-      if (connection.transportType === 'wired' && connection.pairingState === 'paired') return true;
+      // Xcode 26 reports an available paired device as localNetwork + disconnected
+      // until an operation opens the CoreDevice tunnel. Pairing proves discovery;
+      // the production replay readiness probe separately proves WDA is active.
+      if (connection.pairingState === 'paired') return true;
       return connection.tunnelState === 'connected' || connection.tunnelState === 'available';
     })
     .map((device) => ({

@@ -94,7 +94,7 @@ Capabilities claiming both target kinds must pass **both** G5 and G5-SIM.
 
 ### 8. Schema Version
 
-Contracts (test-plan, result, flow) upgrade to v2. Historical v1 data is migrated as `targetKind=physical`. New writers MUST NOT produce documents without `targetKind`.
+TestPlan and result use a singular resolved `targetKind`. Flow v2 is portable and therefore uses `supportedTargetKinds` plus `lastValidatedTargets` instead of a singular `targetKind`. Historical v1 TestPlan/result data is migrated as `targetKind=physical`; historical Flow data is migrated to `supportedTargetKinds=[physical]` with an explicit migration limitation when validated-target identity is unavailable. New writers MUST NOT omit the target semantics required by their own canonical schema.
 
 ### 9. Exclusions
 

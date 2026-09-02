@@ -18,7 +18,7 @@
  */
 import type { DeviceBackend } from 'itestagent-contracts';
 import { isAssertionAction, runAssertionAction } from './replay-assertion.js';
-import { collectStepEvidence } from './replay-evidence-writer.js';
+import { collectStepEvidenceResult } from './replay-evidence-writer.js';
 import {
   INTERACTION_CONTINUE,
   isInteractionAction,
@@ -75,6 +75,12 @@ export async function executeStep(
   signal: AbortSignal | undefined,
   collectEvidenceFlag: boolean,
   onSafetyGate: ReplayOptions['onSafetyGate'],
+  evidenceContext: {
+    evidenceDirectory?: string;
+    stepId?: string;
+    caseId?: string;
+    resolveValueRef?: (reference: string) => Promise<string | undefined>;
+  } = {},
 ): Promise<ReplayStepResult> {
   const action = step.action;
   const target = step.target;
@@ -123,7 +129,7 @@ export async function executeStep(
 
   // ── Backend actions ───────────────────────────────────────────
   const startTime = Date.now();
-  const ctx: StepHandlerContext = { backend, deviceId, bundleId, signal };
+  const ctx: StepHandlerContext = { backend, deviceId, bundleId, signal, ...evidenceContext };
 
   try {
     // Check abort signal
@@ -135,21 +141,57 @@ export async function executeStep(
     if (dispatched !== INTERACTION_CONTINUE) return dispatched;
 
     // ── Post-step evidence collection ───────────────────────────
-    const evidence = collectEvidenceFlag
-      ? await collectStepEvidence(backend, deviceId, stepIndex, signal)
-      : [];
+    const evidenceResult = collectEvidenceFlag
+      ? await collectStepEvidenceResult(
+          backend,
+          deviceId,
+          {
+            evidenceDirectory: evidenceContext.evidenceDirectory,
+            stepId: evidenceContext.stepId ?? `step-${stepIndex + 1}`,
+            caseId: evidenceContext.caseId,
+          },
+          signal,
+        )
+      : {
+          artifacts: [],
+          outcomes: [
+            { type: 'screenshot' as const, status: 'not_requested' as const },
+            { type: 'uitree' as const, status: 'not_requested' as const },
+          ],
+        };
 
     const duration = Date.now() - startTime;
-    return passedStep(stepIndex, action, target, duration, evidence);
+    return {
+      ...passedStep(stepIndex, action, target, duration, evidenceResult.artifacts),
+      evidenceOutcomes: evidenceResult.outcomes,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const duration = Date.now() - startTime;
 
     // Try to collect evidence even on failure
-    const evidence = collectEvidenceFlag
-      ? await collectStepEvidence(backend, deviceId, stepIndex, signal)
-      : [];
+    const evidenceResult = collectEvidenceFlag
+      ? await collectStepEvidenceResult(
+          backend,
+          deviceId,
+          {
+            evidenceDirectory: evidenceContext.evidenceDirectory,
+            stepId: evidenceContext.stepId ?? `step-${stepIndex + 1}`,
+            caseId: evidenceContext.caseId,
+          },
+          signal,
+        )
+      : {
+          artifacts: [],
+          outcomes: [
+            { type: 'screenshot' as const, status: 'not_requested' as const },
+            { type: 'uitree' as const, status: 'not_requested' as const },
+          ],
+        };
 
-    return failedStep(stepIndex, action, target, duration, errorMessage, evidence);
+    return {
+      ...failedStep(stepIndex, action, target, duration, errorMessage, evidenceResult.artifacts),
+      evidenceOutcomes: evidenceResult.outcomes,
+    };
   }
 }

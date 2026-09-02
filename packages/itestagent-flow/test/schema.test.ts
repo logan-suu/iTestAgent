@@ -89,6 +89,11 @@ describe('FlowStepV2Schema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('validates an optional non-empty caseId', () => {
+    expect(FlowStepV2Schema.safeParse({ action: 'tap', caseId: 'login' }).success).toBe(true);
+    expect(FlowStepV2Schema.safeParse({ action: 'tap', caseId: '' }).success).toBe(false);
+  });
+
   it('validates a swipe step with direction', () => {
     const result = FlowStepV2Schema.safeParse({
       action: 'swipe',
@@ -211,9 +216,9 @@ describe('FlowV2Schema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects empty requiredCapabilities', () => {
+  it('accepts empty requiredCapabilities for comment/wait-only flows', () => {
     const result = FlowV2Schema.safeParse({ ...validFlowV2, requiredCapabilities: [] });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('rejects empty steps array', () => {

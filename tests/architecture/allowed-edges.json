@@ -33,6 +33,10 @@
   },
   {
     "from": "itestagent-engine",
+    "to": "itestagent-flow"
+  },
+  {
+    "from": "itestagent-engine",
     "to": "itestagent-backends-device-appium"
   },
   {

@@ -2,7 +2,7 @@
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Command } from 'commander';
+import { Command, InvalidArgumentError } from 'commander';
 import {
   runConfigDefault,
   runConfigDeleteSecret,
@@ -10,6 +10,8 @@ import {
   runConfigSetSecret,
   runConfigShow,
 } from './commands/config.js';
+import { confirmAction } from './config/confirm.js';
+import { readHiddenSecret } from './config/hidden-secret-input.js';
 import { loadConfig } from './config/loader.js';
 import { saveProjectConfig } from './config/saver.js';
 import { PublicCliError, toPublicMessage } from './public-error.js';
@@ -36,6 +38,18 @@ import { VERSION } from './version.js';
 function handleCommandError(error: unknown): never {
   process.stderr.write(`${toPublicMessage(error)}\n`);
   process.exit(error instanceof PublicCliError ? error.exitCode : 1);
+}
+
+/** Parse a replay port without accepting trailing characters such as `8200abc`. */
+export function parseReplayPort(value: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError('must be an integer between 1 and 65535');
+  }
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new InvalidArgumentError('must be an integer between 1 and 65535');
+  }
+  return port;
 }
 
 interface ObservedPhysicalDevice {
@@ -729,42 +743,80 @@ export function createProgram(): Command {
 
   runCmd
     .command('flow <id>')
-    .description('validate and replay an iTestAgent Flow')
-    .option('--project <path>', 'also read from project .itestagent/flows/ directory')
-    .option('--execute', 'replay the flow against a connected device (default: validate only)')
-    .option('--device-id <id>', 'target device UDID or serial (required with --execute)')
-    .option('--bundle-id <id>', 'app bundle ID for launch/terminate (required with --execute)')
+    .description('replay an iTestAgent Flow on an explicit production target')
+    .option('--project <path>', 'prefer project .itestagent/flows/, then fall back to global')
+    .option('--validate-only', 'validate without starting a backend or touching a device')
+    .option('--target-kind <kind>', 'explicit target kind: physical or simulator')
+    .option('--device-id <id>', 'target device UDID (required for replay)')
+    .option('--bundle-id <id>', 'app bundle ID for launch/terminate')
+    .option('--backend <name>', 'explicit production backend', 'appium')
+    .option('--platform-version <version>', 'selected device iOS version')
+    .option('--appium-url <url>', 'Appium server URL')
+    .option('--wda-mode <mode>', 'physical WDA route: external-url or managed-xcodebuild')
+    .option('--wda-url <url>', 'Route B WebDriverAgent URL')
+    .option('--wda-bundle-id <id>', 'WDA base bundle identifier')
+    .option('--wda-project-path <path>', 'Route C WebDriverAgent.xcodeproj path')
+    .option('--wda-local-port <port>', 'local WDA port', parseReplayPort)
+    .option('--mjpeg-server-port <port>', 'local MJPEG port', parseReplayPort)
+    .option('--xcode-org-id <id>', 'Route C signing team ID')
+    .option('--xcode-signing-id <id>', 'Route C signing identity')
     .option('--no-evidence', 'skip screenshot/page-source evidence collection during replay')
-    .option('--non-interactive', 'skip safetyGate confirmation prompts (deny all)')
+    .option('--non-interactive', 'deny draft and safety confirmations')
     .action(
       async (
         flowId: string,
         options: {
           project?: string;
-          execute?: boolean;
+          validateOnly?: boolean;
+          targetKind?: string;
           deviceId?: string;
           bundleId?: string;
-          noEvidence?: boolean;
+          backend?: string;
+          platformVersion?: string;
+          appiumUrl?: string;
+          wdaMode?: string;
+          wdaUrl?: string;
+          wdaBundleId?: string;
+          wdaProjectPath?: string;
+          wdaLocalPort?: number;
+          mjpegServerPort?: number;
+          xcodeOrgId?: string;
+          xcodeSigningId?: string;
+          evidence?: boolean;
           nonInteractive?: boolean;
         },
       ) => {
         try {
-          const { readFlowFile, safeParseFlowV2 } = await import('itestagent-flow');
-          const raw = await readFlowFile(flowId);
-          const result = safeParseFlowV2(raw);
-
-          if (!result.success) {
-            console.error(`❌ Flow "${flowId}" failed schema validation:\n`);
-            for (const issue of result.error.issues) {
-              console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
-            }
-            process.exit(1);
+          const { CANONICAL_DEVICE_CAPABILITIES, loadProductionFlow, runProductionFlowReplay } =
+            await import('itestagent-engine');
+          const loaded = await loadProductionFlow(flowId, { projectPath: options.project });
+          const flow = loaded.flow;
+          if (options.targetKind !== 'physical' && options.targetKind !== 'simulator') {
+            throw new PublicCliError(
+              '--target-kind is required and must be either physical or simulator.',
+            );
           }
-
-          const flow = result.data;
+          const targetKind = options.targetKind;
+          if (!flow.supportedTargetKinds.includes(targetKind)) {
+            throw new PublicCliError(
+              `Flow "${flow.flowId}" does not support targetKind "${targetKind}". Supported: ${flow.supportedTargetKinds.join(', ')}`,
+            );
+          }
+          const unknownCapabilities = flow.requiredCapabilities.filter(
+            (capability) => !CANONICAL_DEVICE_CAPABILITIES.has(capability),
+          );
+          if (unknownCapabilities.length > 0) {
+            throw new PublicCliError(
+              `Flow requires unsupported capabilities: ${unknownCapabilities.join(', ')}`,
+            );
+          }
+          if (flow.status === 'deprecated') {
+            throw new PublicCliError(`Flow "${flow.flowId}" is deprecated and cannot be replayed.`);
+          }
 
           // ── Validate + Summarize (always) ─────────────────────────
           console.log(`✅ Flow "${flow.flowId}" — valid iTestAgent Flow v2`);
+          console.log(`   Location:   ${loaded.source} (${loaded.path})`);
           console.log(`   Source:     ${flow.source}`);
           console.log(`   Status:     ${flow.status}`);
           console.log(`   Targets:    ${flow.supportedTargetKinds.join(', ')}`);
@@ -790,83 +842,133 @@ export function createProgram(): Command {
             console.log(`\n   Notes: ${flow.notes}`);
           }
 
-          // ── Execute (when --execute flag is present) ───────────────
-          if (!options.execute) {
-            console.log(
-              `\n   Run: itestagent run flow ${flow.flowId} --execute  (add --execute to replay)`,
-            );
+          if (options.validateOnly) {
+            console.log('\n✅ Validation-only complete; no backend or device session was started.');
             return;
           }
 
-          // Validate --execute prerequisites
           if (!options.deviceId) {
-            console.error('\n❌ --device-id is required with --execute');
-            console.error(
-              '   Usage: itestagent run flow <id> --execute --device-id <UDID> --bundle-id <bundle.id>',
-            );
-            process.exit(1);
+            throw new PublicCliError('--device-id is required for production Flow replay.');
           }
-          if (!options.bundleId) {
-            console.error('\n❌ --bundle-id is required with --execute');
-            console.error(
-              '   Usage: itestagent run flow <id> --execute --device-id <UDID> --bundle-id <bundle.id>',
+          const needsBundleId = flow.steps.some(
+            (step) =>
+              (step.action === 'launchApp' || step.action === 'terminateApp') &&
+              typeof step.value !== 'string',
+          );
+          if (needsBundleId && !options.bundleId) {
+            throw new PublicCliError(
+              '--bundle-id is required because a lifecycle step has no inline bundle ID.',
             );
-            process.exit(1);
           }
 
-          // Check target compatibility
-          const { checkTargetCompatibility, replayFlow } = await import('itestagent-flow');
-          // Infer targetKind from the options or default to the flow's first supported kind
-          const targetKind = flow.supportedTargetKinds[0] ?? 'simulator';
-          const compat = checkTargetCompatibility(flow, targetKind);
+          let draftConfirmed = flow.status === 'confirmed';
+          if (flow.status === 'draft') {
+            if (options.nonInteractive) {
+              throw new PublicCliError('Draft Flow replay is blocked in non-interactive mode.');
+            }
+            draftConfirmed =
+              (await confirmAction({
+                action: 'Replay draft Flow',
+                details: `Replay draft Flow "${flow.flowId}" once on ${targetKind}/${options.deviceId}. The Flow file will not be modified.`,
+              })) === 'yes';
+            if (!draftConfirmed) {
+              throw new PublicCliError('Draft Flow replay was not confirmed.');
+            }
+          }
 
-          if (!compat.ok) {
-            console.error(`\n❌ Target compatibility blocked: ${compat.reason}`);
-            process.exit(1);
+          const valueRefs = [
+            ...new Set(
+              flow.steps
+                .map((step) => step.valueRef)
+                .filter((reference): reference is string => reference !== undefined),
+            ),
+          ];
+          if (options.nonInteractive && valueRefs.length > 0) {
+            throw new PublicCliError(
+              `Non-interactive replay cannot resolve in-memory value references: ${valueRefs.join(', ')}`,
+            );
+          }
+          const runtimeValues = new Map<string, string>();
+          for (const reference of valueRefs) {
+            const value = await readHiddenSecret({
+              prompt: `Value for ${reference} (input hidden): `,
+            });
+            if (!value) {
+              throw new PublicCliError(`No runtime value was provided for ${reference}.`);
+            }
+            runtimeValues.set(reference, value);
           }
 
           console.log(
             `\n🚀 Replaying flow "${flow.flowId}" on ${targetKind} (${options.deviceId})...\n`,
           );
 
-          // Dynamically import backend (non-literal to avoid tsc module resolution)
-          let backend: unknown;
-          const appiumPkg = 'itestagent-backends/device-appium';
-          const mockPkg = 'itestagent-backends/device-mock';
-          try {
-            const mod = (await import(appiumPkg)) as {
-              AppiumDeviceBackend: new (opts: Record<string, unknown>) => unknown;
-            };
-            backend = new mod.AppiumDeviceBackend({ targetKind });
-          } catch {
-            console.error('⚠️  AppiumDeviceBackend not available. Using mock backend for dry-run.');
-            const mod = (await import(mockPkg)) as { MockDeviceBackend: new () => unknown };
-            backend = new mod.MockDeviceBackend();
-          }
-
-          // Safety gate callback
           const onSafetyGate = options.nonInteractive
             ? undefined
             : async (step: { action: string; target?: string }) => {
-                // In CLI mode without TUI, we skip safetyGate prompts
-                console.warn(
-                  `⚠️  SafetyGate: "${step.action}" requires confirmation (non-interactive mode: skipping)`,
+                return (
+                  (await confirmAction({
+                    action: `Replay safety-gated step: ${step.action}`,
+                    details: `Target: ${step.target ?? '(none)'}`,
+                  })) === 'yes'
                 );
-                return false;
               };
 
-          const replayResult = await replayFlow(flow, backend as Parameters<typeof replayFlow>[1], {
+          if (
+            options.wdaMode !== undefined &&
+            options.wdaMode !== 'external-url' &&
+            options.wdaMode !== 'managed-xcodebuild'
+          ) {
+            throw new PublicCliError('--wda-mode must be external-url or managed-xcodebuild.');
+          }
+          for (const [flag, port] of [
+            ['--wda-local-port', options.wdaLocalPort],
+            ['--mjpeg-server-port', options.mjpegServerPort],
+          ] as const) {
+            if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65_535)) {
+              throw new PublicCliError(`${flag} must be an integer between 1 and 65535.`);
+            }
+          }
+
+          const execution = await runProductionFlowReplay({
+            flow,
+            targetKind,
             deviceId: options.deviceId,
             bundleId: options.bundleId,
-            collectEvidence: !options.noEvidence,
-            onStepStart: (idx, step) => {
-              const target = step.target ? ` (${step.target})` : '';
-              process.stdout.write(
-                `   [${idx + 1}/${flow.steps.length}] ${step.action}${target}... `,
-              );
+            preferredBackend: options.backend,
+            draftConfirmed,
+            appium: {
+              appiumServerUrl: options.appiumUrl,
+              platformVersion: options.platformVersion,
+              wdaStartupMode: options.wdaMode,
+              webDriverAgentUrl: options.wdaUrl,
+              wdaBaseBundleId: options.wdaBundleId,
+              wdaProjectPath: options.wdaProjectPath,
+              wdaLocalPort: options.wdaLocalPort,
+              mjpegServerPort: options.mjpegServerPort,
+              xcodeOrgId: options.xcodeOrgId,
+              xcodeSigningId: options.xcodeSigningId,
             },
-            onSafetyGate,
+            replay: {
+              collectEvidence: options.evidence !== false,
+              onStepStart: (idx, step) => {
+                const target = step.target ? ` (${step.target})` : '';
+                process.stdout.write(
+                  `   [${idx + 1}/${flow.steps.length}] ${step.action}${target}... `,
+                );
+              },
+              onSafetyGate,
+              resolveValueRef: async (reference) => runtimeValues.get(reference),
+            },
           });
+          if (!execution.success) {
+            console.error(`❌ ${execution.status}: ${execution.reasonCode}: ${execution.reason}`);
+            for (const remediation of execution.remediation) {
+              console.error(`   Remediation: ${remediation}`);
+            }
+            process.exit(1);
+          }
+          const replayResult = execution.replay;
 
           // Print per-step results
           for (const step of replayResult.steps) {
@@ -905,9 +1007,7 @@ export function createProgram(): Command {
             process.exit(1);
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error(`❌ Failed to replay flow "${flowId}": ${message}`);
-          process.exit(1);
+          handleCommandError(error);
         }
       },
     );

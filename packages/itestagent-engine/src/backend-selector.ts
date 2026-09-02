@@ -57,6 +57,70 @@ export interface SelectResult {
    * Indicates the backend was selected without a live healthcheck.
    */
   healthcheckNotImplemented?: boolean;
+  /** Actionable remediation for blocked/infra failures. */
+  remediation?: string[];
+  /** Canonical capabilities that no candidate could satisfy. */
+  missingCapabilities?: string[];
+}
+
+export const CANONICAL_DEVICE_CAPABILITIES = new Set([
+  'appLifecycle',
+  'uiTree',
+  'screenshot',
+  'coordinateTap',
+  'swipe',
+  'textInput',
+  'pressButton',
+  'openUrl',
+  'video',
+  'logs',
+  'crashLogs',
+  'visualScreenshot',
+  'visualTap',
+  'location',
+  'push',
+]);
+
+const FEATURE_ALIASES: Record<string, string> = {
+  launch: 'appLifecycle',
+  applifecycle: 'appLifecycle',
+  uitree: 'uiTree',
+  screenshot: 'screenshot',
+  tap: 'coordinateTap',
+  coordinatetap: 'coordinateTap',
+  swipe: 'swipe',
+  text: 'textInput',
+  textinput: 'textInput',
+  button: 'pressButton',
+  pressbutton: 'pressButton',
+  url: 'openUrl',
+  openurl: 'openUrl',
+  recording: 'video',
+  video: 'video',
+  log: 'logs',
+  logs: 'logs',
+  crash: 'crashLogs',
+  crashlogs: 'crashLogs',
+  visualscreenshot: 'visualScreenshot',
+  visualtap: 'visualTap',
+  location: 'location',
+  push: 'push',
+};
+
+/** Normalize legacy backend feature names and boolean capability flags. */
+export function normalizeBackendCapabilities(capabilities: BackendCapabilities): Set<string> {
+  const normalized = new Set<string>();
+  for (const feature of capabilities.features) {
+    const canonical = FEATURE_ALIASES[feature.replace(/[-_\s]/g, '').toLowerCase()];
+    if (canonical) normalized.add(canonical);
+  }
+  if (capabilities.supportsUiTree) normalized.add('uiTree');
+  if (capabilities.supportsScreenshot) normalized.add('screenshot');
+  if (capabilities.supportsVideo) normalized.add('video');
+  if (capabilities.supportsCrashLogs) normalized.add('crashLogs');
+  if (capabilities.supportsLocation) normalized.add('location');
+  if (capabilities.supportsPush) normalized.add('push');
+  return normalized;
 }
 
 // ─── BackendRegistry ──────────────────────────────────────────
@@ -101,7 +165,7 @@ export class BackendRegistry {
  *   1. Filter by BackendCapabilities.supportedTargetKinds.
  *   2. User explicit backend → use it (if registered + capability match).
  *   3. Auto-pick by per-targetKind preference order (DEFAULT_PREFERENCES).
- *   4. Healthcheck gating (placeholder — first match returned).
+ *   4. Healthcheck gating uses the selected device and tries same-target candidates in order.
  *   5. Same-targetKind fallback tracked via fallbackChain.
  *   6. Cross-targetKind fallback → blocked.cross_target_fallback (default denied).
  *   7. Unknown backend name → blocked.setup error.
@@ -251,6 +315,109 @@ export class BackendSelector {
     return result;
   }
 
+  /** Production selection with canonical capability filtering and live healthchecks. */
+  async selectProduction(input: {
+    targetKind: TargetKind;
+    deviceId: string;
+    requiredCapabilities: readonly string[];
+    preferredBackend?: string;
+    signal?: AbortSignal;
+  }): Promise<SelectResult> {
+    const unknown = input.requiredCapabilities.filter(
+      (capability) => !CANONICAL_DEVICE_CAPABILITIES.has(capability),
+    );
+    if (unknown.length > 0) {
+      return {
+        success: false,
+        error: `Unknown required capabilities: ${unknown.join(', ')}`,
+        errorCode: 'blocked.capability_unsupported',
+        missingCapabilities: unknown,
+        remediation: [
+          'Remove unsupported capability names or register a backend adapter that declares them.',
+        ],
+      };
+    }
+
+    if (input.preferredBackend && !this.registry.has(input.preferredBackend)) {
+      return {
+        success: false,
+        error: `Backend not registered: ${input.preferredBackend}`,
+        errorCode: 'blocked.setup',
+        remediation: [
+          'Install or configure the requested backend, or choose a registered backend.',
+        ],
+      };
+    }
+
+    const targetCandidates = (
+      input.preferredBackend
+        ? this.filterByTargetKind(input.targetKind).filter(
+            (backend) => backend.name === input.preferredBackend,
+          )
+        : this.autoPick(this.filterByTargetKind(input.targetKind), input.targetKind)
+    ).filter((backend) => !/mock|dry[-_ ]?run/i.test(backend.name));
+
+    if (targetCandidates.length === 0) {
+      return {
+        success: false,
+        error: `No production backend supports targetKind: ${input.targetKind}`,
+        errorCode: 'blocked.target_unsupported',
+        remediation: ['Configure a production backend for the explicitly selected target kind.'],
+      };
+    }
+
+    const capable = targetCandidates.filter((backend) => {
+      const available = normalizeBackendCapabilities(backend.capabilities);
+      return input.requiredCapabilities.every((capability) => available.has(capability));
+    });
+    if (capable.length === 0) {
+      const available = new Set(
+        targetCandidates.flatMap((backend) => [
+          ...normalizeBackendCapabilities(backend.capabilities),
+        ]),
+      );
+      const missing = input.requiredCapabilities.filter((capability) => !available.has(capability));
+      return {
+        success: false,
+        error: `No backend satisfies required capabilities: ${missing.join(', ')}`,
+        errorCode: 'blocked.capability_unsupported',
+        missingCapabilities: missing,
+        remediation: [
+          'Choose a backend that supports every Flow capability or revise the Flow steps.',
+        ],
+      };
+    }
+
+    const fallbackChain: string[] = [];
+    const healthErrors: string[] = [];
+    for (const backend of capable) {
+      fallbackChain.push(backend.name);
+      try {
+        const health = await backend.healthcheck(input.deviceId, input.signal);
+        if (health.healthy) {
+          return {
+            success: true,
+            backend,
+            fallbackChain: fallbackChain.length > 1 ? fallbackChain : undefined,
+          };
+        }
+        healthErrors.push(`${backend.name}: ${health.details ?? 'unhealthy'}`);
+      } catch (error) {
+        healthErrors.push(
+          `${backend.name}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return {
+      success: false,
+      error: `Backend healthcheck failed: ${healthErrors.join('; ')}`,
+      errorCode: 'infra.backend_unhealthy',
+      fallbackChain,
+      remediation: ['Verify Appium/WDA readiness and the selected device ID, then retry.'],
+    };
+  }
+
   // ── pipeline steps (exposed for testing) ─────────────────
 
   /**
@@ -300,16 +467,20 @@ export class BackendSelector {
     });
   }
 
-  /**
-   * Rule 4 (placeholder): Return the first healthy backend without
-   * actually running a healthcheck. Real implementation in Phase 3.3/3.5.
-   */
+  /** Rule 4: Return the first backend whose live device healthcheck succeeds. */
   async healthcheckGate(
     backends: DeviceBackend[],
-    _deviceId: string,
+    deviceId: string,
+    signal?: AbortSignal,
   ): Promise<DeviceBackend | null> {
-    if (backends.length === 0) return null;
-    return backends[0] ?? null;
+    for (const backend of backends) {
+      try {
+        if ((await backend.healthcheck(deviceId, signal)).healthy) return backend;
+      } catch {
+        // Try the next same-target candidate. Production selection reports diagnostics.
+      }
+    }
+    return null;
   }
 
   // ── private helpers ──────────────────────────────────────

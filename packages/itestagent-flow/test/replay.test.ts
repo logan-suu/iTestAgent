@@ -170,7 +170,7 @@ function makeUiTreeSnapshot(xml = MINIMAL_UI_TREE_XML): UiTreeSnapshot {
 
 /** Minimal screenshot ArtifactRef fixture. */
 function makeScreenshotRef(): ArtifactRef {
-  return { id: 'ss_1', type: 'screenshot', path: '/tmp/ss.png', redactionStatus: 'safe' };
+  return { id: 'ss_1', type: 'screenshot', path: import.meta.path, redactionStatus: 'safe' };
 }
 
 /** Minimal recording handle fixture. */
@@ -180,7 +180,7 @@ function makeRecordingHandle() {
 
 /** Minimal log ArtifactRef fixture. */
 function makeLogRef(): ArtifactRef {
-  return { id: 'log_1', type: 'log', path: '/tmp/log.txt', redactionStatus: 'safe' };
+  return { id: 'log_1', type: 'log', path: import.meta.path, redactionStatus: 'safe' };
 }
 
 /** Base flow with no steps — tests will modify. */
@@ -200,7 +200,12 @@ function makeFlow(overrides: Partial<FlowV2> = {}): FlowV2 {
 
 /** Helper: create default replay options. */
 function makeReplayOpts(overrides: Partial<ReplayOptions> = {}): ReplayOptions {
-  return { deviceId: 'test-udid', collectEvidence: false, ...overrides };
+  return {
+    targetKind: 'simulator',
+    deviceId: 'test-udid',
+    collectEvidence: false,
+    ...overrides,
+  };
 }
 
 // ─── checkTargetCompatibility ───────────────────────────────────────
@@ -496,6 +501,19 @@ describe('replayFlow — collectLogs', () => {
     });
     const result = await replayFlow(flow, backend, makeReplayOpts());
     expect(result.summary.passed).toBe(1);
+  });
+
+  test('collectLogs reports a runtime capture failure without claiming unsupported', async () => {
+    const backend = new MockDeviceBackend();
+    backend.setForceFail('syslog transport failed');
+    const flow = makeFlow({
+      steps: [{ action: 'collectLogs' }],
+    });
+    const result = await replayFlow(flow, backend, makeReplayOpts());
+    expect(result.steps[0]?.status).toBe('blocked');
+    expect(result.steps[0]?.evidenceOutcomes).toEqual([
+      { type: 'log', status: 'failed', error: 'syslog transport failed' },
+    ]);
   });
 });
 

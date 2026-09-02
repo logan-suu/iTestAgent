@@ -45,6 +45,7 @@
 | XCUITest metadata-only 候选、探测三态与构建权限边界 | `decisions/ADR-030-metadata-only-xcuitest-candidates.md` |
 | Run/Case/Step/Evidence 关联、自包含 run 目录与探索/Flow 边界 | `decisions/ADR-031-run-case-evidence-and-self-contained-run.md` |
 | 本地原始证据、模型安全投影与语义 UI 风险边界 | `decisions/ADR-032-local-raw-evidence-and-semantic-ui-risk.md` |
+| Flow 生产重放命令、目标/状态门禁、backend 与证据边界 | `decisions/ADR-033-flow-replay-production-semantics.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -161,4 +162,4 @@
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~031（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界与自包含 run 契约）
+- ADR 记录：ADR-020~033（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界、自包含 run 契约、本地原始证据与 Flow 生产重放语义）

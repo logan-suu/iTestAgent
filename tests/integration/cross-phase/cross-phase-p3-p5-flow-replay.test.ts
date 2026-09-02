@@ -233,7 +233,10 @@ describe('P3→P5: FlowV2 → replayFlow', () => {
     const backend = createMockBackend();
     const flow = makeFlowV2();
 
-    const result: ReplayResult = await replayFlow(flow, backend, { deviceId: 'test-udid' });
+    const result: ReplayResult = await replayFlow(flow, backend, {
+      targetKind: 'physical',
+      deviceId: 'test-udid',
+    });
 
     expect(result.flowId).toBe('cross-phase-test-flow');
     expect(result.summary.total).toBe(2);
@@ -250,7 +253,10 @@ describe('P3→P5: FlowV2 → replayFlow', () => {
     const backend = createMockBackend({ tapResult: makeErrorResult('element not found') });
     const flow = makeFlowV2();
 
-    const result = await replayFlow(flow, backend, { deviceId: 'test-udid' });
+    const result = await replayFlow(flow, backend, {
+      targetKind: 'physical',
+      deviceId: 'test-udid',
+    });
 
     // P0 contract: replay always produces a ReplayResult with correct structure
     expect(result.flowId).toBe('cross-phase-test-flow');
@@ -268,6 +274,7 @@ describe('P3→P5: FlowV2 → replayFlow', () => {
     const flow = makeFlowV2();
 
     const result = await replayFlow(flow, backend, {
+      targetKind: 'physical',
       deviceId: 'test-udid',
       signal: controller.signal,
     });
@@ -291,6 +298,7 @@ describe('P3→P5: FlowV2 → replayFlow', () => {
     });
 
     const result = await replayFlow(flow, backend, {
+      targetKind: 'physical',
       deviceId: 'test-udid',
       onSafetyGate: async () => false,
     });
@@ -302,7 +310,10 @@ describe('P3→P5: FlowV2 → replayFlow', () => {
     const backend = createMockBackend();
     const flow = makeFlowV2();
 
-    const result = await replayFlow(flow, backend, { deviceId: 'test-udid' });
+    const result = await replayFlow(flow, backend, {
+      targetKind: 'physical',
+      deviceId: 'test-udid',
+    });
 
     for (const step of result.steps) {
       expect(step.status).toBeTruthy();

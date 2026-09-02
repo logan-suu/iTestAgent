@@ -321,11 +321,11 @@ describe('autoPick', () => {
 });
 
 // ────────────────────────────────────────────────────────────
-//  healthcheckGate (Rule 4 — placeholder)
+//  healthcheckGate (Rule 4)
 // ────────────────────────────────────────────────────────────
 
 describe('healthcheckGate', () => {
-  test('returns first backend without running healthcheck', async () => {
+  test('returns first backend whose live healthcheck succeeds', async () => {
     const selector = createSelector();
     const candidates = selector.filterByTargetKind('simulator');
 
@@ -339,6 +339,79 @@ describe('healthcheckGate', () => {
 
     const result = await selector.healthcheckGate([], 'any-device');
     expect(result).toBeNull();
+  });
+});
+
+describe('selectProduction', () => {
+  test('normalizes legacy features and selects a healthy capable backend', async () => {
+    const registry = new BackendRegistry();
+    const appium = new FakeDeviceBackend('appium', ['simulator']);
+    appium.capabilities.features.push('launch', 'tap', 'text');
+    registry.register('appium', appium);
+
+    const result = await createSelector(registry).selectProduction({
+      targetKind: 'simulator',
+      deviceId: 'sim-1',
+      requiredCapabilities: ['appLifecycle', 'coordinateTap', 'textInput'],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.backend?.name).toBe('appium');
+    expect(result.healthcheckNotImplemented).toBeUndefined();
+  });
+
+  test('fails closed for an unknown required capability', async () => {
+    const result = await createSelector().selectProduction({
+      targetKind: 'simulator',
+      deviceId: 'sim-1',
+      requiredCapabilities: ['teleport'],
+    });
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('blocked.capability_unsupported');
+    expect(result.missingCapabilities).toEqual(['teleport']);
+  });
+
+  test('does not fall back when an explicit backend is unhealthy', async () => {
+    const registry = new BackendRegistry();
+    registry.register('unhealthy', new FakeDeviceBackend('unhealthy', ['simulator'], false));
+    registry.register('healthy', new FakeDeviceBackend('healthy', ['simulator'], true));
+
+    const result = await createSelector(registry).selectProduction({
+      targetKind: 'simulator',
+      deviceId: 'sim-1',
+      requiredCapabilities: ['uiTree'],
+      preferredBackend: 'unhealthy',
+    });
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('infra.backend_unhealthy');
+    expect(result.fallbackChain).toEqual(['unhealthy']);
+  });
+
+  test('tries the next same-target backend after an automatic healthcheck failure', async () => {
+    const registry = new BackendRegistry();
+    registry.register('appium', new FakeDeviceBackend('appium', ['simulator'], false));
+    registry.register('secondary', new FakeDeviceBackend('secondary', ['simulator'], true));
+
+    const result = await createSelector(registry).selectProduction({
+      targetKind: 'simulator',
+      deviceId: 'sim-1',
+      requiredCapabilities: ['uiTree'],
+    });
+    expect(result.success).toBe(true);
+    expect(result.backend?.name).toBe('secondary');
+    expect(result.fallbackChain).toEqual(['appium', 'secondary']);
+  });
+
+  test('never selects mock or dry-run backends in the production pipeline', async () => {
+    const registry = new BackendRegistry();
+    registry.register('mock', new FakeDeviceBackend('mock', ['simulator'], true));
+    const result = await createSelector(registry).selectProduction({
+      targetKind: 'simulator',
+      deviceId: 'sim-1',
+      requiredCapabilities: [],
+    });
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('blocked.target_unsupported');
   });
 });
 

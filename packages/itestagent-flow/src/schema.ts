@@ -6,7 +6,7 @@
  * lastValidatedTargets for multi-target flow portability.
  *
  * US-9.2 AC1: Level 2 Replayable Flow — self-owned iTestAgent Flow YAML.
- * US-9.2 AC3: Flow contains flowId/source/status/steps.
+ * US-9.2 AC3: Flow v2 includes target portability and capability metadata.
  */
 import { z } from 'zod';
 
@@ -58,6 +58,8 @@ const FlowActionEnum = z.enum([
 
 export const FlowStepV2Schema = z.object({
   action: FlowActionEnum,
+  /** Optional case correlation preserved from the recorded RunStep (ADR-031/033). */
+  caseId: z.string().min(1).optional(),
   /** Human-readable target description or locator label */
   target: z.string().optional(),
   /** Normalized locator (not Appium-specific) */
@@ -84,10 +86,10 @@ export type FlowStepV2 = z.infer<typeof FlowStepV2Schema>;
 /**
  * Audit trail entry for a device that validated this flow.
  *
- * Two-layer strategy (ADR-011 audit recommendation):
- *   - Base data (udid, kind) is always recorded at compile time.
- *   - Full device info (deviceTypeIdentifier, runtimeIdentifier, model, osVersion)
- *     is populated lazily by the replay engine when available.
+ * ADR-011/033 audit semantics:
+ *   - Base data (udid, kind) is recorded by the compiler/canonical writer.
+ *   - Replay is immutable by default and never updates this history implicitly.
+ *   - Explicit validation-history write-back requires overwrite_flow approval.
  */
 export const ValidatedTargetSchema = z.object({
   kind: z.enum(['physical', 'simulator']),
@@ -109,7 +111,8 @@ export type ValidatedTarget = z.infer<typeof ValidatedTargetSchema>;
  * Flow v2 schema — replayable iTestAgent Flow YAML.
  *
  * Architecture §6.7 defines the v2 template with ADR-011 fields.
- * US-9.2 AC3: Flow contains flowId/source/status/steps.
+ * US-9.2 AC3: Flow v2 includes schemaVersion, identity, status, target portability,
+ * capability requirements, validation history, and steps.
  */
 export const FlowV2Schema = z
   .object({
@@ -119,9 +122,9 @@ export const FlowV2Schema = z
     status: z.enum(['draft', 'confirmed', 'deprecated']),
     /** Target kinds this flow supports (ADR-011) */
     supportedTargetKinds: z.array(z.enum(['physical', 'simulator'])).min(1),
-    /** Normalized backend capabilities required for replay */
-    requiredCapabilities: z.array(z.string()).min(1),
-    /** Audit trail of validated devices */
+    /** Normalized backend capabilities required for replay; wait/comment-only flows may be empty. */
+    requiredCapabilities: z.array(z.string()),
+    /** Audit trail of validated devices; immutable during replay by default (ADR-033) */
     lastValidatedTargets: z.array(ValidatedTargetSchema),
     steps: z.array(FlowStepV2Schema).min(1),
     notes: z.string().optional(),

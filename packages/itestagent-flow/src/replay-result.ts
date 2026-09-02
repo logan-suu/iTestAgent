@@ -19,6 +19,20 @@ import type { ArtifactRef } from 'itestagent-contracts';
 /** Status of a single replayed step. */
 export type ReplayStepStatus = 'passed' | 'failed' | 'skipped' | 'blocked';
 
+export type ReplayEvidenceStatus =
+  | 'success'
+  | 'not_requested'
+  | 'not_applicable'
+  | 'unsupported'
+  | 'failed';
+
+export interface ReplayEvidenceOutcome {
+  type: ArtifactRef['type'] | 'checkpoint';
+  status: ReplayEvidenceStatus;
+  artifact?: ArtifactRef;
+  error?: string;
+}
+
 /**
  * Result of a single replayed Flow step.
  *
@@ -26,8 +40,16 @@ export type ReplayStepStatus = 'passed' | 'failed' | 'skipped' | 'blocked';
  * a reason AND implies the step was skipped due to safety or target incompatibility.
  */
 export interface ReplayStepResult {
+  /** Stable replay-local step identity. */
+  stepId: string;
+  /** Strictly increasing 1-based execution sequence. */
+  sequence: number;
   /** 0-based index into flow.steps */
   stepIndex: number;
+  /** Explicitly selected execution target. */
+  targetKind?: 'physical' | 'simulator';
+  /** Optional case correlation preserved from FlowStepV2. */
+  caseId?: string;
   /** Normalized action from FlowStepV2.action */
   action: string;
   /** Human-readable target from FlowStepV2.target */
@@ -40,6 +62,8 @@ export interface ReplayStepResult {
   error?: string;
   /** Evidence artifacts collected during this step (screenshots, page sources) */
   evidence: ArtifactRef[];
+  /** Explicit result for requested, omitted, unsupported, or failed evidence. */
+  evidenceOutcomes: ReplayEvidenceOutcome[];
   /** Detail message — supplementary context even for passed steps */
   detail?: string;
 }
@@ -125,7 +149,21 @@ export function passedStep(
   evidence: ArtifactRef[],
   detail?: string,
 ): ReplayStepResult {
-  return { stepIndex, action, target, status: 'passed', durationMs, evidence, detail };
+  return {
+    stepId: `step-${stepIndex + 1}`,
+    sequence: stepIndex + 1,
+    stepIndex,
+    action,
+    target,
+    status: 'passed',
+    durationMs,
+    evidence,
+    evidenceOutcomes:
+      evidence.length > 0
+        ? evidence.map((artifact) => ({ type: artifact.type, status: 'success', artifact }))
+        : [{ type: 'checkpoint', status: 'not_applicable' }],
+    detail,
+  };
 }
 
 /**
@@ -139,7 +177,21 @@ export function failedStep(
   error: string,
   evidence: ArtifactRef[],
 ): ReplayStepResult {
-  return { stepIndex, action, target, status: 'failed', durationMs, error, evidence };
+  return {
+    stepId: `step-${stepIndex + 1}`,
+    sequence: stepIndex + 1,
+    stepIndex,
+    action,
+    target,
+    status: 'failed',
+    durationMs,
+    error,
+    evidence,
+    evidenceOutcomes:
+      evidence.length > 0
+        ? evidence.map((artifact) => ({ type: artifact.type, status: 'success', artifact }))
+        : [{ type: 'checkpoint', status: 'not_applicable' }],
+  };
 }
 
 /**
@@ -152,6 +204,8 @@ export function skippedStep(
   reason: string,
 ): ReplayStepResult {
   return {
+    stepId: `step-${stepIndex + 1}`,
+    sequence: stepIndex + 1,
     stepIndex,
     action,
     target,
@@ -159,6 +213,7 @@ export function skippedStep(
     durationMs: 0,
     error: reason,
     evidence: [],
+    evidenceOutcomes: [{ type: 'checkpoint', status: 'not_applicable' }],
   };
 }
 
@@ -172,6 +227,8 @@ export function blockedStep(
   reason: string,
 ): ReplayStepResult {
   return {
+    stepId: `step-${stepIndex + 1}`,
+    sequence: stepIndex + 1,
     stepIndex,
     action,
     target,
@@ -179,5 +236,18 @@ export function blockedStep(
     durationMs: 0,
     error: reason,
     evidence: [],
+    evidenceOutcomes: [{ type: 'checkpoint', status: 'not_applicable' }],
   };
+}
+
+export function correlateReplayStep(
+  result: ReplayStepResult,
+  input: {
+    stepId: string;
+    sequence: number;
+    targetKind: 'physical' | 'simulator';
+    caseId?: string;
+  },
+): ReplayStepResult {
+  return { ...result, ...input };
 }

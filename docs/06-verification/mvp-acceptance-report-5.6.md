@@ -228,6 +228,8 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 
 ### Item 13 — Run Steps + Replayable Flow (US-9.1/9.2, P0) ✅
 
+> **Phase 6 correction (2026-09-02):** this section proves component-level replay against a mock backend, not the production `run flow` composition. T6.1 established the production path as RED because it used a non-canonical package/constructor and mock fallback. ADR-033 supersedes the command, target/status gate, backend-selection, and replay-evidence semantics; Item 13 must not be treated as production PASS until T6.7 completes G5 and G5-SIM.
+
 | Target | Status | Evidence |
 |---|---|---|
 | **Physical** | ✅ PASS | RunStepRecorder: structured step recording with action type, target, result, evidence refs (task 3.12). FlowV2 compiler: RecordingResult→FlowV2 with action normalization (16→6 canonical), locator normalization, safetyGate for irreversible ops, supportedTargetKinds/requiredCapabilities/lastValidatedTargets (ADR-011 §8). CLI: `itestagent run flow <id>`. FlowReplayEngine: 18 action types → DeviceBackend, locator resolution, evidence collection, abort signal. 4+4+51 tests (tasks 3.15, 5.2). |
@@ -246,6 +248,8 @@ iTestAgent MVP meets **all 18 P0 requirements** with verified physical (iPhone 1
 ---
 
 ### Item 14 — Auto Evidence Collection on Failure (US-13.1, P0) ✅
+
+> **Phase 6 correction (2026-09-02):** the historical evidence below does not validate the Flow replay evidence path. T6.7 must remove swallowed capture failures, empty-path/fabricated ArtifactRefs, and unsafe UI-tree redaction labels; T6.8 then owns unified RunStore and report persistence. Until both tasks pass, this item is not production closed-loop evidence for `run flow`.
 
 | Target | Status | Evidence |
 |---|---|---|

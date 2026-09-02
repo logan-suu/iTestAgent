@@ -35,11 +35,13 @@ function makeScriptedBackend() {
   const calls: string[] = [];
   const backend = {
     name: 'b08-scripted-fixture',
-    async launchApp(): Promise<void> {
+    async launchApp() {
       calls.push('launch');
+      return { success: true };
     },
-    async terminateApp(): Promise<void> {
+    async terminateApp() {
       calls.push('terminate');
+      return { success: true };
     },
     async screenshot(): Promise<never> {
       throw new Error('no screenshot in fixture');
@@ -57,6 +59,7 @@ describe('simulator fixture flow (B08)', () => {
     const { backend, calls } = makeScriptedBackend();
 
     const result = await replayFlow(flow, backend, {
+      targetKind: 'simulator',
       deviceId: 'sim-fixture-b08',
       collectEvidence: true,
     });
@@ -89,11 +92,12 @@ describe('simulator fixture flow (B08)', () => {
 
     const { backend } = makeScriptedBackend();
     const result = await replayFlow(flow, backend, {
+      targetKind: 'simulator',
       deviceId: 'sim-fixture-b08-abort',
       signal: controller.signal,
     });
 
-    expect(result.overallStatus).toBe('passed');
+    expect(result.overallStatus).toBe('blocked');
     // Remaining steps are accounted as skipped rather than dropped (R5).
     expect(result.summary.skipped + result.summary.passed).toBe(3);
   });
