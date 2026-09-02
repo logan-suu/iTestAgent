@@ -557,4 +557,5 @@ test('all tool errors degrade with ac4_note in result', async () => {
   const launchResult = launchStep?.result as Record<string, unknown>;
   expect(launchResult.ac4_note).toBeString();
   expect(launchResult.degradation).toBe(true);
+  expect(steps.some((step) => step.action === 'tap')).toBe(false);
 });

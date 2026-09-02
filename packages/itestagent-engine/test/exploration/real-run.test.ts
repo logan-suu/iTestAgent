@@ -13,7 +13,9 @@ import type { UserAssertion } from 'itestagent-contracts';
 import type { ExplorerToolDispatcher } from '../../src/exploration/device-explorer.js';
 import {
   createBackendToolDispatcher,
+  isSensitiveUiAction,
   runRealDeviceExploration,
+  suggestExplorationAction,
 } from '../../src/exploration/real-run.js';
 
 const TREE = `<XCUIElementTypeApplication><XCUIElementTypeButton name="login_button" label="Log in" /></XCUIElementTypeApplication>`;
@@ -43,6 +45,10 @@ function makeDispatcher(backend: ReturnType<typeof makeBackend>): ExplorerToolDi
       if (call.name === 'get_ui_tree') {
         const tree = await backend.getUiTree({ deviceId: String(args.deviceId ?? '') });
         return { callId: call.id, status: 'ok', output: { raw: tree.raw, format: tree.format } };
+      }
+      if (call.name === 'launch_app') {
+        const result = await backend.launchApp({ bundleId: String(args.bundleId ?? '') });
+        return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
       }
       if (call.name === 'screenshot') {
         const ref = await backend.screenshot({ deviceId: String(args.deviceId ?? '') });
@@ -101,6 +107,30 @@ describe('createBackendToolDispatcher', () => {
     });
     expect(result.status).toBe('error');
     expect(dispatcher.getArtifactRefs()).toHaveLength(0);
+  });
+});
+
+describe('model-safe exploration boundary', () => {
+  it('redacts secrets before invoking the model', async () => {
+    let prompt = '';
+    await suggestExplorationAction({
+      caseId: 'login',
+      uiTree:
+        '<XCUIElementTypeSecureTextField value="password=super-secret-value"/><XCUIElementTypeStaticText label="OTP 123456"/>',
+      history: [],
+      generate: async (value) => {
+        prompt = value;
+        return '{"action":"done"}';
+      },
+    });
+    expect(prompt).not.toContain('super-secret-value');
+    expect(prompt).not.toContain('123456');
+    expect(prompt).toContain('[REDACTED]');
+  });
+
+  it('classifies sensitive UI semantics independently of the verb', () => {
+    expect(isSensitiveUiAction({ action: 'tap', target: 'Delete account' })).toBe(true);
+    expect(isSensitiveUiAction({ action: 'tap', target: 'Open settings' })).toBe(false);
   });
 });
 
@@ -195,6 +225,26 @@ describe('runRealDeviceExploration', () => {
       actions: [{ action: 'wait', target: 'observe login', waitMs: 1, caseId: 'login' }],
     });
     expect(result.assertion.status).toBe('explored');
+  });
+
+  it('blocks a sensitive generated action when no permission authorizer is wired', async () => {
+    const backend = makeBackend([]);
+    await expect(
+      runRealDeviceExploration({
+        backend,
+        toolDispatcher: makeDispatcher(backend),
+        runDir: mkdtempSync(join(tmpdir(), 'real-run-')),
+        runId: 'run_sensitive',
+        bundleId: 'com.example.app',
+        deviceId: 'UDID-1',
+        targetKind: 'physical',
+        dynamicActions: {
+          cases: ['account'],
+          maxStepsPerCase: 1,
+          suggest: async () => ({ action: 'tap', target: 'Delete account' }),
+        },
+      }),
+    ).rejects.toThrow('exploration_permission_required');
   });
 });
 

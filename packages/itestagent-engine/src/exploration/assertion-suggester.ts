@@ -11,6 +11,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { type LanguageModel, generateText } from 'ai';
 import type { UserAssertion } from 'itestagent-contracts';
 import { UserAssertionSchema } from 'itestagent-contracts';
+import { redactUiTreeForModel } from '../context-builder.js';
 
 export interface SuggestionContext {
   /** What the user wants to verify, in their words. */
@@ -47,7 +48,7 @@ function buildPrompt(ctx: SuggestionContext): string {
     `User goal${feature}: ${ctx.goal}`,
     '',
     'UI tree:',
-    ctx.uiTree.slice(0, 8000),
+    redactUiTreeForModel(ctx.uiTree).slice(0, 8000),
   ].join('\n');
 }
 

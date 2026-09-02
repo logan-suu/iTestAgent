@@ -97,7 +97,8 @@ export class DeviceExplorer {
    */
   async explore(actions: ExplorationAction[]): Promise<RunStep[]> {
     if (!this.launched) {
-      await this.executeLaunch();
+      const launched = await this.executeLaunch();
+      if (!launched) return this.recorder.getSteps();
       this.launched = true;
     }
 
@@ -138,7 +139,7 @@ export class DeviceExplorer {
 
   // ─── Private: Launch ────────────────────────────────────────
 
-  private async executeLaunch(bundleIdOverride?: string, caseId?: string): Promise<void> {
+  private async executeLaunch(bundleIdOverride?: string, caseId?: string): Promise<boolean> {
     const bundleId = bundleIdOverride ?? this.options.bundleId;
     const stepId = this.recorder.startStep('launch', bundleId, undefined, caseId);
 
@@ -153,9 +154,14 @@ export class DeviceExplorer {
 
     if (result.status === 'ok') {
       this.recorder.completeStep(stepId, result.output);
-    } else {
-      await this.failStepWithEvidence(stepId, `Launch failed: ${JSON.stringify(result.output)}`);
+      return true;
     }
+    await this.failStepWithEvidence(
+      stepId,
+      `Launch failed: ${JSON.stringify(result.output)}`,
+      caseId,
+    );
+    return false;
   }
 
   // ─── Private: Action Execution ──────────────────────────────
@@ -330,6 +336,11 @@ export class DeviceExplorer {
       return;
     }
 
+    const secretInput =
+      /\b(password|passcode|otp|one[- ]?time|verification code|token|secret|card|cvv|account)\b/i.test(
+        action.target ?? '',
+      );
+    const recordedText = secretInput ? '[SECRET_REF:runtime]' : action.text;
     const stepId = this.recorder.startStep(
       'type_text',
       action.target ?? action.text,
@@ -348,13 +359,15 @@ export class DeviceExplorer {
 
     if (result.status === 'ok') {
       this.recorder.completeStep(stepId, {
-        text: action.text,
-        result: result.output,
+        text: recordedText,
+        result: secretInput ? { success: true, redacted: true } : result.output,
       });
     } else {
       await this.failStepWithEvidence(
         stepId,
-        `Input "${action.text}" failed: ${JSON.stringify(result.output)}`,
+        secretInput
+          ? 'Sensitive input failed; backend details redacted'
+          : `Input "${action.text}" failed: ${JSON.stringify(result.output)}`,
         action.caseId,
       );
     }

@@ -47,6 +47,9 @@ try {
   const uiTrees = await artifactStore.search('uitree');
   const caseSteps = result.steps.filter((step) => step.caseId);
   if (caseSteps.length !== 2) throw new Error(`expected 2 case steps, got ${caseSteps.length}`);
+  if (caseSteps.some((step) => step.status !== 'completed')) {
+    throw new Error('all case steps must complete successfully before reporting PASS');
+  }
   if (uiTrees.length !== 2) throw new Error(`expected 2 UI-tree checkpoints, got ${uiTrees.length}`);
   if (uiTrees.some((artifact) => !artifact.relatedStep || !artifact.relatedCase)) {
     throw new Error('checkpoint artifact is missing relatedStep or relatedCase');

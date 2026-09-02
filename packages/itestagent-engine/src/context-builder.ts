@@ -360,3 +360,24 @@ export function redactValue(value: string, patterns?: RegExp[]): string {
   }
   return result;
 }
+
+const UI_MODEL_SECRET_PATTERNS: RegExp[] = [
+  ...DEFAULT_SECRET_PATTERNS,
+  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+  /\b(?:otp|one[- ]?time(?: password| code)?|verification code|passcode|pin)\D{0,12}\d{4,8}\b/gi,
+  /\b(?:\d[ -]*?){13,19}\b/g,
+];
+
+/** Create a deterministic, model-safe projection without mutating local raw evidence. */
+export function redactUiTreeForModel(uiTree: string): string {
+  let projected = redactValue(uiTree, UI_MODEL_SECRET_PATTERNS);
+  projected = projected.replace(
+    /(<[^>]*(?:type|class)="[^"]*(?:SecureTextField|Password)[^"]*"[^>]*)(>)/gi,
+    (tag) =>
+      tag.replace(
+        /\s(?:value|label|name|text)="[^"]*"/gi,
+        (attribute) => `${attribute.slice(0, attribute.indexOf('=') + 1)}"[REDACTED]"`,
+      ),
+  );
+  return projected;
+}

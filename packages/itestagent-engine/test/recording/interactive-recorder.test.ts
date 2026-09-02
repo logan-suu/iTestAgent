@@ -763,6 +763,43 @@ test('multiple steps recorded in sequence', async () => {
   expect(result.steps.length).toBe(2);
 });
 
+test('a skipped suggestion does not consume RunStep sequence 1', async () => {
+  const { recorder } = createAutoRespondingRecorder({
+    config: { maxSteps: 2 },
+    events: [
+      makeSuggestionEvent(tapSuggestionJson({ target: 'Skip me' })),
+      makeSuggestionEvent(tapSuggestionJson({ target: 'Execute me' })),
+    ],
+    autoResponse: [{ type: 'skip', reason: 'not needed' }, { type: 'confirm' }],
+    maxResponses: 2,
+  });
+  const result = await recorder.start();
+  expect(result.steps[0]?.step).toBeNull();
+  expect(result.steps[1]?.step?.sequence).toBe(1);
+});
+
+test('secret input is executed but stored only as a runtime secret reference', async () => {
+  let executedText = '';
+  const { recorder } = createAutoRespondingRecorder({
+    config: { maxSteps: 1 },
+    events: [
+      makeSuggestionEvent(
+        tapSuggestionJson({ action: 'input', target: 'OTP field', text: '123456' }),
+      ),
+    ],
+    executor: async (action) => {
+      executedText = action.text ?? '';
+      return { stepId: 'secret-step', result: { success: true }, artifacts: [] };
+    },
+    autoResponse: { type: 'confirm' },
+  });
+  const result = await recorder.start();
+  expect(executedText).toBe('123456');
+  expect(JSON.stringify(result)).not.toContain('123456');
+  expect(result.steps[0]?.step?.input).toBe('[SECRET_REF:runtime]');
+  expect(result.steps[0]?.originalSuggestion.text).toBe('[SECRET_REF:runtime]');
+});
+
 test('parseSuggestionFromEvents handles empty events gracefully', async () => {
   const { recorder } = createAutoRespondingRecorder({
     events: [],

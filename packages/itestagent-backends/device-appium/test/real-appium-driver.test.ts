@@ -26,7 +26,7 @@ function makeMockWdioClient(
     performActions: mock(() => Promise.resolve()),
     releaseActions: mock(() => Promise.resolve()),
     keys: mock(() => Promise.resolve()),
-    execute: mock((script: string, _args?: unknown[]) => {
+    execute: mock((script: string, _args?: unknown) => {
       if (script === 'mobile:listApps')
         return Promise.resolve(
           overrides?.apps ?? [{ bundleId: 'com.apple.Preferences', name: 'Settings' }],
@@ -95,6 +95,16 @@ describe('RealAppiumDriver', () => {
     it('returns success when no session is active', async () => {
       const result = await driver.deleteSession();
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('mobile command arguments', () => {
+    it('passes a plain object to mobile:launchApp', async () => {
+      await driver.createSession({ platformName: 'iOS', 'appium:udid': 'TEST' });
+      await driver.launchApp('com.example.app');
+      expect(mockClient.execute).toHaveBeenCalledWith('mobile:launchApp', {
+        bundleId: 'com.example.app',
+      });
     });
   });
 

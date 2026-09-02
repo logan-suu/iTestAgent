@@ -496,6 +496,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: '', // Configured per-deployment via WdaManager
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
         teamId: this.opts.xcodeOrgId,
         codeSignIdentity: this.opts.xcodeSigningId,
         derivedDataPath: this.opts.derivedDataPath,
@@ -538,6 +539,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
+        mjpegServerPort: this.opts.mjpegServerPort,
         derivedDataPath: this.opts.derivedDataPath,
         productBundleIdentifier: this.opts.wdaBundleId,
       });

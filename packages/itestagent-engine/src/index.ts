@@ -49,7 +49,7 @@ export type {
   StateChangeHandler,
 } from './run-state-machine.js';
 
-export { ContextBuilder, redactValue } from './context-builder.js';
+export { ContextBuilder, redactUiTreeForModel, redactValue } from './context-builder.js';
 
 export type {
   BuildContextInput,

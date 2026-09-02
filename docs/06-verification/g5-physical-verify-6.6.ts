@@ -15,12 +15,32 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+async function verifyMjpegStream(port: number): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort('MJPEG verification timeout'), 10_000);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}`, { signal: controller.signal });
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!response.ok || !contentType.toLowerCase().includes('multipart')) {
+      throw new Error(`MJPEG endpoint is not a multipart stream: ${response.status} ${contentType}`);
+    }
+    const firstChunk = await response.body?.getReader().read();
+    if (!firstChunk?.value?.byteLength) throw new Error('MJPEG stream returned no frame bytes');
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
+  }
+}
+
 const udid = requiredEnv('ITESTAGENT_PHYSICAL_UDID');
 const coreDeviceId = requiredEnv('ITESTAGENT_CORE_DEVICE_ID');
 const wdaProjectPath = requiredEnv('ITESTAGENT_WDA_PROJECT_PATH');
 const teamId = requiredEnv('ITESTAGENT_WDA_TEAM_ID');
 const wdaBundleId = requiredEnv('ITESTAGENT_WDA_BUNDLE_ID');
 const platformVersion = requiredEnv('ITESTAGENT_PLATFORM_VERSION');
+if (process.env.ITESTAGENT_CONFIRM_PREPARE_WDA?.trim() !== 'yes') {
+  throw new Error('ITESTAGENT_CONFIRM_PREPARE_WDA=yes is required before preparing WDA');
+}
 const derivedDataPath = mkdtempSync(join(tmpdir(), 'itestagent-g5-physical-6-6-wda-'));
 const runDir = mkdtempSync(join(tmpdir(), 'itestagent-g5-physical-6-6-run-'));
 mkdirSync(join(runDir, 'artifacts'), { recursive: true });
@@ -41,7 +61,7 @@ try {
     },
     coreDeviceId,
     undefined,
-    true,
+    process.env.ITESTAGENT_CONFIRM_PREPARE_WDA === 'yes',
   );
   if (!verification.installed) {
     throw new Error(`WDA inventory verification failed: ${verification.reason ?? 'unknown'}`);
@@ -55,6 +75,7 @@ try {
     deploymentTarget: '17.0',
     derivedDataPath,
     productBundleIdentifier: wdaBundleId,
+    mjpegServerPort: 9200,
   });
 
   runtime = createAppiumExplorationRuntime({
@@ -94,6 +115,7 @@ try {
     },
     exploration: { settleMs: 200, backendName: 'appium-g5-physical' },
   });
+  await verifyMjpegStream(9200);
 
   const uiTrees = await artifactStore.search('uitree');
   const caseSteps = result.steps.filter((step) => step.caseId);

@@ -12,6 +12,7 @@
 - 不支持或高风险的 Agent 动作显式 blocked。
 - 只有用户确认且实际执行成功的录制步骤可以编译进 Flow。
 - `save_flow`、`overwrite_flow`、项目目录写入分别确认。
+- PR review 后新增 ADR-032：原始 screenshot/video/UI tree 仅作为本地 `raw-local-only` 证据；进入模型、报告嵌入或导出的派生内容必须先脱敏；敏感 UI 语义必须经 PermissionEngine 确认。
 
 ## 2. 静态与自动化验证
 
@@ -19,7 +20,8 @@
 |---|---|
 | `bun run typecheck` | PASS |
 | `bun run lint` | PASS |
-| `bun test` | PASS：3484 pass / 13 skip / 0 fail（328 files） |
+| `bun test` | PASS：3496 pass / 13 skip / 0 fail（328 files） |
+| `bun run gate:g7` | PASS：7 pass / 0 fail |
 | Phase 6 production contract — T6.6 owned assertions | PASS：TestPlan 已流入 run；CLI 不再包含固定探索动作 |
 
 上述全仓门禁与下方 G5-SIM / G5 均在最终代码修正后重新执行；首次全仓测试暴露的 8 个旧 RunStep fixture 已同步到 canonical 契约，复跑为全绿。
@@ -42,7 +44,7 @@
 - 每个 checkpoint 均带对应 `relatedCase` 和 `relatedStep`。
 - session 在验证后正常关闭。
 
-Appium 关闭 session 时输出了一条 WebDriver 参数序列化错误日志，但 session 删除成功、专项脚本退出码为 0，且 checkpoint/RunStep 断言全部通过；该日志不改变本次 G5-SIM 结论。
+PR review 后的首次复验按新的失败关闭规则正确停止在 launch 阶段，并暴露 WebdriverIO `mobile:*` command 参数包装错误；修复为驱动所需的对象参数后重新执行通过。验证脚本现在同时断言两个 case step 均为 `completed`，避免只凭 caseId 数量误判。
 
 ## 4. G5 真机
 
@@ -60,12 +62,12 @@ Appium 关闭 session 时输出了一条 WebDriver 参数序列化错误日志�
 2. 生产 `WdaManager` 使用 `-allowProvisioningUpdates` 完成 build-for-testing、重签与覆盖安装，设备 inventory 确认 `com.logansu.WebDriverAgentRunner.xctrunner` 已安装。
 3. 真机执行发现 Xcode 26 的 `devicectl device info apps` 不再接受旧 `--json` 输出方式；生产实现改用临时文件 `--json-output`，并保持失败关闭和 best-effort 清理。
 4. 本机已有一个 Simulator WDA 占用 8100/9100，未终止或接管该进程；本轮使用独立的 Mac 侧 8200/9200，8200 通过 `iproxy` 映射到设备 8100。真机执行同时发现 physical capability 构造遗漏 `mjpegServerPort`，实现已统一透传并增加回归测试。
-5. 最终复验中 WDA `/status` 主动 readiness 在 5,567 ms 后返回 ready；随后 Appium 3.6.0 external-url session 创建成功。
+5. 最终复验中 WDA `/status` 主动 readiness 在 6,080 ms 后返回 ready；随后 Appium 3.6.0 external-url session 创建成功；验证脚本还实际读取了 MJPEG multipart stream 并确认收到图像字节。
 6. `RunStep.sequence` 为 `[1, 2, 3]`；两个 case action 均为 `completed`，每步包含 screenshot 与即时 UI-tree checkpoint 引用。
 7. 两个 screenshot 各 306,472 bytes；两个独立 UI tree checkpoint 各 45,456 bytes，并分别携带对应的 `relatedStep` / `relatedCase`。
 8. 验证脚本退出码为 0；teardown 后 8200/9200 无监听，本轮 physical WDA xcodebuild 与 iproxy 无残留。既有 Simulator WDA 未被修改。
 
-Appium 在 session teardown 前输出了一条 WebDriver execute 参数序列化错误日志，但 session 删除最终完成，专项脚本退出码为 0，且 WDA readiness、两个 case、证据大小和关联断言均已通过；该日志不改变本次 G5 结论。
+复验同时覆盖了 launch 失败必须停止后续探索、launch failure 继承 caseId、录制 secret 仅以运行时引用持久化、模型 UI 投影脱敏、敏感 UI 动作确认，以及 `local_connected` 多设备歧义失败关闭。
 
 验证脚本：`docs/06-verification/g5-physical-verify-6.6.ts`。脚本通过环境变量接收设备、签名与 WDA 工程信息，不把本机标识硬编码进仓库。
 
@@ -76,4 +78,5 @@ UI-tree checkpoint 文件与运行时 step/case 关联已在本轮验证。最�
 - DEF-030 的逻辑缺陷已由 changed-scope integration、真实 G5-SIM 和真实 iPhone G5 共同验证修复：case checkpoint 不再在整轮结束后统一读取最终页面。
 - Simulator 能力满足 G5-SIM。
 - 真机能力满足 G5；WDA 过期 profile 已按确认刷新，Xcode 26 inventory 与 physical MJPEG 端口接线缺陷已修复。
+- 规格评审确认“禁止任何原始 UI tree 本地落盘”会破坏本地可审计性，因此以 ADR-032 收敛为双边界：本地原始证据允许保留并标记，模型/导出边界必须脱敏；敏感输入不进入 RunStep、Flow、错误或日志。
 - Task 6.6 为代码类任务，仍保持 `in_progress`；只有 PR 被人类合并后才能通过 `$pr-merge-itest` 标记 `done`。

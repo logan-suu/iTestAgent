@@ -16,6 +16,7 @@ import type {
 import type { ArtifactStore } from 'itestagent-contracts';
 import { writeArtifactIndex } from 'itestagent-store';
 import { AssertionEvaluator } from '../assertion/assertion-evaluator.js';
+import { redactUiTreeForModel } from '../context-builder.js';
 import { type UiTreeCapture, observationsFromUiTrees } from './assertion-observations.js';
 import { type SuggestionResult, suggestAssertions } from './assertion-suggester.js';
 import { DeviceExplorer, type ExplorerToolDispatcher } from './device-explorer.js';
@@ -82,6 +83,11 @@ export interface RealDeviceRunOptions {
       uiTree: string;
       history: readonly RunStep[];
     }) => Promise<ExplorationAction | 'done'>;
+    readonly authorizeSensitiveAction?: (input: {
+      callId: string;
+      action: 'interact_sensitive_ui';
+      resource: string;
+    }) => Promise<boolean>;
   };
   /** User/profile assertions to evaluate against the captured trees (tier 1/2). */
   readonly assertions?: readonly UserAssertion[];
@@ -131,6 +137,17 @@ export interface RealDeviceRunResult {
   readonly llmReason?: string;
 }
 
+const SENSITIVE_UI_TARGET =
+  /\b(delete|remove|erase|purchase|buy|pay|checkout|subscribe|account|sign[ -]?out|log[ -]?out|security|privacy|permission|authorize|allow access|password|passcode|otp|token|card)\b/i;
+
+/** Classify semantic side effects independently of the low-level action verb. */
+export function isSensitiveUiAction(action: ExplorationAction): boolean {
+  return (
+    (action.action === 'tap' || action.action === 'input') &&
+    SENSITIVE_UI_TARGET.test(action.target ?? '')
+  );
+}
+
 /** Ask the configured model for one low-risk action within a confirmed case. */
 export async function suggestExplorationAction(input: {
   generate: (prompt: string) => Promise<string>;
@@ -144,7 +161,7 @@ export async function suggestExplorationAction(input: {
       `CASE: ${input.caseId}`,
       `COMPLETED ACTIONS: ${input.history.map((step) => `${step.action}:${step.target ?? ''}:${step.status}`).join(', ') || '(none)'}`,
       'CURRENT UI TREE:',
-      input.uiTree.slice(0, 12000),
+      redactUiTreeForModel(input.uiTree).slice(0, 12000),
       '',
       'Return exactly one JSON object. Allowed low-risk actions are tap, swipe, input, screenshot, wait.',
       'Use {"action":"done"} when the case goal is reached or no safe progress is possible.',
@@ -288,7 +305,9 @@ export function createBackendToolDispatcher(
           callId: call.id,
           status: 'ok',
           output: ref,
-          artifacts: [{ id: ref.id, type: 'screenshot', path: ref.path, redactionStatus: 'safe' }],
+          artifacts: [
+            { id: ref.id, type: 'screenshot', path: ref.path, redactionStatus: 'raw-local-only' },
+          ],
         };
       }
       return {
@@ -329,10 +348,28 @@ export async function runRealDeviceExploration(
         const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
         const suggestion = await options.dynamicActions.suggest({
           caseId,
-          uiTree: tree.raw,
+          uiTree: redactUiTreeForModel(tree.raw),
           history: explorer.getSteps().filter((step) => step.caseId === caseId),
         });
         if (suggestion === 'done') break;
+        if (isSensitiveUiAction(suggestion)) {
+          const authorize = options.dynamicActions.authorizeSensitiveAction;
+          if (!authorize) {
+            throw new Error(
+              `exploration_permission_required: sensitive UI action blocked for "${suggestion.target ?? 'unknown'}"`,
+            );
+          }
+          const allowed = await authorize({
+            callId: `exploration_sensitive_${caseId}_${index + 1}`,
+            action: 'interact_sensitive_ui',
+            resource: `${caseId}:${suggestion.target ?? 'unknown'}`,
+          });
+          if (!allowed) {
+            throw new Error(
+              `exploration_permission_denied: sensitive UI action denied for "${suggestion.target ?? 'unknown'}"`,
+            );
+          }
+        }
         await explorer.explore([{ ...suggestion, caseId }]);
       }
     }
@@ -368,7 +405,7 @@ export async function runRealDeviceExploration(
     const suggestion = await suggestAssertions(
       {
         goal: options.llmSuggest.goal,
-        uiTree: uiTrees[0]?.raw ?? '',
+        uiTree: redactUiTreeForModel(uiTrees[0]?.raw ?? ''),
         featureName: options.llmSuggest.featureName,
       },
       { generate: options.llmSuggest.generate },
@@ -403,7 +440,7 @@ export async function runRealDeviceExploration(
           path: a.path,
           relatedStep: owner?.stepId,
           relatedCase: owner?.caseId,
-          redactionStatus: 'safe' as const,
+          redactionStatus: 'raw-local-only' as const,
         };
       }),
     };

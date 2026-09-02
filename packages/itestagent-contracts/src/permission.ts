@@ -12,7 +12,7 @@ import { z } from 'zod';
  * 红线 R7：危险操作（清除数据/卸载重装/写项目/存凭证/更新 baseline）必须二次确认
  *
  * 架构设计 §8 风险操作列表：
- *   DEFAULT_HIGH_RISK_ACTIONS contains 12 high-risk actions.
+ *   DEFAULT_HIGH_RISK_ACTIONS contains the default confirmation-gated actions.
  */
 
 // ─── 权限效果 ─────────────────────────────────────────────
@@ -77,6 +77,7 @@ export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
  *   execute_project_build — Execute workspace build/test actions and project scripts
  *   replace_device_app  — Replace or reinstall an application on a device
  *   prepare_wda         — Build, re-sign, or replace WDA on a device
+ *   interact_sensitive_ui — Perform a UI action with sensitive semantic side effects
  */
 export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'clear_app_data',
@@ -92,6 +93,7 @@ export const DEFAULT_HIGH_RISK_ACTIONS: readonly string[] = [
   'execute_project_build',
   'replace_device_app',
   'prepare_wda',
+  'interact_sensitive_ui',
 ];
 
 // ─── 工具函数 ─────────────────────────────────────────────

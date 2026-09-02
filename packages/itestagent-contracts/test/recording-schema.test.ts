@@ -213,6 +213,16 @@ test('valid recording result with simulator targetKind passes', () => {
   expect(result.device.targetKind).toBe('simulator');
 });
 
+test('recording RunStep sequences must start at 1 and increase strictly', () => {
+  const startsAtTwo = structuredClone(VALID_RECORDING_RESULT);
+  if (startsAtTwo.steps[0]?.step) startsAtTwo.steps[0].step.sequence = 2;
+  expect(() => parseRecordingResult(startsAtTwo)).toThrow('RunStep sequence must start at 1');
+
+  const duplicate = structuredClone(VALID_RECORDING_RESULT);
+  if (duplicate.steps[1]?.step) duplicate.steps[1].step.sequence = 1;
+  expect(() => parseRecordingResult(duplicate)).toThrow('RunStep sequence must increase strictly');
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // Missing Required Fields
 // ═══════════════════════════════════════════════════════════════════

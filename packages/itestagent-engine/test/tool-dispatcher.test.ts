@@ -722,6 +722,21 @@ describe('Abort signal propagation', () => {
 // ─── AgentEvent emission ────────────────────────────────────────
 
 describe('AgentEvent emission', () => {
+  test('standalone semantic authorization uses PermissionEngine and emits events', async () => {
+    const pe = new PermissionEngine({ askTimeoutMs: 5000 });
+    const { dispatcher, events } = createDispatcher({ permissionEngine: pe });
+    const pending = dispatcher.authorize(
+      'semantic_1',
+      'interact_sensitive_ui',
+      'account:Delete account',
+    );
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+    expect(events.some((event) => event.type === 'permission.requested')).toBe(true);
+    pe.resolve('semantic_1', 'allow', false);
+    expect(await pending).toBe(true);
+    expect(events.some((event) => event.type === 'permission.resolved')).toBe(true);
+  });
+
   test('permission.requested event is emitted for ask gate', async () => {
     const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 5000 });
     const { dispatcher, events } = createDispatcher({ permissionEngine: pe });

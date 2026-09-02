@@ -81,6 +81,8 @@ export interface WdaLaunchOptions {
   udid: string;
   /** Local port for WDA HTTP listener (default: 8100). */
   wdaPort?: number;
+  /** Device-side MJPEG server port forwarded by Appium capabilities. */
+  mjpegServerPort?: number;
   /** Minimum iOS deployment target. */
   deploymentTarget?: string;
   /** Match the DEVELOPMENT_TEAM used by build-for-testing. */
@@ -347,6 +349,10 @@ export class WdaManager {
       stdout: 'pipe',
       stderr: 'pipe',
       signal: options.signal,
+      env: {
+        ...process.env,
+        ...(options.mjpegServerPort ? { MJPEG_SERVER_PORT: String(options.mjpegServerPort) } : {}),
+      },
     });
 
     this.runningProcess = proc;

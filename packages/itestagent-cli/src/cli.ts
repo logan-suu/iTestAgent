@@ -38,6 +38,60 @@ function handleCommandError(error: unknown): never {
   process.exit(error instanceof PublicCliError ? error.exitCode : 1);
 }
 
+interface ObservedPhysicalDevice {
+  hardwareProperties?: { udid?: string };
+  deviceProperties?: { name?: string; osVersionNumber?: string };
+}
+
+export function assertSafeRunId(runId: string): void {
+  if (!/^(?!\.{1,2}$)[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(runId)) {
+    throw new PublicCliError(`Confirmed TestPlan runId is not a safe identifier: ${runId}`);
+  }
+}
+
+export function selectConfirmedPhysicalDevice(input: {
+  cliUdid: string;
+  selector?: { selector: 'local_connected' | 'by_udid' | 'by_name'; udid?: string; name?: string };
+  observedDevices: readonly ObservedPhysicalDevice[];
+}): ObservedPhysicalDevice {
+  const selected = input.observedDevices.find(
+    (device) => device.hardwareProperties?.udid === input.cliUdid,
+  );
+  if (!selected) {
+    throw new PublicCliError(
+      `Device ${input.cliUdid} does not match any connected physical device`,
+    );
+  }
+  if (!input.selector) {
+    throw new PublicCliError('Confirmed physical TestPlan has no device selector');
+  }
+  if (input.selector.selector === 'by_udid' && input.selector.udid !== input.cliUdid) {
+    throw new PublicCliError(
+      `Device ${input.cliUdid} does not match confirmed UDID ${input.selector.udid ?? '(missing)'}`,
+    );
+  }
+  if (
+    input.selector.selector === 'local_connected' &&
+    (input.observedDevices.length !== 1 ||
+      input.observedDevices[0]?.hardwareProperties?.udid !== input.cliUdid)
+  ) {
+    throw new PublicCliError(
+      `Device ${input.cliUdid} does not uniquely match the confirmed local_connected selector`,
+    );
+  }
+  if (input.selector.selector === 'by_name') {
+    const matches = input.observedDevices.filter(
+      (device) => device.deviceProperties?.name === input.selector?.name,
+    );
+    if (matches.length !== 1 || matches[0]?.hardwareProperties?.udid !== input.cliUdid) {
+      throw new PublicCliError(
+        `Device ${input.cliUdid} does not uniquely match confirmed name ${input.selector.name ?? '(missing)'}`,
+      );
+    }
+  }
+  return selected;
+}
+
 /**
  * Create Commander program instance.
  * Exported as a factory function for testability (avoids calling parseAsync directly).
@@ -295,11 +349,14 @@ export function createProgram(): Command {
           }
         }
 
-        // G5 finding: appium's RemoteXPC device matching on iOS 17+ REQUIRES
-        // platformVersion — auto-resolve it from devicectl when omitted.
-        let platformVersion = options.platformVersion;
-        if (!platformVersion) {
-          const probeJson = join(tmpdir(), `itestagent-explore-pv-${Date.now()}.json`);
+        // Resolve the confirmed physical selector against observed devices. The CLI
+        // flag identifies a candidate but cannot override the confirmed TestPlan.
+        const probeJson = join(tmpdir(), `itestagent-explore-device-${Date.now()}.json`);
+        let observedDevices: Array<{
+          hardwareProperties?: { udid?: string };
+          deviceProperties?: { name?: string; osVersionNumber?: string };
+        }> = [];
+        try {
           const probe = Bun.spawnSync([
             'xcrun',
             'devicectl',
@@ -308,30 +365,34 @@ export function createProgram(): Command {
             '--json-output',
             probeJson,
           ]);
+          if (probe.exitCode !== 0) {
+            throw new PublicCliError('Unable to resolve the confirmed device via devicectl');
+          }
+          const list = JSON.parse(readFileSync(probeJson, 'utf-8')) as {
+            result?: { devices?: typeof observedDevices };
+            devices?: typeof observedDevices;
+          };
+          observedDevices = list.result?.devices ?? list.devices ?? [];
+        } finally {
           try {
-            const list = JSON.parse(readFileSync(probeJson, 'utf-8')) as {
-              result?: {
-                devices?: Array<{
-                  hardwareProperties?: { udid?: string };
-                  deviceProperties?: { osVersionNumber?: string };
-                }>;
-              };
-            };
-            platformVersion = (list.result?.devices ?? []).find(
-              (d) => d.hardwareProperties?.udid === options.udid,
-            )?.deviceProperties?.osVersionNumber;
-          } finally {
-            try {
-              rmSync(probeJson, { force: true });
-            } catch {
-              // Best-effort temp cleanup
-            }
+            rmSync(probeJson, { force: true });
+          } catch {
+            // Best-effort temp cleanup
           }
-          if (!platformVersion) {
-            throw new PublicCliError(
-              `Device ${options.udid} not found via devicectl — connect the device, unlock it, and re-run (platformVersion is required for appium session creation)`,
-            );
-          }
+        }
+        const selectedDevice = selectConfirmedPhysicalDevice({
+          cliUdid: options.udid,
+          selector: confirmedPlan.device.physical,
+          observedDevices,
+        });
+
+        // G5 finding: Appium RemoteXPC matching on iOS 17+ requires platformVersion.
+        const platformVersion =
+          options.platformVersion ?? selectedDevice.deviceProperties?.osVersionNumber;
+        if (!platformVersion) {
+          throw new PublicCliError(
+            `Device ${options.udid} has no observable platformVersion required for Appium`,
+          );
         }
 
         if (!llm) {
@@ -360,6 +421,7 @@ export function createProgram(): Command {
         }
 
         const runId = confirmedPlan.runId;
+        assertSafeRunId(runId);
         let lastAssertionStatus: string | undefined;
         const runDir = join(tmpdir(), 'itestagent', 'runs', runId);
         // CodeRabbit r3: cleanup must run even when exploration rejects —

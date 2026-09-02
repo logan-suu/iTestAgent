@@ -346,6 +346,8 @@ export async function createAgentSession(
                 uiTree,
                 history,
               }),
+            authorizeSensitiveAction: ({ callId, action, resource }) =>
+              toolDispatcher.authorize(callId, action, resource),
           },
           policy: routedPlan.execution.assertion.policy,
         });

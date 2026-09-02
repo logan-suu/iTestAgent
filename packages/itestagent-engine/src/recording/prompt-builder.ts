@@ -17,6 +17,8 @@
  *   });
  */
 
+import { redactUiTreeForModel } from '../context-builder.js';
+
 // ─── Types ─────────────────────────────────────────────────
 
 /** A summary of a previously executed recording step. */
@@ -92,7 +94,7 @@ export class RecordingPromptBuilder {
   buildSuggestionPrompt(context: RecordingPromptContext): string {
     const sections: string[] = [
       this.buildRoleSection(),
-      this.buildUiTreeSection(context.uiTree),
+      this.buildUiTreeSection(redactUiTreeForModel(context.uiTree)),
       this.buildFeatureSection(context.featureName),
       this.buildHistorySection(context.historySteps),
       this.buildContextSection(context.projectContext, context.additionalHints),

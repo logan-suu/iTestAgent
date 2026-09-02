@@ -128,8 +128,8 @@ R2 不自研已复用底座：WDA / Appium / xcodebuild / xctrace / xcresult 解
 R3 真机能力不得“看代码就算过”，必须真机 spike 实测(G5)；Simulator 能力必须 CoreSimulator runtime 端到端验证(G5-SIM，ADR-011)
 R4 不把“从代码推断的核心链路”当既定事实，只能候选+证据+用户确认
 R5 不静默降级/臆造指标(尤其 FPS、xctrace summary)，不确定必须显式标注
-R6 敏感数据(账号/OTP/token)不落盘明文、不入日志/报告/提交
-R7 High-risk operations require explicit confirmation (clear data / uninstall or reinstall / write project / store credentials / update baseline / save or overwrite Flow / generate drafts)
+R6 账号/OTP/token 等 secret 不落盘明文、不入日志/报告/提交；截图/视频/UI tree 等原始设备证据仅可在 run artifacts 中以 raw-local-only 保存，禁止进入模型上下文或外传，跨出本地证据边界前必须生成脱敏派生内容（ADR-032）
+R7 高风险操作必须二次确认（清数据/卸载重装/写项目/存凭证/更新 baseline/保存或覆盖 Flow/生成草稿，以及删除、支付、账号、安全设置、授权变更或语义不确定的敏感 UI 动作）；已确认 TestPlan 范围内的普通导航与非敏感输入无需逐点击确认（ADR-032）
 R8 未经人确认的实现计划不得进入编码
 R9 组件命名统一 itestagent-*，禁止使用 qa-*
 R10 不引入 Effect-TS / SQLite 事件溯源等重型编排；不 fork/不 import OpenCode 私有核心

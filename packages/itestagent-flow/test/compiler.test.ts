@@ -329,6 +329,25 @@ describe('compileFlow', () => {
     expect(flow.steps[0]?.value).toBe('hello@test.com');
   });
 
+  it('replaces sensitive input values with a runtime secret reference', () => {
+    const flow = compileFlow(
+      makeRecordingResult({
+        steps: [
+          makeRecordingStep({
+            step: makeStepFixture({ stepId: 's1', action: 'input', target: 'OTP field' }),
+            originalSuggestion: makeSuggestedAction({
+              action: 'input',
+              target: 'OTP field',
+              text: '123456',
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(flow.steps[0]?.value).toBe('[SECRET_REF:runtime]');
+    expect(JSON.stringify(flow)).not.toContain('123456');
+  });
+
   it('preserves direction from SuggestedAction', () => {
     const flow = compileFlow(
       makeRecordingResult({

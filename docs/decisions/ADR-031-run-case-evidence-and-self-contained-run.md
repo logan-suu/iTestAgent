@@ -67,9 +67,11 @@ startedAt
 durationMs
 ```
 
-同一 run 内 `stepId` 与 `sequence` 必须唯一。任何参与 case 断言或 case 结果计算的步骤必须带 `caseId`；启动、全局录屏、环境采集和 teardown 等 run 级步骤可以不带。
+同一 run 内 `stepId` 与 `sequence` 必须唯一；`sequence` 只对实际产生的 RunStep 从 1 严格递增，跳过或未执行的 RecordingStep 不占号。任何参与 case 断言或 case 结果计算的步骤必须带 `caseId`；启动、全局录屏、环境采集和 teardown 等 run 级步骤可以不带。
 
 每个 case 的 checkpoint 必须在该 case 动作完成后立即采集，不能在整轮动作结束后用最终页面补采并冒充早期状态。checkpoint 至少记录 UI tree；按 ArtifactPolicy 与 backend 能力补充 screenshot、video 或日志。
+
+checkpoint 中的截图、视频与 UI tree 原文属于 ADR-032 定义的本地原始证据域；它们可以参与本地断言与审计，但不得直接进入模型上下文、报告正文或外部传输。
 
 ### 3. Evidence 关联与采集是路径感知的
 
@@ -147,6 +149,7 @@ SQLite 保存 Run/Step/Case/Artifact 的查询索引；`steps.json` 保存 canon
 - ADR-022：Persisted Schema Migrations
 - ADR-029：Dual Execution Route Resolution
 - ADR-030：Metadata-only XCUITest Candidates
+- ADR-032：Local Raw Evidence, Model-safe Projection, and Semantic UI Risk
 - `docs/01-spec/全量用户故事与验收标准规格书.md`
 - `docs/02-architecture/架构设计文档.md`
 - `docs/02-architecture/数据流全链路技术说明文档.md`

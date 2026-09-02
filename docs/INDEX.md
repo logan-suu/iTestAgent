@@ -44,6 +44,7 @@
 | XCUITest/DeviceBackend 双路径解析、确认与 fallback 边界 | `decisions/ADR-029-dual-execution-route-resolution.md` |
 | XCUITest metadata-only 候选、探测三态与构建权限边界 | `decisions/ADR-030-metadata-only-xcuitest-candidates.md` |
 | Run/Case/Step/Evidence 关联、自包含 run 目录与探索/Flow 边界 | `decisions/ADR-031-run-case-evidence-and-self-contained-run.md` |
+| 本地原始证据、模型安全投影与语义 UI 风险边界 | `decisions/ADR-032-local-raw-evidence-and-semantic-ui-risk.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
