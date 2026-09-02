@@ -2,6 +2,7 @@ import { describe, expect, it, test } from 'bun:test';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import {
+  assertInteractiveValueRefs,
   assertSafeRunId,
   createProgram,
   parseReplayPort,
@@ -55,6 +56,14 @@ test('Flow replay ports reject partial and out-of-range numbers', () => {
   expect(() => parseReplayPort('8200abc')).toThrow('integer between 1 and 65535');
   expect(() => parseReplayPort('0')).toThrow('integer between 1 and 65535');
   expect(() => parseReplayPort('65536')).toThrow('integer between 1 and 65535');
+});
+
+test('Flow replay rejects valueRef prompting when stdin is not a TTY', () => {
+  expect(() => assertInteractiveValueRefs(['session.secret.email'], false)).toThrow(
+    'A TTY is required',
+  );
+  expect(() => assertInteractiveValueRefs([], false)).not.toThrow();
+  expect(() => assertInteractiveValueRefs(['session.secret.email'], true)).not.toThrow();
 });
 
 test('rerun command has --failed-only option (AGENTS.md §11: itestagent rerun <run> --failed-only)', () => {

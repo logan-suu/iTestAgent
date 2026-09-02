@@ -8,7 +8,10 @@
  * P0: FlowV2 → replayFlow → ReplayResult
  * Cross-package: itestagent-flow + itestagent-contracts
  */
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import type {
   ActionResult,
@@ -29,6 +32,10 @@ import {
   checkTargetCompatibility,
   replayFlow,
 } from 'itestagent-flow';
+
+const evidenceDirectory = join(tmpdir(), `itestagent-phase5-flow-replay-${process.pid}`);
+
+afterAll(() => rmSync(evidenceDirectory, { recursive: true, force: true }));
 
 function makeMockBackendCapabilities(): BackendCapabilities {
   return {
@@ -91,10 +98,13 @@ function makeMockDeviceBackend(): DeviceBackend {
     },
 
     async screenshot(_input): Promise<ArtifactRef> {
+      mkdirSync(evidenceDirectory, { recursive: true });
+      const path = join(evidenceDirectory, 'screenshot.png');
+      writeFileSync(path, 'screenshot-bytes');
       return {
         id: 'ss-mock-001',
         type: 'screenshot',
-        path: import.meta.path,
+        path,
         mimeType: 'image/png',
         redactionStatus: 'safe',
       };
@@ -242,6 +252,7 @@ describe('Phase 5: Flow Replay Pipeline', () => {
         targetKind: 'simulator',
         deviceId,
         bundleId: 'com.example.app',
+        evidenceDirectory,
       });
 
       expect(result.flowId).toBe('test-flow-001');

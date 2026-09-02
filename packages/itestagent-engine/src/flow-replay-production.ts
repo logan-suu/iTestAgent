@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   type ProductionAppiumConfig,
   createAppiumDeviceBackend,
@@ -14,7 +17,11 @@ import {
   resolveFlowFile,
   safeParseFlowV2,
 } from 'itestagent-flow';
-import { BackendRegistry, BackendSelector } from './backend-selector.js';
+import {
+  BackendRegistry,
+  BackendSelector,
+  CANONICAL_DEVICE_CAPABILITIES,
+} from './backend-selector.js';
 
 export interface LoadedProductionFlow extends ReadFlowResult {
   flow: FlowV2;
@@ -42,7 +49,7 @@ export interface ProductionFlowReplayInput {
   bundleId?: string;
   preferredBackend?: string;
   draftConfirmed?: boolean;
-  appium: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'bundleId'>;
+  appium: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'bundleId' | 'artifactDirectory'>;
   replay?: Omit<ReplayOptions, 'targetKind' | 'deviceId' | 'bundleId'>;
 }
 
@@ -54,7 +61,19 @@ export type ProductionFlowReplayResult =
       reasonCode: string;
       reason: string;
       remediation: string[];
+      /** Completed replay facts retained when only owner cleanup failed. */
+      replay?: ReplayResult;
+      /** Selected backend retained when only owner cleanup failed. */
+      backend?: string;
+      /** Earlier structured failure retained when cleanup also failed. */
+      primaryFailure?: {
+        status: 'blocked' | 'infra_failure';
+        reasonCode: string;
+        reason: string;
+      };
     };
+
+type ProductionFlowReplayFailure = Extract<ProductionFlowReplayResult, { success: false }>;
 
 export interface ProductionFlowReplayDependencies {
   createBackend(config: ProductionAppiumConfig): {
@@ -74,7 +93,7 @@ function blocked(
   reasonCode: string,
   reason: string,
   remediation: string[],
-): ProductionFlowReplayResult {
+): ProductionFlowReplayFailure {
   return { success: false, status: 'blocked', reasonCode, reason, remediation };
 }
 
@@ -107,89 +126,138 @@ export async function runProductionFlowReplay(
       `Choose one of: ${compatibility.supported.join(', ')}.`,
     ]);
   }
+  const unknownCapabilities = input.flow.requiredCapabilities.filter(
+    (capability) => !CANONICAL_DEVICE_CAPABILITIES.has(capability),
+  );
+  if (unknownCapabilities.length > 0) {
+    return blocked(
+      'blocked.capability_unsupported',
+      `Flow requires unsupported capabilities: ${unknownCapabilities.join(', ')}`,
+      ['Revise the Flow to use canonical capabilities before creating a backend session.'],
+    );
+  }
+
+  const runId = input.replay?.runId ?? `replay-${Date.now()}-${randomUUID()}`;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(runId)) {
+    return blocked('flow.run_id_invalid', 'Replay runId must be a safe local identifier.', [
+      'Use 1-128 letters, numbers, dots, underscores, or hyphens without path separators.',
+    ]);
+  }
+  const evidenceDirectory =
+    input.replay?.evidenceDirectory ??
+    join(tmpdir(), 'itestagent', 'flow-replay', runId, 'artifacts');
 
   let assembly: ReturnType<ProductionFlowReplayDependencies['createBackend']> | undefined;
+  let result: ProductionFlowReplayResult;
   try {
-    assembly = dependencies.createBackend({
-      ...input.appium,
-      udid: input.deviceId,
-      targetKind: input.targetKind,
-      bundleId: input.bundleId,
-    });
-    const registry = new BackendRegistry();
-    registry.register('appium', assembly.backend);
-    const selection = await new BackendSelector(registry).selectProduction({
-      targetKind: input.targetKind,
-      deviceId: input.deviceId,
-      requiredCapabilities: input.flow.requiredCapabilities,
-      preferredBackend: input.preferredBackend,
-      signal: input.replay?.signal,
-    });
-    if (!selection.success || !selection.backend) {
-      return {
-        success: false,
-        status: selection.errorCode?.startsWith('infra.') ? 'infra_failure' : 'blocked',
-        reasonCode: selection.errorCode ?? 'backend.selection_failed',
-        reason: selection.error ?? 'No production backend was selected.',
-        remediation: selection.remediation ?? ['Verify backend configuration and retry.'],
-      };
-    }
+    result = await (async (): Promise<ProductionFlowReplayResult> => {
+      assembly = dependencies.createBackend({
+        ...input.appium,
+        udid: input.deviceId,
+        targetKind: input.targetKind,
+        bundleId: input.bundleId,
+        artifactDirectory: evidenceDirectory,
+      });
+      const registry = new BackendRegistry();
+      registry.register('appium', assembly.backend);
+      const selection = await new BackendSelector(registry).selectProduction({
+        targetKind: input.targetKind,
+        deviceId: input.deviceId,
+        requiredCapabilities: input.flow.requiredCapabilities,
+        preferredBackend: input.preferredBackend,
+        signal: input.replay?.signal,
+      });
+      if (!selection.success || !selection.backend) {
+        return {
+          success: false,
+          status: selection.errorCode?.startsWith('infra.') ? 'infra_failure' : 'blocked',
+          reasonCode: selection.errorCode ?? 'backend.selection_failed',
+          reason: selection.error ?? 'No production backend was selected.',
+          remediation: selection.remediation ?? ['Verify backend configuration and retry.'],
+        };
+      }
 
-    if (input.targetKind === 'physical') {
-      const physical = selection.backend as DeviceBackend & {
-        probePhysicalReadiness?: (
-          signal?: AbortSignal,
-        ) => Promise<{ ready: boolean; details?: string }>;
-      };
-      if (!physical.probePhysicalReadiness) {
-        return blocked(
-          'backend.readiness_unsupported',
-          'Physical backend has no active WDA readiness probe.',
-          ['Use the production Appium backend with Route B or Route C configured.'],
+      if (input.targetKind === 'physical') {
+        const physical = selection.backend as DeviceBackend & {
+          probePhysicalReadiness?: (
+            signal?: AbortSignal,
+          ) => Promise<{ ready: boolean; details?: string }>;
+        };
+        if (!physical.probePhysicalReadiness) {
+          return blocked(
+            'backend.readiness_unsupported',
+            'Physical backend has no active WDA readiness probe.',
+            ['Use the production Appium backend with Route B or Route C configured.'],
+          );
+        }
+        const readiness = await physical.probePhysicalReadiness(input.replay?.signal);
+        if (!readiness.ready) {
+          return {
+            success: false,
+            status: 'infra_failure',
+            reasonCode: 'infra.wda_not_ready',
+            reason: readiness.details ?? 'WDA readiness probe failed.',
+            remediation: ['Repair the selected WDA route and retry without changing target kind.'],
+          };
+        }
+      } else {
+        const snapshot = await selection.backend.getUiTree(
+          { deviceId: input.deviceId },
+          input.replay?.signal,
         );
+        if (!snapshot.raw) {
+          return {
+            success: false,
+            status: 'infra_failure',
+            reasonCode: 'infra.appium_session_not_ready',
+            reason: 'Simulator Appium session readiness returned an empty UI tree.',
+            remediation: ['Verify the Appium server, booted simulator, and installed application.'],
+          };
+        }
       }
-      const readiness = await physical.probePhysicalReadiness(input.replay?.signal);
-      if (!readiness.ready) {
-        return {
-          success: false,
-          status: 'infra_failure',
-          reasonCode: 'infra.wda_not_ready',
-          reason: readiness.details ?? 'WDA readiness probe failed.',
-          remediation: ['Repair the selected WDA route and retry without changing target kind.'],
-        };
-      }
-    } else {
-      const snapshot = await selection.backend.getUiTree(
-        { deviceId: input.deviceId },
-        input.replay?.signal,
-      );
-      if (!snapshot.raw) {
-        return {
-          success: false,
-          status: 'infra_failure',
-          reasonCode: 'infra.appium_session_not_ready',
-          reason: 'Simulator Appium session readiness returned an empty UI tree.',
-          remediation: ['Verify the Appium server, booted simulator, and installed application.'],
-        };
-      }
-    }
 
-    const replay = await replayFlow(input.flow, selection.backend, {
-      ...input.replay,
-      targetKind: input.targetKind,
-      deviceId: input.deviceId,
-      bundleId: input.bundleId,
-    });
-    return { success: true, replay, backend: selection.backend.name };
+      const replay = await replayFlow(input.flow, selection.backend, {
+        ...input.replay,
+        runId,
+        evidenceDirectory,
+        targetKind: input.targetKind,
+        deviceId: input.deviceId,
+        bundleId: input.bundleId,
+      });
+      return { success: true, replay, backend: selection.backend.name };
+    })();
   } catch (error) {
-    return {
+    result = {
       success: false,
       status: 'infra_failure',
       reasonCode: 'infra.production_replay_failed',
       reason: error instanceof Error ? error.message : String(error),
       remediation: ['Check Appium/WDA configuration and retry on the same explicit target.'],
     };
-  } finally {
-    await assembly?.close();
   }
+
+  try {
+    await assembly?.close();
+  } catch (error) {
+    return {
+      success: false,
+      status: 'infra_failure',
+      reasonCode: 'infra.backend_cleanup_failed',
+      reason: error instanceof Error ? error.message : String(error),
+      remediation: [
+        'Inspect Appium/WDA owner processes, clean up only the exact owned session, and retry.',
+      ],
+      replay: result.success ? result.replay : undefined,
+      backend: result.success ? result.backend : undefined,
+      primaryFailure: result.success
+        ? undefined
+        : {
+            status: result.status,
+            reasonCode: result.reasonCode,
+            reason: result.reason,
+          },
+    };
+  }
+
+  return result;
 }

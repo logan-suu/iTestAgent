@@ -52,6 +52,18 @@ export function parseReplayPort(value: string): number {
   return port;
 }
 
+/** Fail closed before secret prompting when no interactive terminal is available. */
+export function assertInteractiveValueRefs(
+  valueRefs: readonly string[],
+  stdinIsTTY: boolean,
+): void {
+  if (valueRefs.length > 0 && !stdinIsTTY) {
+    throw new PublicCliError(
+      `A TTY is required to resolve in-memory value references: ${valueRefs.join(', ')}`,
+    );
+  }
+}
+
 interface ObservedPhysicalDevice {
   hardwareProperties?: { udid?: string };
   deviceProperties?: { name?: string; osVersionNumber?: string };
@@ -745,7 +757,10 @@ export function createProgram(): Command {
     .command('flow <id>')
     .description('replay an iTestAgent Flow on an explicit production target')
     .option('--project <path>', 'prefer project .itestagent/flows/, then fall back to global')
-    .option('--validate-only', 'validate without starting a backend or touching a device')
+    .option(
+      '--validate-only',
+      'validate schema, status, capabilities, and required target kind without touching a device',
+    )
     .option('--target-kind <kind>', 'explicit target kind: physical or simulator')
     .option('--device-id <id>', 'target device UDID (required for replay)')
     .option('--bundle-id <id>', 'app bundle ID for launch/terminate')
@@ -889,6 +904,7 @@ export function createProgram(): Command {
             );
           }
           const runtimeValues = new Map<string, string>();
+          assertInteractiveValueRefs(valueRefs, process.stdin.isTTY === true);
           for (const reference of valueRefs) {
             const value = await readHiddenSecret({
               prompt: `Value for ${reference} (input hidden): `,
@@ -961,14 +977,20 @@ export function createProgram(): Command {
               resolveValueRef: async (reference) => runtimeValues.get(reference),
             },
           });
-          if (!execution.success) {
+          const executionFailed = !execution.success;
+          if (executionFailed) {
             console.error(`❌ ${execution.status}: ${execution.reasonCode}: ${execution.reason}`);
             for (const remediation of execution.remediation) {
               console.error(`   Remediation: ${remediation}`);
             }
-            process.exit(1);
+            if (!execution.replay) {
+              process.exit(1);
+            }
           }
           const replayResult = execution.replay;
+          if (!replayResult) {
+            throw new PublicCliError('Production replay returned no replay facts.');
+          }
 
           // Print per-step results
           for (const step of replayResult.steps) {
@@ -1003,7 +1025,7 @@ export function createProgram(): Command {
           );
           console.log(`${'─'.repeat(40)}`);
 
-          if (replayResult.overallStatus !== 'passed') {
+          if (executionFailed || replayResult.overallStatus !== 'passed') {
             process.exit(1);
           }
         } catch (error) {

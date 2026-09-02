@@ -190,4 +190,15 @@ describe('resolveFlowFile lookup precedence', () => {
     });
     expect(result.source).toBe('global');
   });
+
+  it('preserves hash-prefixed lines inside YAML block scalars', async () => {
+    const flow = {
+      ...sampleFlow,
+      flowId: 'block-scalar-comments',
+      notes: 'first line\n# retained content\nlast line',
+    };
+    await saveFlow(flow, { dataRoot: testDir, saveConfirmed: true });
+    const result = await resolveFlowFile(flow.flowId, { dataRoot: testDir });
+    expect((result.data as FlowV2).notes).toBe(flow.notes);
+  });
 });

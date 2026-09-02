@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,10 +72,13 @@ function productionDependencies(input: {
         },
         async screenshot(): Promise<ArtifactRef> {
           input.calls.push('screenshot');
+          const path = join(config.artifactDirectory ?? evidenceRoot, 'phase6-screenshot.png');
+          mkdirSync(config.artifactDirectory ?? evidenceRoot, { recursive: true });
+          writeFileSync(path, 'screenshot-bytes');
           return {
             id: 'phase6-screenshot',
             type: 'screenshot',
-            path: import.meta.path,
+            path,
             redactionStatus: 'safe',
           };
         },
@@ -130,6 +133,7 @@ describe('T6.7 production Flow replay', () => {
       'success',
       'success',
     ]);
+    expect(result.replay.steps[0]?.evidence.length).toBe(2);
     for (const artifact of result.replay.steps[0]?.evidence ?? []) {
       expect(artifact.path).not.toBe('');
       expect(existsSync(artifact.path)).toBe(true);
@@ -156,6 +160,22 @@ describe('T6.7 production Flow replay', () => {
     expect(calls).toEqual(['healthcheck', 'physical-readiness', 'launch', 'close']);
   });
 
+  test('cleans up when physical active readiness fails', async () => {
+    const calls: string[] = [];
+    const result = await runProductionFlowReplay(
+      {
+        flow: flow(),
+        targetKind: 'physical',
+        deviceId: 'phone-1',
+        appium: { wdaStartupMode: 'external-url', webDriverAgentUrl: 'http://127.0.0.1:8100' },
+        replay: { collectEvidence: false },
+      },
+      productionDependencies({ calls, readiness: false }),
+    );
+    expect(result).toMatchObject({ success: false, reasonCode: 'infra.wda_not_ready' });
+    expect(calls).toEqual(['healthcheck', 'physical-readiness', 'close']);
+  });
+
   test('fails closed before execution for unknown capability and deprecated status', async () => {
     const capabilityCalls: string[] = [];
     const capabilityResult = await runProductionFlowReplay(
@@ -171,7 +191,7 @@ describe('T6.7 production Flow replay', () => {
       success: false,
       reasonCode: 'blocked.capability_unsupported',
     });
-    expect(capabilityCalls).toEqual(['close']);
+    expect(capabilityCalls).toEqual([]);
 
     const deprecatedCalls: string[] = [];
     const deprecatedResult = await runProductionFlowReplay(

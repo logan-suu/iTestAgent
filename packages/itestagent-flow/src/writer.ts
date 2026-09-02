@@ -203,13 +203,8 @@ export async function resolveFlowFile(
   for (const candidate of candidates) {
     try {
       const content = await readFile(candidate.path, 'utf-8');
-      const yamlOnly = content
-        .split('\n')
-        .filter((line) => !/^\s*#/.test(line))
-        .join('\n');
-
       const { parse } = await import('yaml');
-      return { data: parse(yamlOnly), path: candidate.path, source: candidate.source };
+      return { data: parse(content), path: candidate.path, source: candidate.source };
     } catch (error) {
       const code =
         typeof error === 'object' && error !== null && 'code' in error

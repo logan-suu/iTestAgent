@@ -13,6 +13,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { AppiumDeviceBackend, AppiumDriverError } from '../src/index.js';
 import type { WdaManager } from '../src/wda-manager.js';
 
@@ -354,6 +357,7 @@ describe('AppiumDeviceBackend', () => {
       expect(caps.supportsCrashLogs).toBe(true);
       expect(caps.supportsLocation).toBe(false);
       expect(caps.supportsPush).toBe(false);
+      expect(caps.features).not.toContain('log');
     });
 
     it('does not include simulator in supportedTargetKinds (Task 3.10)', () => {
@@ -550,7 +554,32 @@ describe('AppiumDeviceBackend', () => {
       expect(ref.type).toBe('screenshot');
       expect(ref.id).toContain('screenshot_');
       expect(ref.mimeType).toBe('image/png');
-      expect(ref.redactionStatus).toBe('safe');
+      expect(ref.redactionStatus).toBe('raw-local-only');
+    });
+
+    it('writes screenshots into the configured private run directory', async () => {
+      const artifactDirectory = join(
+        tmpdir(),
+        `itestagent-appium-artifacts-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(artifactDirectory, { recursive: true, mode: 0o755 });
+      const scoped = new AppiumDeviceBackend(mock, {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaStartupMode: 'managed-xcodebuild',
+        artifactDirectory,
+      });
+
+      try {
+        const ref = await scoped.screenshot({ deviceId: TEST_UDID });
+        expect(ref.path.startsWith(`${artifactDirectory}/`)).toBe(true);
+        expect((statSync(artifactDirectory).mode & 0o777).toString(8)).toBe('700');
+        expect((statSync(ref.path).mode & 0o777).toString(8)).toBe('600');
+      } finally {
+        await scoped.closeSession();
+        rmSync(artifactDirectory, { recursive: true, force: true });
+      }
     });
 
     it('returns error artifact ref on failure (R5: never throw)', async () => {

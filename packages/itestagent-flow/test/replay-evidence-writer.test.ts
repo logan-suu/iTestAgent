@@ -8,8 +8,17 @@
  * serialized to evidence-manifest.json atomically (temp + rename) so a crash
  * mid-write never leaves a torn manifest beside a passing run.
  */
-import { describe, expect, it } from 'bun:test';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { afterAll, describe, expect, it } from 'bun:test';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
@@ -19,17 +28,32 @@ import type {
   ScreenshotInput,
   UiTreeSnapshot,
 } from 'itestagent-contracts';
-import { collectStepEvidenceResult, writeEvidenceManifest } from '../src/replay-evidence-writer.js';
+import {
+  collectStepEvidence,
+  collectStepEvidenceResult,
+  validateRawArtifact,
+  writeEvidenceManifest,
+} from '../src/replay-evidence-writer.js';
 
-function makeBackend(opts: { screenshotFails?: boolean; uiTreeFails?: boolean }): DeviceBackend {
+const evidenceDirectory = join(tmpdir(), `itestagent-replay-evidence-${Date.now()}`);
+
+function makeBackend(opts: {
+  screenshotFails?: boolean;
+  uiTreeFails?: boolean;
+  artifactDirectory?: string;
+}): DeviceBackend {
   return {
     name: 'b08-evidence-fake',
     async screenshot(_i: ScreenshotInput): Promise<ArtifactRef> {
       if (opts.screenshotFails) throw new Error('no screenshot configured');
+      const artifactDirectory = opts.artifactDirectory ?? evidenceDirectory;
+      mkdirSync(artifactDirectory, { recursive: true });
+      const path = join(artifactDirectory, `ss-${Date.now()}-${Math.random()}.png`);
+      writeFileSync(path, 'png-bytes');
       return {
         id: `ss_${Date.now()}`,
         type: 'screenshot',
-        path: import.meta.path,
+        path,
         redactionStatus: 'safe',
       };
     },
@@ -41,7 +65,7 @@ function makeBackend(opts: { screenshotFails?: boolean; uiTreeFails?: boolean })
 }
 
 describe('collectStepEvidence', () => {
-  const evidenceDirectory = join(tmpdir(), `itestagent-replay-evidence-${Date.now()}`);
+  afterAll(() => rmSync(evidenceDirectory, { recursive: true, force: true }));
 
   it('collects real screenshot and UI tree refs when both succeed', async () => {
     const backend = makeBackend({});
@@ -55,6 +79,24 @@ describe('collectStepEvidence', () => {
     expect(result.artifacts[1]?.path).not.toBe('');
     expect(result.artifacts[1]?.redactionStatus).toBe('raw-local-only');
     expect(result.artifacts[1]?.relatedCase).toBe('case-a');
+    expect((statSync(evidenceDirectory).mode & 0o777).toString(8)).toBe('700');
+    for (const artifact of result.artifacts) {
+      expect((statSync(artifact.path).mode & 0o777).toString(8)).toBe('600');
+      expect(artifact.sizeBytes).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps the public wrapper and persists both evidence types', async () => {
+    const wrapperDirectory = join(evidenceDirectory, 'wrapper');
+    const artifacts = await collectStepEvidence(
+      makeBackend({ artifactDirectory: wrapperDirectory }),
+      'dev-b08',
+      0,
+      undefined,
+      wrapperDirectory,
+    );
+    expect(artifacts.map((artifact) => artifact.type)).toEqual(['screenshot', 'uitree']);
+    expect(artifacts.every((artifact) => artifact.path.startsWith(wrapperDirectory))).toBe(true);
   });
 
   it('reports screenshot failure explicitly while retaining UI tree evidence', async () => {
@@ -88,6 +130,50 @@ describe('collectStepEvidence', () => {
     expect(result.artifacts).toEqual([]);
     expect(result.outcomes.map((outcome) => outcome.status)).toEqual(['failed', 'failed']);
   });
+
+  it('rejects directories and empty files as fabricated artifacts', () => {
+    mkdirSync(evidenceDirectory, { recursive: true });
+    expect(() =>
+      validateRawArtifact(
+        { id: 'dir', type: 'screenshot', path: evidenceDirectory, redactionStatus: 'safe' },
+        { stepId: 'step-dir' },
+      ),
+    ).toThrow('not a regular file');
+
+    const emptyPath = join(evidenceDirectory, 'empty.png');
+    writeFileSync(emptyPath, '');
+    expect(() =>
+      validateRawArtifact(
+        { id: 'empty', type: 'screenshot', path: emptyPath, redactionStatus: 'safe' },
+        { stepId: 'step-empty' },
+      ),
+    ).toThrow('empty file');
+  });
+
+  it('rejects artifacts outside the current run directory and symbolic links', () => {
+    mkdirSync(evidenceDirectory, { recursive: true });
+    const outsidePath = join(tmpdir(), `itestagent-outside-${Date.now()}.png`);
+    writeFileSync(outsidePath, 'outside');
+    expect(() =>
+      validateRawArtifact(
+        { id: 'outside', type: 'screenshot', path: outsidePath, redactionStatus: 'safe' },
+        { evidenceDirectory, stepId: 'step-outside' },
+      ),
+    ).toThrow('outside the current run evidence directory');
+
+    const targetPath = join(evidenceDirectory, 'target.png');
+    const linkPath = join(evidenceDirectory, 'link.png');
+    writeFileSync(targetPath, 'target');
+    symlinkSync(targetPath, linkPath);
+    expect(() =>
+      validateRawArtifact(
+        { id: 'link', type: 'screenshot', path: linkPath, redactionStatus: 'safe' },
+        { evidenceDirectory, stepId: 'step-link' },
+      ),
+    ).toThrow('must not be a symbolic link');
+
+    rmSync(outsidePath, { force: true });
+  });
 });
 
 describe('writeEvidenceManifest', () => {
@@ -114,6 +200,8 @@ describe('writeEvidenceManifest', () => {
     const parsed = JSON.parse(onDisk.toString('utf-8')) as ArtifactRef[];
     expect(parsed).toHaveLength(2);
     expect(parsed[0]?.id).toBe('ss_1');
+    expect((statSync(dir).mode & 0o777).toString(8)).toBe('700');
+    expect((statSync(result.manifestPath).mode & 0o777).toString(8)).toBe('600');
     rmSync(dir, { recursive: true, force: true });
   });
 

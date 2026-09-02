@@ -371,6 +371,28 @@ describe('selectProduction', () => {
     expect(result.missingCapabilities).toEqual(['teleport']);
   });
 
+  test('reports the closest single-backend capability gap instead of an empty union gap', async () => {
+    const registry = new BackendRegistry();
+    const lifecycle = new FakeDeviceBackend('lifecycle', ['simulator']);
+    lifecycle.capabilities.features.push('launch');
+    lifecycle.capabilities.supportsUiTree = false;
+    const text = new FakeDeviceBackend('text', ['simulator']);
+    text.capabilities.features.push('text');
+    text.capabilities.supportsUiTree = false;
+    registry.register('lifecycle', lifecycle);
+    registry.register('text', text);
+
+    const result = await createSelector(registry).selectProduction({
+      targetKind: 'simulator',
+      deviceId: 'sim-1',
+      requiredCapabilities: ['appLifecycle', 'textInput'],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.missingCapabilities).toHaveLength(1);
+    expect(result.error).toMatch(/closest candidate .* is missing: (appLifecycle|textInput)/);
+  });
+
   test('does not fall back when an explicit backend is unhealthy', async () => {
     const registry = new BackendRegistry();
     registry.register('unhealthy', new FakeDeviceBackend('unhealthy', ['simulator'], false));

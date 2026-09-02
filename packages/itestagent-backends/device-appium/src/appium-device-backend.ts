@@ -51,7 +51,8 @@ import type {
   AppiumSession,
 } from './appium-driver.js';
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
@@ -111,6 +112,8 @@ export interface AppiumDeviceBackendOptions {
   targetKind: TargetKind;
   /** App bundle ID to test. */
   bundleId?: string;
+  /** Run-scoped directory for raw screenshot artifacts. */
+  artifactDirectory?: string;
   /**
    * WDA base bundle ID for free-account workaround (physical only).
    * MUST be base ID WITHOUT .xctrunner suffix (e.g. "TEAMID.WebDriverAgentRunner").
@@ -187,7 +190,6 @@ const PHYSICAL_CAPABILITIES: BackendCapabilities = {
     'url',
     'launch',
     'crash',
-    'log',
     'recording',
   ],
   supportsUiTree: true,
@@ -209,7 +211,6 @@ const SIMULATOR_CAPABILITIES: BackendCapabilities = {
     'button',
     'url',
     'launch',
-    'log',
     'recording',
   ],
   supportsUiTree: true,
@@ -231,6 +232,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     Omit<
       AppiumDeviceBackendOptions,
       | 'bundleId'
+      | 'artifactDirectory'
       | 'wdaBundleId'
       | 'iproxyTunnel'
       | 'derivedDataPath'
@@ -245,6 +247,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     Pick<
       AppiumDeviceBackendOptions,
       | 'bundleId'
+      | 'artifactDirectory'
       | 'wdaBundleId'
       | 'derivedDataPath'
       | 'webDriverAgentUrl'
@@ -286,6 +289,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       udid: options.udid,
       targetKind: options.targetKind,
       bundleId: options.bundleId,
+      artifactDirectory: options.artifactDirectory,
       wdaBundleId: options.wdaBundleId,
       wdaStartupMode: this.wdaStartupMode,
       wdaLocalPort: options.wdaLocalPort ?? 8100,
@@ -973,18 +977,24 @@ export class AppiumDeviceBackend implements DeviceBackend {
       await this.ensureSession();
 
       const base64 = await this.driver.takeScreenshot();
-      const id = `screenshot_${Date.now()}`;
-      const dir = join(tmpdir(), 'itestagent', 'artifacts');
-      mkdirSync(dir, { recursive: true });
+      const screenshotBytes = Buffer.from(base64, 'base64');
+      if (screenshotBytes.length === 0) {
+        throw new Error('Screenshot capture returned empty content');
+      }
+      const id = `screenshot_${randomUUID()}`;
+      const dir = this.opts.artifactDirectory ?? join(tmpdir(), 'itestagent', 'artifacts');
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      chmodSync(dir, 0o700);
       const destPath = join(dir, `${id}.png`);
-      writeFileSync(destPath, Buffer.from(base64, 'base64'));
+      writeFileSync(destPath, screenshotBytes, { mode: 0o600 });
+      chmodSync(destPath, 0o600);
 
       return {
         id,
         type: 'screenshot',
         path: destPath,
         mimeType: 'image/png',
-        redactionStatus: 'safe',
+        redactionStatus: 'raw-local-only',
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1139,11 +1149,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
       await this.ensureSession();
 
       const base64 = await this.driver.stopRecording(input.handleId);
-      const id = `video_${Date.now()}`;
-      const dir = join(tmpdir(), 'itestagent', 'artifacts');
-      mkdirSync(dir, { recursive: true });
+      const videoBytes = Buffer.from(base64, 'base64');
+      if (videoBytes.length === 0) {
+        throw new Error('Video capture returned empty content');
+      }
+      const id = `video_${randomUUID()}`;
+      const dir = this.opts.artifactDirectory ?? join(tmpdir(), 'itestagent', 'artifacts');
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      chmodSync(dir, 0o700);
       const destPath = join(dir, `${id}.mp4`);
-      writeFileSync(destPath, Buffer.from(base64, 'base64'));
+      writeFileSync(destPath, videoBytes, { mode: 0o600 });
+      chmodSync(destPath, 0o600);
 
       return {
         id,

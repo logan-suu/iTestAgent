@@ -10,9 +10,19 @@
  * R5: evidence capture failure is never fatal for the step and never
  * fabricates entries; artifacts remain absent while outcomes record failure.
  */
-import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import {
+  type Stats,
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { chmod, mkdir, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { ArtifactRef, DeviceBackend, UiTreeSnapshot } from 'itestagent-contracts';
 import type { ReplayEvidenceOutcome } from './replay-result.js';
 
@@ -52,11 +62,34 @@ export function validateRawArtifact(
   if (!artifact.path) {
     throw new Error(`${artifact.type} capture returned an empty artifact path`);
   }
-  if (!existsSync(artifact.path)) {
+  if (correlation.evidenceDirectory) {
+    const relativePath = relative(resolve(correlation.evidenceDirectory), resolve(artifact.path));
+    if (relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+      throw new Error(
+        `${artifact.type} capture path is outside the current run evidence directory`,
+      );
+    }
+  }
+  let linkMetadata: Stats;
+  try {
+    linkMetadata = lstatSync(artifact.path);
+  } catch {
     throw new Error(`${artifact.type} capture path does not exist: ${artifact.path}`);
   }
+  if (linkMetadata.isSymbolicLink()) {
+    throw new Error(`${artifact.type} capture path must not be a symbolic link: ${artifact.path}`);
+  }
+  const metadata = statSync(artifact.path);
+  if (!metadata.isFile()) {
+    throw new Error(`${artifact.type} capture path is not a regular file: ${artifact.path}`);
+  }
+  if (metadata.size === 0) {
+    throw new Error(`${artifact.type} capture returned an empty file: ${artifact.path}`);
+  }
+  chmodSync(artifact.path, 0o600);
   return {
     ...artifact,
+    sizeBytes: metadata.size,
     relatedStep: correlation.stepId,
     relatedCase: correlation.caseId,
     redactionStatus: 'raw-local-only',
@@ -74,10 +107,12 @@ export async function persistRawUiTree(
   if (!snapshot.raw) {
     throw new Error('UI tree capture returned empty content');
   }
-  await mkdir(correlation.evidenceDirectory, { recursive: true });
+  await mkdir(correlation.evidenceDirectory, { recursive: true, mode: 0o700 });
+  await chmod(correlation.evidenceDirectory, 0o700);
   const safeStepId = correlation.stepId.replace(/[^a-zA-Z0-9_-]/g, '_');
   const path = join(correlation.evidenceDirectory, `${safeStepId}-uitree.xml`);
-  await writeFile(path, snapshot.raw, 'utf-8');
+  await writeFile(path, snapshot.raw, { encoding: 'utf-8', mode: 0o600 });
+  await chmod(path, 0o600);
   const metadata = await stat(path);
   return {
     id: `${safeStepId}-uitree`,
@@ -121,19 +156,27 @@ export async function collectStepEvidenceResult(
 }
 
 /**
- * Collect post-step evidence: screenshot + page source.
- * Errors are caught — evidence collection failure never fails the step.
+ * Backward-compatible evidence helper. New replay code should pass its
+ * run-scoped evidence directory so screenshot and UI-tree artifacts stay
+ * together; legacy callers receive an isolated staging directory per call.
  */
 export async function collectStepEvidence(
   backend: DeviceBackend,
   deviceId: string,
   stepIndex: number,
   signal?: AbortSignal,
+  evidenceDirectory = join(
+    tmpdir(),
+    'itestagent',
+    'flow-replay',
+    `legacy-${Date.now()}-${randomUUID()}`,
+    'artifacts',
+  ),
 ): Promise<ArtifactRef[]> {
   const result = await collectStepEvidenceResult(
     backend,
     deviceId,
-    { stepId: `step-${stepIndex + 1}` },
+    { evidenceDirectory, stepId: `step-${stepIndex + 1}` },
     signal,
   );
   return result.artifacts;
@@ -147,14 +190,17 @@ export function writeEvidenceManifest(
   evidenceDir: string,
   refs: readonly ArtifactRef[],
 ): EvidenceManifestWriteResult {
-  mkdirSync(evidenceDir, { recursive: true });
+  mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
+  chmodSync(evidenceDir, 0o700);
   const manifestPath = join(evidenceDir, EVIDENCE_MANIFEST_FILENAME);
   const payload = Buffer.from(`${JSON.stringify(refs, null, 2)}\n`, 'utf-8');
   const tempPath = `${manifestPath}.tmp-${process.pid}-${Date.now()}`;
 
   try {
-    writeFileSync(tempPath, payload);
+    writeFileSync(tempPath, payload, { mode: 0o600 });
+    chmodSync(tempPath, 0o600);
     renameSync(tempPath, manifestPath);
+    chmodSync(manifestPath, 0o600);
   } catch (error) {
     // Best-effort temp cleanup; the original error takes precedence.
     try {

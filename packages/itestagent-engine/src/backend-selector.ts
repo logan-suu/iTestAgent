@@ -371,17 +371,21 @@ export class BackendSelector {
       return input.requiredCapabilities.every((capability) => available.has(capability));
     });
     if (capable.length === 0) {
-      const available = new Set(
-        targetCandidates.flatMap((backend) => [
-          ...normalizeBackendCapabilities(backend.capabilities),
-        ]),
+      const gaps = targetCandidates.map((backend) => {
+        const available = normalizeBackendCapabilities(backend.capabilities);
+        return {
+          backend: backend.name,
+          missing: input.requiredCapabilities.filter((capability) => !available.has(capability)),
+        };
+      });
+      const closest = gaps.reduce((best, candidate) =>
+        candidate.missing.length < best.missing.length ? candidate : best,
       );
-      const missing = input.requiredCapabilities.filter((capability) => !available.has(capability));
       return {
         success: false,
-        error: `No backend satisfies required capabilities: ${missing.join(', ')}`,
+        error: `No backend satisfies every required capability; closest candidate ${closest.backend} is missing: ${closest.missing.join(', ')}`,
         errorCode: 'blocked.capability_unsupported',
-        missingCapabilities: missing,
+        missingCapabilities: closest.missing,
         remediation: [
           'Choose a backend that supports every Flow capability or revise the Flow steps.',
         ],

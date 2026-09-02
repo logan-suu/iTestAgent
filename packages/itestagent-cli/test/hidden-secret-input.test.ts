@@ -70,4 +70,11 @@ describe('readHiddenSecret', () => {
 
     await expect(pending).resolves.toBe('spaced');
   });
+
+  it('settles with an empty value when input reaches EOF', async () => {
+    const { input, output } = makeStreams();
+    const pending = readHiddenSecret({ prompt: 'pw: ', input, output });
+    input.end();
+    await expect(pending).resolves.toBe('');
+  });
 });

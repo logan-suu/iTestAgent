@@ -196,7 +196,7 @@ export async function runInteractionAction(
       const text = step.valueRef
         ? await ctx.resolveValueRef?.(step.valueRef)
         : (step.value as string | undefined);
-      if (!text) {
+      if (text === undefined) {
         if (step.valueRef) {
           throw new Error(
             `R6: Unresolved value reference ${step.valueRef}. Provide an in-memory value resolver before replay.`,
@@ -207,6 +207,14 @@ export async function runInteractionAction(
           action,
           target,
           'No text value provided for typeText action.',
+        );
+      }
+      if (typeof text !== 'string' || text.length === 0) {
+        return blockedStep(
+          stepIndex,
+          action,
+          target,
+          'typeText requires non-empty text; an empty string is a no-op.',
         );
       }
       requireActionSuccess(

@@ -36,17 +36,45 @@ export async function readHiddenSecret(options: HiddenSecretInputOptions = {}): 
     output = process.stdout,
   } = options;
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     output.write(prompt);
     let raw = '';
+    let settled = false;
+
+    const cleanup = () => {
+      input.removeListener('data', onData);
+      input.removeListener('end', onEnd);
+      input.removeListener('close', onClose);
+      input.removeListener('error', onError);
+      try {
+        (input as { setRawMode?: (mode: boolean) => void }).setRawMode?.(false);
+      } catch {
+        // Non-TTY streams cannot toggle raw mode.
+      }
+    };
+
+    const finish = (value: string) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+
+    const onEnd = () => finish('');
+    const onClose = () => finish('');
+    const onError = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
 
     const onData = (chunk: Buffer | string) => {
       const str = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
       for (const ch of str) {
         if (ch === '\r' || ch === '\n') {
-          cleanup();
           output.write('\n');
-          resolve(raw.trim());
+          finish(raw.trim());
           return;
         }
         if (ch === '\u007f' || ch === '\b') {
@@ -54,8 +82,7 @@ export async function readHiddenSecret(options: HiddenSecretInputOptions = {}): 
           raw = raw.slice(0, -1);
         } else if (ch === '\u0003') {
           // Ctrl+C: hand back an empty value for the caller to abort on.
-          cleanup();
-          resolve('');
+          finish('');
           return;
         } else {
           raw += ch;
@@ -64,16 +91,10 @@ export async function readHiddenSecret(options: HiddenSecretInputOptions = {}): 
       }
     };
 
-    const cleanup = () => {
-      input.removeListener('data', onData);
-      try {
-        (input as { setRawMode?: (mode: boolean) => void }).setRawMode?.(false);
-      } catch {
-        // Non-TTY streams cannot toggle raw mode.
-      }
-    };
-
     input.on('data', onData);
+    input.once('end', onEnd);
+    input.once('close', onClose);
+    input.once('error', onError);
     try {
       (input as { setRawMode?: (mode: boolean) => void }).setRawMode?.(true);
     } catch {
