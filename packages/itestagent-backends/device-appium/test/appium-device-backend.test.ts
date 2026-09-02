@@ -15,7 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { AppiumDeviceBackend, AppiumDriverError } from '../src/index.js';
 import type { WdaManager } from '../src/wda-manager.js';
 
@@ -580,6 +580,29 @@ describe('AppiumDeviceBackend', () => {
       } finally {
         await scoped.closeSession();
         rmSync(artifactDirectory, { recursive: true, force: true });
+      }
+    });
+
+    it('isolates fallback artifact directories between backend instances', async () => {
+      const first = createBackend();
+      const second = createBackend();
+      let firstDirectory = '';
+      let secondDirectory = '';
+
+      try {
+        const firstRef = await first.backend.screenshot({ deviceId: TEST_UDID });
+        const secondRef = await second.backend.screenshot({ deviceId: TEST_UDID });
+        firstDirectory = dirname(firstRef.path);
+        secondDirectory = dirname(secondRef.path);
+
+        expect(firstDirectory).not.toBe(secondDirectory);
+        expect((statSync(firstDirectory).mode & 0o777).toString(8)).toBe('700');
+        expect((statSync(secondDirectory).mode & 0o777).toString(8)).toBe('700');
+      } finally {
+        await first.backend.closeSession();
+        await second.backend.closeSession();
+        if (firstDirectory) rmSync(firstDirectory, { recursive: true, force: true });
+        if (secondDirectory) rmSync(secondDirectory, { recursive: true, force: true });
       }
     });
 

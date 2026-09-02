@@ -236,7 +236,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
     Omit<
       AppiumDeviceBackendOptions,
       | 'bundleId'
-      | 'artifactDirectory'
       | 'physicalDeviceDiscovery'
       | 'wdaBundleId'
       | 'iproxyTunnel'
@@ -252,7 +251,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
     Pick<
       AppiumDeviceBackendOptions,
       | 'bundleId'
-      | 'artifactDirectory'
       | 'wdaBundleId'
       | 'derivedDataPath'
       | 'webDriverAgentUrl'
@@ -296,7 +294,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
       udid: options.udid,
       targetKind: options.targetKind,
       bundleId: options.bundleId,
-      artifactDirectory: options.artifactDirectory,
+      artifactDirectory:
+        options.artifactDirectory ??
+        join(tmpdir(), 'itestagent', 'artifacts', `backend-${randomUUID()}`),
       wdaBundleId: options.wdaBundleId,
       wdaStartupMode: this.wdaStartupMode,
       wdaLocalPort: options.wdaLocalPort ?? 8100,
@@ -989,7 +989,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         throw new Error('Screenshot capture returned empty content');
       }
       const id = `screenshot_${randomUUID()}`;
-      const dir = this.opts.artifactDirectory ?? join(tmpdir(), 'itestagent', 'artifacts');
+      const dir = this.opts.artifactDirectory;
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       chmodSync(dir, 0o700);
       const destPath = join(dir, `${id}.png`);
@@ -1161,7 +1161,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         throw new Error('Video capture returned empty content');
       }
       const id = `video_${randomUUID()}`;
-      const dir = this.opts.artifactDirectory ?? join(tmpdir(), 'itestagent', 'artifacts');
+      const dir = this.opts.artifactDirectory;
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       chmodSync(dir, 0o700);
       const destPath = join(dir, `${id}.mp4`);
