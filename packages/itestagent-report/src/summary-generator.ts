@@ -28,7 +28,10 @@ export function generateSummary(input: ReportSynthesizerInput): string {
   lines.push('');
 
   // ── 失败原因 (Failure Reason) ──────────────────────────
-  if (input.status === 'failed' && input.explanation) {
+  if (
+    ['failed', 'blocked', 'cancelled', 'infra_failed'].includes(input.status) &&
+    input.explanation
+  ) {
     lines.push('## 失败原因 (Failure Reason)', '');
     lines.push(`**Type**: ${input.explanation.explanationType}`);
     lines.push(`**Summary**: ${input.explanation.summary}`);
@@ -159,6 +162,8 @@ function statusLabel(status: string): string {
     needs_assertion: '⚠️ Needs Assertion',
     flaky: '🔄 Flaky',
     blocked: '🚫 Blocked',
+    cancelled: '⏹️ Cancelled',
+    infra_failed: '🛠️ Infrastructure Failed',
   };
   return map[status] ?? status;
 }
@@ -182,6 +187,12 @@ function conclusionText(input: ReportSynthesizerInput): string {
       return '结果不稳定（flaky），可能与历史结果不一致。';
     case 'blocked':
       return '执行被阻塞。可能是权限、设备或环境问题。';
+    case 'cancelled':
+      return '执行已取消；仅保留取消前已实际产生的步骤与证据。';
+    case 'infra_failed':
+      return input.explanation
+        ? `基础设施执行失败：${input.explanation.summary}`
+        : '基础设施执行失败；测试断言结果未被判定为失败。';
     default:
       return `执行状态：${input.status}`;
   }

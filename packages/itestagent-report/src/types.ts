@@ -5,6 +5,7 @@
  */
 import type {
   BaselineDelta,
+  EvidenceCollectionOutcome,
   ExecutionSummary,
   FailureExplanation,
   PerformanceMetrics,
@@ -25,6 +26,7 @@ export interface ArtifactEntry {
     | 'video'
     | 'uitree'
     | 'log'
+    | 'syslog'
     | 'crashlog'
     | 'trace'
     | 'xcresult'
@@ -35,6 +37,7 @@ export interface ArtifactEntry {
   sizeBytes?: number;
   sha256?: string;
   relatedStep?: string;
+  relatedCase?: string;
   backend?: string;
   redactionStatus: 'raw-local-only' | 'redacted' | 'safe';
 }
@@ -55,7 +58,7 @@ export interface ReportSynthesizerInput {
   status: RunStatus;
 
   /** Reference path to the associated Project Profile */
-  projectProfileRef: string;
+  projectProfileRef?: string;
 
   /** Device information */
   device: {
@@ -94,6 +97,9 @@ export interface ReportSynthesizerInput {
 
   /** Full artifact metadata for artifact-index.json */
   allArtifacts: ArtifactEntry[];
+
+  /** Outcomes for every evidence slot evaluated by policy and route. */
+  collectionOutcomes?: EvidenceCollectionOutcome[];
 
   /** Failure explanation (omitted for passed/explored runs) */
   explanation?: FailureExplanation;

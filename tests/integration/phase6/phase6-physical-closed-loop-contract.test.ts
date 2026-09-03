@@ -320,9 +320,8 @@ describe('Phase 6 production physical closed-loop contract (RED baseline)', () =
     ).toBe(true);
   });
 
-  contract('US-15.1: explore executes ReportSynthesizer.write()', () => {
-    const synthesizer = assignedInstance(exploreAction, 'ReportSynthesizer');
-    expect(callsMethodOn(exploreAction, synthesizer, 'write')).toBe(true);
+  contract('US-15.1: explore commits through the canonical run-bundle coordinator', () => {
+    expect(hasCall(exploreAction, 'persistRunBundle')).toBe(true);
   });
 
   contract('US-9.2/R5: flow execution has no mock backend module dependency', () => {

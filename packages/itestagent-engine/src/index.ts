@@ -196,6 +196,13 @@ export { buildMemoryProfileIntent } from './memory-profile-intent.js';
 export type { MemoryProfileIntent, MemoryProfileIntentOverrides } from './memory-profile-intent.js';
 
 export { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
+export { persistRunBundle } from './run-bundle-coordinator.js';
+export type { PersistRunBundleInput } from './run-bundle-coordinator.js';
+export {
+  persistConfirmedRun,
+  persistConfirmedRunToDefaultStore,
+} from './confirmed-run-bundle.js';
+export type { PersistConfirmedRunInput } from './confirmed-run-bundle.js';
 export { resolveExecutionRoute } from './execution-route-resolver.js';
 export type {
   ExecutionRoutePreference,

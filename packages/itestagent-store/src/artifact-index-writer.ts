@@ -41,14 +41,15 @@ function serializeCanonical(index: ArtifactIndex): string {
  */
 export function writeArtifactIndex(
   artifactsRoot: string,
-  index: ArtifactIndex,
+  index: unknown,
 ): ArtifactIndexWriteResult {
   // Fail closed: validate through the published parser before writing.
   parseArtifactIndex(index as unknown);
 
   mkdirSync(artifactsRoot, { recursive: true });
   const indexPath = join(artifactsRoot, ARTIFACT_INDEX_FILENAME);
-  const payload = Buffer.from(serializeCanonical(index), 'utf-8');
+  const parsed = parseArtifactIndex(index as unknown);
+  const payload = Buffer.from(serializeCanonical(parsed), 'utf-8');
   const tempPath = `${indexPath}.tmp-${process.pid}-${Date.now()}`;
 
   let bytesWritten = 0;

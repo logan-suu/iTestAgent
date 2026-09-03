@@ -17,7 +17,7 @@ import { BaselineCompareInputSchema, BaselineDeltaSchema } from '../src/performa
 
 // ─── Test 1: RunStatusSchema parses all 7 status values ──────
 
-test('RunStatusSchema parses all 7 status values', () => {
+test('RunStatusSchema parses all 9 status values', () => {
   const validStatuses = [
     'passed',
     'failed',
@@ -450,10 +450,10 @@ test('ArtifactIndexSchema round-trip: parse → JSON.stringify → parse', () =>
   }
 });
 
-// ─── Test 16: DEFAULT_SCHEMA_VERSION equals '2.0' ────────────
+// ─── Test 16: DEFAULT_SCHEMA_VERSION equals '3.0' ────────────
 
-test('DEFAULT_SCHEMA_VERSION equals 2.0 (ADR-011 schema v2 upgrade)', () => {
-  expect(DEFAULT_SCHEMA_VERSION).toBe('2.0');
+test('DEFAULT_SCHEMA_VERSION equals 3.0 (ADR-034 result schema upgrade)', () => {
+  expect(DEFAULT_SCHEMA_VERSION).toBe('3.0');
 });
 
 // ─── Test 17: migrateV1ToV2 — bumps schemaVersion ─────────────

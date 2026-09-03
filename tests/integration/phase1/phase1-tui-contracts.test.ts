@@ -202,6 +202,7 @@ describe('Phase 1 Integration: TUI State + Contracts Alignment', () => {
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 5,
           completedSteps: 5,
           failedSteps: 0,

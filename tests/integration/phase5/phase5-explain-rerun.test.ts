@@ -45,6 +45,7 @@ function makeRunResult(
       targetKind,
     },
     execution: {
+      mode: 'device_backend',
       totalSteps: 2,
       completedSteps: 1,
       failedSteps: 1,
@@ -79,9 +80,10 @@ function makeRunResult(
 
 function makeArtifactIndex(runId: string): ArtifactIndex {
   return {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId,
     artifacts: [],
+    collectionOutcomes: [],
   };
 }
 
@@ -227,7 +229,7 @@ describe('Phase 5: Explain Pipeline', () => {
 
     it('loadArtifactIndex parses artifact-index.json', async () => {
       const index = await runStore.loadArtifactIndex('run-fail-001');
-      expect(index.schemaVersion).toBe('1.0');
+      expect(index.schemaVersion).toBe('2.0');
       expect(index.artifacts).toBeDefined();
     });
 

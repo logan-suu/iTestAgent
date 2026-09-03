@@ -88,6 +88,7 @@ export async function replayFlow(
   const startedAt = new Date().toISOString();
   const steps: ReplayStepResult[] = [];
   const summary = createEmptySummary(flow.steps.length);
+  let cancelled = false;
 
   const compatibility = checkTargetCompatibility(flow, targetKind);
   if (!compatibility.ok) {
@@ -99,6 +100,7 @@ export async function replayFlow(
 
   for (let i = 0; i < flow.steps.length; i++) {
     if (signal?.aborted) {
+      cancelled = true;
       for (let j = i; j < flow.steps.length; j++) {
         const s = flow.steps[j];
         if (!s) continue;
@@ -119,6 +121,7 @@ export async function replayFlow(
     if (!step) continue;
 
     onStepStart?.(i, step);
+    const stepStartedAt = new Date().toISOString();
 
     const result = await executeStep(
       step,
@@ -142,6 +145,7 @@ export async function replayFlow(
       sequence: i + 1,
       targetKind,
       caseId: step.caseId,
+      startedAt: stepStartedAt,
     });
     steps.push(correlated);
 
@@ -185,5 +189,6 @@ export async function replayFlow(
     steps,
     summary,
     overallStatus,
+    cancelled,
   };
 }

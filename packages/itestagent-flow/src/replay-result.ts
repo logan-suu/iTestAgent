@@ -56,6 +56,8 @@ export interface ReplayStepResult {
   target?: string;
   /** Execution status */
   status: ReplayStepStatus;
+  /** Actual wall-clock time when this step began. Omitted for steps never attempted. */
+  startedAt?: string;
   /** Wall-clock duration of this step in milliseconds */
   durationMs: number;
   /** Error message (only for failed/blocked steps) */
@@ -127,6 +129,8 @@ export interface ReplayResult {
   summary: ReplaySummary;
   /** Overall replay status: passed if all steps passed, failed otherwise, blocked if no steps executed */
   overallStatus: 'passed' | 'failed' | 'blocked';
+  /** True only when an AbortSignal stopped replay before all steps were attempted. */
+  cancelled?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -247,6 +251,7 @@ export function correlateReplayStep(
     sequence: number;
     targetKind: 'physical' | 'simulator';
     caseId?: string;
+    startedAt?: string;
   },
 ): ReplayStepResult {
   return { ...result, ...input };

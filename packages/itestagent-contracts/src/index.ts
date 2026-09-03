@@ -315,6 +315,7 @@ export type {
 // backwards compatibility.
 export {
   RunStatusSchema,
+  CaseStatusSchema,
   PerformanceMetricsSchema,
   ExecutionSummarySchema,
   TestCaseResultSchema,
@@ -322,22 +323,51 @@ export {
   RunStepSchema,
   RunResultSchema,
   DEFAULT_SCHEMA_VERSION,
+  RUN_RESULT_SCHEMA_VERSION,
   parseRunResult,
 } from './run-result-contracts.js';
 
 export type {
   RunStatus,
+  CaseStatus,
   PerformanceMetrics,
   ExecutionSummary,
   TestCaseResult,
   FailureExplanation,
   RunStep,
   RunResult,
+  MigratedRunResultV2,
 } from './run-result-contracts.js';
 
-export { ArtifactIndexSchema, parseArtifactIndex } from './artifact-index-contract.js';
+export {
+  ARTIFACT_INDEX_SCHEMA_VERSION,
+  ArtifactIndexSchema,
+  EvidenceCollectionStatusSchema,
+  EvidenceCollectionOutcomeSchema,
+  parseArtifactIndex,
+} from './artifact-index-contract.js';
 
-export type { ArtifactIndex } from './artifact-index-contract.js';
+export type {
+  ArtifactIndex,
+  EvidenceCollectionStatus,
+  EvidenceCollectionOutcome,
+} from './artifact-index-contract.js';
+
+export {
+  RUN_STEPS_SCHEMA_VERSION,
+  RunStepsDocumentSchema,
+  parseRunStepsDocument,
+} from './run-steps-contract.js';
+
+export type { RunStepsDocument } from './run-steps-contract.js';
+
+export {
+  FLOW_REPLAY_PLAN_SCHEMA_VERSION,
+  FlowReplayPlanSchema,
+  parseFlowReplayPlan,
+} from './flow-replay-plan.js';
+
+export type { FlowReplayPlan } from './flow-replay-plan.js';
 
 export {
   CrossFieldValidationError,
@@ -348,9 +378,16 @@ export {
   findUnresolvedArtifactRefs,
   parseValidatedRunResultPair,
   validateRunResultArtifactIndexPair,
+  validateRunBundleDocuments,
+  assertValidRunBundleDocuments,
+  parseValidatedRunBundle,
 } from './json-schema-cross-field.js';
 
-export type { CrossFieldIssue } from './json-schema-cross-field.js';
+export type {
+  CrossFieldIssue,
+  RunPlanDocument,
+  RunBundleDocuments,
+} from './json-schema-cross-field.js';
 
 export {
   ScopeSchema,

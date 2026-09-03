@@ -170,6 +170,8 @@ describe('runtime schema availability (self-contained discovery)', () => {
       ['test-plan.schema.json', 'TestPlanSchema'],
       ['result.schema.json', 'RunResultSchema'],
       ['artifact-index.schema.json', 'ArtifactIndexSchema'],
+      ['run-steps.schema.json', 'RunStepsDocumentSchema'],
+      ['flow-replay-plan.schema.json', 'FlowReplayPlanSchema'],
       ['config.schema.json', 'ItestAgentConfigSchema'],
     ] as const;
     const missing: string[] = [];
@@ -223,7 +225,9 @@ describe('runtime schema availability (self-contained discovery)', () => {
     expect(contractsPairs.map((p) => p.published).sort()).toEqual([
       'artifact-index.schema.json',
       'config.schema.json',
+      'flow-replay-plan.schema.json',
       'result.schema.json',
+      'run-steps.schema.json',
       'test-plan.schema.json',
     ]);
     for (const pair of contractsPairs) {

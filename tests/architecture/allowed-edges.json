@@ -138,5 +138,9 @@
   {
     "from": "itestagent-engine",
     "to": "itestagent-store"
+  },
+  {
+    "from": "itestagent-engine",
+    "to": "itestagent-report"
   }
 ]

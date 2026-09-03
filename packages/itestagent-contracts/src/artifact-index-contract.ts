@@ -15,53 +15,115 @@ import { z } from 'zod';
 
 // ─── ArtifactIndex ───────────────────────────────────────────
 
+export const ARTIFACT_INDEX_SCHEMA_VERSION = '2.0';
+
+export const EvidenceCollectionStatusSchema = z.enum([
+  'collected',
+  'not_requested',
+  'not_applicable',
+  'unsupported',
+  'failed',
+]);
+
+export const EvidenceCollectionOutcomeSchema = z
+  .object({
+    type: z.enum([
+      'screenshot',
+      'video',
+      'uitree',
+      'log',
+      'syslog',
+      'crashlog',
+      'trace',
+      'xcresult',
+      'json',
+      'text',
+    ]),
+    status: EvidenceCollectionStatusSchema,
+    reasonCode: z.string().min(1),
+    message: z.string().optional(),
+    artifactId: z.string().min(1).optional(),
+    relatedStep: z.string().min(1).optional(),
+    relatedCase: z.string().min(1).optional(),
+  })
+  .superRefine((outcome, ctx) => {
+    if (outcome.status === 'collected' && !outcome.artifactId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['artifactId'],
+        message: 'collected outcome requires artifactId',
+      });
+    }
+    if (outcome.status !== 'collected' && outcome.artifactId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['artifactId'],
+        message: 'non-collected outcome must not reference an artifact',
+      });
+    }
+  });
+
 /**
  * 产物索引 Schema（§6.6）。
  */
-export const ArtifactIndexSchema = z.object({
-  /** Schema 版本号 */
-  schemaVersion: z.string(),
-  /** 关联的 Run ID */
-  runId: z.string(),
-  /** 产物列表 */
-  artifacts: z.array(
-    z.object({
-      /** 产物唯一标识 */
-      id: z.string(),
-      /** 产物类型 */
-      type: z.enum([
-        'screenshot',
-        'video',
-        'uitree',
-        'log',
-        'syslog',
-        'crashlog',
-        'trace',
-        'xcresult',
-        'json',
-        'text',
-      ]),
-      /** 相对路径 */
-      path: z.string(),
-      /** MIME 类型（可选） */
-      mimeType: z.string().optional(),
-      /** 文件大小（字节），非负整数 */
-      sizeBytes: z.number().int().nonnegative().optional(),
-      /** SHA-256 校验和（可选） */
-      sha256: z.string().optional(),
-      /** 关联步骤 ID（可选） */
-      relatedStep: z.string().optional(),
-      /** Related test case ID (optional). */
-      relatedCase: z.string().optional(),
-      /** 产生此产物的 backend（可选） */
-      backend: z.string().optional(),
-      /** 脱敏状态 */
-      redactionStatus: z.enum(['raw-local-only', 'redacted', 'safe']),
-    }),
-  ),
-});
+export const ArtifactIndexSchema = z
+  .object({
+    /** Schema version. */
+    schemaVersion: z.string().min(1),
+    /** Owning run ID. */
+    runId: z.string(),
+    /** Collected artifacts. */
+    artifacts: z.array(
+      z.object({
+        /** Unique artifact ID. */
+        id: z.string(),
+        /** Artifact type. */
+        type: z.enum([
+          'screenshot',
+          'video',
+          'uitree',
+          'log',
+          'syslog',
+          'crashlog',
+          'trace',
+          'xcresult',
+          'json',
+          'text',
+        ]),
+        /** Run-relative path. */
+        path: z.string(),
+        /** Optional MIME type. */
+        mimeType: z.string().optional(),
+        /** Optional non-negative byte size. */
+        sizeBytes: z.number().int().nonnegative().optional(),
+        /** Optional SHA-256 digest. */
+        sha256: z.string().optional(),
+        /** Optional related step ID. */
+        relatedStep: z.string().optional(),
+        /** Related test case ID (optional). */
+        relatedCase: z.string().optional(),
+        /** Optional producing backend. */
+        backend: z.string().optional(),
+        /** Redaction status. */
+        redactionStatus: z.enum(['raw-local-only', 'redacted', 'safe']),
+      }),
+    ),
+    /** Evidence slots evaluated for this run, including unsuccessful collection. */
+    collectionOutcomes: z.array(EvidenceCollectionOutcomeSchema).optional(),
+  })
+  .superRefine((index, ctx) => {
+    if (index.schemaVersion === ARTIFACT_INDEX_SCHEMA_VERSION && !index.collectionOutcomes) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['collectionOutcomes'],
+        message: 'ArtifactIndex v2 requires collectionOutcomes',
+      });
+    }
+  });
 
 export type ArtifactIndex = z.infer<typeof ArtifactIndexSchema>;
+export type EvidenceCollectionStatus = z.infer<typeof EvidenceCollectionStatusSchema>;
+export type EvidenceCollectionOutcome = z.infer<typeof EvidenceCollectionOutcomeSchema>;
 
 // ─── Parse Helpers ───────────────────────────────────────────
 

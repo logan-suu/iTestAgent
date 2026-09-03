@@ -288,12 +288,13 @@ test('published result required keys match the runtime-required top-level keys',
   expect([...publishedRequired].sort()).toEqual(requiredKeysOf(RunResultSchema.shape).sort());
 });
 
-test('published result status mirrors the 7-value RunStatusSchema enum', () => {
+test('published result status mirrors the 9-value RunStatusSchema enum', () => {
   const published = loadPublishedSchemaAt(RESULT_PUBLISHED_PATH);
   const status = (published.properties as JsonRecord).status as JsonRecord;
   expect(status.type).toBe('string');
   expect((status.enum as string[]).slice().sort()).toEqual([...RunStatusSchema.options].sort());
-  expect(status.enum as string[]).not.toContain('infra_failed');
+  expect(status.enum as string[]).toContain('infra_failed');
+  expect(status.enum as string[]).toContain('cancelled');
 });
 
 test('published device section matches the inline device block exactly', () => {
@@ -496,7 +497,9 @@ test('published artifact-index properties match ArtifactIndexSchema.shape exactl
   const publishedRequired = Array.isArray(published.required)
     ? (published.required as string[])
     : [];
-  expect([...publishedRequired].sort()).toEqual(requiredKeysOf(ArtifactIndexSchema.shape).sort());
+  expect([...publishedRequired].sort()).toEqual(
+    [...requiredKeysOf(ArtifactIndexSchema.shape), 'collectionOutcomes'].sort(),
+  );
 });
 
 test('published artifact entries match the runtime entry shape exactly', () => {

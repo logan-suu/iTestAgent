@@ -3,18 +3,28 @@
  * report-sanitizer and trio validation in report-validator; this module stays
  * the three-piece synthesis engine.
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { chmod, mkdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
+  ARTIFACT_INDEX_SCHEMA_VERSION,
   type ArtifactIndex,
   ArtifactIndexSchema,
+  RUN_RESULT_SCHEMA_VERSION,
   type RunResult,
   RunResultSchema,
 } from 'itestagent-contracts';
 
 import { generateSummary } from './summary-generator.js';
 import type { ArtifactEntry, ReportSynthesizerInput } from './types.js';
+
+async function atomicWrite(path: string, content: string): Promise<void> {
+  const temporaryPath = `${path}.tmp-${randomUUID()}`;
+  await writeFile(temporaryPath, content, { encoding: 'utf8', mode: 0o600 });
+  await chmod(temporaryPath, 0o600);
+  await rename(temporaryPath, path);
+}
 
 /**
  * ReportSynthesizer — produces the three-piece report for a single run.
@@ -43,10 +53,10 @@ export class ReportSynthesizer {
    */
   synthesizeResult(): RunResult {
     const raw: RunResult = {
-      schemaVersion: '2.0',
+      schemaVersion: RUN_RESULT_SCHEMA_VERSION,
       runId: this.input.runId,
       status: this.input.status,
-      projectProfileRef: this.input.projectProfileRef,
+      ...(this.input.projectProfileRef ? { projectProfileRef: this.input.projectProfileRef } : {}),
       device: {
         udid: this.input.device.udid,
         name: this.input.device.name,
@@ -83,7 +93,7 @@ export class ReportSynthesizer {
    */
   synthesizeArtifactIndex(): ArtifactIndex {
     const raw: ArtifactIndex = {
-      schemaVersion: '1.0',
+      schemaVersion: ARTIFACT_INDEX_SCHEMA_VERSION,
       runId: this.input.runId,
       artifacts: this.input.allArtifacts.map((a: ArtifactEntry) => ({
         id: a.id,
@@ -93,9 +103,20 @@ export class ReportSynthesizer {
         sizeBytes: a.sizeBytes,
         sha256: a.sha256,
         relatedStep: a.relatedStep,
+        relatedCase: a.relatedCase,
         backend: a.backend,
         redactionStatus: a.redactionStatus,
       })),
+      collectionOutcomes:
+        this.input.collectionOutcomes ??
+        this.input.allArtifacts.map((artifact) => ({
+          type: artifact.type,
+          status: 'collected' as const,
+          reasonCode: 'collected',
+          artifactId: artifact.id,
+          relatedStep: artifact.relatedStep,
+          relatedCase: artifact.relatedCase,
+        })),
     };
 
     // G2: Validate against Zod schema before returning
@@ -138,11 +159,11 @@ export class ReportSynthesizer {
     const artifactIndexPath = join(runRootDir, 'artifact-index.json');
     const summaryPath = join(runRootDir, 'summary.md');
 
-    await Promise.all([
-      writeFile(resultPath, JSON.stringify(result, null, 2), 'utf-8'),
-      writeFile(artifactIndexPath, JSON.stringify(artifactIndex, null, 2), 'utf-8'),
-      writeFile(summaryPath, summary, 'utf-8'),
-    ]);
+    // Compatibility writer: publish supporting files first and result.json last.
+    // New production paths use RunWriter, which additionally validates the full bundle.
+    await atomicWrite(artifactIndexPath, `${JSON.stringify(artifactIndex, null, 2)}\n`);
+    await atomicWrite(summaryPath, summary);
+    await atomicWrite(resultPath, `${JSON.stringify(result, null, 2)}\n`);
 
     return { resultPath, artifactIndexPath, summaryPath };
   }

@@ -21,6 +21,14 @@ export { createBaselineStore } from './baseline-store.js';
 export type { FileSystem } from './baseline-store.js';
 export { createRunStore, createDefaultRunStore } from './run-store.js';
 export type { RunStore } from './run-store.js';
+export { RunWriter } from './run-writer.js';
+export type {
+  MeasuredPath,
+  RunWriterArtifactInput,
+  RunWriterCommitInput,
+  RunWriterHooks,
+} from './run-writer.js';
+export { measureRunArtifactPath } from './run-writer.js';
 export * as schema from './schema.js';
 
 /**

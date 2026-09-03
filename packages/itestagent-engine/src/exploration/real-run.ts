@@ -124,6 +124,8 @@ export interface RealDeviceRunOptions {
   }[];
   /** Exploration tuning (settleMs etc). */
   readonly exploration?: Partial<ExplorationOptions>;
+  /** Transitional legacy index publication. Production composition must leave this false. */
+  readonly publishLegacyArtifactIndex?: boolean;
 }
 
 export interface RealDeviceRunResult {
@@ -132,6 +134,7 @@ export interface RealDeviceRunResult {
   readonly assertion: AssertionEvaluateOutput;
   readonly artifactIndexPath: string | null;
   readonly artifactCount: number;
+  readonly artifacts: readonly ArtifactIndex['artifacts'][number][];
   /** LLM-proposed tier-3 suggestions when llmSuggest was used (AC4). */
   readonly llmSuggestions?: readonly UserAssertion[];
   readonly llmReason?: string;
@@ -428,19 +431,31 @@ export async function runRealDeviceExploration(
   let artifactCount = 0;
   const refs = options.artifactRefs ?? collectDispatcherArtifactRefs(options.toolDispatcher);
   artifactCount = refs.length;
-  if (refs.length > 0) {
+  const artifacts: ArtifactIndex['artifacts'] = refs.map((a) => {
+    const owner = steps.find((step) => step.artifacts.includes(a.id));
+    return {
+      id: a.id,
+      type: a.type,
+      path: a.path,
+      relatedStep: owner?.stepId,
+      relatedCase: owner?.caseId,
+      redactionStatus: 'raw-local-only' as const,
+    };
+  });
+  if (refs.length > 0 && options.publishLegacyArtifactIndex === true) {
     const index: ArtifactIndex = {
-      schemaVersion: '1.0',
+      schemaVersion: '2.0',
       runId: options.runId,
-      artifacts: refs.map((a) => {
-        const owner = steps.find((step) => step.artifacts.includes(a.id));
+      artifacts,
+      collectionOutcomes: refs.map((artifact) => {
+        const owner = steps.find((step) => step.artifacts.includes(artifact.id));
         return {
-          id: a.id,
-          type: a.type,
-          path: a.path,
+          type: artifact.type,
+          status: 'collected' as const,
+          reasonCode: 'collected',
+          artifactId: artifact.id,
           relatedStep: owner?.stepId,
           relatedCase: owner?.caseId,
-          redactionStatus: 'raw-local-only' as const,
         };
       }),
     };
@@ -454,6 +469,7 @@ export async function runRealDeviceExploration(
     assertion,
     artifactIndexPath,
     artifactCount,
+    artifacts,
     ...(options.llmSuggest ? { llmSuggestions, llmReason } : {}),
   };
 }

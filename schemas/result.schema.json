@@ -8,7 +8,6 @@
     "schemaVersion",
     "runId",
     "status",
-    "projectProfileRef",
     "device",
     "execution",
     "cases",
@@ -19,7 +18,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "description": "Result schema version. Current writers emit '2.0' (DEFAULT_SCHEMA_VERSION); v1 documents are migrated by migrateV1ToV2 (ADR-011 §8)."
+      "const": "3.0",
+      "description": "Result schema version. Current writers emit '3.0' (ADR-034)."
     },
     "runId": {
       "type": "string",
@@ -34,13 +34,15 @@
         "inconclusive",
         "needs_assertion",
         "flaky",
-        "blocked"
+        "blocked",
+        "cancelled",
+        "infra_failed"
       ],
       "description": "Final run status. Without assertions a run cannot be passed (R5): explored/inconclusive/needs_assertion apply instead."
     },
     "projectProfileRef": {
       "type": "string",
-      "description": "Reference path to the ProjectProfile this run was planned from."
+      "description": "Reference path to the ProjectProfile. Required for TestPlan bundles and omitted for FlowReplayPlan bundles (ADR-034)."
     },
     "device": {
       "type": "object",
@@ -118,7 +120,8 @@
               "inconclusive",
               "needs_assertion",
               "flaky",
-              "blocked"
+              "blocked",
+              "cancelled"
             ],
             "description": "Case execution status."
           },
@@ -253,5 +256,11 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "schemaVersion": { "const": "3.0" } } },
+      "then": { "properties": { "execution": { "required": ["mode"] } } }
+    }
+  ]
 }

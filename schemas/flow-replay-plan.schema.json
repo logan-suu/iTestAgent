@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://itestagent.dev/schemas/flow-replay-plan.schema.json",
+  "title": "iTestAgent Flow Replay Plan",
+  "description": "Canonical standalone Flow replay plan snapshot (ADR-034). It deliberately contains no ProjectProfile reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "flow", "target", "selection", "readiness", "artifacts"],
+  "properties": {
+    "schemaVersion": { "const": "itestagent.flow-replay-plan.v1" },
+    "runId": { "type": "string", "minLength": 1 },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flowId", "source", "sourcePath", "sha256"],
+      "properties": {
+        "flowId": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["global", "project"] },
+        "sourcePath": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetKind", "deviceId"],
+      "properties": {
+        "targetKind": { "enum": ["physical", "simulator"] },
+        "deviceId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasonCode"],
+      "properties": {
+        "status": { "enum": ["selected", "failed"] },
+        "backend": { "type": "string", "minLength": 1 },
+        "reasonCode": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasonCode"],
+      "properties": {
+        "status": { "enum": ["ready", "failed", "not_reached"] },
+        "reasonCode": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["collect", "report"],
+      "properties": {
+        "collect": { "type": "array", "items": { "enum": ["screenshot", "video", "syslog", "crashlog", "xcresult", "trace", "uitree"] } },
+        "report": {
+          "type": "object",
+          "required": ["outputs"],
+          "properties": {
+            "outputs": { "type": "array", "items": { "enum": ["summary_md", "result_json", "artifact_index_json"] } }
+          }
+        }
+      }
+    }
+  }
+}

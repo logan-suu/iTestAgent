@@ -21,8 +21,14 @@
  */
 import type { ArtifactIndex } from './artifact-index-contract.js';
 import { ArtifactIndexSchema } from './artifact-index-contract.js';
+import type { FlowReplayPlan } from './flow-replay-plan.js';
+import { FlowReplayPlanSchema } from './flow-replay-plan.js';
 import type { RunResult } from './run-result-contracts.js';
 import { RunResultSchema } from './run-result-contracts.js';
+import type { RunStepsDocument } from './run-steps-contract.js';
+import { RunStepsDocumentSchema } from './run-steps-contract.js';
+import type { TestPlan } from './test-plan.js';
+import { TestPlanSchema } from './test-plan.js';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -168,4 +174,202 @@ export function parseValidatedRunResultPair(
   const artifactIndex = ArtifactIndexSchema.parse(rawIndex);
   assertValidRunResultArtifactIndexPair(result, artifactIndex);
   return { result, artifactIndex };
+}
+
+export type RunPlanDocument = TestPlan | FlowReplayPlan;
+
+export interface RunBundleDocuments {
+  plan: RunPlanDocument;
+  steps: RunStepsDocument;
+  result: RunResult;
+  artifactIndex: ArtifactIndex;
+}
+
+function parseRunPlanDocument(raw: unknown): RunPlanDocument {
+  const version =
+    typeof raw === 'object' && raw !== null && 'schemaVersion' in raw
+      ? (raw as { schemaVersion?: unknown }).schemaVersion
+      : undefined;
+  if (version === 'itestagent.test-plan.v3') return TestPlanSchema.parse(raw);
+  if (version === 'itestagent.flow-replay-plan.v1') return FlowReplayPlanSchema.parse(raw);
+  throw new CrossFieldValidationError([
+    {
+      path: 'plan.schemaVersion',
+      message: `unsupported run plan schemaVersion "${String(version)}"`,
+    },
+  ]);
+}
+
+/** Validates references and conditional fields across a complete committed run bundle. */
+export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFieldIssue[] {
+  const { plan, steps, result, artifactIndex } = bundle;
+  const issues = validateRunResultArtifactIndexPair(result, artifactIndex);
+  const expectedRunId = result.runId;
+
+  for (const [path, actual] of [
+    ['plan.runId', plan.runId],
+    ['steps.runId', steps.runId],
+  ] as const) {
+    if (actual !== expectedRunId) {
+      issues.push({
+        path,
+        message: `runId "${actual}" does not match result runId "${expectedRunId}"`,
+      });
+    }
+  }
+
+  if (plan.schemaVersion === 'itestagent.test-plan.v3') {
+    if (!result.projectProfileRef) {
+      issues.push({
+        path: 'result.projectProfileRef',
+        message: 'TestPlan bundle requires projectProfileRef',
+      });
+    } else if (result.projectProfileRef !== plan.projectProfileRef) {
+      issues.push({
+        path: 'result.projectProfileRef',
+        message: 'projectProfileRef does not match plan.projectProfileRef',
+      });
+    }
+    if (result.execution.mode !== plan.execution.resolvedPath) {
+      issues.push({
+        path: 'result.execution.mode',
+        message: 'execution mode does not match the resolved TestPlan path',
+      });
+    }
+    if (result.execution.targetKind !== plan.device.kind) {
+      issues.push({
+        path: 'result.execution.targetKind',
+        message: 'targetKind does not match the TestPlan device kind',
+      });
+    }
+  } else if (result.projectProfileRef !== undefined) {
+    issues.push({
+      path: 'result.projectProfileRef',
+      message: 'FlowReplayPlan bundle must not claim projectProfileRef',
+    });
+  } else {
+    if (result.execution.mode !== 'device_backend') {
+      issues.push({
+        path: 'result.execution.mode',
+        message: 'FlowReplayPlan requires device_backend execution mode',
+      });
+    }
+    if (result.execution.targetKind !== plan.target.targetKind) {
+      issues.push({
+        path: 'result.execution.targetKind',
+        message: 'targetKind does not match FlowReplayPlan target',
+      });
+    }
+    if (result.execution.deviceId !== plan.target.deviceId) {
+      issues.push({
+        path: 'result.execution.deviceId',
+        message: 'deviceId does not match FlowReplayPlan target',
+      });
+    }
+  }
+
+  const stepById = new Map(steps.steps.map((step) => [step.stepId, step]));
+  const caseIds = new Set(result.cases.map((testCase) => testCase.caseId));
+  const artifactIds = new Set(artifactIndex.artifacts.map((artifact) => artifact.id));
+
+  for (const testCase of result.cases) {
+    for (const stepId of testCase.steps) {
+      const step = stepById.get(stepId);
+      if (!step) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].steps`,
+          message: `unresolved stepId "${stepId}"`,
+        });
+      } else if (step.caseId !== testCase.caseId) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].steps`,
+          message: `stepId "${stepId}" belongs to case "${String(step.caseId)}"`,
+        });
+      }
+    }
+    for (const artifactId of testCase.artifacts) {
+      if (!artifactIds.has(artifactId)) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].artifacts`,
+          message: `unresolved artifactId "${artifactId}"`,
+        });
+      }
+    }
+  }
+
+  for (const step of steps.steps) {
+    if (step.caseId && !caseIds.has(step.caseId)) {
+      issues.push({
+        path: `steps[${step.stepId}].caseId`,
+        message: `unresolved caseId "${step.caseId}"`,
+      });
+    }
+    for (const artifactId of step.artifacts) {
+      if (!artifactIds.has(artifactId)) {
+        issues.push({
+          path: `steps[${step.stepId}].artifacts`,
+          message: `unresolved artifactId "${artifactId}"`,
+        });
+      }
+    }
+  }
+
+  for (const artifact of artifactIndex.artifacts) {
+    if (artifact.relatedStep && !stepById.has(artifact.relatedStep)) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedStep`,
+        message: `unresolved stepId "${artifact.relatedStep}"`,
+      });
+    }
+    if (artifact.relatedCase && !caseIds.has(artifact.relatedCase)) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedCase`,
+        message: `unresolved caseId "${artifact.relatedCase}"`,
+      });
+    }
+  }
+
+  for (const outcome of artifactIndex.collectionOutcomes ?? []) {
+    if (outcome.artifactId && !artifactIds.has(outcome.artifactId)) {
+      issues.push({
+        path: 'collectionOutcomes.artifactId',
+        message: `unresolved artifactId "${outcome.artifactId}"`,
+      });
+    }
+    if (outcome.relatedStep && !stepById.has(outcome.relatedStep)) {
+      issues.push({
+        path: 'collectionOutcomes.relatedStep',
+        message: `unresolved stepId "${outcome.relatedStep}"`,
+      });
+    }
+    if (outcome.relatedCase && !caseIds.has(outcome.relatedCase)) {
+      issues.push({
+        path: 'collectionOutcomes.relatedCase',
+        message: `unresolved caseId "${outcome.relatedCase}"`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+export function assertValidRunBundleDocuments(bundle: RunBundleDocuments): void {
+  const issues = validateRunBundleDocuments(bundle);
+  if (issues.length > 0) throw new CrossFieldValidationError(issues);
+}
+
+export function parseValidatedRunBundle(raw: {
+  plan: unknown;
+  steps: unknown;
+  result: unknown;
+  artifactIndex: unknown;
+}): RunBundleDocuments {
+  const bundle: RunBundleDocuments = {
+    plan: parseRunPlanDocument(raw.plan),
+    steps: RunStepsDocumentSchema.parse(raw.steps),
+    result: RunResultSchema.parse(raw.result),
+    artifactIndex: ArtifactIndexSchema.parse(raw.artifactIndex),
+  };
+  assertValidRunBundleDocuments(bundle);
+  return bundle;
 }

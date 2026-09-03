@@ -220,6 +220,14 @@ describe('RunStore', () => {
             redactionStatus: 'safe',
           },
         ],
+        collectionOutcomes: [
+          {
+            type: 'screenshot',
+            status: 'collected',
+            reasonCode: 'collected',
+            artifactId: 'artifact-1',
+          },
+        ],
       };
 
       writeFileSync(join(runDir, 'artifact-index.json'), JSON.stringify(artifactIndex));

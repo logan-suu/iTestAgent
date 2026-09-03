@@ -18,7 +18,9 @@
 
 export {
   DEFAULT_SCHEMA_VERSION,
+  RUN_RESULT_SCHEMA_VERSION,
   RunStatusSchema,
+  CaseStatusSchema,
   PerformanceMetricsSchema,
   ExecutionSummarySchema,
   TestCaseResultSchema,
@@ -31,14 +33,34 @@ export {
 
 export type {
   RunStatus,
+  CaseStatus,
   PerformanceMetrics,
   ExecutionSummary,
   TestCaseResult,
   FailureExplanation,
   RunStep,
   RunResult,
+  MigratedRunResultV2,
 } from './run-result-contracts.js';
 
-export { ArtifactIndexSchema, parseArtifactIndex } from './artifact-index-contract.js';
+export {
+  ARTIFACT_INDEX_SCHEMA_VERSION,
+  ArtifactIndexSchema,
+  EvidenceCollectionStatusSchema,
+  EvidenceCollectionOutcomeSchema,
+  parseArtifactIndex,
+} from './artifact-index-contract.js';
 
-export type { ArtifactIndex } from './artifact-index-contract.js';
+export type {
+  ArtifactIndex,
+  EvidenceCollectionStatus,
+  EvidenceCollectionOutcome,
+} from './artifact-index-contract.js';
+
+export {
+  RUN_STEPS_SCHEMA_VERSION,
+  RunStepsDocumentSchema,
+  parseRunStepsDocument,
+} from './run-steps-contract.js';
+
+export type { RunStepsDocument } from './run-steps-contract.js';

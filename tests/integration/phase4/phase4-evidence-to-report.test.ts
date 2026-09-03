@@ -272,6 +272,7 @@ describe('Phase 4 Evidence → Explanation → Report', () => {
         targetKind: 'physical',
       },
       execution: {
+        mode: 'device_backend',
         totalSteps: 3,
         completedSteps: 1,
         failedSteps: 2,
@@ -345,6 +346,7 @@ describe('Phase 4 Evidence → Explanation → Report', () => {
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 1,
           completedSteps: 1,
           failedSteps: 0,

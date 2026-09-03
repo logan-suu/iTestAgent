@@ -4,11 +4,12 @@
   "title": "iTestAgent Artifact Index",
   "description": "Published JSON Schema for the iTestAgent artifact index file (artifact-index.json). Runtime source of truth: ArtifactIndexSchema in packages/itestagent-contracts/src/artifact-index-contract.ts (Architecture Design §6.6; AGENTS.md §5 data contracts). Parity is enforced by packages/itestagent-contracts/test/json-schema-parity.test.ts (B03). Unknown keys are stripped at runtime, so additional properties are not forbidden here.",
   "type": "object",
-  "required": ["schemaVersion", "runId", "artifacts"],
+  "required": ["schemaVersion", "runId", "artifacts", "collectionOutcomes"],
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "description": "Artifact-index schema version (AGENTS.md §5: artifacts carry schemaVersion)."
+      "const": "2.0",
+      "description": "Artifact-index schema version. Current writers emit 2.0 (ADR-034)."
     },
     "runId": {
       "type": "string",
@@ -56,6 +57,23 @@
             "enum": ["raw-local-only", "redacted", "safe"],
             "description": "R6 redaction state: raw-local-only stays on the local machine only; redacted has sensitive content scrubbed; safe contains no sensitive content."
           }
+        }
+      }
+    },
+    "collectionOutcomes": {
+      "type": "array",
+      "description": "Evidence slots evaluated for this run, including unsuccessful collection.",
+      "items": {
+        "type": "object",
+        "required": ["type", "status", "reasonCode"],
+        "properties": {
+          "type": { "type": "string", "enum": ["screenshot", "video", "uitree", "log", "syslog", "crashlog", "trace", "xcresult", "json", "text"] },
+          "status": { "type": "string", "enum": ["collected", "not_requested", "not_applicable", "unsupported", "failed"] },
+          "reasonCode": { "type": "string", "minLength": 1 },
+          "message": { "type": "string" },
+          "artifactId": { "type": "string", "minLength": 1 },
+          "relatedStep": { "type": "string", "minLength": 1 },
+          "relatedCase": { "type": "string", "minLength": 1 }
         }
       }
     }

@@ -35,7 +35,7 @@ import type { RunResult } from '../src/run-result-contracts.js';
 /** Minimal valid RunResult fixture (all required fields, nothing optional). */
 function resultFixture(overrides: Partial<RunResult> = {}): RunResult {
   return {
-    schemaVersion: '2.0',
+    schemaVersion: '3.0',
     runId: 'run-20260825-001',
     status: 'failed',
     projectProfileRef: '~/.itestagent/projects/abc/project-profile.json',
@@ -47,6 +47,7 @@ function resultFixture(overrides: Partial<RunResult> = {}): RunResult {
       targetKind: 'physical',
     },
     execution: {
+      mode: 'device_backend',
       totalSteps: 2,
       completedSteps: 1,
       failedSteps: 1,
@@ -91,7 +92,7 @@ function resultFixture(overrides: Partial<RunResult> = {}): RunResult {
 /** Minimal valid ArtifactIndex fixture covering every ref used above. */
 function indexFixture(overrides: Partial<ArtifactIndex> = {}): ArtifactIndex {
   return {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId: 'run-20260825-001',
     artifacts: [
       {
@@ -106,6 +107,15 @@ function indexFixture(overrides: Partial<ArtifactIndex> = {}): ArtifactIndex {
         path: 'artifacts/syslog.txt',
         redactionStatus: 'redacted',
       },
+    ],
+    collectionOutcomes: [
+      {
+        type: 'screenshot',
+        status: 'collected',
+        reasonCode: 'collected',
+        artifactId: 'art-shot-1',
+      },
+      { type: 'log', status: 'collected', reasonCode: 'collected', artifactId: 'art-log-1' },
     ],
     ...overrides,
   };
