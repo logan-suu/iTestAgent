@@ -152,7 +152,7 @@ describe('RunStore', () => {
       mkdirSync(runDir, { recursive: true });
 
       const resultJson = {
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-001',
         status: 'failed',
         projectProfileRef: 'projects/abc123/project-profile.json',
@@ -164,6 +164,7 @@ describe('RunStore', () => {
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 3,
           completedSteps: 2,
           failedSteps: 1,
@@ -220,6 +221,14 @@ describe('RunStore', () => {
             redactionStatus: 'safe',
           },
         ],
+        collectionOutcomes: [
+          {
+            type: 'screenshot',
+            status: 'collected',
+            reasonCode: 'collected',
+            artifactId: 'artifact-1',
+          },
+        ],
       };
 
       writeFileSync(join(runDir, 'artifact-index.json'), JSON.stringify(artifactIndex));
@@ -245,12 +254,13 @@ describe('RunStore', () => {
       writeFileSync(
         join(runDir1, 'result.json'),
         JSON.stringify({
-          schemaVersion: '2.0',
+          schemaVersion: '3.0',
           runId: 'run-001',
           status: 'passed',
           projectProfileRef: 'projects/abc/profile.json',
           device: { udid: 'A', name: 'X', model: 'M', osVersion: '18', targetKind: 'physical' },
           execution: {
+            mode: 'device_backend',
             totalSteps: 1,
             completedSteps: 1,
             failedSteps: 0,

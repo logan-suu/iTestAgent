@@ -47,6 +47,18 @@ export const registeredPairs: SchemaPair[] = [
     parityTest: 'packages/itestagent-contracts/test/parity/artifact-index.test.ts',
   },
   {
+    published: 'run-steps.schema.json',
+    runtimePackage: 'itestagent-contracts',
+    runtimeSymbol: 'RunStepsDocumentSchema',
+    parityTest: 'packages/itestagent-contracts/test/parity/run-steps.test.ts',
+  },
+  {
+    published: 'flow-replay-plan.schema.json',
+    runtimePackage: 'itestagent-contracts',
+    runtimeSymbol: 'FlowReplayPlanSchema',
+    parityTest: 'packages/itestagent-contracts/test/parity/flow-replay-plan.test.ts',
+  },
+  {
     published: 'test-plan.schema.json',
     runtimePackage: 'itestagent-contracts',
     runtimeSymbol: 'TestPlanSchema',

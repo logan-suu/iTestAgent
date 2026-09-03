@@ -23,8 +23,11 @@ import { BaselineDeltaSchema } from './performance-backend.js';
 
 // ─── Constants ───────────────────────────────────────────────
 
-/** Default schema version for all output artifacts */
-export const DEFAULT_SCHEMA_VERSION = '2.0';
+/** Canonical schema version emitted for result.json. */
+export const RUN_RESULT_SCHEMA_VERSION = '3.0';
+
+/** Backward-compatible alias used by report callers. */
+export const DEFAULT_SCHEMA_VERSION = RUN_RESULT_SCHEMA_VERSION;
 
 // ─── RunStatus ───────────────────────────────────────────────
 
@@ -48,9 +51,25 @@ export const RunStatusSchema = z.enum([
   'needs_assertion',
   'flaky',
   'blocked',
+  'cancelled',
+  'infra_failed',
 ]);
 
 export type RunStatus = z.infer<typeof RunStatusSchema>;
+
+/** Case status intentionally excludes the run-only infrastructure outcome. */
+export const CaseStatusSchema = z.enum([
+  'passed',
+  'failed',
+  'explored',
+  'inconclusive',
+  'needs_assertion',
+  'flaky',
+  'blocked',
+  'cancelled',
+]);
+
+export type CaseStatus = z.infer<typeof CaseStatusSchema>;
 
 // ─── PerformanceMetrics ──────────────────────────────────────
 
@@ -127,7 +146,7 @@ export const TestCaseResultSchema = z.object({
   /** 用例名称 */
   name: z.string(),
   /** 执行状态 */
-  status: RunStatusSchema,
+  status: CaseStatusSchema,
   /** 关联步骤 ID 列表 */
   steps: z.array(z.string()),
   /** 用例执行耗时（毫秒），非负整数 */
@@ -217,52 +236,62 @@ export type RunStep = z.infer<typeof RunStepSchema>;
  *   包含 run 状态、Profile 引用、设备信息、执行摘要、用例结果、
  *   性能指标、baseline 增量、产物引用、失败解释。
  */
-export const RunResultSchema = z.object({
-  /** Schema 版本号 */
-  schemaVersion: z.string(),
-  /** Run 唯一标识 */
-  runId: z.string(),
-  /** 执行状态 */
-  status: RunStatusSchema,
-  /** 关联的 ProjectProfile 引用路径 */
-  projectProfileRef: z.string(),
-  /** 执行设备信息 */
-  device: z.object({
-    udid: z.string(),
-    name: z.string(),
-    model: z.string(),
-    osVersion: z.string(),
-    /** 执行目标类型（ADR-011） */
-    targetKind: TargetKindSchema,
-    /** Simulator runtime identifier（physical 为 undefined） */
-    runtimeIdentifier: z.string().optional(),
-  }),
-  /** 执行摘要 */
-  execution: ExecutionSummarySchema,
-  /** 测试用例结果列表 */
-  cases: z.array(TestCaseResultSchema),
-  /** 性能指标 */
-  metrics: PerformanceMetricsSchema,
-  /** 执行环境元数据（ADR-011：Simulator 报告强制携带） */
-  environment: z.object({
-    /** physical 或 simulator */
-    targetKind: TargetKindSchema,
-    /** 能否代表真机表现（Simulator 固定 false） */
-    representativeOfPhysicalDevice: z.boolean(),
-    /** baseline 比较域（simulator_only 或 physical_only） */
-    comparisonScope: z.enum(['simulator_only', 'physical_only']),
-    /** 宿主机指纹（Simulator 必填） */
-    hostFingerprint: z.string().optional(),
-    /** Xcode 版本（Simulator 必填） */
-    xcodeVersion: z.string().optional(),
-  }),
-  /** Baseline 对比增量（可选，首次 run 无 baseline 时不填充） */
-  baselineDelta: BaselineDeltaSchema.optional(),
-  /** 产物 ID 引用列表 */
-  artifactRefs: z.array(z.string()),
-  /** 失败解释（可选，passed 时不填充） */
-  explanation: FailureExplanationSchema.optional(),
-});
+export const RunResultSchema = z
+  .object({
+    /** Schema version. */
+    schemaVersion: z.literal(RUN_RESULT_SCHEMA_VERSION),
+    /** Unique run ID. */
+    runId: z.string(),
+    /** Final execution status. */
+    status: RunStatusSchema,
+    /** Optional associated ProjectProfile reference. */
+    projectProfileRef: z.string().min(1).optional(),
+    /** Execution device details. */
+    device: z.object({
+      udid: z.string(),
+      name: z.string(),
+      model: z.string(),
+      osVersion: z.string(),
+      /** Execution target kind (ADR-011). */
+      targetKind: TargetKindSchema,
+      /** Simulator runtime identifier; absent for physical devices. */
+      runtimeIdentifier: z.string().optional(),
+    }),
+    /** Execution summary. */
+    execution: ExecutionSummarySchema,
+    /** Test case results. */
+    cases: z.array(TestCaseResultSchema),
+    /** Performance metrics. */
+    metrics: PerformanceMetricsSchema,
+    /** Execution environment metadata required by ADR-011. */
+    environment: z.object({
+      /** Physical device or Simulator. */
+      targetKind: TargetKindSchema,
+      /** Whether results represent physical-device behavior. */
+      representativeOfPhysicalDevice: z.boolean(),
+      /** Baseline comparison domain. */
+      comparisonScope: z.enum(['simulator_only', 'physical_only']),
+      /** Host fingerprint required for Simulator reports. */
+      hostFingerprint: z.string().optional(),
+      /** Xcode version required for Simulator reports. */
+      xcodeVersion: z.string().optional(),
+    }),
+    /** Optional baseline delta; absent when no baseline exists. */
+    baselineDelta: BaselineDeltaSchema.optional(),
+    /** Artifact ID references. */
+    artifactRefs: z.array(z.string()),
+    /** Optional failure explanation; omitted for passed runs. */
+    explanation: FailureExplanationSchema.optional(),
+  })
+  .superRefine((result, ctx) => {
+    if (!result.execution.mode) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['execution', 'mode'],
+        message: 'RunResult v3 requires execution.mode',
+      });
+    }
+  });
 
 export type RunResult = z.infer<typeof RunResultSchema>;
 
@@ -296,7 +325,14 @@ function extractMajorVersion(version: string | undefined): number {
  *   - environment.comparisonScope → 'physical_only' (if absent)
  *   - schemaVersion → '2.0'
  */
-export function migrateV1ToV2(raw: unknown): RunResult {
+export interface MigratedRunResultV2 extends Record<string, unknown> {
+  schemaVersion: string;
+  device: Record<string, unknown>;
+  execution: Record<string, unknown>;
+  environment: Record<string, unknown>;
+}
+
+export function migrateV1ToV2(raw: unknown): MigratedRunResultV2 {
   const data = raw as Record<string, unknown>;
 
   // If v3+ or unknown future version, parse and pass-through unchanged
@@ -304,12 +340,12 @@ export function migrateV1ToV2(raw: unknown): RunResult {
   const version = data.schemaVersion as string | undefined;
   const majorVersion = extractMajorVersion(version);
   if (majorVersion >= 3) {
-    return RunResultSchema.parse(raw);
+    return structuredClone(data) as MigratedRunResultV2;
   }
 
   // If already v2+, parse and return
   if (version === '2.0' || version?.startsWith('2.')) {
-    return RunResultSchema.parse(raw);
+    return structuredClone(data) as MigratedRunResultV2;
   }
 
   // Deep clone to avoid mutating input
@@ -347,7 +383,7 @@ export function migrateV1ToV2(raw: unknown): RunResult {
     if (!env.comparisonScope) env.comparisonScope = 'physical_only';
   }
 
-  return RunResultSchema.parse(migrated);
+  return migrated as MigratedRunResultV2;
 }
 
 // ─── Parse Helpers ───────────────────────────────────────────

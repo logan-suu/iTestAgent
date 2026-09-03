@@ -8,6 +8,8 @@
 
 **关联任务**：T6.6、T6.8
 
+> **后续细化**：ADR-034 已明确“自包含”只保证脱离全局 SQLite 后的独立审计与交叉引用校验，不保证缺少项目/Profile/App/SecretRef 时完整重放；同时以 `result.json` commit marker 取代任何 SQLite+文件系统跨介质原子性假设。涉及提交、恢复、证据采集结果与 legacy limitation 时以 ADR-034 为准。
+
 ## 背景
 
 Phase 6 规格评审发现，现有文档要求“证据关联到具体 run step / case”，但 `RunStep` 没有 case 归属，`ArtifactRef` 只有可选 `relatedStep`，无法表达逐 case checkpoint。现有探索实现因此可能在全部动作结束后读取同一个最终 UI tree，并把它标记为多个 case 的证据（DEF-030）。
@@ -150,6 +152,7 @@ SQLite 保存 Run/Step/Case/Artifact 的查询索引；`steps.json` 保存 canon
 - ADR-029：Dual Execution Route Resolution
 - ADR-030：Metadata-only XCUITest Candidates
 - ADR-032：Local Raw Evidence, Model-safe Projection, and Semantic UI Risk
+- ADR-034：Run Bundle 提交协议与证据采集结果
 - `docs/01-spec/全量用户故事与验收标准规格书.md`
 - `docs/02-architecture/架构设计文档.md`
 - `docs/02-architecture/数据流全链路技术说明文档.md`

@@ -190,7 +190,7 @@ describe('Phase 1 Integration: TUI State + Contracts Alignment', () => {
   describe('RunResult', () => {
     test('full round-trip', () => {
       const r: RunResult = {
-        schemaVersion: '2.0.0',
+        schemaVersion: '3.0',
         runId: 'run_1',
         status: 'passed',
         projectProfileRef: '/tmp/profile.json',
@@ -202,6 +202,7 @@ describe('Phase 1 Integration: TUI State + Contracts Alignment', () => {
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 5,
           completedSteps: 5,
           failedSteps: 0,

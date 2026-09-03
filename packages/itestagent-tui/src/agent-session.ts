@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -23,6 +23,7 @@ import {
   createBackendToolDispatcher,
   createProductionAgentSessionDependencies,
   createProductionDualExecutionDispatcher,
+  persistConfirmedRunToDefaultStore,
   runRealDeviceExploration,
   suggestExplorationAction,
 } from 'itestagent-engine';
@@ -117,12 +118,6 @@ function buildSystemPrompt(workspace: string): string {
 Current workspace: ${workspace}
 
 Use tools for project and device facts. Project source findings are candidates with evidence and confidence until the user confirms them. Before execution, present the proposed test plan and obtain explicit confirmation. If a capability reports capability_not_wired, explain the blocked owner task and do not claim success. Never fabricate device state, execution evidence, metrics, or reports. Keep physical-device and Simulator targets explicit and never silently switch between them.`;
-}
-
-function capabilityNotWired(capability: string, ownerTask: string): never {
-  throw new Error(
-    `capability_not_wired: ${capability} is owned by task ${ownerTask} and is not available yet`,
-  );
 }
 
 export type AgentDeviceDiscovery = DeviceDiscoverySnapshot;
@@ -304,18 +299,13 @@ export async function createAgentSession(
     if (!cachedAnalysis) cachedAnalysis = await analyzeWorkspace(workspace);
     return cachedAnalysis;
   };
+  let latestCommittedRun: { runId: string; runDir: string } | null = null;
 
   const executeConfirmedPlan =
     dependencies.executeConfirmedPlan ??
     (async ({ plan, workspace: executionWorkspace, device }) => {
-      const resultBundlePath = join(
-        homedir(),
-        '.itestagent',
-        'runs',
-        plan.runId,
-        'artifacts',
-        'tests.xcresult',
-      );
+      const storeRoot = process.env.ITESTAGENT_HOME ?? join(homedir(), '.itestagent');
+      const resultBundlePath = join(storeRoot, 'runs', plan.runId, 'staging', 'tests.xcresult');
       if (plan.execution.resolvedPath === 'xcuitest') {
         mkdirSync(dirname(resultBundlePath), { recursive: true });
       }
@@ -328,7 +318,7 @@ export async function createAgentSession(
         const backend = (dependencies.createDeviceBackend ?? production.createDeviceBackend)(
           device,
         );
-        const runDir = join(homedir(), '.itestagent', 'runs', routedPlan.runId);
+        const runDir = join(storeRoot, 'runs', routedPlan.runId, 'staging');
         return runRealDeviceExploration({
           backend,
           toolDispatcher: createBackendToolDispatcher(backend),
@@ -352,7 +342,7 @@ export async function createAgentSession(
           policy: routedPlan.execution.assertion.policy,
         });
       });
-      return dispatcher.dispatch({
+      const dispatch = await dispatcher.dispatch({
         plan,
         confirmed: true,
         workspace: executionWorkspace,
@@ -362,6 +352,18 @@ export async function createAgentSession(
             : { targetKind: 'simulator', simulatorId: device.udid },
         resultBundlePath,
       });
+      const committed = await persistConfirmedRunToDefaultStore({
+        plan,
+        device,
+        dispatch,
+        resultBundlePath,
+      });
+      latestCommittedRun = { runId: plan.runId, runDir: committed.runDir };
+      rmSync(join(storeRoot, 'runs', plan.runId, 'staging'), {
+        recursive: true,
+        force: true,
+      });
+      return { ...dispatch, runDir: committed.runDir };
     });
 
   const toolDispatcher = new ToolDispatcher({
@@ -448,7 +450,12 @@ export async function createAgentSession(
         action: 'generate_report',
         resource: `workspace:${workspace}`,
         backendName: 'itestagent-report',
-        execute: async () => capabilityNotWired('report generation', '6.8'),
+        execute: async () => {
+          if (!latestCommittedRun) {
+            throw new Error('report_unavailable: no confirmed execution has committed a report');
+          }
+          return { status: 'committed', ...latestCommittedRun };
+        },
       },
     },
     onEvent: (event) => {

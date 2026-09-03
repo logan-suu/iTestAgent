@@ -81,18 +81,12 @@ describe('bootstrap', () => {
       expect(result).toBe(storeRoot);
     });
 
-    it('defaults to ~/.itestagent when no path provided', () => {
-      const home = process.env.HOME || '/tmp';
-      const result = initStore();
+    it('resolves the default without mutating or deleting the real user store', () => {
+      const original = process.env.ITESTAGENT_HOME;
+      process.env.ITESTAGENT_HOME = undefined;
+      const result = resolveStoreRoot();
+      process.env.ITESTAGENT_HOME = original;
       expect(result).toContain('.itestagent');
-      // Verify the default was created
-      const defaultRoot = result;
-      expect(existsSync(defaultRoot)).toBe(true);
-      for (const dir of STORE_DIRS) {
-        expect(existsSync(join(defaultRoot, dir))).toBe(true);
-      }
-      // Clean up default store created by this test
-      rmSync(defaultRoot, { recursive: true, force: true });
     });
   });
 });

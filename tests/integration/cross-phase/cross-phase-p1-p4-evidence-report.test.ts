@@ -364,6 +364,7 @@ describe('CP.8: createStoreCore (P1) + ReportSynthesizer (P4)', () => {
         runtimeIdentifier: 'com.apple.CoreSimulator.SimRuntime.iOS-18-2',
       },
       execution: {
+        mode: 'device_backend',
         startTime: new Date().toISOString(),
         endTime: new Date().toISOString(),
         totalSteps: 2,

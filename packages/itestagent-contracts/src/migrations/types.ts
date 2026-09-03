@@ -4,3 +4,8 @@ export interface MigrationIssue {
   message: string;
 }
 export type MigrationResult<T> = { ok: true; value: T } | { ok: false; issues: MigrationIssue[] };
+
+export type CompatibilityReadResult<TCanonical, TLegacy = Record<string, unknown>> =
+  | { ok: true; kind: 'canonical'; value: TCanonical }
+  | { ok: true; kind: 'legacy'; value: TLegacy; limitations: string[] }
+  | { ok: false; kind: 'issue'; issues: MigrationIssue[] };

@@ -21,8 +21,14 @@
  */
 import type { ArtifactIndex } from './artifact-index-contract.js';
 import { ArtifactIndexSchema } from './artifact-index-contract.js';
+import type { FlowReplayPlan } from './flow-replay-plan.js';
+import { FlowReplayPlanSchema } from './flow-replay-plan.js';
 import type { RunResult } from './run-result-contracts.js';
 import { RunResultSchema } from './run-result-contracts.js';
+import type { RunStepsDocument } from './run-steps-contract.js';
+import { RunStepsDocumentSchema } from './run-steps-contract.js';
+import type { TestPlan } from './test-plan.js';
+import { TestPlanSchema } from './test-plan.js';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -168,4 +174,298 @@ export function parseValidatedRunResultPair(
   const artifactIndex = ArtifactIndexSchema.parse(rawIndex);
   assertValidRunResultArtifactIndexPair(result, artifactIndex);
   return { result, artifactIndex };
+}
+
+export type RunPlanDocument = TestPlan | FlowReplayPlan;
+
+export interface RunBundleDocuments {
+  plan: RunPlanDocument;
+  steps: RunStepsDocument;
+  result: RunResult;
+  artifactIndex: ArtifactIndex;
+}
+
+function parseRunPlanDocument(raw: unknown): RunPlanDocument {
+  const version =
+    typeof raw === 'object' && raw !== null && 'schemaVersion' in raw
+      ? (raw as { schemaVersion?: unknown }).schemaVersion
+      : undefined;
+  if (version === 'itestagent.test-plan.v3') return TestPlanSchema.parse(raw);
+  if (version === 'itestagent.flow-replay-plan.v1') return FlowReplayPlanSchema.parse(raw);
+  throw new CrossFieldValidationError([
+    {
+      path: 'plan.schemaVersion',
+      message: `unsupported run plan schemaVersion "${String(version)}"`,
+    },
+  ]);
+}
+
+/** Validates references and conditional fields across a complete committed run bundle. */
+export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFieldIssue[] {
+  const { plan, steps, result, artifactIndex } = bundle;
+  const issues = validateRunResultArtifactIndexPair(result, artifactIndex);
+  const expectedRunId = result.runId;
+
+  for (const [path, actual] of [
+    ['plan.runId', plan.runId],
+    ['steps.runId', steps.runId],
+  ] as const) {
+    if (actual !== expectedRunId) {
+      issues.push({
+        path,
+        message: `runId "${actual}" does not match result runId "${expectedRunId}"`,
+      });
+    }
+  }
+
+  if (plan.schemaVersion === 'itestagent.test-plan.v3') {
+    if (!result.projectProfileRef) {
+      issues.push({
+        path: 'result.projectProfileRef',
+        message: 'TestPlan bundle requires projectProfileRef',
+      });
+    } else if (result.projectProfileRef !== plan.projectProfileRef) {
+      issues.push({
+        path: 'result.projectProfileRef',
+        message: 'projectProfileRef does not match plan.projectProfileRef',
+      });
+    }
+    if (result.execution.mode !== plan.execution.resolvedPath) {
+      issues.push({
+        path: 'result.execution.mode',
+        message: 'execution mode does not match the resolved TestPlan path',
+      });
+    }
+    if (result.execution.targetKind !== plan.device.kind) {
+      issues.push({
+        path: 'result.execution.targetKind',
+        message: 'targetKind does not match the TestPlan device kind',
+      });
+    }
+  } else if (result.projectProfileRef !== undefined) {
+    issues.push({
+      path: 'result.projectProfileRef',
+      message: 'FlowReplayPlan bundle must not claim projectProfileRef',
+    });
+  } else {
+    if (result.execution.mode !== 'device_backend') {
+      issues.push({
+        path: 'result.execution.mode',
+        message: 'FlowReplayPlan requires device_backend execution mode',
+      });
+    }
+    if (result.execution.targetKind !== plan.target.targetKind) {
+      issues.push({
+        path: 'result.execution.targetKind',
+        message: 'targetKind does not match FlowReplayPlan target',
+      });
+    }
+    if (result.execution.deviceId !== plan.target.deviceId) {
+      issues.push({
+        path: 'result.execution.deviceId',
+        message: 'deviceId does not match FlowReplayPlan target',
+      });
+    }
+    if (
+      plan.selection.status === 'selected' &&
+      result.execution.backendUsed !== plan.selection.backend
+    ) {
+      issues.push({
+        path: 'result.execution.backendUsed',
+        message: 'backendUsed does not match the selected FlowReplayPlan backend',
+      });
+    }
+    if (plan.selection.status === 'failed' && result.execution.backendUsed !== 'unavailable') {
+      issues.push({
+        path: 'result.execution.backendUsed',
+        message: 'failed FlowReplayPlan selection must use unavailable backend semantics',
+      });
+    }
+  }
+
+  const stepById = new Map(steps.steps.map((step) => [step.stepId, step]));
+  const caseById = new Map(result.cases.map((testCase) => [testCase.caseId, testCase]));
+  const caseIds = new Set(caseById.keys());
+  const artifactById = new Map(artifactIndex.artifacts.map((artifact) => [artifact.id, artifact]));
+  for (const testCase of result.cases) {
+    for (const stepId of testCase.steps) {
+      const step = stepById.get(stepId);
+      if (!step) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].steps`,
+          message: `unresolved stepId "${stepId}"`,
+        });
+      } else if (step.caseId !== testCase.caseId) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].steps`,
+          message: `stepId "${stepId}" belongs to case "${String(step.caseId)}"`,
+        });
+      }
+    }
+    for (const artifactId of testCase.artifacts) {
+      const artifact = artifactById.get(artifactId);
+      if (!artifact) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].artifacts`,
+          message: `unresolved artifactId "${artifactId}"`,
+        });
+      } else if (artifact.relatedCase !== testCase.caseId) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].artifacts`,
+          message: `artifactId "${artifactId}" does not refer back to case "${testCase.caseId}"`,
+        });
+      }
+    }
+  }
+
+  for (const step of steps.steps) {
+    if (step.caseId && !caseIds.has(step.caseId)) {
+      issues.push({
+        path: `steps[${step.stepId}].caseId`,
+        message: `unresolved caseId "${step.caseId}"`,
+      });
+    } else if (step.caseId && !caseById.get(step.caseId)?.steps.includes(step.stepId)) {
+      issues.push({
+        path: `steps[${step.stepId}].caseId`,
+        message: `case "${step.caseId}" does not refer back to step "${step.stepId}"`,
+      });
+    }
+    for (const artifactId of step.artifacts) {
+      const artifact = artifactById.get(artifactId);
+      if (!artifact) {
+        issues.push({
+          path: `steps[${step.stepId}].artifacts`,
+          message: `unresolved artifactId "${artifactId}"`,
+        });
+      } else if (artifact.relatedStep !== step.stepId) {
+        issues.push({
+          path: `steps[${step.stepId}].artifacts`,
+          message: `artifactId "${artifactId}" does not refer back to step "${step.stepId}"`,
+        });
+      }
+    }
+  }
+
+  for (const artifact of artifactIndex.artifacts) {
+    if (artifact.relatedStep && !stepById.has(artifact.relatedStep)) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedStep`,
+        message: `unresolved stepId "${artifact.relatedStep}"`,
+      });
+    } else if (
+      artifact.relatedStep &&
+      !stepById.get(artifact.relatedStep)?.artifacts.includes(artifact.id)
+    ) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedStep`,
+        message: `step "${artifact.relatedStep}" does not refer back to artifact "${artifact.id}"`,
+      });
+    }
+    if (artifact.relatedCase && !caseIds.has(artifact.relatedCase)) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedCase`,
+        message: `unresolved caseId "${artifact.relatedCase}"`,
+      });
+    } else if (
+      artifact.relatedCase &&
+      !caseById.get(artifact.relatedCase)?.artifacts.includes(artifact.id)
+    ) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedCase`,
+        message: `case "${artifact.relatedCase}" does not refer back to artifact "${artifact.id}"`,
+      });
+    }
+    if (artifact.relatedStep && artifact.relatedCase) {
+      const owner = stepById.get(artifact.relatedStep);
+      if (owner && owner.caseId !== artifact.relatedCase) {
+        issues.push({
+          path: `artifacts[${artifact.id}]`,
+          message: `related step belongs to case "${String(owner.caseId)}", not "${artifact.relatedCase}"`,
+        });
+      }
+    }
+  }
+
+  for (const outcome of artifactIndex.collectionOutcomes) {
+    if (outcome.artifactId) {
+      const artifact = artifactById.get(outcome.artifactId);
+      if (!artifact) {
+        issues.push({
+          path: 'collectionOutcomes.artifactId',
+          message: `unresolved artifactId "${outcome.artifactId}"`,
+        });
+      } else {
+        if (artifact.type !== outcome.type) {
+          issues.push({
+            path: 'collectionOutcomes.type',
+            message: `outcome type "${outcome.type}" does not match artifact type "${artifact.type}"`,
+          });
+        }
+        if (outcome.relatedStep && artifact.relatedStep !== outcome.relatedStep) {
+          issues.push({
+            path: 'collectionOutcomes.relatedStep',
+            message: `outcome step "${outcome.relatedStep}" does not match its artifact`,
+          });
+        }
+        if (outcome.relatedCase && artifact.relatedCase !== outcome.relatedCase) {
+          issues.push({
+            path: 'collectionOutcomes.relatedCase',
+            message: `outcome case "${outcome.relatedCase}" does not match its artifact`,
+          });
+        }
+      }
+    }
+    if (outcome.relatedStep && !stepById.has(outcome.relatedStep)) {
+      issues.push({
+        path: 'collectionOutcomes.relatedStep',
+        message: `unresolved stepId "${outcome.relatedStep}"`,
+      });
+    }
+    if (outcome.relatedCase && !caseIds.has(outcome.relatedCase)) {
+      issues.push({
+        path: 'collectionOutcomes.relatedCase',
+        message: `unresolved caseId "${outcome.relatedCase}"`,
+      });
+    }
+  }
+
+  const reachableArtifactIds = new Set([
+    ...result.artifactRefs,
+    ...result.cases.flatMap((testCase) => testCase.artifacts),
+    ...steps.steps.flatMap((step) => step.artifacts),
+    ...artifactIndex.collectionOutcomes.flatMap((outcome) =>
+      outcome.artifactId ? [outcome.artifactId] : [],
+    ),
+  ]);
+  for (const artifact of artifactIndex.artifacts) {
+    if (!reachableArtifactIds.has(artifact.id)) {
+      issues.push({
+        path: `artifacts[${artifact.id}]`,
+        message: `artifact "${artifact.id}" is unreachable from result, case, step, or outcome`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+export function assertValidRunBundleDocuments(bundle: RunBundleDocuments): void {
+  const issues = validateRunBundleDocuments(bundle);
+  if (issues.length > 0) throw new CrossFieldValidationError(issues);
+}
+
+export function parseValidatedRunBundle(raw: {
+  plan: unknown;
+  steps: unknown;
+  result: unknown;
+  artifactIndex: unknown;
+}): RunBundleDocuments {
+  const bundle: RunBundleDocuments = {
+    plan: parseRunPlanDocument(raw.plan),
+    steps: RunStepsDocumentSchema.parse(raw.steps),
+    result: RunResultSchema.parse(raw.result),
+    artifactIndex: ArtifactIndexSchema.parse(raw.artifactIndex),
+  };
+  assertValidRunBundleDocuments(bundle);
+  return bundle;
 }

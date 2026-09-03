@@ -44,6 +44,14 @@ export interface XcunitFlowResult {
   /** Normalized parse result — null when the bundle was not produced. */
   parsed: XcresultParseResult | null;
   parseError?: string;
+  /** Real run-level operations; never expanded into synthetic per-case steps. */
+  executionFacts?: Array<{
+    action: 'xcodebuild_test' | 'xcresult_parse';
+    startedAt: string;
+    durationMs: number;
+    status: 'completed' | 'failed';
+    result: Record<string, unknown>;
+  }>;
 }
 
 /**
@@ -57,6 +65,7 @@ export async function runXcunitFlow(
   input: XcunitFlowInput,
   deps: XcunitFlowDeps,
 ): Promise<XcunitFlowResult> {
+  const runStartedAt = new Date().toISOString();
   const run = await deps.runTests({
     projectRoot: input.projectRoot,
     scheme: input.scheme,
@@ -69,6 +78,8 @@ export async function runXcunitFlow(
 
   let parsed: XcresultParseResult | null = null;
   let parseError: string | undefined;
+  const parseStartedAt = new Date().toISOString();
+  const parseClock = Date.now();
   try {
     parsed = await deps.parse({
       xcresultPath: input.resultBundlePath,
@@ -83,5 +94,21 @@ export async function runXcunitFlow(
     durationMs: run.durationMs,
     parsed,
     parseError,
+    executionFacts: [
+      {
+        action: 'xcodebuild_test',
+        startedAt: runStartedAt,
+        durationMs: run.durationMs,
+        status: run.exitCode === 0 ? 'completed' : 'failed',
+        result: { exitCode: run.exitCode },
+      },
+      {
+        action: 'xcresult_parse',
+        startedAt: parseStartedAt,
+        durationMs: Math.max(0, Date.now() - parseClock),
+        status: parsed !== null && !parseError ? 'completed' : 'failed',
+        result: parseError ? { error: parseError } : { parsed: parsed !== null },
+      },
+    ],
   };
 }

@@ -27,7 +27,7 @@ function makeTempRoot(prefix: string): string {
 
 function validIndex() {
   return {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId: 'run_b07_writer',
     artifacts: [
       {
@@ -37,6 +37,14 @@ function validIndex() {
         sizeBytes: 11,
         sha256: measureBufferSha256(Buffer.from('hello-world')),
         redactionStatus: 'raw-local-only' as const,
+      },
+    ],
+    collectionOutcomes: [
+      {
+        type: 'screenshot' as const,
+        status: 'collected' as const,
+        reasonCode: 'collected',
+        artifactId: 'art-1',
       },
     ],
   };

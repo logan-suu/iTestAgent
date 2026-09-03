@@ -12,7 +12,7 @@ import type {
 export interface ExplainContext {
   runId: string;
   status: RunStatus;
-  projectProfileRef: string;
+  projectProfileRef?: string;
   testPlanName?: string;
   steps: RunStep[];
   evidence: ArtifactRef[];

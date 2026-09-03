@@ -148,6 +148,7 @@ describe('runRealDeviceExploration', () => {
         bundleId: 'com.example.app',
         deviceId: 'UDID-1',
         targetKind: 'physical',
+        publishLegacyArtifactIndex: true,
         actions: [{ action: 'screenshot', target: 'capture', caseId: 'login' }],
         assertions: [userAssertion()],
         artifactRefs: [{ id: 'shot_1', type: 'screenshot', path: join(tmpdir(), 'shot_1.png') }],

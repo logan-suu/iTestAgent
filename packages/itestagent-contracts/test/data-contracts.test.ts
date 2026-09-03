@@ -17,7 +17,7 @@ import { BaselineCompareInputSchema, BaselineDeltaSchema } from '../src/performa
 
 // ─── Test 1: RunStatusSchema parses all 7 status values ──────
 
-test('RunStatusSchema parses all 7 status values', () => {
+test('RunStatusSchema parses all 9 status values', () => {
   const validStatuses = [
     'passed',
     'failed',
@@ -224,7 +224,7 @@ test('RunStepSchema parses step with safetyGate', () => {
 
 test('RunResultSchema parses COMPLETE run result with all fields', () => {
   const result = RunResultSchema.parse({
-    schemaVersion: '2.0',
+    schemaVersion: '3.0',
     runId: 'run-20260717-001',
     status: 'failed',
     projectProfileRef: '~/.itestagent/projects/abc123/project-profile.json',
@@ -236,6 +236,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       targetKind: 'physical',
     },
     execution: {
+      mode: 'device_backend',
       totalSteps: 8,
       completedSteps: 6,
       failedSteps: 1,
@@ -301,7 +302,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
       confidence: 'high',
     },
   });
-  expect(result.schemaVersion).toBe('2.0');
+  expect(result.schemaVersion).toBe('3.0');
   expect(result.runId).toBe('run-20260717-001');
   expect(result.status).toBe('failed');
   expect(result.device.udid).toBe('00008110-ABCDEF1234567890');
@@ -315,7 +316,7 @@ test('RunResultSchema parses COMPLETE run result with all fields', () => {
 
 test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
   const original = {
-    schemaVersion: '2.0',
+    schemaVersion: '3.0',
     runId: 'run-rt-001',
     status: 'explored' as const,
     projectProfileRef: '~/.itestagent/projects/abc/profile.json',
@@ -327,6 +328,7 @@ test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
       targetKind: 'physical',
     },
     execution: {
+      mode: 'device_backend' as const,
       totalSteps: 3,
       completedSteps: 3,
       failedSteps: 0,
@@ -352,7 +354,7 @@ test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
 
   const serialized = JSON.stringify(parsed);
   const reparsed = parseRunResult(JSON.parse(serialized));
-  expect(reparsed.schemaVersion).toBe(original.schemaVersion);
+  expect(reparsed.schemaVersion).toBe('3.0');
   expect(reparsed.runId).toBe(original.runId);
   expect(reparsed.status).toBe(original.status);
   expect(reparsed.device.udid).toBe(original.device.udid);
@@ -363,7 +365,7 @@ test('RunResultSchema round-trip: parse → JSON.stringify → parse', () => {
 
 test('ArtifactIndexSchema parses valid artifact index', () => {
   const result = ArtifactIndexSchema.parse({
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId: 'run-20260717-001',
     artifacts: [
       {
@@ -391,8 +393,9 @@ test('ArtifactIndexSchema parses valid artifact index', () => {
         redactionStatus: 'raw-local-only',
       },
     ],
+    collectionOutcomes: [],
   });
-  expect(result.schemaVersion).toBe('1.0');
+  expect(result.schemaVersion).toBe('2.0');
   expect(result.artifacts).toHaveLength(3);
   const art0 = result.artifacts[0];
   expect(art0).toBeDefined();
@@ -411,7 +414,7 @@ test('ArtifactIndexSchema parses valid artifact index', () => {
 
 test('ArtifactIndexSchema round-trip: parse → JSON.stringify → parse', () => {
   const original = {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     runId: 'run-rt-002',
     artifacts: [
       {
@@ -429,13 +432,14 @@ test('ArtifactIndexSchema round-trip: parse → JSON.stringify → parse', () =>
         redactionStatus: 'raw-local-only' as const,
       },
     ],
+    collectionOutcomes: [],
   };
   const parsed = parseArtifactIndex(original);
   expect(parsed.artifacts).toHaveLength(2);
 
   const serialized = JSON.stringify(parsed);
   const reparsed = parseArtifactIndex(JSON.parse(serialized));
-  expect(reparsed.schemaVersion).toBe(original.schemaVersion);
+  expect(reparsed.schemaVersion).toBe('2.0');
   expect(reparsed.runId).toBe(original.runId);
   expect(reparsed.artifacts).toHaveLength(2);
   const rtArt0 = reparsed.artifacts[0];
@@ -450,10 +454,10 @@ test('ArtifactIndexSchema round-trip: parse → JSON.stringify → parse', () =>
   }
 });
 
-// ─── Test 16: DEFAULT_SCHEMA_VERSION equals '2.0' ────────────
+// ─── Test 16: DEFAULT_SCHEMA_VERSION equals '3.0' ────────────
 
-test('DEFAULT_SCHEMA_VERSION equals 2.0 (ADR-011 schema v2 upgrade)', () => {
-  expect(DEFAULT_SCHEMA_VERSION).toBe('2.0');
+test('DEFAULT_SCHEMA_VERSION equals 3.0 (ADR-034 result schema upgrade)', () => {
+  expect(DEFAULT_SCHEMA_VERSION).toBe('3.0');
 });
 
 // ─── Test 17: migrateV1ToV2 — bumps schemaVersion ─────────────
@@ -545,6 +549,7 @@ test('migrateV1ToV2 passes through v2 data unchanged', () => {
       runtimeIdentifier: 'com.apple.CoreSimulator.SimRuntime.iOS-18-2',
     },
     execution: {
+      mode: 'device_backend',
       totalSteps: 4,
       completedSteps: 4,
       failedSteps: 0,
@@ -620,7 +625,7 @@ test('migrateV1ToV2 passes through future v10 schema without string-comparison b
 
 test('RunResultSchema parses simulator run result with environment annotations', () => {
   const result = RunResultSchema.parse({
-    schemaVersion: '2.0',
+    schemaVersion: '3.0',
     runId: 'run-sim-001',
     status: 'passed',
     projectProfileRef: '~/.itestagent/projects/abc/profile.json',
@@ -633,6 +638,7 @@ test('RunResultSchema parses simulator run result with environment annotations',
       runtimeIdentifier: 'com.apple.CoreSimulator.SimRuntime.iOS-18-2',
     },
     execution: {
+      mode: 'device_backend',
       totalSteps: 6,
       completedSteps: 6,
       failedSteps: 0,
@@ -689,7 +695,7 @@ test('BaselineCompareInputSchema requires targetKind for domain isolation', () =
 test('RunResultSchema strips unknown keys instead of rejecting them', () => {
   const raw = JSON.parse(
     JSON.stringify({
-      schemaVersion: '2.0',
+      schemaVersion: '3.0',
       runId: 'run-strip-001',
       status: 'passed',
       projectProfileRef: '~/.itestagent/projects/abc/profile.json',
@@ -701,6 +707,7 @@ test('RunResultSchema strips unknown keys instead of rejecting them', () => {
         targetKind: 'physical',
       },
       execution: {
+        mode: 'device_backend',
         totalSteps: 1,
         completedSteps: 1,
         failedSteps: 0,
@@ -729,7 +736,7 @@ test('RunResultSchema strips unknown keys instead of rejecting them', () => {
 
 test('RunResultSchema rejects non-integer or negative execution counters', () => {
   const base = {
-    schemaVersion: '2.0',
+    schemaVersion: '3.0',
     runId: 'run-bad-counter',
     status: 'passed',
     projectProfileRef: 'profile.json',
@@ -741,6 +748,7 @@ test('RunResultSchema rejects non-integer or negative execution counters', () =>
       targetKind: 'physical',
     },
     execution: {
+      mode: 'device_backend',
       totalSteps: 1,
       completedSteps: 1,
       failedSteps: 0,
@@ -772,7 +780,7 @@ test('RunResultSchema rejects non-integer or negative execution counters', () =>
 test('RunResultSchema rejects a device targetKind outside physical|simulator', () => {
   expect(() =>
     RunResultSchema.parse({
-      schemaVersion: '2.0',
+      schemaVersion: '3.0',
       runId: 'run-bad-targetkind',
       status: 'passed',
       projectProfileRef: 'profile.json',
@@ -784,6 +792,7 @@ test('RunResultSchema rejects a device targetKind outside physical|simulator', (
         targetKind: 'emulator',
       },
       execution: {
+        mode: 'device_backend',
         totalSteps: 1,
         completedSteps: 1,
         failedSteps: 0,
@@ -818,7 +827,7 @@ test('RunResultSchema rejects an environment missing any required field', () => 
     delete partial[omit];
     expect(() =>
       RunResultSchema.parse({
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-bad-env',
         status: 'passed',
         projectProfileRef: 'profile.json',
@@ -830,6 +839,7 @@ test('RunResultSchema rejects an environment missing any required field', () => 
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 1,
           completedSteps: 1,
           failedSteps: 0,

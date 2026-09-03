@@ -408,10 +408,10 @@ describe('Phase 5: Cross-Package Redaction (P2)', () => {
     });
   });
 
-  describe('RunResult Schema v2 (ADR-011)', () => {
+  describe('RunResult Schema v3 (ADR-011 / ADR-034)', () => {
     it('accepts simulator run result', () => {
       const result = RunResultSchema.safeParse({
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-sim-001',
         projectProfileRef: 'proj-001',
         status: 'passed',
@@ -423,6 +423,7 @@ describe('Phase 5: Cross-Package Redaction (P2)', () => {
           targetKind: 'simulator',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 1,
           completedSteps: 1,
           failedSteps: 0,
@@ -450,7 +451,7 @@ describe('Phase 5: Cross-Package Redaction (P2)', () => {
 
     it('accepts physical run result', () => {
       const result = RunResultSchema.safeParse({
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-phys-001',
         projectProfileRef: 'proj-001',
         status: 'failed',
@@ -462,6 +463,7 @@ describe('Phase 5: Cross-Package Redaction (P2)', () => {
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 1,
           completedSteps: 1,
           failedSteps: 0,
@@ -491,7 +493,7 @@ describe('Phase 5: Cross-Package Redaction (P2)', () => {
   describe('ArtifactIndex Schema', () => {
     it('accepts valid artifact index', () => {
       const result = ArtifactIndexSchema.safeParse({
-        schemaVersion: '1.0',
+        schemaVersion: '2.0',
         runId: 'run-001',
         artifacts: [
           {
@@ -508,15 +510,17 @@ describe('Phase 5: Cross-Package Redaction (P2)', () => {
             redactionStatus: 'raw-local-only',
           },
         ],
+        collectionOutcomes: [],
       });
       expect(result.success).toBe(true);
     });
 
     it('accepts empty artifact index', () => {
       const result = ArtifactIndexSchema.safeParse({
-        schemaVersion: '1.0',
+        schemaVersion: '2.0',
         runId: 'run-001',
         artifacts: [],
+        collectionOutcomes: [],
       });
       expect(result.success).toBe(true);
     });

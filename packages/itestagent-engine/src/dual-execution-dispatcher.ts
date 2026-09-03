@@ -20,14 +20,14 @@ export interface ConfirmedExecutionDispatchInput extends DeviceBackendDispatchIn
 
 export type ConfirmedExecutionDispatchResult =
   | {
-      status: 'completed' | 'failed';
+      status: 'completed' | 'failed' | 'cancelled';
       path: 'xcuitest';
       result?: XcunitFlowResult;
       error?: string;
       fallbackHistory: [];
     }
   | {
-      status: 'completed' | 'failed';
+      status: 'completed' | 'failed' | 'cancelled';
       path: 'device_backend';
       result?: unknown;
       error?: string;
@@ -99,7 +99,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
           });
         } catch (error) {
           return {
-            status: 'blocked',
+            status: input.signal?.aborted ? 'cancelled' : 'blocked',
             path,
             error: error instanceof Error ? error.message : String(error),
             fallbackHistory: [],
@@ -124,8 +124,9 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             resultBundlePath: input.resultBundlePath,
           });
           return {
-            status:
-              result.exitCode === 0 && result.parsed !== null && !result.parseError
+            status: input.signal?.aborted
+              ? 'cancelled'
+              : result.exitCode === 0 && result.parsed !== null && !result.parseError
                 ? 'completed'
                 : 'failed',
             path,
@@ -134,7 +135,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
           };
         } catch (error) {
           return {
-            status: 'failed',
+            status: input.signal?.aborted ? 'cancelled' : 'failed',
             path,
             error: error instanceof Error ? error.message : String(error),
             fallbackHistory: [],
@@ -156,7 +157,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
         };
       } catch (error) {
         return {
-          status: 'failed',
+          status: input.signal?.aborted ? 'cancelled' : 'failed',
           path,
           error: error instanceof Error ? error.message : String(error),
           fallbackHistory: [],

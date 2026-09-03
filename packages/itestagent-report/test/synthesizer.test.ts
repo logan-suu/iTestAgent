@@ -60,6 +60,7 @@ function execution(overrides: Partial<ExecutionSummary> = {}): ExecutionSummary 
     backendUsed: 'appium',
     deviceId: '00008110-ABCDEF1234567890',
     ...overrides,
+    mode: overrides.mode ?? 'device_backend',
   };
 }
 
@@ -395,10 +396,10 @@ describe('ReportSynthesizer', () => {
       expect(result.environment.targetKind).toBe('physical');
     });
 
-    test('result.json has schemaVersion 2.0', () => {
+    test('result.json has schemaVersion 3.0', () => {
       const synth = new ReportSynthesizer(makeInput());
       const result = synth.synthesizeResult();
-      expect(result.schemaVersion).toBe('2.0');
+      expect(result.schemaVersion).toBe('3.0');
     });
 
     test('passed run omits explanation field', () => {
@@ -435,10 +436,10 @@ describe('ReportSynthesizer', () => {
       expect(idx.artifacts.length).toBe(3);
     });
 
-    test('artifact-index has schemaVersion 1.0', () => {
+    test('artifact-index has schemaVersion 2.0', () => {
       const synth = new ReportSynthesizer(makeInput());
       const idx = synth.synthesizeArtifactIndex();
-      expect(idx.schemaVersion).toBe('1.0');
+      expect(idx.schemaVersion).toBe('2.0');
     });
 
     test('artifact-index runId matches input', () => {

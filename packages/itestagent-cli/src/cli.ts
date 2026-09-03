@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -321,8 +322,11 @@ export function createProgram(): Command {
           runRealDeviceExploration,
           createBackendToolDispatcher,
           parseTestPlanYaml,
+          persistRunBundle,
           suggestExplorationAction,
         } = await import('itestagent-engine');
+        const { createDefaultRunStore, createStoreCore, initStore, resolveStoreRoot } =
+          await import('itestagent-store');
         const { createAppiumExplorationRuntime } = await import('itestagent-engine');
         const { loadConfig, resolveCredentials } = await import('./config/loader.js');
         const confirmedPlan = parseTestPlanYaml(readFileSync(options.plan, 'utf-8'));
@@ -449,7 +453,12 @@ export function createProgram(): Command {
         const runId = confirmedPlan.runId;
         assertSafeRunId(runId);
         let lastAssertionStatus: string | undefined;
-        const runDir = join(tmpdir(), 'itestagent', 'runs', runId);
+        const storeRoot = initStore(resolveStoreRoot());
+        const storeCore = createStoreCore(join(storeRoot, 'db', 'itestagent.db'));
+        await storeCore.driver.migrate();
+        const store = createDefaultRunStore(storeCore.db);
+        const finalRunDir = store.getRunDir(runId);
+        const runDir = join(finalRunDir, 'staging');
         // CodeRabbit r3: cleanup must run even when exploration rejects —
         // a leaked Appium session or iproxy tunnel blocks the next run.
         try {
@@ -474,7 +483,100 @@ export function createProgram(): Command {
             ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
           });
 
-          console.log(`run: ${runId} | dir: ${runDir}`);
+          const endedAt = new Date().toISOString();
+          const startedAt = result.steps[0]?.startedAt ?? endedAt;
+          const caseIds = [
+            ...new Set([
+              ...confirmedPlan.execution.features,
+              ...result.assertion.cases.map((testCase) => testCase.caseId),
+              ...result.steps.flatMap((step) => (step.caseId ? [step.caseId] : [])),
+            ]),
+          ];
+          const cases = caseIds.map((caseId) => {
+            const caseSteps = result.steps.filter((step) => step.caseId === caseId);
+            const assertionCase = result.assertion.cases.find(
+              (testCase) => testCase.caseId === caseId,
+            );
+            return {
+              caseId,
+              name: caseId,
+              status:
+                assertionCase?.status ??
+                (caseSteps.some((step) => step.status === 'failed')
+                  ? ('failed' as const)
+                  : ('explored' as const)),
+              steps: caseSteps.map((step) => step.stepId),
+              durationMs: caseSteps.reduce((total, step) => total + step.durationMs, 0),
+              artifacts: [...new Set(caseSteps.flatMap((step) => step.artifacts))],
+            };
+          });
+          const collectedTypes = new Set(result.artifacts.map((artifact) => artifact.type));
+          const collectionOutcomes = [
+            ...result.artifacts.map((artifact) => ({
+              type: artifact.type,
+              status: 'collected' as const,
+              reasonCode: 'collected',
+              artifactId: artifact.id,
+              relatedStep: artifact.relatedStep,
+              relatedCase: artifact.relatedCase,
+            })),
+            ...confirmedPlan.artifacts.collect
+              .filter((type) => !collectedTypes.has(type))
+              .map((type) => ({
+                type,
+                status:
+                  type === 'xcresult' ? ('not_applicable' as const) : ('unsupported' as const),
+                reasonCode:
+                  type === 'xcresult' ? 'device_backend_route' : 'backend_did_not_collect',
+              })),
+          ];
+          await persistRunBundle({
+            store,
+            plan: confirmedPlan,
+            artifactSourceRoot: runDir,
+            report: {
+              runId,
+              status: result.assertion.status,
+              projectProfileRef: confirmedPlan.projectProfileRef,
+              device: {
+                udid: options.udid,
+                name: selectedDevice.deviceProperties?.name ?? options.udid,
+                model: 'unknown',
+                osVersion: platformVersion,
+                targetKind: 'physical',
+              },
+              execution: {
+                mode: 'device_backend',
+                totalSteps: result.steps.length,
+                completedSteps: result.steps.filter((step) => step.status === 'completed').length,
+                failedSteps: result.steps.filter((step) => step.status === 'failed').length,
+                skippedSteps: 0,
+                durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
+                startTime: startedAt,
+                endTime: endedAt,
+                targetKind: 'physical',
+                backendUsed: 'appium',
+                deviceId: options.udid,
+              },
+              cases,
+              metrics: {},
+              environment: {
+                targetKind: 'physical',
+                representativeOfPhysicalDevice: true,
+                comparisonScope: 'physical_only',
+              },
+              artifactRefs: result.artifacts.map((artifact) => artifact.id),
+              allArtifacts: result.artifacts.map((artifact) => ({
+                ...artifact,
+                path: artifact.path,
+              })),
+              collectionOutcomes,
+              steps: [...result.steps],
+            },
+          });
+          rmSync(runDir, { recursive: true, force: true });
+
+          console.log(`run: ${runId} | dir: ${finalRunDir}`);
           lastAssertionStatus = result.assertion.status;
           console.log(`assertion: ${result.assertion.status} — ${result.assertion.summary}`);
           for (const s of result.assertion.suggestions ?? []) {
@@ -802,8 +904,14 @@ export function createProgram(): Command {
         },
       ) => {
         try {
-          const { CANONICAL_DEVICE_CAPABILITIES, loadProductionFlow, runProductionFlowReplay } =
-            await import('itestagent-engine');
+          const {
+            CANONICAL_DEVICE_CAPABILITIES,
+            loadProductionFlow,
+            persistRunBundle,
+            runProductionFlowReplay,
+          } = await import('itestagent-engine');
+          const { createDefaultRunStore, createStoreCore, initStore, resolveStoreRoot } =
+            await import('itestagent-store');
           const loaded = await loadProductionFlow(flowId, { projectPath: options.project });
           const flow = loaded.flow;
           if (options.targetKind !== 'physical' && options.targetKind !== 'simulator') {
@@ -811,7 +919,7 @@ export function createProgram(): Command {
               '--target-kind is required and must be either physical or simulator.',
             );
           }
-          const targetKind = options.targetKind;
+          const targetKind: 'physical' | 'simulator' = options.targetKind;
           if (!flow.supportedTargetKinds.includes(targetKind)) {
             throw new PublicCliError(
               `Flow "${flow.flowId}" does not support targetKind "${targetKind}". Supported: ${flow.supportedTargetKinds.join(', ')}`,
@@ -919,6 +1027,13 @@ export function createProgram(): Command {
             `\n🚀 Replaying flow "${flow.flowId}" on ${targetKind} (${options.deviceId})...\n`,
           );
 
+          const runId = `replay-${Date.now()}-${randomUUID()}`;
+          const storeRoot = initStore(resolveStoreRoot());
+          const storeCore = createStoreCore(join(storeRoot, 'db', 'itestagent.db'));
+          await storeCore.driver.migrate();
+          const store = createDefaultRunStore(storeCore.db);
+          const evidenceDirectory = join(store.getRunDir(runId), 'staging');
+
           const onSafetyGate = options.nonInteractive
             ? undefined
             : async (step: { action: string; target?: string }) => {
@@ -966,6 +1081,8 @@ export function createProgram(): Command {
               xcodeSigningId: options.xcodeSigningId,
             },
             replay: {
+              runId,
+              evidenceDirectory,
               collectEvidence: options.evidence !== false,
               onStepStart: (idx, step) => {
                 const target = step.target ? ` (${step.target})` : '';
@@ -977,17 +1094,213 @@ export function createProgram(): Command {
               resolveValueRef: async (reference) => runtimeValues.get(reference),
             },
           });
+          const executionFailure = execution.success ? undefined : execution;
+          const replayResult = execution.replay;
+          const actualSteps = (replayResult?.steps ?? [])
+            .filter((step) => step.status !== 'skipped' && step.startedAt !== undefined)
+            .map((step, index) => ({
+              stepId: step.stepId,
+              sequence: index + 1,
+              backend: execution.backend ?? options.backend ?? 'unavailable',
+              targetKind,
+              caseId: step.caseId,
+              action: step.action,
+              target: step.target,
+              input: { flowStepIndex: step.stepIndex },
+              result: { status: step.status, error: step.error, detail: step.detail },
+              status:
+                step.status === 'passed'
+                  ? ('completed' as const)
+                  : step.status === 'failed'
+                    ? ('failed' as const)
+                    : ('blocked' as const),
+              artifacts: step.evidence.map((artifact) => artifact.id),
+              startedAt: step.startedAt as string,
+              durationMs: step.durationMs,
+            }));
+          const persistedStepIds = new Set(actualSteps.map((step) => step.stepId));
+          const artifactMap = new Map(
+            (replayResult?.steps ?? [])
+              .flatMap((step) => step.evidence)
+              .map((artifact) => [artifact.id, artifact]),
+          );
+          const allArtifacts = [...artifactMap.values()];
+          const outcomeStatus = {
+            success: 'collected',
+            not_requested: 'not_requested',
+            not_applicable: 'not_applicable',
+            unsupported: 'unsupported',
+            failed: 'failed',
+          } as const;
+          const collectionOutcomes = (replayResult?.steps ?? []).flatMap((step) =>
+            step.evidenceOutcomes.flatMap((outcome) =>
+              outcome.type === 'checkpoint'
+                ? []
+                : [
+                    {
+                      type: outcome.type,
+                      status: outcomeStatus[outcome.status],
+                      reasonCode: `flow_replay.${outcome.status}`,
+                      message: outcome.error,
+                      artifactId: outcome.artifact?.id,
+                      relatedStep: persistedStepIds.has(step.stepId) ? step.stepId : undefined,
+                      relatedCase: step.caseId,
+                    },
+                  ],
+            ),
+          );
+          const requestedArtifactTypes = [
+            ...new Set([
+              ...allArtifacts.map((artifact) => artifact.type),
+              ...collectionOutcomes.map((outcome) => outcome.type),
+            ]),
+          ].filter(
+            (
+              type,
+            ): type is
+              | 'screenshot'
+              | 'video'
+              | 'syslog'
+              | 'crashlog'
+              | 'xcresult'
+              | 'trace'
+              | 'uitree' =>
+              ['screenshot', 'video', 'syslog', 'crashlog', 'xcresult', 'trace', 'uitree'].includes(
+                type,
+              ),
+          );
+          const plan = {
+            schemaVersion: 'itestagent.flow-replay-plan.v1' as const,
+            runId,
+            flow: {
+              flowId: flow.flowId,
+              source: loaded.source,
+              sourcePath: loaded.path,
+              sha256: createHash('sha256').update(readFileSync(loaded.path)).digest('hex'),
+            },
+            target: { targetKind, deviceId: options.deviceId },
+            selection: execution.backend
+              ? {
+                  status: 'selected' as const,
+                  backend: execution.backend,
+                  reasonCode: 'backend.selected',
+                }
+              : {
+                  status: 'failed' as const,
+                  reasonCode: executionFailure?.reasonCode ?? 'backend.selection_unknown',
+                  message: executionFailure?.reason,
+                },
+            readiness: replayResult
+              ? { status: 'ready' as const, reasonCode: 'backend.readiness_passed' }
+              : execution.backend
+                ? {
+                    status: 'failed' as const,
+                    reasonCode: executionFailure?.reasonCode ?? 'backend.readiness_unknown',
+                    message: executionFailure?.reason,
+                  }
+                : {
+                    status: 'not_reached' as const,
+                    reasonCode: executionFailure?.reasonCode ?? 'backend.not_reached',
+                    message: executionFailure?.reason,
+                  },
+            artifacts: {
+              collect: requestedArtifactTypes,
+              report: {
+                outputs: ['summary_md', 'result_json', 'artifact_index_json'] as Array<
+                  'summary_md' | 'result_json' | 'artifact_index_json'
+                >,
+              },
+            },
+          };
+          const startedAt = replayResult?.startedAt ?? new Date().toISOString();
+          const completedAt = replayResult?.completedAt ?? startedAt;
+          const caseIds = [
+            ...new Set(actualSteps.flatMap((step) => (step.caseId ? [step.caseId] : []))),
+          ];
+          const cases = caseIds.map((caseId) => {
+            const steps = actualSteps.filter((step) => step.caseId === caseId);
+            const status = steps.some((step) => step.status === 'failed')
+              ? ('failed' as const)
+              : steps.some((step) => step.status === 'blocked')
+                ? ('blocked' as const)
+                : ('passed' as const);
+            return {
+              caseId,
+              name: caseId,
+              status,
+              steps: steps.map((step) => step.stepId),
+              durationMs: steps.reduce((total, step) => total + step.durationMs, 0),
+              artifacts: [...new Set(steps.flatMap((step) => step.artifacts))],
+            };
+          });
+          const status = replayResult
+            ? replayResult.cancelled
+              ? ('cancelled' as const)
+              : replayResult.overallStatus
+            : executionFailure?.status === 'blocked'
+              ? ('blocked' as const)
+              : ('infra_failed' as const);
+          await persistRunBundle({
+            store,
+            plan,
+            artifactSourceRoot: evidenceDirectory,
+            report: {
+              runId,
+              status,
+              device: {
+                udid: options.deviceId,
+                name: options.deviceId,
+                model: 'unavailable',
+                osVersion: options.platformVersion ?? 'unavailable',
+                targetKind,
+              },
+              execution: {
+                mode: 'device_backend',
+                totalSteps: actualSteps.length,
+                completedSteps: actualSteps.filter((step) => step.status === 'completed').length,
+                failedSteps: actualSteps.filter((step) => step.status === 'failed').length,
+                skippedSteps: replayResult?.summary.skipped ?? 0,
+                durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
+                startTime: startedAt,
+                endTime: completedAt,
+                targetKind,
+                backendUsed: execution.backend ?? 'unavailable',
+                deviceId: options.deviceId,
+              },
+              cases,
+              metrics: {},
+              environment: {
+                targetKind,
+                representativeOfPhysicalDevice: targetKind === 'physical',
+                comparisonScope: targetKind === 'physical' ? 'physical_only' : 'simulator_only',
+              },
+              artifactRefs: allArtifacts.map((artifact) => artifact.id),
+              allArtifacts,
+              collectionOutcomes,
+              steps: actualSteps,
+              ...(!execution.success
+                ? {
+                    explanation: {
+                      explanationType: 'env_issue' as const,
+                      summary:
+                        executionFailure?.reason ?? 'Production replay failed without details.',
+                      evidence: [],
+                      suggestedActions: executionFailure?.remediation ?? [],
+                      confidence: 'high' as const,
+                    },
+                  }
+                : {}),
+            },
+          });
+          rmSync(evidenceDirectory, { recursive: true, force: true });
           const executionFailed = !execution.success;
           if (executionFailed) {
             console.error(`❌ ${execution.status}: ${execution.reasonCode}: ${execution.reason}`);
             for (const remediation of execution.remediation) {
               console.error(`   Remediation: ${remediation}`);
             }
-            if (!execution.replay) {
-              process.exit(1);
-            }
+            if (!execution.replay) process.exit(1);
           }
-          const replayResult = execution.replay;
           if (!replayResult) {
             throw new PublicCliError('Production replay returned no replay facts.');
           }

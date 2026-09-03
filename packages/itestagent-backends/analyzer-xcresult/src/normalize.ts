@@ -5,7 +5,7 @@
  * AGENTS.md R12: All code/comments in English.
  */
 
-import type { PerformanceMetrics, RunStatus, TestCaseResult } from 'itestagent-contracts';
+import type { CaseStatus, PerformanceMetrics, TestCaseResult } from 'itestagent-contracts';
 
 // ─── Internal JUnit Types ─────────────────────────────────────
 
@@ -50,7 +50,7 @@ export interface JUnitSummary {
  *   skipped → 'inconclusive' (RunStatusSchema has no 'skipped' value;
  *             'inconclusive' is the most honest mapping: the test was not run)
  */
-function toRunStatus(junitStatus: string): RunStatus {
+function toRunStatus(junitStatus: string): CaseStatus {
   switch (junitStatus) {
     case 'failed':
       return 'failed';

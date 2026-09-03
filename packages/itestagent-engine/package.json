@@ -18,6 +18,7 @@
     "itestagent-backends-analyzer-xcodeproj": "workspace:*",
     "itestagent-project-analyzer": "workspace:*",
     "itestagent-store": "workspace:*",
+    "itestagent-report": "workspace:*",
     "itestagent-flow": "workspace:*",
     "yaml": "^2.7.0",
     "itestagent-backends-device-appium": "workspace:*",

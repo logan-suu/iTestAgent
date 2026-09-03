@@ -164,9 +164,16 @@ export function createPersistentArtifactStore(artifactsRoot: string, runId: stri
       artifacts.push(ref);
     }
     const index: ArtifactIndex = {
-      schemaVersion: '1.0',
+      schemaVersion: '2.0',
       runId,
       artifacts,
+      collectionOutcomes: artifacts.map((artifact) => ({
+        type: artifact.type,
+        status: 'collected' as const,
+        reasonCode: 'collected',
+        artifactId: artifact.id,
+        relatedStep: artifact.relatedStep,
+      })),
     };
 
     // B07: canonical atomic write (temp + rename) — readers never observe a
