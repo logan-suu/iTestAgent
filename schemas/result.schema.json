@@ -25,6 +25,11 @@
       "type": "string",
       "description": "Unique run identifier. Must equal the runId of the paired artifact-index.json."
     },
+    "parentRunId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Immediate source run for a rerun child. Must match plan.rerun.parentRunId (ADR-035)."
+    },
     "status": {
       "type": "string",
       "enum": [

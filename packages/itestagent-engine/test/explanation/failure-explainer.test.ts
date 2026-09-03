@@ -68,7 +68,7 @@ function failedStep(error: string): RunStep {
 }
 
 function previousRun(runId: string, status: RunStatus, scenario = 'login_smoke'): PreviousRunInfo {
-  return { runId, status, scenario };
+  return { runId, status, scenario, comparable: true };
 }
 
 function makeContext(overrides: Partial<ExplainContext> = {}): ExplainContext {
@@ -222,7 +222,7 @@ describe('FailureExplainer', () => {
 
   test('all previous runs passed → product_regression with high confidence', async () => {
     const ctx = makeContext({
-      previousRuns: [previousRun('run-1', 'passed'), previousRun('run-2', 'explored')],
+      previousRuns: [previousRun('run-1', 'passed'), previousRun('run-2', 'passed')],
     });
 
     const result = await explainer.explain(ctx);
@@ -230,6 +230,19 @@ describe('FailureExplainer', () => {
     expect(result.explanationType).toBe('product_regression');
     expect(result.confidence).toBe('high');
     expect(result.summary).toContain('All');
+  });
+
+  test('explored or unscoped history is not treated as passing evidence', async () => {
+    const ctx = makeContext({
+      previousRuns: [
+        previousRun('run-1', 'explored'),
+        { ...previousRun('run-2', 'passed'), comparable: false },
+      ],
+    });
+
+    const result = await explainer.explain(ctx);
+
+    expect(result.explanationType).toBe('inconclusive');
   });
 
   // ─── Test 10: No evidence → inconclusive (R5: not fabricated)

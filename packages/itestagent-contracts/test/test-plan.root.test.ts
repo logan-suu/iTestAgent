@@ -122,9 +122,14 @@ describe('published schemas/test-plan.schema.json parity (B04)', () => {
         'artifacts',
         'performance',
         'safety',
+        'rerun',
       ].sort(),
     );
-    expect(required.sort()).toEqual(Object.keys(properties).sort());
+    expect(required.sort()).toEqual(
+      Object.keys(properties)
+        .filter((key) => key !== 'rerun')
+        .sort(),
+    );
     expect(published.additionalProperties).toBe(false);
   });
 

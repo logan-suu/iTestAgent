@@ -8,6 +8,8 @@
 
 **关联任务**：T6.8
 
+> **后续细化**：ADR-035 为 TestPlan v3 与 RunResult v3 增加向后兼容的可选 rerun 血缘字段，并要求 reconciliation 从 canonical bundle 恢复 `parentRunId`；explain/rerun/flaky 语义以 ADR-035 为准。
+
 > **2026-09-03 PR review 澄清**：核心 commit-marker 方案保持不变；补充跨进程 writer 所有权、精确双向引用、SQLite 单事务索引、operational failure 分类、canonical/legacy reader 边界、权限上限与大型 bundle 有界内存要求。
 
 ## 背景

@@ -119,7 +119,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             scheme: selected.scheme,
             testPlan: selected.testPlan,
             allowProvisioningUpdates: input.destination.targetKind === 'physical',
-            only: selected.targets,
+            only: input.plan.rerun?.selectedCaseIds ?? selected.targets,
             destination: input.destination,
             resultBundlePath: input.resultBundlePath,
           });

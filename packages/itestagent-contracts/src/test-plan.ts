@@ -229,6 +229,29 @@ export const PermissionPolicyRefSchema = z.object({
 
 export type PermissionPolicyRef = z.infer<typeof PermissionPolicyRefSchema>;
 
+// ─── Rerun Lineage (ADR-035) ────────────────────────────────
+
+export const RerunMetadataSchema = z
+  .object({
+    /** Immediate source run, never silently rewritten to the root ancestor. */
+    parentRunId: z.string().min(1),
+    /** Cases selected for this child execution. */
+    mode: z.enum(['failed_only', 'all']),
+    selectedCaseIds: z.array(z.string().min(1)).min(1),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (new Set(value.selectedCaseIds).size !== value.selectedCaseIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['selectedCaseIds'],
+        message: 'rerun selectedCaseIds must be unique',
+      });
+    }
+  });
+
+export type RerunMetadata = z.infer<typeof RerunMetadataSchema>;
+
 // ─── Root TestPlan ───────────────────────────────────────────
 
 export const TestPlanSchema = z
@@ -255,8 +278,19 @@ export const TestPlanSchema = z
     performance: PerformancePlanSchema,
     /** Safety / permission policy */
     safety: PermissionPolicyRefSchema,
+    /** Optional child-run lineage and exact case selection (ADR-035). */
+    rerun: RerunMetadataSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((plan, ctx) => {
+    if (plan.rerun?.parentRunId === plan.runId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['rerun', 'parentRunId'],
+        message: 'rerun parentRunId must differ from runId',
+      });
+    }
+  });
 
 export type TestPlan = z.infer<typeof TestPlanSchema>;
 

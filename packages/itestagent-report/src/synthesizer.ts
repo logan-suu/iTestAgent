@@ -55,6 +55,7 @@ export class ReportSynthesizer {
     const raw: RunResult = {
       schemaVersion: RUN_RESULT_SCHEMA_VERSION,
       runId: this.input.runId,
+      ...(this.input.parentRunId ? { parentRunId: this.input.parentRunId } : {}),
       status: this.input.status,
       ...(this.input.projectProfileRef ? { projectProfileRef: this.input.projectProfileRef } : {}),
       device: {

@@ -267,16 +267,33 @@ function callsMethodOn(root: ts.Node, receiver: string | undefined, method: stri
   );
 }
 
-function insertsChildRun(root: ts.Node): boolean {
+function loadsParentResultIntoExecution(root: ts.Node): boolean {
   const initializers = variableInitializers(root);
+  const loadedParents = new Set(
+    descendants(root, ts.isVariableDeclaration)
+      .filter(
+        (declaration) =>
+          ts.isIdentifier(declaration.name) &&
+          !!declaration.initializer &&
+          descendants(declaration.initializer, ts.isCallExpression).some(
+            (call) => calleeName(call) === 'loadRunBundle',
+          ),
+      )
+      .map((declaration) => declaration.name.getText()),
+  );
   return descendants(root, ts.isCallExpression).some((call) => {
-    if (calleeName(call) !== 'insertRun') return false;
-    const record = resolveExpression(call.arguments[0], initializers);
-    if (!record || !ts.isObjectLiteralExpression(record)) return false;
-    const parent = propertyValue(record, 'parentRunId');
+    if (calleeName(call) !== 'executeProductionTestPlan') return false;
+    const input = resolveExpression(call.arguments[0], initializers);
+    if (!input || !ts.isObjectLiteralExpression(input)) return false;
+    const parentResult = propertyValue(input, 'parentResult');
     return (
-      !!parent &&
-      descendants(parent, ts.isIdentifier).some((identifier) => identifier.text === 'runId')
+      !!parentResult &&
+      descendants(parentResult, ts.isPropertyAccessExpression).some(
+        (access) =>
+          access.name.text === 'result' &&
+          ts.isIdentifier(access.expression) &&
+          loadedParents.has(access.expression.text),
+      )
     );
   });
 }
@@ -336,8 +353,11 @@ describe('Phase 6 production physical closed-loop contract (RED baseline)', () =
     ).toBe(true);
   });
 
-  contract('US-16.1: rerun persists a child run linked by parentRunId', () => {
-    expect(insertsChildRun(rerunAction)).toBe(true);
+  contract('US-16.1: rerun sends the loaded parent result into canonical execution', () => {
+    expect(loadsParentResultIntoExecution(rerunAction)).toBe(true);
+    expect(
+      identifierFlowsIntoCall(rerunAction, 'createRerunPlan', /^executeProductionTestPlan$/),
+    ).toBe(true);
   });
 });
 
@@ -348,13 +368,13 @@ describe('Phase 6 semantic contract matcher', () => {
       `
         import { ReportSynthesizer } from 'itestagent-report';
         import { analyzeProject } from 'itestagent-project-analyzer';
-        // store.insertRun({ parentRunId: runId });
+        // executeProductionTestPlan({ parentResult: parent.result });
       `,
       ts.ScriptTarget.Latest,
       true,
     );
 
-    expect(insertsChildRun(fixture)).toBe(false);
+    expect(loadsParentResultIntoExecution(fixture)).toBe(false);
     expect(
       hasExecutableUse([fixture], moduleBindings(fixture, 'itestagent-project-analyzer')),
     ).toBe(false);
@@ -377,17 +397,17 @@ describe('Phase 6 semantic contract matcher', () => {
     expect(hasAllowAllRule(fixture)).toBe(true);
   });
 
-  it('requires parentRunId to flow into an actual insertRun call', () => {
+  it('requires a loaded canonical parent result to flow into production execution', () => {
     const fixture = ts.createSourceFile(
       'fixture.ts',
       `
-        const child = { status: 'running', parentRunId: runId };
-        await store.insertRun(child);
+        const parent = await store.loadRunBundle(runId);
+        await executeProductionTestPlan({ parentResult: parent.result });
       `,
       ts.ScriptTarget.Latest,
       true,
     );
 
-    expect(insertsChildRun(fixture)).toBe(true);
+    expect(loadsParentResultIntoExecution(fixture)).toBe(true);
   });
 });

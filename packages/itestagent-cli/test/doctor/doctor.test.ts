@@ -6,10 +6,17 @@
  * US-1.3 AC3: estimated first-run setup time.
  * 避坑手册 §3: simulator lane shown separately, signing/trust → N/A.
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { runDoctor, runPhysicalDoctor, runSimulatorDoctor } from '../../src/doctor/doctor.js';
 import { formatDoctorReport, formatDualLaneReport } from '../../src/doctor/format.js';
 import type { DoctorReport } from '../../src/doctor/types.js';
+import { setExecOverride } from '../../src/doctor/utils.js';
+
+beforeAll(() => {
+  setExecOverride(() => ({ exitCode: -1, stdout: '', stderr: 'unavailable in unit test' }));
+});
+
+afterAll(() => setExecOverride());
 
 // ════════════════════════════════════════════════════════════
 // runDoctor (combined)

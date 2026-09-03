@@ -4,6 +4,7 @@ import {
   FlowReplayPlanSchema,
   RunResultSchema,
   RunStepsDocumentSchema,
+  TestPlanSchema,
   parseValidatedRunBundle,
   validateRunBundleDocuments,
 } from '../src/index.js';
@@ -161,6 +162,118 @@ describe('T6.8 canonical run bundle contracts', () => {
         artifactIndex: index(),
       }),
     ).toEqual([]);
+  });
+
+  test('binds rerun metadata to result lineage and the selected case set', () => {
+    const base = makeValidTestPlan();
+    const plan = makeValidTestPlan({
+      runId,
+      device: { kind: 'simulator', simulator: { selector: 'by_udid', udid: 'SIM-1' } },
+      performance: { ...base.performance, baselineDomain: 'simulator' },
+      execution: {
+        ...base.execution,
+        prefer: 'xcuitest',
+        fallback: 'abort',
+        resolvedPath: 'xcuitest',
+        selectionReason: 'explicit_preference',
+        xcuitest: { scheme: 'ExampleUITests' },
+      },
+      rerun: {
+        parentRunId: 'run_parent',
+        mode: 'failed_only',
+        selectedCaseIds: ['case-1'],
+      },
+    });
+    const rerunResult = RunResultSchema.parse({
+      ...result(plan.projectProfileRef),
+      parentRunId: 'run_parent',
+    });
+    expect(
+      validateRunBundleDocuments({
+        plan,
+        steps: steps(),
+        result: rerunResult,
+        artifactIndex: index(),
+      }),
+    ).toEqual([]);
+
+    const wrongParent = validateRunBundleDocuments({
+      plan,
+      steps: steps(),
+      result: RunResultSchema.parse({ ...rerunResult, parentRunId: 'run_other' }),
+      artifactIndex: index(),
+    });
+    expect(wrongParent.some((issue) => issue.path === 'result.parentRunId')).toBe(true);
+
+    const wrongCase = validateRunBundleDocuments({
+      plan,
+      steps: steps(),
+      result: RunResultSchema.parse({
+        ...rerunResult,
+        cases: [{ ...rerunResult.cases[0], caseId: 'case-outside-selection' }],
+      }),
+      artifactIndex: index(),
+    });
+    expect(wrongCase.some((issue) => issue.path.includes('case-outside-selection'))).toBe(true);
+    expect(wrongCase.some((issue) => issue.message.includes('missing selected case'))).toBe(true);
+  });
+
+  test('rejects parentRunId on ordinary TestPlan and Flow replay bundles', () => {
+    const base = makeValidTestPlan();
+    const ordinaryPlan = makeValidTestPlan({
+      runId,
+      device: { kind: 'simulator', simulator: { selector: 'by_udid', udid: 'SIM-1' } },
+      performance: { ...base.performance, baselineDomain: 'simulator' },
+      execution: {
+        ...base.execution,
+        prefer: 'xcuitest',
+        fallback: 'abort',
+        resolvedPath: 'xcuitest',
+        selectionReason: 'explicit_preference',
+        xcuitest: { scheme: 'ExampleUITests' },
+      },
+    });
+    const claimedParent = RunResultSchema.parse({
+      ...result(ordinaryPlan.projectProfileRef),
+      parentRunId: 'run_parent',
+    });
+    expect(
+      validateRunBundleDocuments({
+        plan: ordinaryPlan,
+        steps: steps(),
+        result: claimedParent,
+        artifactIndex: index(),
+      }).some((issue) => issue.path === 'result.parentRunId'),
+    ).toBe(true);
+
+    const flowClaim = RunResultSchema.parse({
+      ...result(undefined, 'device_backend'),
+      parentRunId: 'run_parent',
+    });
+    expect(
+      validateRunBundleDocuments({
+        plan: flowPlan(),
+        steps: steps(),
+        result: flowClaim,
+        artifactIndex: index(),
+      }).some((issue) => issue.path === 'result.parentRunId'),
+    ).toBe(true);
+  });
+
+  test('rejects self-referential rerun lineage in plan and result documents', () => {
+    const base = makeValidTestPlan({ runId });
+    expect(
+      TestPlanSchema.safeParse({
+        ...base,
+        rerun: { parentRunId: runId, mode: 'all', selectedCaseIds: ['case-1'] },
+      }).success,
+    ).toBe(false);
+    expect(
+      RunResultSchema.safeParse({
+        ...result(base.projectProfileRef),
+        parentRunId: runId,
+      }).success,
+    ).toBe(false);
   });
 
   test('accepts standalone FlowReplayPlan only without a fabricated ProjectProfile reference', () => {

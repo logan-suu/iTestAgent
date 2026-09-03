@@ -242,6 +242,8 @@ export const RunResultSchema = z
     schemaVersion: z.literal(RUN_RESULT_SCHEMA_VERSION),
     /** Unique run ID. */
     runId: z.string(),
+    /** Immediate source run for a rerun child (ADR-035). */
+    parentRunId: z.string().min(1).optional(),
     /** Final execution status. */
     status: RunStatusSchema,
     /** Optional associated ProjectProfile reference. */
@@ -284,6 +286,13 @@ export const RunResultSchema = z
     explanation: FailureExplanationSchema.optional(),
   })
   .superRefine((result, ctx) => {
+    if (result.parentRunId === result.runId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['parentRunId'],
+        message: 'parentRunId must differ from runId',
+      });
+    }
     if (!result.execution.mode) {
       ctx.addIssue({
         code: 'custom',

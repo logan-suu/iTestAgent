@@ -402,6 +402,14 @@ describe('ReportSynthesizer', () => {
       expect(result.schemaVersion).toBe('3.0');
     });
 
+    test('includes canonical parentRunId for a rerun child', () => {
+      const result = new ReportSynthesizer(
+        makeInput({ runId: 'run-child', parentRunId: 'run-parent' }),
+      ).synthesizeResult();
+      expect(result.parentRunId).toBe('run-parent');
+      expect(() => RunResultSchema.parse(result)).not.toThrow();
+    });
+
     test('passed run omits explanation field', () => {
       const synth = new ReportSynthesizer(makeInput({ status: 'passed' }));
       const result = synth.synthesizeResult();

@@ -1,5 +1,6 @@
 import { createXcodeProjAnalyzerBackend } from 'itestagent-backends-analyzer-xcodeproj';
 import {
+  type ProductionAppiumConfig,
   createAppiumDeviceBackend,
   createAppiumDeviceDiscoveryProvider,
 } from 'itestagent-backends-device-appium';
@@ -26,13 +27,20 @@ export interface ProductionAgentSessionDependencies {
   analyzeWorkspace(workspace: string): Promise<ProjectAnalysisResult>;
   deviceDiscovery: DeviceDiscoveryProvider;
   createDeviceBackend(device: DeviceInfo): DeviceBackend;
+  closeDeviceBackend?(backend: DeviceBackend): Promise<void>;
+}
+
+export interface ProductionAgentSessionOptions {
+  appium?: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'deviceName'>;
 }
 
 /**
  * Engine-owned production composition for the TUI session facade.
  * Runtime calls still flow through ToolDispatcher and PermissionEngine.
  */
-export function createProductionAgentSessionDependencies(): ProductionAgentSessionDependencies {
+export function createProductionAgentSessionDependencies(
+  options: ProductionAgentSessionOptions = {},
+): ProductionAgentSessionDependencies {
   return {
     analyzeWorkspace: async (workspace) => {
       const analysis = await analyzeProject(createXcodeProjAnalyzerBackend(), workspace);
@@ -42,11 +50,20 @@ export function createProductionAgentSessionDependencies(): ProductionAgentSessi
     deviceDiscovery: createAppiumDeviceDiscoveryProvider(),
     createDeviceBackend: (device) =>
       createAppiumDeviceBackend({
+        ...options.appium,
         udid: device.udid,
         targetKind: device.targetKind,
         ...(device.name ? { deviceName: device.name } : {}),
-        ...(device.osVersion ? { platformVersion: device.osVersion } : {}),
+        ...(options.appium?.platformVersion
+          ? { platformVersion: options.appium.platformVersion }
+          : device.osVersion
+            ? { platformVersion: device.osVersion }
+            : {}),
       }).backend,
+    closeDeviceBackend: async (backend) => {
+      const closeable = backend as DeviceBackend & { closeSession?: () => Promise<void> };
+      await closeable.closeSession?.();
+    },
   };
 }
 

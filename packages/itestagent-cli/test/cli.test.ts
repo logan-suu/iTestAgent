@@ -72,6 +72,11 @@ test('rerun command has --failed-only option (AGENTS.md §11: itestagent rerun <
   expect(rerunCmd).toBeDefined();
   const failedOnlyOption = rerunCmd?.options.find((opt) => opt.flags.includes('--failed-only'));
   expect(failedOnlyOption).toBeDefined();
+  expect(rerunCmd?.options.some((option) => option.flags.includes('--wda-mode'))).toBe(true);
+  expect(rerunCmd?.options.some((option) => option.flags.includes('--wda-local-port'))).toBe(true);
+  expect(rerunCmd?.options.some((option) => option.flags.includes('--mjpeg-server-port'))).toBe(
+    true,
+  );
 });
 
 test('explore exposes an explicit WDA URL for Route B', () => {
@@ -154,15 +159,18 @@ test('no subcommand outputs TUI terminal notice via spawnSync (US-4.1 AC1)', () 
   expect(stdout).toContain('TUI requires a terminal');
 });
 
-test('doctor subcommand runs physical readiness checks (task 1.11)', () => {
-  const result = Bun.spawnSync({
-    cmd: ['bun', cliPath, 'doctor'],
-  });
-  expect(result.exitCode).toBe(0);
-  const stdout = result.stdout.toString();
-  expect(stdout).toContain('iTestAgent Doctor');
-  expect(stdout).toContain('Physical Readiness');
-});
+test.skipIf(process.env.ITESTAGENT_RUN_HOST_INTEGRATION_TESTS !== '1')(
+  'doctor subcommand runs physical readiness checks (task 1.11)',
+  () => {
+    const result = Bun.spawnSync({
+      cmd: ['bun', cliPath, 'doctor'],
+    });
+    expect(result.exitCode).toBe(0);
+    const stdout = result.stdout.toString();
+    expect(stdout).toContain('iTestAgent Doctor');
+    expect(stdout).toContain('Physical Readiness');
+  },
+);
 
 test('config subcommand outputs merged config via spawnSync (US-18.2)', () => {
   const result = Bun.spawnSync({
