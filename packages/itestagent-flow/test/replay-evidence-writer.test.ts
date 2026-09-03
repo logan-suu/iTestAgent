@@ -8,8 +8,17 @@
  * serialized to evidence-manifest.json atomically (temp + rename) so a crash
  * mid-write never leaves a torn manifest beside a passing run.
  */
-import { describe, expect, it } from 'bun:test';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { afterAll, describe, expect, it } from 'bun:test';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
@@ -19,14 +28,34 @@ import type {
   ScreenshotInput,
   UiTreeSnapshot,
 } from 'itestagent-contracts';
-import { collectStepEvidence, writeEvidenceManifest } from '../src/replay-evidence-writer.js';
+import {
+  collectStepEvidence,
+  collectStepEvidenceResult,
+  validateRawArtifact,
+  writeEvidenceManifest,
+} from '../src/replay-evidence-writer.js';
 
-function makeBackend(opts: { screenshotFails?: boolean; uiTreeFails?: boolean }): DeviceBackend {
+const evidenceDirectory = join(tmpdir(), `itestagent-replay-evidence-${Date.now()}`);
+
+function makeBackend(opts: {
+  screenshotFails?: boolean;
+  uiTreeFails?: boolean;
+  artifactDirectory?: string;
+}): DeviceBackend {
   return {
     name: 'b08-evidence-fake',
     async screenshot(_i: ScreenshotInput): Promise<ArtifactRef> {
       if (opts.screenshotFails) throw new Error('no screenshot configured');
-      return { id: `ss_${Date.now()}`, type: 'screenshot', path: '', redactionStatus: 'safe' };
+      const artifactDirectory = opts.artifactDirectory ?? evidenceDirectory;
+      mkdirSync(artifactDirectory, { recursive: true });
+      const path = join(artifactDirectory, `ss-${Date.now()}-${Math.random()}.png`);
+      writeFileSync(path, 'png-bytes');
+      return {
+        id: `ss_${Date.now()}`,
+        type: 'screenshot',
+        path,
+        redactionStatus: 'safe',
+      };
     },
     async getUiTree(_i: DeviceTarget): Promise<UiTreeSnapshot> {
       if (opts.uiTreeFails) throw new Error('no uiTree configured');
@@ -36,33 +65,114 @@ function makeBackend(opts: { screenshotFails?: boolean; uiTreeFails?: boolean })
 }
 
 describe('collectStepEvidence', () => {
-  it('collects screenshot and uitree stub when both succeed', async () => {
+  afterAll(() => rmSync(evidenceDirectory, { recursive: true, force: true }));
+
+  it('collects real screenshot and UI tree refs when both succeed', async () => {
     const backend = makeBackend({});
-    const evidence = await collectStepEvidence(backend, 'dev-b08', 1);
-    expect(evidence).toHaveLength(2);
-    expect(evidence[0]?.type).toBe('screenshot');
-    expect(evidence[1]?.type).toBe('uitree');
-    expect(evidence[1]?.path).toBe('');
+    const result = await collectStepEvidenceResult(backend, 'dev-b08', {
+      evidenceDirectory,
+      stepId: 'step-1',
+      caseId: 'case-a',
+    });
+    expect(result.artifacts).toHaveLength(2);
+    expect(result.outcomes.map((outcome) => outcome.status)).toEqual(['success', 'success']);
+    expect(result.artifacts[1]?.path).not.toBe('');
+    expect(result.artifacts[1]?.redactionStatus).toBe('raw-local-only');
+    expect(result.artifacts[1]?.relatedCase).toBe('case-a');
+    expect((statSync(evidenceDirectory).mode & 0o777).toString(8)).toBe('700');
+    for (const artifact of result.artifacts) {
+      expect((statSync(artifact.path).mode & 0o777).toString(8)).toBe('600');
+      expect(artifact.sizeBytes).toBeGreaterThan(0);
+    }
   });
 
-  it('keeps the step green when only the screenshot fails', async () => {
+  it('keeps the public wrapper and persists both evidence types', async () => {
+    const wrapperDirectory = join(evidenceDirectory, 'wrapper');
+    const artifacts = await collectStepEvidence(
+      makeBackend({ artifactDirectory: wrapperDirectory }),
+      'dev-b08',
+      0,
+      undefined,
+      wrapperDirectory,
+    );
+    expect(artifacts.map((artifact) => artifact.type)).toEqual(['screenshot', 'uitree']);
+    expect(artifacts.every((artifact) => artifact.path.startsWith(wrapperDirectory))).toBe(true);
+  });
+
+  it('reports screenshot failure explicitly while retaining UI tree evidence', async () => {
     const backend = makeBackend({ screenshotFails: true });
-    const evidence = await collectStepEvidence(backend, 'dev-b08', 2);
-    expect(evidence).toHaveLength(1);
-    expect(evidence[0]?.type).toBe('uitree');
+    const result = await collectStepEvidenceResult(backend, 'dev-b08', {
+      evidenceDirectory,
+      stepId: 'step-2',
+    });
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.outcomes[0]?.status).toBe('failed');
+    expect(result.outcomes[1]?.status).toBe('success');
   });
 
-  it('keeps the step green when only the ui tree fails', async () => {
+  it('reports UI tree failure explicitly while retaining screenshot evidence', async () => {
     const backend = makeBackend({ uiTreeFails: true });
-    const evidence = await collectStepEvidence(backend, 'dev-b08', 3);
-    expect(evidence).toHaveLength(1);
-    expect(evidence[0]?.type).toBe('screenshot');
+    const result = await collectStepEvidenceResult(backend, 'dev-b08', {
+      evidenceDirectory,
+      stepId: 'step-3',
+    });
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.outcomes[0]?.status).toBe('success');
+    expect(result.outcomes[1]?.status).toBe('failed');
   });
 
-  it('returns empty evidence when every capture fails (never fabricates, R5)', async () => {
+  it('returns no artifacts and two failed outcomes when every capture fails', async () => {
     const backend = makeBackend({ screenshotFails: true, uiTreeFails: true });
-    const evidence = await collectStepEvidence(backend, 'dev-b08', 4);
-    expect(evidence).toEqual([]);
+    const result = await collectStepEvidenceResult(backend, 'dev-b08', {
+      evidenceDirectory,
+      stepId: 'step-4',
+    });
+    expect(result.artifacts).toEqual([]);
+    expect(result.outcomes.map((outcome) => outcome.status)).toEqual(['failed', 'failed']);
+  });
+
+  it('rejects directories and empty files as fabricated artifacts', () => {
+    mkdirSync(evidenceDirectory, { recursive: true });
+    expect(() =>
+      validateRawArtifact(
+        { id: 'dir', type: 'screenshot', path: evidenceDirectory, redactionStatus: 'safe' },
+        { stepId: 'step-dir' },
+      ),
+    ).toThrow('not a regular file');
+
+    const emptyPath = join(evidenceDirectory, 'empty.png');
+    writeFileSync(emptyPath, '');
+    expect(() =>
+      validateRawArtifact(
+        { id: 'empty', type: 'screenshot', path: emptyPath, redactionStatus: 'safe' },
+        { stepId: 'step-empty' },
+      ),
+    ).toThrow('empty file');
+  });
+
+  it('rejects artifacts outside the current run directory and symbolic links', () => {
+    mkdirSync(evidenceDirectory, { recursive: true });
+    const outsidePath = join(tmpdir(), `itestagent-outside-${Date.now()}.png`);
+    writeFileSync(outsidePath, 'outside');
+    expect(() =>
+      validateRawArtifact(
+        { id: 'outside', type: 'screenshot', path: outsidePath, redactionStatus: 'safe' },
+        { evidenceDirectory, stepId: 'step-outside' },
+      ),
+    ).toThrow('outside the current run evidence directory');
+
+    const targetPath = join(evidenceDirectory, 'target.png');
+    const linkPath = join(evidenceDirectory, 'link.png');
+    writeFileSync(targetPath, 'target');
+    symlinkSync(targetPath, linkPath);
+    expect(() =>
+      validateRawArtifact(
+        { id: 'link', type: 'screenshot', path: linkPath, redactionStatus: 'safe' },
+        { evidenceDirectory, stepId: 'step-link' },
+      ),
+    ).toThrow('must not be a symbolic link');
+
+    rmSync(outsidePath, { force: true });
   });
 });
 
@@ -90,6 +200,8 @@ describe('writeEvidenceManifest', () => {
     const parsed = JSON.parse(onDisk.toString('utf-8')) as ArtifactRef[];
     expect(parsed).toHaveLength(2);
     expect(parsed[0]?.id).toBe('ss_1');
+    expect((statSync(dir).mode & 0o777).toString(8)).toBe('700');
+    expect((statSync(result.manifestPath).mode & 0o777).toString(8)).toBe('600');
     rmSync(dir, { recursive: true, force: true });
   });
 

@@ -136,8 +136,8 @@ describe('executeStep failure semantics', () => {
   });
 });
 
-describe('getUiTree observation applies UI-tree redaction (B08)', () => {
-  it('marks the artifact redacted and reports the count for sensitive fields', async () => {
+describe('getUiTree observation preserves raw evidence locally (ADR-032)', () => {
+  it('writes sensitive UI tree bytes as raw-local-only evidence', async () => {
     const xml =
       '<?xml?><XCUIElementTypeTextField name="user" value="alice" x="0" y="0" width="10" height="10" />' +
       '<XCUIElementTypeSecureTextField name="pw" value="hunter2" x="0" y="20" width="10" height="10" />';
@@ -157,13 +157,15 @@ describe('getUiTree observation applies UI-tree redaction (B08)', () => {
       undefined,
       false,
       undefined,
+      { evidenceDirectory: '/tmp/itestagent-replay-step-test', stepId: 'step-sensitive' },
     );
     expect(result.status).toBe('passed');
-    expect(result.evidence[0]?.redactionStatus).toBe('redacted');
-    expect(result.detail).toContain('1 value(s) redacted');
+    expect(result.evidence[0]?.redactionStatus).toBe('raw-local-only');
+    expect(result.evidence[0]?.path).not.toBe('');
+    expect(result.detail).toContain('Raw UI tree captured locally');
   });
 
-  it('keeps plain captures untouched (safe, original length)', async () => {
+  it('keeps plain captures inside the same raw-local-only boundary', async () => {
     const xml = '<XCUIElementTypeButton name="Go" value="Go" x="0" y="0" width="10" height="10" />';
     const backend = {
       name: 'redact-b08-clean',
@@ -181,9 +183,10 @@ describe('getUiTree observation applies UI-tree redaction (B08)', () => {
       undefined,
       false,
       undefined,
+      { evidenceDirectory: '/tmp/itestagent-replay-step-test', stepId: 'step-plain' },
     );
-    expect(result.evidence[0]?.redactionStatus).toBe('safe');
-    expect(result.detail).toBe(`UI tree captured (${xml.length} chars)`);
+    expect(result.evidence[0]?.redactionStatus).toBe('raw-local-only');
+    expect(result.detail).toBe(`Raw UI tree captured locally (${xml.length} chars)`);
   });
 });
 

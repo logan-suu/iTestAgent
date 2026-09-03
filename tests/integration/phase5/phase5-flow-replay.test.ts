@@ -8,7 +8,10 @@
  * P0: FlowV2 → replayFlow → ReplayResult
  * Cross-package: itestagent-flow + itestagent-contracts
  */
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import type {
   ActionResult,
@@ -29,6 +32,10 @@ import {
   checkTargetCompatibility,
   replayFlow,
 } from 'itestagent-flow';
+
+const evidenceDirectory = join(tmpdir(), `itestagent-phase5-flow-replay-${process.pid}`);
+
+afterAll(() => rmSync(evidenceDirectory, { recursive: true, force: true }));
 
 function makeMockBackendCapabilities(): BackendCapabilities {
   return {
@@ -91,10 +98,13 @@ function makeMockDeviceBackend(): DeviceBackend {
     },
 
     async screenshot(_input): Promise<ArtifactRef> {
+      mkdirSync(evidenceDirectory, { recursive: true });
+      const path = join(evidenceDirectory, 'screenshot.png');
+      writeFileSync(path, 'screenshot-bytes');
       return {
         id: 'ss-mock-001',
         type: 'screenshot',
-        path: 'artifacts/ss-mock-001.png',
+        path,
         mimeType: 'image/png',
         redactionStatus: 'safe',
       };
@@ -239,8 +249,10 @@ describe('Phase 5: Flow Replay Pipeline', () => {
   describe('replayFlow basic', () => {
     it('replays a simple flow successfully', async () => {
       const result: ReplayResult = await replayFlow(BASIC_FLOW, backend, {
+        targetKind: 'simulator',
         deviceId,
         bundleId: 'com.example.app',
+        evidenceDirectory,
       });
 
       expect(result.flowId).toBe('test-flow-001');
@@ -251,13 +263,13 @@ describe('Phase 5: Flow Replay Pipeline', () => {
       expect(failedSteps.length).toBe(0);
     });
 
-    it('produces overallStatus passed when all steps pass', async () => {
-      const result = await replayFlow(BASIC_FLOW, backend, { deviceId });
-      expect(result.overallStatus).toBe('passed');
+    it('reports blocked when required locators cannot be resolved', async () => {
+      const result = await replayFlow(BASIC_FLOW, backend, { targetKind: 'simulator', deviceId });
+      expect(result.overallStatus).toBe('blocked');
     });
 
     it('records step timestamps', async () => {
-      const result = await replayFlow(BASIC_FLOW, backend, { deviceId });
+      const result = await replayFlow(BASIC_FLOW, backend, { targetKind: 'simulator', deviceId });
       expect(result.startedAt).toBeDefined();
       expect(result.completedAt).toBeDefined();
       expect(new Date(result.startedAt).getTime()).toBeLessThanOrEqual(
@@ -268,13 +280,17 @@ describe('Phase 5: Flow Replay Pipeline', () => {
 
   describe('replayFlow edge cases', () => {
     it('handles coordinate-based locators', async () => {
-      const result = await replayFlow(FLOW_WITH_COORDINATE_LOCATOR, backend, { deviceId });
+      const result = await replayFlow(FLOW_WITH_COORDINATE_LOCATOR, backend, {
+        targetKind: 'simulator',
+        deviceId,
+      });
       expect(result.steps.length).toBe(1);
       expect(result.overallStatus).toBe('passed');
     });
 
     it('respects collectEvidence disabled option', async () => {
       const result = await replayFlow(BASIC_FLOW, backend, {
+        targetKind: 'simulator',
         deviceId,
         collectEvidence: false,
       });
@@ -304,14 +320,14 @@ describe('Phase 5: Flow Replay Pipeline', () => {
         ],
       };
 
-      const result = await replayFlow(commentFlow, backend, { deviceId });
+      const result = await replayFlow(commentFlow, backend, { targetKind: 'simulator', deviceId });
       expect(result.steps.length).toBe(1);
     });
   });
 
   describe('replayFlow targetKind isolation (ADR-011)', () => {
     it('includes targetKind in replay result', async () => {
-      const result = await replayFlow(BASIC_FLOW, backend, { deviceId });
+      const result = await replayFlow(BASIC_FLOW, backend, { targetKind: 'simulator', deviceId });
       expect(result.targetKind).toBeDefined();
     });
   });

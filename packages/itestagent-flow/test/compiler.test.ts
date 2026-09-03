@@ -3,7 +3,8 @@
  *
  * Task 3.15: Compiler pipeline validation.
  * US-8.2 AC2: Confirmed steps solidified into replayable Flow.
- * US-9.2 AC3: Flow contains flowId/source/status/steps.
+ * US-9.2 AC3: Flow v2 includes identity, status, target portability,
+ * capability requirements, validation history, and steps.
  */
 import { describe, expect, it } from 'bun:test';
 import type { RecordingResult, RecordingStep, SuggestedAction } from 'itestagent-contracts';
@@ -117,7 +118,12 @@ describe('compileFlow', () => {
     expect(flow.source).toBe('agent-recorded');
     expect(flow.status).toBe('draft');
     expect(flow.supportedTargetKinds).toEqual(['physical']);
-    expect(flow.requiredCapabilities.length).toBeGreaterThan(0);
+    expect(flow.requiredCapabilities).toEqual([
+      'appLifecycle',
+      'uiTree',
+      'coordinateTap',
+      'textInput',
+    ]);
     expect(flow.lastValidatedTargets.length).toBe(1);
     expect(flow.lastValidatedTargets[0]?.kind).toBe('physical');
     expect(flow.lastValidatedTargets[0]?.udid).toBe('00008110-XXXXXXXXXXXXXXXX');
@@ -269,6 +275,52 @@ describe('compileFlow', () => {
     );
     expect(flow.steps[0]?.action).toBe('comment');
     expect(flow.steps[0]?.comment).toContain('[unmapped: flyToMoon]');
+    expect(flow.requiredCapabilities).toEqual([]);
+  });
+
+  it('preserves caseId from the recorded RunStep', () => {
+    const flow = compileFlow(
+      makeRecordingResult({
+        steps: [
+          makeRecordingStep({
+            step: makeStepFixture({ stepId: 's1', caseId: 'login', action: 'tap' }),
+          }),
+        ],
+      }),
+    );
+    expect(flow.steps[0]?.caseId).toBe('login');
+  });
+
+  it('derives visual capabilities for image-located interactions', () => {
+    const flow = compileFlow(
+      makeRecordingResult({
+        steps: [
+          makeRecordingStep({
+            step: makeStepFixture({ stepId: 's1', action: 'tap' }),
+            originalSuggestion: makeSuggestedAction({
+              suggestedLocator: { strategy: 'image', value: 'login.png' },
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(flow.requiredCapabilities).toEqual(['visualScreenshot', 'visualTap']);
+  });
+
+  it('requires UI tree resolution for semantic tap locators', () => {
+    const flow = compileFlow(
+      makeRecordingResult({
+        steps: [
+          makeRecordingStep({
+            step: makeStepFixture({ stepId: 's1', action: 'tap' }),
+            originalSuggestion: makeSuggestedAction({
+              suggestedLocator: { strategy: 'identifier', value: 'login-button' },
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(flow.requiredCapabilities).toEqual(['uiTree', 'coordinateTap']);
   });
 
   // ─── Locator Normalization ─────────────────────────────────────

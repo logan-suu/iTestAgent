@@ -30,6 +30,8 @@ export interface ProductionAppiumConfig {
   targetKind: TargetKind;
   /** App bundle ID to test. */
   bundleId?: string;
+  /** Run-scoped directory for raw screenshot artifacts. */
+  artifactDirectory?: string;
   /**
    * WDA base bundle ID (physical only).
    * MUST be base ID WITHOUT .xctrunner suffix.
@@ -159,6 +161,7 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     udid: config.udid,
     targetKind,
     bundleId: config.bundleId,
+    artifactDirectory: config.artifactDirectory,
     wdaBundleId: config.wdaBaseBundleId,
     wdaStartupMode,
     webDriverAgentUrl: config.webDriverAgentUrl,

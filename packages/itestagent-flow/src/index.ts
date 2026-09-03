@@ -1,4 +1,4 @@
-export { compileFlow } from './compiler.js';
+export { compileFlow, inferRequiredCapabilities } from './compiler.js';
 export { generateDraft, type DraftOptions, type DraftResult } from './draft-generator.js';
 export {
   FLOW_SCHEMA_VERSION,
@@ -13,7 +13,16 @@ export {
   LocatorV2Schema,
   ValidatedTargetSchema,
 } from './schema.js';
-export { readFlowFile, saveFlow, type SaveFlowOptions, type SaveFlowResult } from './writer.js';
+export {
+  readFlowFile,
+  resolveFlowFile,
+  saveFlow,
+  type FlowFileSource,
+  type ReadFlowOptions,
+  type ReadFlowResult,
+  type SaveFlowOptions,
+  type SaveFlowResult,
+} from './writer.js';
 export { parseFlowYaml, serializeFlowYaml } from './yaml.js';
 export {
   type ReplayOptions,
@@ -25,9 +34,12 @@ export {
   type ReplayResult,
   type ReplayStepResult,
   type ReplayStepStatus,
+  type ReplayEvidenceOutcome,
+  type ReplayEvidenceStatus,
   type ReplaySummary,
   type ReplayEvidence,
   blockedStep,
+  correlateReplayStep,
   createEmptySummary,
   failedStep,
   passedStep,
@@ -40,6 +52,11 @@ export { redactUiTreeXml, type UiTreeRedactionResult } from './ui-tree-redactor.
 export {
   EVIDENCE_MANIFEST_FILENAME,
   collectStepEvidence,
+  collectStepEvidenceResult,
+  persistRawUiTree,
+  validateRawArtifact,
   writeEvidenceManifest,
+  type EvidenceCollectionResult,
+  type EvidenceCorrelation,
   type EvidenceManifestWriteResult,
 } from './replay-evidence-writer.js';

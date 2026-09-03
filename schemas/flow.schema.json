@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://itestagent.dev/schemas/flow.schema.json",
   "title": "Flow",
-  "description": "iTestAgent Flow v2 — replayable test flow YAML. ADR-011: adds supportedTargetKinds, requiredCapabilities, lastValidatedTargets for multi-target flow portability. Source: Architecture Design §6.7. Stored at ~/.itestagent/flows/<flowId>.yaml (YAML-encoded; schema validates the parsed JSON).",
+  "description": "iTestAgent Flow v2 — replayable test flow YAML. ADR-011 defines portable target semantics; ADR-033 defines production replay, status gates, explicit target selection, and immutable-by-default validation history. Source: Architecture Design §6.7. Stored at ~/.itestagent/flows/<flowId>.yaml (YAML-encoded; schema validates the parsed JSON).",
   "type": "object",
   "required": [
     "schemaVersion",
@@ -33,7 +33,7 @@
     "status": {
       "type": "string",
       "enum": ["draft", "confirmed", "deprecated"],
-      "description": "draft: needs user confirmation before replay. R7: Flow write to project requires confirmation."
+      "description": "ADR-033: confirmed may replay; draft requires per-run interactive confirmation and is blocked non-interactively; deprecated is blocked. Replay does not mutate status. R7: Flow write to project requires confirmation."
     },
     "supportedTargetKinds": {
       "type": "array",
@@ -46,14 +46,13 @@
     },
     "requiredCapabilities": {
       "type": "array",
-      "minItems": 1,
       "items": { "type": "string" },
-      "description": "Normalized backend capabilities required for replay. E.g. uiTree, coordinateTap, swipe, screenshot, textInput. NOT Appium-specific."
+      "description": "Extensible canonical capabilities derived from actual steps, not a backend name. Known values: appLifecycle, uiTree, screenshot, coordinateTap, swipe, textInput, pressButton, openUrl, video, logs, crashLogs, visualScreenshot, visualTap, location, push. Comment/wait-only flows may use an empty array; unknown capabilities fail closed during production selection."
     },
     "lastValidatedTargets": {
       "type": "array",
       "items": { "$ref": "#/$defs/ValidatedTarget" },
-      "description": "Audit trail of devices that validated this flow. Base data (udid, kind) recorded at compile time; full device info populated lazily by replay engine."
+      "description": "Audit trail of devices that validated this flow. Replay is immutable by default and MUST NOT update this list automatically; an explicit write-back requires overwrite_flow confirmation and the canonical Flow writer (ADR-033)."
     },
     "steps": {
       "type": "array",
@@ -102,6 +101,11 @@
       "required": ["action"],
       "additionalProperties": false,
       "properties": {
+        "caseId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional case correlation preserved from the recorded RunStep (ADR-031/033)."
+        },
         "action": {
           "type": "string",
           "enum": [

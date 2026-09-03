@@ -9,7 +9,7 @@
  * R6 — sensitive data never written to flow files (valueRef only).
  */
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { FlowV2 } from './schema.js';
@@ -79,6 +79,21 @@ export interface SaveFlowResult {
   projectWritten: boolean;
   /** The flowId used for the filename */
   flowId: string;
+}
+
+export interface ReadFlowOptions {
+  /** Override ~/.itestagent for isolated tests. */
+  dataRoot?: string;
+  /** When provided, resolve project-local first and fall back to global. */
+  projectPath?: string;
+}
+
+export type FlowFileSource = 'project' | 'global';
+
+export interface ReadFlowResult {
+  data: unknown;
+  path: string;
+  source: FlowFileSource;
 }
 
 // ─── Writer ───────────────────────────────────────────────────────
@@ -168,27 +183,47 @@ export async function saveFlow(
  * @returns Parsed YAML content (unvalidated object)
  * @throws If the flow file does not exist or cannot be read
  */
-export async function readFlowFile(flowId: string): Promise<unknown> {
+export async function resolveFlowFile(
+  flowId: string,
+  options: ReadFlowOptions = {},
+): Promise<ReadFlowResult> {
   validateFlowId(flowId);
 
-  const { readFile } = await import('node:fs/promises');
-  const flowPath = join(getDefaultFlowDir(), `${flowId}.yaml`);
+  const filename = `${flowId}.yaml`;
+  const candidates: Array<{ path: string; source: FlowFileSource }> = [];
+  if (options.projectPath) {
+    candidates.push({
+      path: join(getProjectFlowDir(options.projectPath), filename),
+      source: 'project',
+    });
+  }
+  candidates.push({ path: join(getDefaultFlowDir(options.dataRoot), filename), source: 'global' });
 
-  let content: string;
-  try {
-    content = await readFile(flowPath, 'utf-8');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Flow "${flowId}" not found at ${flowPath}: ${message}`);
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      const content = await readFile(candidate.path, 'utf-8');
+      const { parse } = await import('yaml');
+      return { data: parse(content), path: candidate.path, source: candidate.source };
+    } catch (error) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : undefined;
+      if (code !== 'ENOENT') throw error;
+      lastError = error;
+    }
   }
 
-  // Strip header comments before parsing YAML
-  const yamlOnly = content
-    .split('\n')
-    .filter((line) => !/^\s*#/.test(line))
-    .join('\n');
+  const searched = candidates.map((candidate) => candidate.path).join(', ');
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`Flow "${flowId}" not found. Searched: ${searched}. ${message}`);
+}
 
-  // Use dynamic import to avoid bundling yaml module for read-only use
-  const { parse } = await import('yaml');
-  return parse(yamlOnly);
+/** Backward-compatible data-only Flow reader. */
+export async function readFlowFile(
+  flowId: string,
+  options: ReadFlowOptions = {},
+): Promise<unknown> {
+  return (await resolveFlowFile(flowId, options)).data;
 }

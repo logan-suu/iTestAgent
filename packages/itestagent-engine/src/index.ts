@@ -28,8 +28,21 @@ export type { PlanningSnapshot, PlanningStatus } from './planning-session.js';
 export {
   BackendRegistry,
   BackendSelector,
+  CANONICAL_DEVICE_CAPABILITIES,
   DEFAULT_PREFERENCES,
+  normalizeBackendCapabilities,
 } from './backend-selector.js';
+
+export {
+  loadProductionFlow,
+  runProductionFlowReplay,
+} from './flow-replay-production.js';
+export type {
+  LoadedProductionFlow,
+  ProductionFlowReplayDependencies,
+  ProductionFlowReplayInput,
+  ProductionFlowReplayResult,
+} from './flow-replay-production.js';
 
 export type {
   TestPlan,

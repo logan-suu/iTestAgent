@@ -12,6 +12,7 @@
  * session.secret.* references throw (caught by the dispatcher's caller).
  */
 import type {
+  ActionResult,
   LaunchAppInput,
   OpenUrlInput,
   PressButtonInput,
@@ -47,6 +48,14 @@ export function isInteractionAction(action: string): boolean {
   return ACTION_SET.has(action);
 }
 
+function requireActionSuccess(action: string, result: ActionResult): void {
+  if (!result.success) {
+    throw new Error(
+      `${action} failed: ${result.error ?? result.message ?? 'backend returned failure'}`,
+    );
+  }
+}
+
 /**
  * Executes one interaction action against the device.
  * Returns INTERACTION_CONTINUE when the caller must append post-step
@@ -72,7 +81,10 @@ export async function runInteractionAction(
           'No bundleId provided. Set --bundleId or include value in flow step.',
         );
       }
-      await backend.launchApp({ deviceId, bundleId: bid } as LaunchAppInput, signal);
+      requireActionSuccess(
+        action,
+        await backend.launchApp({ deviceId, bundleId: bid } as LaunchAppInput, signal),
+      );
       break;
     }
 
@@ -81,7 +93,10 @@ export async function runInteractionAction(
       if (!bid) {
         return blockedStep(stepIndex, action, target, 'No bundleId provided.');
       }
-      await backend.terminateApp({ deviceId, bundleId: bid } as TerminateAppInput, signal);
+      requireActionSuccess(
+        action,
+        await backend.terminateApp({ deviceId, bundleId: bid } as TerminateAppInput, signal),
+      );
       break;
     }
 
@@ -104,7 +119,10 @@ export async function runInteractionAction(
           `Locator resolution failed: strategy=${step.locator.strategy}, value="${step.locator.value}"`,
         );
       }
-      await backend.tap({ deviceId, x: coords.x, y: coords.y } as TapInput, signal);
+      requireActionSuccess(
+        action,
+        await backend.tap({ deviceId, x: coords.x, y: coords.y } as TapInput, signal),
+      );
       break;
     }
 
@@ -112,16 +130,19 @@ export async function runInteractionAction(
       // Direction-based swipe
       if (step.direction) {
         const { fromX, fromY, toX, toY } = directionToSwipePoints(step.direction);
-        await backend.swipe(
-          {
-            deviceId,
-            fromX,
-            fromY,
-            toX,
-            toY,
-            durationMs: step.durationMs,
-          } as SwipeInput,
-          signal,
+        requireActionSuccess(
+          action,
+          await backend.swipe(
+            {
+              deviceId,
+              fromX,
+              fromY,
+              toX,
+              toY,
+              durationMs: step.durationMs,
+            } as SwipeInput,
+            signal,
+          ),
         );
       } else if (step.locator?.strategy === 'coordinate') {
         // Coordinate-based swipe: locator value as "fromX,fromY→toX,toY" or "fromX,fromY"
@@ -146,16 +167,19 @@ export async function runInteractionAction(
             `Cannot parse swipe coordinates from locator value: "${step.locator.value}"`,
           );
         }
-        await backend.swipe(
-          {
-            deviceId,
-            fromX: fromCoord.x,
-            fromY: fromCoord.y,
-            toX: toCoord?.x ?? fromCoord.x,
-            toY: toCoord?.y ?? fromCoord.y,
-            durationMs: step.durationMs,
-          } as SwipeInput,
-          signal,
+        requireActionSuccess(
+          action,
+          await backend.swipe(
+            {
+              deviceId,
+              fromX: fromCoord.x,
+              fromY: fromCoord.y,
+              toX: toCoord?.x ?? fromCoord.x,
+              toY: toCoord?.y ?? fromCoord.y,
+              durationMs: step.durationMs,
+            } as SwipeInput,
+            signal,
+          ),
         );
       } else {
         return blockedStep(
@@ -169,8 +193,15 @@ export async function runInteractionAction(
     }
 
     case 'typeText': {
-      const text = (step.value as string | undefined) ?? step.valueRef;
-      if (!text) {
+      const text = step.valueRef
+        ? await ctx.resolveValueRef?.(step.valueRef)
+        : (step.value as string | undefined);
+      if (text === undefined) {
+        if (step.valueRef) {
+          throw new Error(
+            `R6: Unresolved value reference ${step.valueRef}. Provide an in-memory value resolver before replay.`,
+          );
+        }
         return blockedStep(
           stepIndex,
           action,
@@ -178,16 +209,18 @@ export async function runInteractionAction(
           'No text value provided for typeText action.',
         );
       }
-      // R6: valueRef with session.secret.* means the value is injected at runtime
-      // For replay, valueRef is resolved before calling replayFlow — the caller should
-      // have already substituted any secret references.
-      // Defense-in-depth: reject unresolved secrets.
-      if (step.valueRef?.startsWith('session.secret.')) {
-        throw new Error(
-          `R6: Unresolved secret reference ${step.valueRef}. Caller must resolve session.secret.* references before replay.`,
+      if (typeof text !== 'string' || text.length === 0) {
+        return blockedStep(
+          stepIndex,
+          action,
+          target,
+          'typeText requires non-empty text; an empty string is a no-op.',
         );
       }
-      await backend.typeText({ deviceId, text } as TypeTextInput, signal);
+      requireActionSuccess(
+        action,
+        await backend.typeText({ deviceId, text } as TypeTextInput, signal),
+      );
       break;
     }
 
@@ -196,9 +229,12 @@ export async function runInteractionAction(
       if (!button) {
         return blockedStep(stepIndex, action, target, 'No button name provided.');
       }
-      await backend.pressButton(
-        { deviceId, button: normalizePressButton(button) } as PressButtonInput,
-        signal,
+      requireActionSuccess(
+        action,
+        await backend.pressButton(
+          { deviceId, button: normalizePressButton(button) } as PressButtonInput,
+          signal,
+        ),
       );
       break;
     }
@@ -208,7 +244,10 @@ export async function runInteractionAction(
       if (!url) {
         return blockedStep(stepIndex, action, target, 'No URL provided.');
       }
-      await backend.openUrl({ deviceId, url } as OpenUrlInput, signal);
+      requireActionSuccess(
+        action,
+        await backend.openUrl({ deviceId, url } as OpenUrlInput, signal),
+      );
       break;
     }
 

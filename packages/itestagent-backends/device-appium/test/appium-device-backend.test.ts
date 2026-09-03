@@ -13,6 +13,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdirSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { AppiumDeviceBackend, AppiumDriverError } from '../src/index.js';
 import type { WdaManager } from '../src/wda-manager.js';
 
@@ -301,6 +304,7 @@ function createBackend(config?: MockDriverConfig): {
     bundleId: TEST_BUNDLE_ID,
     wdaBundleId: 'TEAMID.WebDriverAgentRunner',
     wdaStartupMode: 'managed-xcodebuild',
+    physicalDeviceDiscovery: async () => [],
   });
   return { backend, mock };
 }
@@ -354,6 +358,7 @@ describe('AppiumDeviceBackend', () => {
       expect(caps.supportsCrashLogs).toBe(true);
       expect(caps.supportsLocation).toBe(false);
       expect(caps.supportsPush).toBe(false);
+      expect(caps.features).not.toContain('log');
     });
 
     it('does not include simulator in supportedTargetKinds (Task 3.10)', () => {
@@ -550,7 +555,55 @@ describe('AppiumDeviceBackend', () => {
       expect(ref.type).toBe('screenshot');
       expect(ref.id).toContain('screenshot_');
       expect(ref.mimeType).toBe('image/png');
-      expect(ref.redactionStatus).toBe('safe');
+      expect(ref.redactionStatus).toBe('raw-local-only');
+    });
+
+    it('writes screenshots into the configured private run directory', async () => {
+      const artifactDirectory = join(
+        tmpdir(),
+        `itestagent-appium-artifacts-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(artifactDirectory, { recursive: true, mode: 0o755 });
+      const scoped = new AppiumDeviceBackend(mock, {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaStartupMode: 'managed-xcodebuild',
+        artifactDirectory,
+      });
+
+      try {
+        const ref = await scoped.screenshot({ deviceId: TEST_UDID });
+        expect(ref.path.startsWith(`${artifactDirectory}/`)).toBe(true);
+        expect((statSync(artifactDirectory).mode & 0o777).toString(8)).toBe('700');
+        expect((statSync(ref.path).mode & 0o777).toString(8)).toBe('600');
+      } finally {
+        await scoped.closeSession();
+        rmSync(artifactDirectory, { recursive: true, force: true });
+      }
+    });
+
+    it('isolates fallback artifact directories between backend instances', async () => {
+      const first = createBackend();
+      const second = createBackend();
+      let firstDirectory = '';
+      let secondDirectory = '';
+
+      try {
+        const firstRef = await first.backend.screenshot({ deviceId: TEST_UDID });
+        const secondRef = await second.backend.screenshot({ deviceId: TEST_UDID });
+        firstDirectory = dirname(firstRef.path);
+        secondDirectory = dirname(secondRef.path);
+
+        expect(firstDirectory).not.toBe(secondDirectory);
+        expect((statSync(firstDirectory).mode & 0o777).toString(8)).toBe('700');
+        expect((statSync(secondDirectory).mode & 0o777).toString(8)).toBe('700');
+      } finally {
+        await first.backend.closeSession();
+        await second.backend.closeSession();
+        if (firstDirectory) rmSync(firstDirectory, { recursive: true, force: true });
+        if (secondDirectory) rmSync(secondDirectory, { recursive: true, force: true });
+      }
     });
 
     it('returns error artifact ref on failure (R5: never throw)', async () => {
@@ -1295,6 +1348,7 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
         targetKind: 'physical',
         bundleId: TEST_BUNDLE_ID,
         wdaStartupMode: 'managed-xcodebuild',
+        physicalDeviceDiscovery: async () => [],
       });
 
       const caps = physical.capabilities;
@@ -1302,16 +1356,21 @@ describe('AppiumDeviceBackend (simulator targetKind)', () => {
       expect(caps.supportsCrashLogs).toBe(true);
     });
 
-    it('physical backend listDevices uses devicectl (not simctl)', async () => {
+    it('physical backend listDevices uses physical discovery (not simctl)', async () => {
       const driver = new MockAppiumDriver();
+      let discoveryCalls = 0;
       const physical = new AppiumDeviceBackend(driver, {
         udid: TEST_UDID,
         targetKind: 'physical',
         wdaStartupMode: 'managed-xcodebuild',
+        physicalDeviceDiscovery: async () => {
+          discoveryCalls += 1;
+          return [];
+        },
       });
       const devices = await physical.listDevices();
-      // devicectl may not be available in test env — still returns array (R5)
       expect(Array.isArray(devices)).toBe(true);
+      expect(discoveryCalls).toBe(1);
       expect(physical.capabilities.supportedTargetKinds).toEqual(['physical']);
     });
   });

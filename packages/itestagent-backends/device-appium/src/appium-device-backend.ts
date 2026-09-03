@@ -51,7 +51,8 @@ import type {
   AppiumSession,
 } from './appium-driver.js';
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildSimulatorCapabilities } from './appium-capabilities.js';
@@ -104,6 +105,8 @@ export type WdaStatusFetchFn = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+export type PhysicalDeviceDiscoveryFn = (signal?: AbortSignal) => Promise<DeviceInfo[]>;
+
 export interface AppiumDeviceBackendOptions {
   /** Device UDID (required). */
   udid: string;
@@ -111,6 +114,10 @@ export interface AppiumDeviceBackendOptions {
   targetKind: TargetKind;
   /** App bundle ID to test. */
   bundleId?: string;
+  /** Run-scoped directory for raw screenshot artifacts. */
+  artifactDirectory?: string;
+  /** Injectable physical-device discovery seam for deterministic unit tests. */
+  physicalDeviceDiscovery?: PhysicalDeviceDiscoveryFn;
   /**
    * WDA base bundle ID for free-account workaround (physical only).
    * MUST be base ID WITHOUT .xctrunner suffix (e.g. "TEAMID.WebDriverAgentRunner").
@@ -187,7 +194,6 @@ const PHYSICAL_CAPABILITIES: BackendCapabilities = {
     'url',
     'launch',
     'crash',
-    'log',
     'recording',
   ],
   supportsUiTree: true,
@@ -209,7 +215,6 @@ const SIMULATOR_CAPABILITIES: BackendCapabilities = {
     'button',
     'url',
     'launch',
-    'log',
     'recording',
   ],
   supportsUiTree: true,
@@ -231,6 +236,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     Omit<
       AppiumDeviceBackendOptions,
       | 'bundleId'
+      | 'physicalDeviceDiscovery'
       | 'wdaBundleId'
       | 'iproxyTunnel'
       | 'derivedDataPath'
@@ -259,6 +265,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private readonly wdaManager: WdaManager | undefined;
   private readonly iproxyTunnel: IProxyTunnel | undefined;
   private readonly wdaStatusFetch: WdaStatusFetchFn;
+  private readonly physicalDeviceDiscovery: PhysicalDeviceDiscoveryFn;
   private sessionActive = false;
   private activeSession: AppiumSession | null = null;
   private sessionMutex: Promise<void> | null = null;
@@ -268,6 +275,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     this.logger = createRedactingLogger('AppiumDeviceBackend');
     this.driver = driver;
     this.wdaStatusFetch = options.wdaStatusFetch ?? globalThis.fetch;
+    this.physicalDeviceDiscovery = options.physicalDeviceDiscovery ?? discoverPhysicalDevices;
     this.targetKind = options.targetKind;
     this.wdaManager = options.wdaManager;
     this.iproxyTunnel = options.iproxyTunnel;
@@ -286,6 +294,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
       udid: options.udid,
       targetKind: options.targetKind,
       bundleId: options.bundleId,
+      artifactDirectory:
+        options.artifactDirectory ??
+        join(tmpdir(), 'itestagent', 'artifacts', `backend-${randomUUID()}`),
       wdaBundleId: options.wdaBundleId,
       wdaStartupMode: this.wdaStartupMode,
       wdaLocalPort: options.wdaLocalPort ?? 8100,
@@ -662,7 +673,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     if (this.targetKind === 'simulator') {
       return discoverSimulatorDevices(signal);
     }
-    return discoverPhysicalDevices(signal);
+    return this.physicalDeviceDiscovery(signal);
   }
 
   // ────────── healthcheck ─────────────────────────────────────────
@@ -800,7 +811,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     signal?: AbortSignal,
   ): Promise<HealthCheckResult> {
     try {
-      const devices = await discoverPhysicalDevices(signal);
+      const devices = await this.physicalDeviceDiscovery(signal);
 
       if (devices.length === 0) {
         return {
@@ -973,18 +984,24 @@ export class AppiumDeviceBackend implements DeviceBackend {
       await this.ensureSession();
 
       const base64 = await this.driver.takeScreenshot();
-      const id = `screenshot_${Date.now()}`;
-      const dir = join(tmpdir(), 'itestagent', 'artifacts');
-      mkdirSync(dir, { recursive: true });
+      const screenshotBytes = Buffer.from(base64, 'base64');
+      if (screenshotBytes.length === 0) {
+        throw new Error('Screenshot capture returned empty content');
+      }
+      const id = `screenshot_${randomUUID()}`;
+      const dir = this.opts.artifactDirectory;
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      chmodSync(dir, 0o700);
       const destPath = join(dir, `${id}.png`);
-      writeFileSync(destPath, Buffer.from(base64, 'base64'));
+      writeFileSync(destPath, screenshotBytes, { mode: 0o600 });
+      chmodSync(destPath, 0o600);
 
       return {
         id,
         type: 'screenshot',
         path: destPath,
         mimeType: 'image/png',
-        redactionStatus: 'safe',
+        redactionStatus: 'raw-local-only',
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1139,11 +1156,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
       await this.ensureSession();
 
       const base64 = await this.driver.stopRecording(input.handleId);
-      const id = `video_${Date.now()}`;
-      const dir = join(tmpdir(), 'itestagent', 'artifacts');
-      mkdirSync(dir, { recursive: true });
+      const videoBytes = Buffer.from(base64, 'base64');
+      if (videoBytes.length === 0) {
+        throw new Error('Video capture returned empty content');
+      }
+      const id = `video_${randomUUID()}`;
+      const dir = this.opts.artifactDirectory;
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      chmodSync(dir, 0o700);
       const destPath = join(dir, `${id}.mp4`);
-      writeFileSync(destPath, Buffer.from(base64, 'base64'));
+      writeFileSync(destPath, videoBytes, { mode: 0o600 });
+      chmodSync(destPath, 0o600);
 
       return {
         id,

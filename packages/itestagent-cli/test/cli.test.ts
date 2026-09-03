@@ -1,7 +1,13 @@
 import { describe, expect, it, test } from 'bun:test';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { assertSafeRunId, createProgram, selectConfirmedPhysicalDevice } from '../src/cli.js';
+import {
+  assertInteractiveValueRefs,
+  assertSafeRunId,
+  createProgram,
+  parseReplayPort,
+  selectConfirmedPhysicalDevice,
+} from '../src/cli.js';
 import { VERSION } from '../src/version.js';
 
 const cliPath = join(import.meta.dir, '..', 'src', 'cli.ts');
@@ -36,6 +42,28 @@ test('run command has flow subcommand (AGENTS.md §11: itestagent run flow <id>)
   expect(runCmd).toBeDefined();
   const flowCmd = runCmd?.commands.find((cmd) => cmd.name() === 'flow');
   expect(flowCmd).toBeDefined();
+  expect(flowCmd?.options.some((option) => option.flags.includes('--validate-only'))).toBe(true);
+  expect(flowCmd?.options.some((option) => option.flags.includes('--target-kind'))).toBe(true);
+  expect(flowCmd?.options.some((option) => option.flags.includes('--wda-local-port'))).toBe(true);
+  expect(flowCmd?.options.some((option) => option.flags.includes('--mjpeg-server-port'))).toBe(
+    true,
+  );
+  expect(flowCmd?.options.some((option) => option.flags.includes('--execute'))).toBe(false);
+});
+
+test('Flow replay ports reject partial and out-of-range numbers', () => {
+  expect(parseReplayPort('8200')).toBe(8200);
+  expect(() => parseReplayPort('8200abc')).toThrow('integer between 1 and 65535');
+  expect(() => parseReplayPort('0')).toThrow('integer between 1 and 65535');
+  expect(() => parseReplayPort('65536')).toThrow('integer between 1 and 65535');
+});
+
+test('Flow replay rejects valueRef prompting when stdin is not a TTY', () => {
+  expect(() => assertInteractiveValueRefs(['session.secret.email'], false)).toThrow(
+    'A TTY is required',
+  );
+  expect(() => assertInteractiveValueRefs([], false)).not.toThrow();
+  expect(() => assertInteractiveValueRefs(['session.secret.email'], true)).not.toThrow();
 });
 
 test('rerun command has --failed-only option (AGENTS.md §11: itestagent rerun <run> --failed-only)', () => {

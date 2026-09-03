@@ -114,6 +114,7 @@
         "itestagent-backends-build-xcodebuild": "workspace:*",
         "itestagent-backends-device-appium": "workspace:*",
         "itestagent-contracts": "workspace:*",
+        "itestagent-flow": "workspace:*",
         "itestagent-project-analyzer": "workspace:*",
         "itestagent-store": "workspace:*",
         "yaml": "^2.7.0",

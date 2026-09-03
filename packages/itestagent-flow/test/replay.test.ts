@@ -11,7 +11,10 @@
  *   - No-backend actions (comment, wait)
  *   - Assertion actions (assertVisible, assertNotVisible, assertText)
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type {
   ActionResult,
   AppInfo,
@@ -44,6 +47,10 @@ import {
 } from '../src/replay-result.js';
 import { type ReplayOptions, checkTargetCompatibility, replayFlow } from '../src/replay.js';
 import type { FlowV2 } from '../src/schema.js';
+
+const replayEvidenceDirectory = join(tmpdir(), `itestagent-flow-replay-test-${process.pid}`);
+
+afterAll(() => rmSync(replayEvidenceDirectory, { recursive: true, force: true }));
 
 // ─── Inline MockDeviceBackend ──────────────────────────────────────
 
@@ -170,7 +177,10 @@ function makeUiTreeSnapshot(xml = MINIMAL_UI_TREE_XML): UiTreeSnapshot {
 
 /** Minimal screenshot ArtifactRef fixture. */
 function makeScreenshotRef(): ArtifactRef {
-  return { id: 'ss_1', type: 'screenshot', path: '/tmp/ss.png', redactionStatus: 'safe' };
+  mkdirSync(replayEvidenceDirectory, { recursive: true });
+  const path = join(replayEvidenceDirectory, 'screenshot.png');
+  writeFileSync(path, 'screenshot-bytes');
+  return { id: 'ss_1', type: 'screenshot', path, redactionStatus: 'safe' };
 }
 
 /** Minimal recording handle fixture. */
@@ -180,7 +190,10 @@ function makeRecordingHandle() {
 
 /** Minimal log ArtifactRef fixture. */
 function makeLogRef(): ArtifactRef {
-  return { id: 'log_1', type: 'log', path: '/tmp/log.txt', redactionStatus: 'safe' };
+  mkdirSync(replayEvidenceDirectory, { recursive: true });
+  const path = join(replayEvidenceDirectory, 'device.log');
+  writeFileSync(path, 'log-bytes');
+  return { id: 'log_1', type: 'log', path, redactionStatus: 'safe' };
 }
 
 /** Base flow with no steps — tests will modify. */
@@ -200,7 +213,13 @@ function makeFlow(overrides: Partial<FlowV2> = {}): FlowV2 {
 
 /** Helper: create default replay options. */
 function makeReplayOpts(overrides: Partial<ReplayOptions> = {}): ReplayOptions {
-  return { deviceId: 'test-udid', collectEvidence: false, ...overrides };
+  return {
+    targetKind: 'simulator',
+    deviceId: 'test-udid',
+    evidenceDirectory: replayEvidenceDirectory,
+    collectEvidence: false,
+    ...overrides,
+  };
 }
 
 // ─── checkTargetCompatibility ───────────────────────────────────────
@@ -428,6 +447,21 @@ describe('replayFlow — input actions', () => {
     expect(result.steps[0]?.status).toBe('blocked');
   });
 
+  test('typeText blocks a resolved empty string instead of claiming a no-op passed', async () => {
+    const backend = new MockDeviceBackend();
+    const flow = makeFlow({
+      steps: [{ action: 'typeText', valueRef: 'session.secret.empty' }],
+    });
+    const result = await replayFlow(flow, backend, {
+      ...makeReplayOpts(),
+      resolveValueRef: async () => '',
+    });
+    expect(result.steps[0]).toMatchObject({
+      status: 'blocked',
+      error: 'typeText requires non-empty text; an empty string is a no-op.',
+    });
+  });
+
   test('pressButton passes', async () => {
     const backend = new MockDeviceBackend();
     const flow = makeFlow({
@@ -496,6 +530,19 @@ describe('replayFlow — collectLogs', () => {
     });
     const result = await replayFlow(flow, backend, makeReplayOpts());
     expect(result.summary.passed).toBe(1);
+  });
+
+  test('collectLogs reports a runtime capture failure without claiming unsupported', async () => {
+    const backend = new MockDeviceBackend();
+    backend.setForceFail('syslog transport failed');
+    const flow = makeFlow({
+      steps: [{ action: 'collectLogs' }],
+    });
+    const result = await replayFlow(flow, backend, makeReplayOpts());
+    expect(result.steps[0]?.status).toBe('blocked');
+    expect(result.steps[0]?.evidenceOutcomes).toEqual([
+      { type: 'log', status: 'failed', error: 'syslog transport failed' },
+    ]);
   });
 });
 
