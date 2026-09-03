@@ -1,11 +1,21 @@
 import { createHash } from 'node:crypto';
 import {
+  chmodSync,
+  closeSync,
+  createReadStream,
+  existsSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import {
   access,
   chmod,
   cp,
   lstat,
   mkdir,
-  readFile,
   readdir,
   realpath,
   rename,
@@ -48,7 +58,7 @@ export interface RunWriterCommitInput {
 
 export interface RunWriterHooks {
   checkpoint?(steps: readonly RunStep[]): Promise<void>;
-  committed?(input: RunWriterCommitInput): Promise<void>;
+  committed?(input: RunWriterCommitInput & { steps: readonly RunStep[] }): Promise<void>;
 }
 
 export interface MeasuredPath {
@@ -96,6 +106,18 @@ async function atomicWrite(path: string, content: string): Promise<void> {
   await rename(temp, path);
 }
 
+async function hashFileContents(
+  hash: ReturnType<typeof createHash>,
+  path: string,
+): Promise<number> {
+  let sizeBytes = 0;
+  for await (const chunk of createReadStream(path)) {
+    hash.update(chunk);
+    sizeBytes += chunk.length;
+  }
+  return sizeBytes;
+}
+
 export async function measureRunArtifactPath(
   path: string,
   expectedType: string,
@@ -106,10 +128,12 @@ export async function measureRunArtifactPath(
   if (rootStat.isSymbolicLink()) throw new Error('artifact must not be a symlink');
   if (rootStat.isFile()) {
     if (rootStat.size <= 0) throw new Error('artifact file must be non-empty');
-    const bytes = await readFile(path);
+    const hash = createHash('sha256');
+    const sizeBytes = await hashFileContents(hash, path);
+    if (sizeBytes !== rootStat.size) throw new Error('artifact changed while being measured');
     return {
-      sizeBytes: bytes.byteLength,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
+      sizeBytes,
+      sha256: hash.digest('hex'),
       directory: false,
     };
   }
@@ -119,7 +143,7 @@ export async function measureRunArtifactPath(
 
   const suffix = expectedType === 'xcresult' ? '.xcresult' : '.trace';
   if (!path.endsWith(suffix)) throw new Error(`${expectedType} bundle must use ${suffix} suffix`);
-  const entries: Array<{ relativePath: string; bytes: Uint8Array }> = [];
+  const entries: Array<{ relativePath: string; path: string; sizeBytes: number }> = [];
   async function visit(dir: string): Promise<void> {
     const children = await readdir(dir, { withFileTypes: true });
     for (const child of children) {
@@ -128,7 +152,11 @@ export async function measureRunArtifactPath(
       if (stat.isSymbolicLink()) throw new Error('artifact bundle must not contain symlinks');
       if (stat.isDirectory()) await visit(childPath);
       else if (stat.isFile())
-        entries.push({ relativePath: relative(path, childPath), bytes: await readFile(childPath) });
+        entries.push({
+          relativePath: relative(path, childPath),
+          path: childPath,
+          sizeBytes: stat.size,
+        });
       else throw new Error('artifact bundle contains an unsupported filesystem entry');
     }
   }
@@ -138,10 +166,13 @@ export async function measureRunArtifactPath(
   const hash = createHash('sha256');
   let sizeBytes = 0;
   for (const entry of entries) {
+    const relativePathBytes = Buffer.byteLength(entry.relativePath);
+    hash.update(`${relativePathBytes}:`);
     hash.update(entry.relativePath);
-    hash.update('\0');
-    hash.update(entry.bytes);
-    sizeBytes += entry.bytes.byteLength;
+    hash.update(`:${entry.sizeBytes}:`);
+    const measuredSize = await hashFileContents(hash, entry.path);
+    if (measuredSize !== entry.sizeBytes) throw new Error('artifact changed while being measured');
+    sizeBytes += measuredSize;
   }
   return { sizeBytes, sha256: hash.digest('hex'), directory: true };
 }
@@ -178,6 +209,9 @@ export class RunWriter {
   private plan?: RunPlanDocument;
   private steps: RunStep[] = [];
   private released = false;
+  private lockFd?: number;
+  private readonly lockToken = crypto.randomUUID();
+  private readonly lockPath: string;
 
   private constructor(
     runId: string,
@@ -187,6 +221,45 @@ export class RunWriter {
     this.runId = runId;
     this.runDir = join(runsRoot, runId);
     this.artifactsDir = join(this.runDir, 'artifacts');
+    this.lockPath = join(this.runDir, '.writer.lock');
+  }
+
+  static recoverStaleLock(runId: string, runsRoot: string): boolean {
+    assertSafeRunId(runId);
+    if (activeRunIds.has(runId)) return false;
+    const runDir = join(runsRoot, runId);
+    const lockPath = join(runDir, '.writer.lock');
+    if (!existsSync(lockPath) || existsSync(join(runDir, 'result.json'))) return false;
+    const stat = lstatSync(lockPath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('invalid run writer lock');
+    let owner: { pid?: unknown; token?: unknown };
+    try {
+      owner = JSON.parse(readFileSync(lockPath, 'utf8')) as { pid?: unknown; token?: unknown };
+    } catch {
+      throw new Error('invalid run writer lock');
+    }
+    if (
+      typeof owner.pid !== 'number' ||
+      !Number.isInteger(owner.pid) ||
+      owner.pid <= 0 ||
+      typeof owner.token !== 'string' ||
+      owner.token.length === 0
+    ) {
+      throw new Error('invalid run writer lock');
+    }
+    try {
+      process.kill(owner.pid, 0);
+      return false;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') return false;
+    }
+    try {
+      unlinkSync(lockPath);
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
+    }
   }
 
   static async begin(
@@ -199,6 +272,29 @@ export class RunWriter {
     const writer = new RunWriter(runId, runsRoot, hooks);
     activeRunIds.add(runId);
     try {
+      await mkdir(writer.runDir, { recursive: true, mode: 0o700 });
+      const runStat = await lstat(writer.runDir);
+      if (!runStat.isDirectory() || runStat.isSymbolicLink()) {
+        throw new Error('run directory must be a real directory');
+      }
+      try {
+        writer.lockFd = openSync(writer.lockPath, 'wx', 0o600);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+          throw new Error(`run "${runId}" already has an active writer`);
+        }
+        throw error;
+      }
+      writeFileSync(
+        writer.lockFd,
+        JSON.stringify({
+          pid: process.pid,
+          token: writer.lockToken,
+          createdAt: new Date().toISOString(),
+        }),
+        'utf8',
+      );
+      chmodSync(writer.lockPath, 0o600);
       await access(join(writer.runDir, 'result.json')).then(
         () => {
           throw new Error(`run "${runId}" is already committed`);
@@ -211,7 +307,7 @@ export class RunWriter {
       await chmod(writer.artifactsDir, 0o700);
       return writer;
     } catch (error) {
-      activeRunIds.delete(runId);
+      writer.release();
       throw error;
     }
   }
@@ -309,7 +405,7 @@ export class RunWriter {
       join(this.runDir, 'result.json'),
       `${JSON.stringify(input.result, null, 2)}\n`,
     );
-    await this.hooks.committed?.({ ...input, artifactIndex });
+    await this.hooks.committed?.({ ...input, artifactIndex, steps: this.steps });
     this.release();
   }
 
@@ -321,5 +417,17 @@ export class RunWriter {
     if (this.released) return;
     this.released = true;
     activeRunIds.delete(this.runId);
+    if (this.lockFd !== undefined) {
+      closeSync(this.lockFd);
+      this.lockFd = undefined;
+    }
+    try {
+      const owner = JSON.parse(readFileSync(this.lockPath, 'utf8')) as { token?: unknown };
+      if (owner.token === this.lockToken) unlinkSync(this.lockPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        // A malformed or replaced lock is left in place for explicit recovery.
+      }
+    }
   }
 }

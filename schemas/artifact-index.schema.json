@@ -66,6 +66,16 @@
       "items": {
         "type": "object",
         "required": ["type", "status", "reasonCode"],
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "collected" } }, "required": ["status"] },
+            "then": { "required": ["artifactId"] }
+          },
+          {
+            "if": { "properties": { "status": { "enum": ["not_requested", "not_applicable", "unsupported", "failed"] } }, "required": ["status"] },
+            "then": { "not": { "required": ["artifactId"] } }
+          }
+        ],
         "properties": {
           "type": { "type": "string", "enum": ["screenshot", "video", "uitree", "log", "syslog", "crashlog", "trace", "xcresult", "json", "text"] },
           "status": { "type": "string", "enum": ["collected", "not_requested", "not_applicable", "unsupported", "failed"] },

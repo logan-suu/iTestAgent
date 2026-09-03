@@ -3,7 +3,11 @@ import { readdir } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { desc, eq } from 'drizzle-orm';
 import { parseArtifactIndex, parseRunResult, parseValidatedRunBundle } from 'itestagent-contracts';
-import type { ArtifactIndex, RunResult } from 'itestagent-contracts';
+import type { ArtifactIndex, RunResult, RunStep } from 'itestagent-contracts';
+import {
+  readPersistedArtifactIndex,
+  readPersistedRunResult,
+} from 'itestagent-contracts/migrations';
 import { resolveStoreRoot } from './bootstrap.js';
 import type { DbClient } from './db.js';
 import { RunWriter, measureRunArtifactPath } from './run-writer.js';
@@ -68,32 +72,52 @@ async function indexCommittedRun(
   runId: string,
   result: RunResult,
   artifactIndex: ArtifactIndex,
+  steps: readonly RunStep[],
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.delete(runCases).where(eq(runCases.runId, runId));
-    await tx.delete(runArtifacts).where(eq(runArtifacts.runId, runId));
+  db.transaction((tx) => {
+    tx.delete(runSteps).where(eq(runSteps.runId, runId)).run();
+    tx.delete(runCases).where(eq(runCases.runId, runId)).run();
+    tx.delete(runArtifacts).where(eq(runArtifacts.runId, runId)).run();
+    if (steps.length > 0) {
+      tx.insert(runSteps)
+        .values(
+          steps.map((step) => ({
+            runId,
+            stepId: step.stepId,
+            sequence: step.sequence,
+            caseId: step.caseId,
+            status: step.status,
+            action: step.action,
+          })),
+        )
+        .run();
+    }
     if (result.cases.length > 0) {
-      await tx.insert(runCases).values(
-        result.cases.map((testCase) => ({
-          runId,
-          caseId: testCase.caseId,
-          status: testCase.status,
-        })),
-      );
+      tx.insert(runCases)
+        .values(
+          result.cases.map((testCase) => ({
+            runId,
+            caseId: testCase.caseId,
+            status: testCase.status,
+          })),
+        )
+        .run();
     }
     if (artifactIndex.artifacts.length > 0) {
-      await tx.insert(runArtifacts).values(
-        artifactIndex.artifacts.map((artifact) => ({
-          runId,
-          artifactId: artifact.id,
-          type: artifact.type,
-          path: artifact.path,
-          relatedStep: artifact.relatedStep,
-          relatedCase: artifact.relatedCase,
-        })),
-      );
+      tx.insert(runArtifacts)
+        .values(
+          artifactIndex.artifacts.map((artifact) => ({
+            runId,
+            artifactId: artifact.id,
+            type: artifact.type,
+            path: artifact.path,
+            relatedStep: artifact.relatedStep,
+            relatedCase: artifact.relatedCase,
+          })),
+        )
+        .run();
     }
-    await tx.update(runs).set({ status: result.status }).where(eq(runs.runId, runId));
+    tx.update(runs).set({ status: result.status }).where(eq(runs.runId, runId)).run();
   });
 }
 
@@ -115,22 +139,32 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
     async beginRun(input): Promise<RunWriter> {
       const writer = await RunWriter.begin(input.runId, join(root, 'runs'), {
         async checkpoint(steps): Promise<void> {
-          await db.delete(runSteps).where(eq(runSteps.runId, input.runId));
-          if (steps.length > 0) {
-            await db.insert(runSteps).values(
-              steps.map((step) => ({
-                runId: input.runId,
-                stepId: step.stepId,
-                sequence: step.sequence,
-                caseId: step.caseId,
-                status: step.status,
-                action: step.action,
-              })),
-            );
-          }
+          db.transaction((tx) => {
+            tx.delete(runSteps).where(eq(runSteps.runId, input.runId)).run();
+            if (steps.length > 0) {
+              tx.insert(runSteps)
+                .values(
+                  steps.map((step) => ({
+                    runId: input.runId,
+                    stepId: step.stepId,
+                    sequence: step.sequence,
+                    caseId: step.caseId,
+                    status: step.status,
+                    action: step.action,
+                  })),
+                )
+                .run();
+            }
+          });
         },
         async committed(commit): Promise<void> {
-          await indexCommittedRun(db, input.runId, commit.result, commit.artifactIndex);
+          await indexCommittedRun(
+            db,
+            input.runId,
+            commit.result,
+            commit.artifactIndex,
+            commit.steps,
+          );
         },
       });
       try {
@@ -233,25 +267,34 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
         const runId = entry.name;
         const runDir = join(runsRoot, runId);
         if (!existsSync(join(runDir, 'result.json'))) {
+          RunWriter.recoverStaleLock(runId, runsRoot);
           incomplete.push(runId);
           continue;
         }
+        let bundle: ReturnType<typeof parseValidatedRunBundle>;
         try {
           if (!existsSync(join(runDir, 'summary.md'))) throw new Error('summary.md is missing');
           const rawResult = JSON.parse(readFileSync(join(runDir, 'result.json'), 'utf8'));
-          if (
-            typeof rawResult !== 'object' ||
-            rawResult === null ||
-            (rawResult as { schemaVersion?: unknown }).schemaVersion !== '3.0'
-          ) {
+          const resultRead = readPersistedRunResult(rawResult);
+          if (resultRead.ok && resultRead.kind === 'legacy') {
             legacy.push(runId);
             continue;
           }
-          const bundle = parseValidatedRunBundle({
+          if (!resultRead.ok) throw new Error('result compatibility validation failed');
+          const rawArtifactIndex = JSON.parse(
+            readFileSync(join(runDir, 'artifact-index.json'), 'utf8'),
+          );
+          const artifactRead = readPersistedArtifactIndex(rawArtifactIndex);
+          if (artifactRead.ok && artifactRead.kind === 'legacy') {
+            legacy.push(runId);
+            continue;
+          }
+          if (!artifactRead.ok) throw new Error('artifact-index compatibility validation failed');
+          bundle = parseValidatedRunBundle({
             plan: JSON.parse(readFileSync(join(runDir, 'plan.yaml'), 'utf8')),
             steps: JSON.parse(readFileSync(join(runDir, 'steps.json'), 'utf8')),
             result: rawResult,
-            artifactIndex: JSON.parse(readFileSync(join(runDir, 'artifact-index.json'), 'utf8')),
+            artifactIndex: rawArtifactIndex,
           });
           for (const artifact of bundle.artifactIndex.artifacts) {
             const artifactPath = resolve(runDir, artifact.path);
@@ -270,8 +313,13 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
               throw new Error(`artifact integrity mismatch: ${artifact.id}`);
             }
           }
-          await db
-            .insert(runs)
+        } catch {
+          corrupted.push(runId);
+          await db.update(runs).set({ status: 'corrupted' }).where(eq(runs.runId, runId));
+          continue;
+        }
+        db.transaction((tx) => {
+          tx.insert(runs)
             .values({
               runId,
               projectHash: undefined,
@@ -285,26 +333,53 @@ export function createRunStore(db: DbClient, storeRoot?: string): RunStore {
                 targetKind: bundle.result.execution.targetKind,
                 backend: bundle.result.execution.backendUsed,
               },
-            });
-          await db.delete(runSteps).where(eq(runSteps.runId, runId));
+            })
+            .run();
+          tx.delete(runSteps).where(eq(runSteps.runId, runId)).run();
+          tx.delete(runCases).where(eq(runCases.runId, runId)).run();
+          tx.delete(runArtifacts).where(eq(runArtifacts.runId, runId)).run();
           if (bundle.steps.steps.length > 0) {
-            await db.insert(runSteps).values(
-              bundle.steps.steps.map((step) => ({
-                runId,
-                stepId: step.stepId,
-                sequence: step.sequence,
-                caseId: step.caseId,
-                status: step.status,
-                action: step.action,
-              })),
-            );
+            tx.insert(runSteps)
+              .values(
+                bundle.steps.steps.map((step) => ({
+                  runId,
+                  stepId: step.stepId,
+                  sequence: step.sequence,
+                  caseId: step.caseId,
+                  status: step.status,
+                  action: step.action,
+                })),
+              )
+              .run();
           }
-          await indexCommittedRun(db, runId, bundle.result, bundle.artifactIndex);
-          recovered.push(runId);
-        } catch {
-          corrupted.push(runId);
-          await db.update(runs).set({ status: 'corrupted' }).where(eq(runs.runId, runId));
-        }
+          if (bundle.result.cases.length > 0) {
+            tx.insert(runCases)
+              .values(
+                bundle.result.cases.map((testCase) => ({
+                  runId,
+                  caseId: testCase.caseId,
+                  status: testCase.status,
+                })),
+              )
+              .run();
+          }
+          if (bundle.artifactIndex.artifacts.length > 0) {
+            tx.insert(runArtifacts)
+              .values(
+                bundle.artifactIndex.artifacts.map((artifact) => ({
+                  runId,
+                  artifactId: artifact.id,
+                  type: artifact.type,
+                  path: artifact.path,
+                  relatedStep: artifact.relatedStep,
+                  relatedCase: artifact.relatedCase,
+                })),
+              )
+              .run();
+          }
+          tx.update(runs).set({ status: bundle.result.status }).where(eq(runs.runId, runId)).run();
+        });
+        recovered.push(runId);
       }
       return { recovered, incomplete, corrupted, legacy };
     },

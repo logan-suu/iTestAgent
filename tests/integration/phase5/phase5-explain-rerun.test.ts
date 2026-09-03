@@ -33,7 +33,7 @@ function makeRunResult(
   targetKind: 'physical' | 'simulator' = 'simulator',
 ): RunResult {
   return {
-    schemaVersion: '2.0',
+    schemaVersion: '3.0',
     runId,
     projectProfileRef: 'proj-hash-001',
     status: status as RunResult['status'],
@@ -220,7 +220,7 @@ describe('Phase 5: Explain Pipeline', () => {
       const result = await runStore.loadRunResult('run-fail-001');
       expect(result.runId).toBe('run-fail-001');
       expect(result.status).toBe('failed');
-      expect(result.schemaVersion).toBe('2.0');
+      expect(result.schemaVersion).toBe('3.0');
     });
 
     it('loadRunResult throws for missing run directory', async () => {

@@ -8,6 +8,8 @@
 
 **关联任务**：T6.8
 
+> **2026-09-03 PR review 澄清**：核心 commit-marker 方案保持不变；补充跨进程 writer 所有权、精确双向引用、SQLite 单事务索引、operational failure 分类、canonical/legacy reader 边界、权限上限与大型 bundle 有界内存要求。
+
 ## 背景
 
 T6.8 需要把 `plan.yaml`、canonical `steps.json`、报告三件套和 artifacts 统一写入同一个 run 目录。现有规格已要求同一个 `RunStore/RunWriter` 维护 SQLite 查询索引与文件系统产物，但仍有四个不可直接实现或不可验证的缺口：
@@ -46,7 +48,7 @@ T6.8 需要把 `plan.yaml`、canonical `steps.json`、报告三件套和 artifac
 - `RunStore.beginRun(...)`（名称可在实现计划中细化）为一个 `runId` 创建唯一的 per-run `RunWriter`。
 - 同一 writer 负责该 run 的 SQLite Run/Step/Case/Artifact 查询索引、`plan.yaml`、`steps.json`、报告三件套与 `artifacts/`。
 - backend 可以产生事实和 staging evidence，但不能自行发布最终 `artifact-index.json` 或另建报告根目录。
-- 同一 run 禁止多个 writer 并发提交。
+- 同一 run 禁止多个 writer 并发提交；该约束覆盖同一进程、多个 CLI/TUI 进程及恢复流程，不能只依赖进程内内存状态。writer 必须通过文件系统原子占有机制获得所有权；异常遗留的占有标记只能在确认不存在活动 owner 且进入显式 recovery 后清理，不能静默抢占。
 
 ### 2. `steps.json` 根契约
 
@@ -104,6 +106,7 @@ relatedCase?
 
 - `collected` 必须带 `artifactId`，并解析到同 index 的 artifact。
 - 非 `collected` 不得带 `artifactId`，且必须带稳定的 `reasonCode`。
+- `collected` outcome 的 `type` 必须等于被引用 artifact 的类型；若 outcome 声明 `relatedStep/relatedCase`，必须与 artifact 的对应关联一致。
 - 不要求为系统支持的所有 artifact 类型无边界枚举；只记录本次策略和路径实际评估的证据槽位。
 - 失败、空文件、空 bundle、symlink 或 run 外路径不得伪造成成功 artifact。`xcresult` 与 `trace` 可以是类型匹配的非空目录 bundle；其他 artifact 必须是普通非空文件。
 
@@ -123,35 +126,44 @@ canonical run 目录保持：
 
 写入顺序与可见性规则：
 
-1. 创建权限至少为 `0700` 的 run 根目录和 `artifacts/`。
+1. 创建 owner-only 的 run 根目录和 `artifacts/`：不得赋予 group/other 权限，目录权限不得宽于 `0700`。
 2. 先校验并原子写入 `plan.yaml`。
 3. 每个 checkpoint 后，以同目录临时文件 + rename 原子替换 `steps.json`，并同步 SQLite 查询索引。
-4. artifact 文件以至少 `0600` 写入当前 run 的 `artifacts/`；成功引用只能使用相对 run 根目录的 `artifacts/...` 路径。
+4. artifact 文件以 owner-only 权限写入当前 run 的 `artifacts/`：不得赋予 group/other 权限，raw-local-only 文件权限不得宽于 `0600`；成功引用只能使用相对 run 根目录的 `artifacts/...` 路径。
 5. 终态时先校验并原子写入最终 `steps.json`、`artifact-index.json` 和 `summary.md`。
 6. 最后原子写入 `result.json`；它是完整 run bundle 的 commit marker。
 7. 只有报告三件套、plan、steps 和交叉引用全部校验通过后，SQLite 才把该 run 发布为对应终态。
 
 缺少 `result.json` 的目录是 `incomplete`，不得被 `explain`、`rerun` 或趋势分析当成完整 run。受控的 `cancelled`、`infra_failed` 仍必须生成可校验的报告三件套。进程或主机意外终止留下的 incomplete run 在下次启动时通过 `runId` 幂等协调；不得伪造原执行结果。
 
-SQLite 与文件系统不宣称跨介质原子性。若 `result.json` 已提交而 SQLite 尚未更新，reconciliation 以通过完整 bundle 校验的文件事实恢复查询索引；若 bundle 不完整，则保持 incomplete/infra failure 诊断状态。
+SQLite 与文件系统不宣称跨介质原子性。每个 checkpoint 的 Step 索引替换，以及终态 Run/Step/Case/Artifact 索引发布，必须分别在单个 SQLite transaction 中完成，不得留下半新半旧的查询索引。若 `result.json` 已提交而 SQLite 尚未更新，reconciliation 以通过完整 bundle 校验的文件事实恢复查询索引；若 bundle 不完整，则保持 incomplete/infra failure 诊断状态。文件/契约/完整性校验失败才可标记 `corrupted`；数据库锁、I/O、事务或其他 operational failure 不得篡改文件事实为 corrupted，必须保留可重试状态并向调用方报告或抛出。
 
 ### 7. 独立审计与路径安全
 
 - “run 目录自包含”限定为：脱离全局 SQLite 后，plan、steps、cases、artifacts 和报告之间的引用仍可验证。
 - 不保证缺少项目源码、Profile、App 制品或运行时 SecretRef 时仍可重放。
 - artifact 路径必须相对 run 根目录、位于 `artifacts/` 下，拒绝绝对路径、`..` 穿越、symlink、空文件和空 bundle。
-- `xcresult` 与 `trace` 可以引用类型匹配的非空目录 bundle；其他 artifact 只能引用普通非空文件。bundle 必须递归留在当前 run 内，不得包含 symlink 或路径逃逸，并以确定性的相对路径排序 tree hash 与总字节数记录完整性。
+- `xcresult` 与 `trace` 可以引用类型匹配的非空目录 bundle；其他 artifact 只能引用普通非空文件。bundle 必须递归留在当前 run 内，不得包含 symlink 或路径逃逸，并以确定性的相对路径排序、路径与内容长度分帧的 tree hash 与总字节数记录完整性。普通大文件和 bundle 内容必须分块流式读取，内存占用不得随 artifact 总字节数线性增长。
 - raw-local-only 内容遵循 ADR-032，不得嵌入 summary/result 或进入模型与外部传输。
+
+交叉引用校验采用“声明即双向一致”规则：
+
+- `case.steps[]` 中每个 step 必须以相同 `caseId` 回指该 case；每个带 `caseId` 的 case-level step 也必须由该 case 的 `steps[]` 唯一列出。
+- `step.artifacts[]` / `case.artifacts[]` 中的 artifact 必须分别以相同 `relatedStep` / `relatedCase` 回指；artifact 一旦声明关联，对应 step/case 也必须列出它。
+- artifact 同时声明 `relatedStep` 与 `relatedCase` 时，该 step 的 `caseId` 必须等于 `relatedCase`。
+- run-level artifact 可以不带 step/case，但必须由 `result.artifactRefs[]` 或 collected outcome 引用；不得提交完全不可达的 orphan artifact。
+- FlowReplayPlan 的 `selection.status=selected` 时，`selection.backend` 必须等于 `result.execution.backendUsed`；选择失败时不得伪造 backend，result 使用明确的 unavailable/blocked 语义。
 
 ### 8. Schema 与 migration
 
 - TestPlan canonical writer 保持 `itestagent.test-plan.v3`。
 - FlowReplayPlan canonical writer 从 `itestagent.flow-replay-plan.v1` 开始；它是独立计划类型，不迁移成 TestPlan。
-- RunResult canonical writer 升级到 v3，使 `execution.mode` 必填并加入 run-level `cancelled`、`infra_failed`。
-- ArtifactIndex canonical writer 升级到 v2，加入 `collectionOutcomes[]`。
+- RunResult canonical writer 升级到 v3，使 `execution.mode` 必填并加入 run-level `cancelled`、`infra_failed`；canonical parser 只接受明确的 v3 literal，不把未知版本当作当前版本。
+- ArtifactIndex canonical writer 升级到 v2，加入 `collectionOutcomes[]`；canonical parser 只接受明确的 v2 literal。
 - RunSteps 从 `itestagent.run-steps.v1` 开始；历史 run 没有 `steps.json` 时不得从 result 的 step ID 猜测步骤内容。
 - 所有读取迁移遵循 ADR-022：纯函数、read-only、不原地改写。
-- 旧 result 缺失 `execution.mode`、旧 artifact index 缺失采集结果、或旧 run 缺少 canonical steps 时，兼容 reader 返回 `ParsedLegacy` 与明确 limitation，或返回 typed `MigrationIssue`；不得补造事实后标为 canonical。
+- 旧 result 缺失 `execution.mode`、旧 artifact index 缺失采集结果、或旧 run 缺少 canonical steps 时，兼容 reader 必须先校验已知历史结构，再返回 `ParsedLegacy` 与明确 limitation；未知版本或结构损坏返回 typed `MigrationIssue`。不得只凭版本号接受内容，也不得补造事实后标为 canonical。
+- backend 返回结构无效属于可捕获的 adapter/infra failure；只要进程仍可继续，必须生成真实的 `infra_failed` bundle 和稳定 reason，而不是让报告适配再次抛错并丢失受控终态。
 
 ## 后果
 
@@ -173,12 +185,16 @@ SQLite 与文件系统不宣称跨介质原子性。若 `result.json` 已提交�
 - 测试覆盖正常、failed、cancelled、infra_failed 与中途写入失败。
 - 测试证明 `result.json` 缺失时 run 不会被完整消费者接受。
 - 测试覆盖 SQLite 提交前后中断与幂等 reconciliation。
+- 测试证明 checkpoint 与终态 SQLite 索引在中途异常时完整回滚，且 operational failure 不会把有效 bundle 标成 corrupted。
+- 测试使用两个独立进程竞争同一 runId，证明最多一个 writer 获得所有权，并覆盖异常遗留锁的显式恢复。
 - 测试覆盖 plan/steps/result/index 的 runId、case、step、artifact 双向引用。
+- 测试覆盖 Flow selected backend 与 result backendUsed 一致、outcome/artifact 类型一致及 orphan artifact 拒绝。
 - 测试覆盖 TestPlan v3 与 FlowReplayPlan v1 两种 plan 根；Flow replay 不得伪造 ProjectProfile/TestPlan 字段。
 - 测试覆盖 `projectProfileRef` 条件约束：TestPlan bundle 必填且匹配，FlowReplayPlan bundle 必须省略。
 - 测试覆盖 XCUITest run-level build/parse steps；无可靠 case 级事件时 case `steps` 为空且不合成时间线，有非空 case step 引用时必须解析到同 `caseId` 的真实 RunStep。
 - 测试覆盖证据 `collected/not_requested/not_applicable/unsupported/failed`，且非成功状态不会生成 ArtifactRef。
 - 测试覆盖绝对路径、路径穿越、symlink、普通类型目录、空文件、空 bundle、合法 xcresult/trace bundle、tree hash 与错误权限。
+- 测试覆盖未知 canonical version、损坏 legacy 结构和确定性 bundle hash；代码审计确认 artifact/bundle 内容按块流式读取，不随总字节数整体缓存。
 - 测试证明 raw-local-only 内容未嵌入报告或模型输入。
 - 本任务可用生产 composition + 确定性 transport/fixture 验证持久化；只有真实设备或 Simulator 路径复验后才能扩大 G5/G5-SIM 结论。
 

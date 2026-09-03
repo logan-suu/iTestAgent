@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
-import { FlowReplayPlanSchema, type RunStep } from 'itestagent-contracts';
-import { persistRunBundle } from 'itestagent-engine';
+import { FlowReplayPlanSchema, type RunStep, TestPlanSchema } from 'itestagent-contracts';
+import { persistConfirmedRun, persistRunBundle } from 'itestagent-engine';
 import { RunWriter, createRunStore, createStoreCore, initStore, schema } from 'itestagent-store';
 
 const roots: string[] = [];
@@ -131,6 +131,23 @@ describe('T6.8 production run report persistence', () => {
       .update(schema.runs)
       .set({ status: 'incomplete' })
       .where(eq(schema.runs.runId, runId));
+    core.sqlite.run(`
+      CREATE TRIGGER reject_reconciled_artifact
+      BEFORE INSERT ON run_artifacts
+      BEGIN
+        SELECT RAISE(ABORT, 'injected indexing failure');
+      END
+    `);
+    await expect(store.reconcile()).rejects.toThrow('injected indexing failure');
+    expect((await store.findById(runId))?.status).toBe('incomplete');
+    expect(
+      await core.db.select().from(schema.runSteps).where(eq(schema.runSteps.runId, runId)),
+    ).toHaveLength(0);
+    expect(
+      await core.db.select().from(schema.runArtifacts).where(eq(schema.runArtifacts.runId, runId)),
+    ).toHaveLength(0);
+    core.sqlite.run('DROP TRIGGER reject_reconciled_artifact');
+
     const recovery = await store.reconcile();
     expect(recovery.recovered).toContain(runId);
     expect((await store.findById(runId))?.status).toBe('explored');
@@ -147,16 +164,19 @@ describe('T6.8 production run report persistence', () => {
     const source = join(root, 'empty.log');
     await writeFile(source, '');
     const writer = await RunWriter.begin('empty-artifact', join(root, 'runs'));
-    await expect(
-      writer.importArtifact({
-        id: 'empty',
-        type: 'log',
-        sourcePath: source,
-        redactionStatus: 'raw-local-only',
-      }),
-    ).rejects.toThrow('non-empty');
-    expect(await Bun.file(join(writer.runDir, 'result.json')).exists()).toBe(false);
-    writer.abort();
+    try {
+      await expect(
+        writer.importArtifact({
+          id: 'empty',
+          type: 'log',
+          sourcePath: source,
+          redactionStatus: 'raw-local-only',
+        }),
+      ).rejects.toThrow('non-empty');
+      expect(await Bun.file(join(writer.runDir, 'result.json')).exists()).toBe(false);
+    } finally {
+      writer.abort();
+    }
   });
 
   test('commits controlled failed, cancelled, and infrastructure-failed outcomes', async () => {
@@ -227,5 +247,69 @@ describe('T6.8 production run report persistence', () => {
       const result = JSON.parse(await readFile(join(committed.runDir, 'result.json'), 'utf8'));
       expect(result.status).toBe(status);
     }
+  });
+
+  test('commits a controlled infrastructure failure for a malformed DeviceBackend payload', async () => {
+    const { root, store } = await setup();
+    const runId = 'invalid-device-backend-result';
+    const plan = TestPlanSchema.parse({
+      schemaVersion: 'itestagent.test-plan.v3',
+      runId,
+      projectProfileRef: 'projects/example/project-profile.json',
+      target: { type: 'current_workspace' },
+      device: {
+        kind: 'simulator',
+        simulator: { selector: 'by_udid', udid: 'SIM-1' },
+      },
+      appSource: { strategy: 'auto_from_workspace' },
+      backendPreference: {
+        device: ['appium'],
+        performance: ['raw-xcrun'],
+      },
+      execution: {
+        prefer: 'device_backend',
+        fallback: 'abort',
+        resolvedPath: 'device_backend',
+        selectionReason: 'explicit_preference',
+        features: [],
+        testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
+        assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
+        metrics: [],
+      },
+      artifacts: {
+        collect: [],
+        report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
+      },
+      performance: {
+        baseline: 'local_auto',
+        baselineDomain: 'simulator',
+        thresholdRequired: false,
+      },
+      safety: { defaultMode: 'ask', highRiskActions: [] },
+    });
+
+    const committed = await persistConfirmedRun({
+      store,
+      plan,
+      device: {
+        udid: 'SIM-1',
+        platform: 'ios',
+        name: 'Simulator',
+        model: 'iPhone17,1',
+        osVersion: '18.2',
+        targetKind: 'simulator',
+      },
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        result: { runDir: root },
+        fallbackHistory: [],
+      },
+      resultBundlePath: join(root, 'missing.xcresult'),
+    });
+
+    const result = JSON.parse(await readFile(join(committed.runDir, 'result.json'), 'utf8'));
+    expect(result.status).toBe('infra_failed');
+    expect(result.explanation.summary).toContain('device_backend.invalid_result');
   });
 });

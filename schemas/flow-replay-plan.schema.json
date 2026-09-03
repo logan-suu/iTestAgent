@@ -33,6 +33,16 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["status", "reasonCode"],
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "selected" } }, "required": ["status"] },
+          "then": { "required": ["backend"] }
+        },
+        {
+          "if": { "properties": { "status": { "const": "failed" } }, "required": ["status"] },
+          "then": { "not": { "required": ["backend"] } }
+        }
+      ],
       "properties": {
         "status": { "enum": ["selected", "failed"] },
         "backend": { "type": "string", "minLength": 1 },

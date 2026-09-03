@@ -7,7 +7,7 @@ export const RunStepsDocumentSchema = z
   .object({
     schemaVersion: z.literal(RUN_STEPS_SCHEMA_VERSION),
     runId: z.string().min(1),
-    steps: z.array(RunStepSchema),
+    steps: z.array(RunStepSchema.strict()),
   })
   .strict()
   .superRefine((document, ctx) => {

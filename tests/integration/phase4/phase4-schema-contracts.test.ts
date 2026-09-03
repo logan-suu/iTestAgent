@@ -214,7 +214,7 @@ describe('Phase 4 Schema Contracts', () => {
   describe('RunResultSchema', () => {
     it('accepts valid failed run result', () => {
       const result = RunResultSchema.safeParse({
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-001',
         status: 'failed',
         projectProfileRef: 'projects/abc/profile.json',
@@ -226,6 +226,7 @@ describe('Phase 4 Schema Contracts', () => {
           targetKind: 'physical',
         },
         execution: {
+          mode: 'device_backend',
           totalSteps: 5,
           completedSteps: 2,
           failedSteps: 3,
@@ -257,7 +258,7 @@ describe('Phase 4 Schema Contracts', () => {
 
     it('accepts valid simulator run result', () => {
       const result = RunResultSchema.safeParse({
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-sim-001',
         status: 'passed',
         projectProfileRef: 'projects/abc/profile.json',
@@ -270,6 +271,7 @@ describe('Phase 4 Schema Contracts', () => {
           runtimeIdentifier: 'com.apple.CoreSimulator.SimRuntime.iOS-18-2',
         },
         execution: {
+          mode: 'xcuitest',
           totalSteps: 0,
           completedSteps: 0,
           failedSteps: 0,
@@ -297,12 +299,13 @@ describe('Phase 4 Schema Contracts', () => {
 
     it('rejects invalid run status', () => {
       const result = RunResultSchema.safeParse({
-        schemaVersion: '2.0',
+        schemaVersion: '3.0',
         runId: 'run-001',
         status: 'not-a-real-status',
         projectProfileRef: 'x',
         device: { udid: 'x', name: 'x', model: 'x', osVersion: 'x', targetKind: 'physical' },
         execution: {
+          mode: 'device_backend',
           totalSteps: 0,
           completedSteps: 0,
           failedSteps: 0,
@@ -330,7 +333,7 @@ describe('Phase 4 Schema Contracts', () => {
   describe('ArtifactIndexSchema', () => {
     it('accepts valid artifact index', () => {
       const result = ArtifactIndexSchema.safeParse({
-        schemaVersion: '1.0',
+        schemaVersion: '2.0',
         runId: 'run-001',
         artifacts: [
           {
@@ -351,15 +354,17 @@ describe('Phase 4 Schema Contracts', () => {
             backend: 'appium',
           },
         ],
+        collectionOutcomes: [],
       });
       expect(result.success).toBe(true);
     });
 
     it('accepts empty artifact list', () => {
       const result = ArtifactIndexSchema.safeParse({
-        schemaVersion: '1.0',
+        schemaVersion: '2.0',
         runId: 'run-empty',
         artifacts: [],
+        collectionOutcomes: [],
       });
       expect(result.success).toBe(true);
     });
@@ -387,7 +392,7 @@ describe('Phase 4 Schema Contracts', () => {
 
   it('RunResult survives JSON round-trip', () => {
     const runResult = {
-      schemaVersion: '2.0',
+      schemaVersion: '3.0',
       runId: 'run-roundtrip',
       status: 'explored' as const,
       projectProfileRef: 'projects/abc/profile.json',
@@ -399,6 +404,7 @@ describe('Phase 4 Schema Contracts', () => {
         targetKind: 'physical' as const,
       },
       execution: {
+        mode: 'device_backend' as const,
         totalSteps: 1,
         completedSteps: 0,
         failedSteps: 0,

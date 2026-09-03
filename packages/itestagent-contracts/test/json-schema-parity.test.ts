@@ -497,9 +497,7 @@ test('published artifact-index properties match ArtifactIndexSchema.shape exactl
   const publishedRequired = Array.isArray(published.required)
     ? (published.required as string[])
     : [];
-  expect([...publishedRequired].sort()).toEqual(
-    [...requiredKeysOf(ArtifactIndexSchema.shape), 'collectionOutcomes'].sort(),
-  );
+  expect([...publishedRequired].sort()).toEqual(requiredKeysOf(ArtifactIndexSchema.shape).sort());
 });
 
 test('published artifact entries match the runtime entry shape exactly', () => {

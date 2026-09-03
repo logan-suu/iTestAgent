@@ -266,12 +266,27 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
         message: 'deviceId does not match FlowReplayPlan target',
       });
     }
+    if (
+      plan.selection.status === 'selected' &&
+      result.execution.backendUsed !== plan.selection.backend
+    ) {
+      issues.push({
+        path: 'result.execution.backendUsed',
+        message: 'backendUsed does not match the selected FlowReplayPlan backend',
+      });
+    }
+    if (plan.selection.status === 'failed' && result.execution.backendUsed !== 'unavailable') {
+      issues.push({
+        path: 'result.execution.backendUsed',
+        message: 'failed FlowReplayPlan selection must use unavailable backend semantics',
+      });
+    }
   }
 
   const stepById = new Map(steps.steps.map((step) => [step.stepId, step]));
-  const caseIds = new Set(result.cases.map((testCase) => testCase.caseId));
-  const artifactIds = new Set(artifactIndex.artifacts.map((artifact) => artifact.id));
-
+  const caseById = new Map(result.cases.map((testCase) => [testCase.caseId, testCase]));
+  const caseIds = new Set(caseById.keys());
+  const artifactById = new Map(artifactIndex.artifacts.map((artifact) => [artifact.id, artifact]));
   for (const testCase of result.cases) {
     for (const stepId of testCase.steps) {
       const step = stepById.get(stepId);
@@ -288,10 +303,16 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
       }
     }
     for (const artifactId of testCase.artifacts) {
-      if (!artifactIds.has(artifactId)) {
+      const artifact = artifactById.get(artifactId);
+      if (!artifact) {
         issues.push({
           path: `result.cases[${testCase.caseId}].artifacts`,
           message: `unresolved artifactId "${artifactId}"`,
+        });
+      } else if (artifact.relatedCase !== testCase.caseId) {
+        issues.push({
+          path: `result.cases[${testCase.caseId}].artifacts`,
+          message: `artifactId "${artifactId}" does not refer back to case "${testCase.caseId}"`,
         });
       }
     }
@@ -303,12 +324,23 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
         path: `steps[${step.stepId}].caseId`,
         message: `unresolved caseId "${step.caseId}"`,
       });
+    } else if (step.caseId && !caseById.get(step.caseId)?.steps.includes(step.stepId)) {
+      issues.push({
+        path: `steps[${step.stepId}].caseId`,
+        message: `case "${step.caseId}" does not refer back to step "${step.stepId}"`,
+      });
     }
     for (const artifactId of step.artifacts) {
-      if (!artifactIds.has(artifactId)) {
+      const artifact = artifactById.get(artifactId);
+      if (!artifact) {
         issues.push({
           path: `steps[${step.stepId}].artifacts`,
           message: `unresolved artifactId "${artifactId}"`,
+        });
+      } else if (artifact.relatedStep !== step.stepId) {
+        issues.push({
+          path: `steps[${step.stepId}].artifacts`,
+          message: `artifactId "${artifactId}" does not refer back to step "${step.stepId}"`,
         });
       }
     }
@@ -320,21 +352,68 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
         path: `artifacts[${artifact.id}].relatedStep`,
         message: `unresolved stepId "${artifact.relatedStep}"`,
       });
+    } else if (
+      artifact.relatedStep &&
+      !stepById.get(artifact.relatedStep)?.artifacts.includes(artifact.id)
+    ) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedStep`,
+        message: `step "${artifact.relatedStep}" does not refer back to artifact "${artifact.id}"`,
+      });
     }
     if (artifact.relatedCase && !caseIds.has(artifact.relatedCase)) {
       issues.push({
         path: `artifacts[${artifact.id}].relatedCase`,
         message: `unresolved caseId "${artifact.relatedCase}"`,
       });
+    } else if (
+      artifact.relatedCase &&
+      !caseById.get(artifact.relatedCase)?.artifacts.includes(artifact.id)
+    ) {
+      issues.push({
+        path: `artifacts[${artifact.id}].relatedCase`,
+        message: `case "${artifact.relatedCase}" does not refer back to artifact "${artifact.id}"`,
+      });
+    }
+    if (artifact.relatedStep && artifact.relatedCase) {
+      const owner = stepById.get(artifact.relatedStep);
+      if (owner && owner.caseId !== artifact.relatedCase) {
+        issues.push({
+          path: `artifacts[${artifact.id}]`,
+          message: `related step belongs to case "${String(owner.caseId)}", not "${artifact.relatedCase}"`,
+        });
+      }
     }
   }
 
-  for (const outcome of artifactIndex.collectionOutcomes ?? []) {
-    if (outcome.artifactId && !artifactIds.has(outcome.artifactId)) {
-      issues.push({
-        path: 'collectionOutcomes.artifactId',
-        message: `unresolved artifactId "${outcome.artifactId}"`,
-      });
+  for (const outcome of artifactIndex.collectionOutcomes) {
+    if (outcome.artifactId) {
+      const artifact = artifactById.get(outcome.artifactId);
+      if (!artifact) {
+        issues.push({
+          path: 'collectionOutcomes.artifactId',
+          message: `unresolved artifactId "${outcome.artifactId}"`,
+        });
+      } else {
+        if (artifact.type !== outcome.type) {
+          issues.push({
+            path: 'collectionOutcomes.type',
+            message: `outcome type "${outcome.type}" does not match artifact type "${artifact.type}"`,
+          });
+        }
+        if (outcome.relatedStep && artifact.relatedStep !== outcome.relatedStep) {
+          issues.push({
+            path: 'collectionOutcomes.relatedStep',
+            message: `outcome step "${outcome.relatedStep}" does not match its artifact`,
+          });
+        }
+        if (outcome.relatedCase && artifact.relatedCase !== outcome.relatedCase) {
+          issues.push({
+            path: 'collectionOutcomes.relatedCase',
+            message: `outcome case "${outcome.relatedCase}" does not match its artifact`,
+          });
+        }
+      }
     }
     if (outcome.relatedStep && !stepById.has(outcome.relatedStep)) {
       issues.push({
@@ -346,6 +425,23 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
       issues.push({
         path: 'collectionOutcomes.relatedCase',
         message: `unresolved caseId "${outcome.relatedCase}"`,
+      });
+    }
+  }
+
+  const reachableArtifactIds = new Set([
+    ...result.artifactRefs,
+    ...result.cases.flatMap((testCase) => testCase.artifacts),
+    ...steps.steps.flatMap((step) => step.artifacts),
+    ...artifactIndex.collectionOutcomes.flatMap((outcome) =>
+      outcome.artifactId ? [outcome.artifactId] : [],
+    ),
+  ]);
+  for (const artifact of artifactIndex.artifacts) {
+    if (!reachableArtifactIds.has(artifact.id)) {
+      issues.push({
+        path: `artifacts[${artifact.id}]`,
+        message: `artifact "${artifact.id}" is unreachable from result, case, step, or outcome`,
       });
     }
   }

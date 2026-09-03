@@ -1118,6 +1118,7 @@ export function createProgram(): Command {
               startedAt: step.startedAt as string,
               durationMs: step.durationMs,
             }));
+          const persistedStepIds = new Set(actualSteps.map((step) => step.stepId));
           const artifactMap = new Map(
             (replayResult?.steps ?? [])
               .flatMap((step) => step.evidence)
@@ -1142,7 +1143,7 @@ export function createProgram(): Command {
                       reasonCode: `flow_replay.${outcome.status}`,
                       message: outcome.error,
                       artifactId: outcome.artifact?.id,
-                      relatedStep: step.status === 'skipped' ? undefined : step.stepId,
+                      relatedStep: persistedStepIds.has(step.stepId) ? step.stepId : undefined,
                       relatedCase: step.caseId,
                     },
                   ],

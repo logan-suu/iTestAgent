@@ -2,13 +2,14 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   ArtifactIndexSchema,
   FlowReplayPlanSchema,
   RunResultSchema,
   type RunStep,
 } from 'itestagent-contracts';
-import { RunWriter } from '../src/run-writer.js';
+import { RunWriter, measureRunArtifactPath } from '../src/run-writer.js';
 
 const roots: string[] = [];
 
@@ -125,6 +126,17 @@ describe('RunWriter', () => {
     ).toBe('3.0');
     expect((await stat(writer.runDir)).mode & 0o777).toBe(0o700);
     expect((await stat(join(writer.runDir, artifact.path))).mode & 0o777).toBe(0o600);
+    for (const file of [
+      'plan.yaml',
+      'steps.json',
+      'artifact-index.json',
+      'summary.md',
+      'result.json',
+    ]) {
+      expect((await stat(join(writer.runDir, file))).mode & 0o777).toBe(0o600);
+    }
+    await expect(RunWriter.begin(runId, runsRoot)).rejects.toThrow('already committed');
+    expect(await Bun.file(join(writer.runDir, '.writer.lock')).exists()).toBe(false);
   });
 
   test('rejects a second active writer and does not publish result on validation failure', async () => {
@@ -177,6 +189,46 @@ describe('RunWriter', () => {
     ).rejects.toThrow();
     expect(await Bun.file(join(writer.runDir, 'result.json')).exists()).toBe(false);
     writer.abort();
+  });
+
+  test('rejects a writer in another process and recovers its stale lock after exit', async () => {
+    const { runsRoot } = await fixture();
+    const runId = 'cross-process-writer';
+    const writerModule = pathToFileURL(join(import.meta.dir, '../src/run-writer.ts')).href;
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        '-e',
+        `const { RunWriter } = await import(process.env.ITEST_WRITER_MODULE);
+         const writer = await RunWriter.begin('cross-process-writer', process.env.ITEST_RUNS_ROOT);
+         console.log('READY');
+         await Bun.sleep(60_000);
+         writer.abort();`,
+      ],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          ITEST_RUNS_ROOT: runsRoot,
+          ITEST_WRITER_MODULE: writerModule,
+        },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
+    );
+    try {
+      const reader = child.stdout.getReader();
+      const first = await reader.read();
+      expect(new TextDecoder().decode(first.value)).toContain('READY');
+      reader.releaseLock();
+      await expect(RunWriter.begin(runId, runsRoot)).rejects.toThrow('active writer');
+    } finally {
+      child.kill();
+      await child.exited;
+    }
+    expect(RunWriter.recoverStaleLock(runId, runsRoot)).toBe(true);
+    const recovered = await RunWriter.begin(runId, runsRoot);
+    recovered.abort();
   });
 
   test('rejects a symlinked artifact destination chain', async () => {
@@ -259,5 +311,21 @@ describe('RunWriter', () => {
       }),
     ).rejects.toThrow('only xcresult and trace');
     writer.abort();
+  });
+
+  test('hashes directory artifacts deterministically regardless of creation order', async () => {
+    const { root } = await fixture();
+    const first = join(root, 'First.trace');
+    const second = join(root, 'Second.trace');
+    await mkdir(first);
+    await mkdir(second);
+    await writeFile(join(first, 'b.bin'), 'second');
+    await writeFile(join(first, 'a.bin'), 'first');
+    await writeFile(join(second, 'a.bin'), 'first');
+    await writeFile(join(second, 'b.bin'), 'second');
+
+    const firstMeasurement = await measureRunArtifactPath(first, 'trace');
+    const secondMeasurement = await measureRunArtifactPath(second, 'trace');
+    expect(firstMeasurement).toEqual(secondMeasurement);
   });
 });

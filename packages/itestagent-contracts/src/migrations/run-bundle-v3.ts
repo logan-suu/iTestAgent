@@ -8,6 +8,30 @@ function recordOf(raw: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+function validateLegacyResultShape(
+  value: Record<string, unknown>,
+): { success: true } | { success: false; message: string } {
+  const execution = recordOf(value.execution);
+  if (!execution) return { success: false, message: 'legacy result.execution must be an object' };
+  const parsed = RunResultSchema.safeParse({
+    ...value,
+    schemaVersion: '3.0',
+    execution: { ...execution, mode: 'device_backend' },
+  });
+  return parsed.success ? { success: true } : { success: false, message: parsed.error.message };
+}
+
+function validateLegacyArtifactIndexShape(
+  value: Record<string, unknown>,
+): { success: true } | { success: false; message: string } {
+  const parsed = ArtifactIndexSchema.safeParse({
+    ...value,
+    schemaVersion: '2.0',
+    collectionOutcomes: [],
+  });
+  return parsed.success ? { success: true } : { success: false, message: parsed.error.message };
+}
+
 export function readPersistedRunResult(raw: unknown): CompatibilityReadResult<RunResult> {
   const record = recordOf(raw);
   if (!record) {
@@ -29,6 +53,14 @@ export function readPersistedRunResult(raw: unknown): CompatibilityReadResult<Ru
   }
   if (record.schemaVersion === '1.0' || record.schemaVersion === '2.0') {
     const value = record.schemaVersion === '1.0' ? migrateV1ToV2(record) : structuredClone(record);
+    const validation = validateLegacyResultShape(value);
+    if (!validation.success) {
+      return {
+        ok: false,
+        kind: 'issue',
+        issues: [{ code: 'invalid_legacy_result', message: validation.message }],
+      };
+    }
     return {
       ok: true,
       kind: 'legacy',
@@ -65,6 +97,14 @@ export function readPersistedArtifactIndex(raw: unknown): CompatibilityReadResul
         };
   }
   if (record.schemaVersion === '1.0') {
+    const validation = validateLegacyArtifactIndexShape(record);
+    if (!validation.success) {
+      return {
+        ok: false,
+        kind: 'issue',
+        issues: [{ code: 'invalid_legacy_artifact_index', message: validation.message }],
+      };
+    }
     return {
       ok: true,
       kind: 'legacy',

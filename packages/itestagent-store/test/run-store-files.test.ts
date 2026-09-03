@@ -58,7 +58,7 @@ describe('RunStore filesystem layout (B07)', () => {
         ? { representativeOfPhysicalDevice: false, comparisonScope: 'simulator_only' as const }
         : { representativeOfPhysicalDevice: true, comparisonScope: 'physical_only' as const };
     return {
-      schemaVersion: '2.0',
+      schemaVersion: '3.0',
       runId,
       status,
       projectProfileRef: '~/.itestagent/projects/abc/project-profile.json',
@@ -70,6 +70,7 @@ describe('RunStore filesystem layout (B07)', () => {
         targetKind,
       },
       execution: {
+        mode: 'device_backend',
         totalSteps: 3,
         completedSteps: status === 'passed' ? 3 : 2,
         failedSteps: status === 'passed' ? 0 : 1,
@@ -106,7 +107,7 @@ describe('RunStore filesystem layout (B07)', () => {
     const runDir = join(testRoot, 'runs', 'run_rt2');
     mkdirSync(join(runDir, 'artifacts'), { recursive: true });
     const index = {
-      schemaVersion: '1.0',
+      schemaVersion: '2.0',
       runId: 'run_rt2',
       artifacts: [
         {
@@ -114,6 +115,14 @@ describe('RunStore filesystem layout (B07)', () => {
           type: 'screenshot',
           path: 'artifacts/art-1.png',
           redactionStatus: 'raw-local-only',
+        },
+      ],
+      collectionOutcomes: [
+        {
+          type: 'screenshot',
+          status: 'collected',
+          reasonCode: 'collected',
+          artifactId: 'art-1',
         },
       ],
     };

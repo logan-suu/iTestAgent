@@ -9,6 +9,11 @@ import type {
   TestCaseResult,
   TestPlan,
 } from 'itestagent-contracts';
+import {
+  ArtifactRefSchema,
+  AssertionEvaluateOutputSchema,
+  RunStepsDocumentSchema,
+} from 'itestagent-contracts';
 import type { RunStore } from 'itestagent-store';
 import {
   createDefaultRunStore,
@@ -38,11 +43,22 @@ export async function persistConfirmedRunToDefaultStore(
 }
 
 function isRealDeviceResult(value: unknown): value is RealDeviceRunResult {
+  if (typeof value !== 'object' || value === null) return false;
+  const result = value as Record<string, unknown>;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    Array.isArray((value as { steps?: unknown }).steps) &&
-    typeof (value as { assertion?: { status?: unknown } }).assertion?.status === 'string'
+    typeof result.runDir === 'string' &&
+    result.runDir.length > 0 &&
+    RunStepsDocumentSchema.safeParse({
+      schemaVersion: 'itestagent.run-steps.v1',
+      runId: 'device-result-validation',
+      steps: result.steps,
+    }).success &&
+    AssertionEvaluateOutputSchema.safeParse(result.assertion).success &&
+    ArtifactRefSchema.array().safeParse(result.artifacts).success &&
+    (result.artifactIndexPath === null || typeof result.artifactIndexPath === 'string') &&
+    typeof result.artifactCount === 'number' &&
+    Number.isInteger(result.artifactCount) &&
+    result.artifactCount >= 0
   );
 }
 
@@ -66,6 +82,11 @@ export async function persistConfirmedRun(
   let endedAt = now;
   let backendUsed = dispatch.path === 'xcuitest' ? 'xcodebuild' : 'device_backend';
   let metrics = {};
+  const invalidDeviceResult =
+    dispatch.status !== 'blocked' &&
+    dispatch.path === 'device_backend' &&
+    dispatch.result !== undefined &&
+    !isRealDeviceResult(dispatch.result);
 
   if (dispatch.status !== 'blocked' && dispatch.path === 'xcuitest' && dispatch.result) {
     const result = dispatch.result;
@@ -164,6 +185,9 @@ export async function persistConfirmedRun(
     cases = caseIds.map((caseId) => {
       const caseSteps = steps.filter((step) => step.caseId === caseId);
       const assertion = result.assertion.cases.find((testCase) => testCase.caseId === caseId);
+      const caseArtifacts = artifacts
+        .filter((artifact) => artifact.relatedCase === caseId)
+        .map((artifact) => artifact.id);
       return {
         caseId,
         name: caseId,
@@ -172,7 +196,7 @@ export async function persistConfirmedRun(
           (caseSteps.some((step) => step.status === 'failed') ? 'failed' : 'explored'),
         steps: caseSteps.map((step) => step.stepId),
         durationMs: caseSteps.reduce((sum, step) => sum + step.durationMs, 0),
-        artifacts: [...new Set(caseSteps.flatMap((step) => step.artifacts))],
+        artifacts: [...new Set([...caseSteps.flatMap((step) => step.artifacts), ...caseArtifacts])],
       };
     });
     outcomes = artifacts.map((artifact) => ({
@@ -254,7 +278,11 @@ export async function persistConfirmedRun(
         ? {
             explanation: {
               explanationType: 'env_issue' as const,
-              summary: dispatch.error ?? 'Execution did not produce an assertion result.',
+              summary:
+                dispatch.error ??
+                (invalidDeviceResult
+                  ? 'device_backend.invalid_result: backend returned an invalid result payload.'
+                  : 'Execution did not produce an assertion result.'),
               evidence: [],
               confidence: 'high' as const,
             },

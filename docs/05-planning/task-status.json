@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-09-03T02:43:40Z",
+  "last_updated": "2026-09-03T03:40:26Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1290,7 +1290,7 @@
           "title": "单一 RunStore 与报告贯通：plan、run steps、三件套和 artifacts 同 run 落盘",
           "story": "US-13.1, US-15.1, US-19.1",
           "status": "in_progress",
-          "last_updated": "2026-09-03T02:43:40Z",
+          "last_updated": "2026-09-03T03:40:26Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/数据流全链路技术说明文档.md",
@@ -1307,7 +1307,7 @@
             "6.6"
           ],
           "test_file": "tests/integration/phase6/phase6-run-report-persistence.test.ts",
-          "notes": "依赖 T6.6 先锁定 case/step/evidence 语义。生产执行由单一 per-run RunWriter 写入 ~/.itestagent/runs/<run_id>/，生成 plan.yaml、steps.json、summary.md、result.json、artifact-index.json、artifacts/；报告三件套保持不变；禁止只在 /tmp 生成孤立 artifact-index。2026-09-02 人类确认规格评审修订：ADR-034 新增 result.json commit marker、Run/Case 状态分离、evidence collection outcomes、路径/权限约束与 legacy limitation；SQLite/文件系统不宣称跨介质原子性。Persisted schema 变更与迁移遵循 ADR-022/031/034。2026-09-02 人类确认启动 T6.8；任务转为 in_progress，实施计划仍须按 R8 单独确认。同日补充确认：xcresult/trace 允许使用类型匹配的非空 bundle 目录，须禁止 symlink/路径逃逸并记录确定性 tree hash/总字节数；其他 artifact 仍限普通非空文件；plan.yaml 以 schemaVersion 判别 TestPlan v3 与 FlowReplayPlan v1，Flow 重放不得伪造 ProjectProfile/TestPlan；XCUITest 只记录真实 run-level build/parse steps，无逐 case 权威事件时 case steps 允许为空且不得合成时间线；RunResult v3 的 projectProfileRef 对 TestPlan bundle 必填匹配，对 FlowReplayPlan bundle 必须省略。2026-09-03 实现完成并保持 in_progress 等待后续 commit/PR：统一 RunWriter 已接入 CLI explore、production Flow replay 与 TUI confirmed TestPlan（XCUITest/DeviceBackend）；result.json 最后原子提交，SQLite 可由已提交 bundle 幂等恢复；artifact 文件/xcresult/trace bundle 执行路径、symlink、非空、权限与 hash 校验；RunResult v3、ArtifactIndex v2、RunSteps v1、FlowReplayPlan v1 及兼容读取已落地；XCUITest 仅记录真实 build/parse facts，Flow 仅持久化实际尝试步骤。新增 phase6-run-report-persistence 集成测试覆盖正常/failed/cancelled/infra_failed、目录型证据、commit marker 与 SQLite recovery。commit 前自审进一步将 CLI/backend 证据限定到各自 staging root，补齐父目录 symlink/realpath containment 校验，并将已失效的 xcresult 临时附件记为 failed outcome 而非虚报 collected。typecheck、lint、build、G1、G4b、G7 与 T6.8 定向回归通过；授权环境完整 bun test 通过（3547 passed、13 skipped、0 failed）。PR：https://github.com/logan-suu/iTestAgent/pull/77；摘要：规格评审修订、canonical run bundle 单 writer 提交协议、生产入口贯通、SQLite reconciliation、版本化契约及证据路径安全。"
+          "notes": "依赖 T6.6 先锁定 case/step/evidence 语义。生产执行由单一 per-run RunWriter 写入 ~/.itestagent/runs/<run_id>/，生成 plan.yaml、steps.json、summary.md、result.json、artifact-index.json、artifacts/；报告三件套保持不变；禁止只在 /tmp 生成孤立 artifact-index。2026-09-02 人类确认规格评审修订：ADR-034 新增 result.json commit marker、Run/Case 状态分离、evidence collection outcomes、路径/权限约束与 legacy limitation；SQLite/文件系统不宣称跨介质原子性。Persisted schema 变更与迁移遵循 ADR-022/031/034。2026-09-02 人类确认启动 T6.8；任务转为 in_progress，实施计划仍须按 R8 单独确认。同日补充确认：xcresult/trace 允许使用类型匹配的非空 bundle 目录，须禁止 symlink/路径逃逸并记录确定性 tree hash/总字节数；其他 artifact 仍限普通非空文件；plan.yaml 以 schemaVersion 判别 TestPlan v3 与 FlowReplayPlan v1，Flow 重放不得伪造 ProjectProfile/TestPlan；XCUITest 只记录真实 run-level build/parse steps，无逐 case 权威事件时 case steps 允许为空且不得合成时间线；RunResult v3 的 projectProfileRef 对 TestPlan bundle 必填匹配，对 FlowReplayPlan bundle 必须省略。2026-09-03 实现完成并保持 in_progress 等待后续 commit/PR：统一 RunWriter 已接入 CLI explore、production Flow replay 与 TUI confirmed TestPlan（XCUITest/DeviceBackend）；result.json 最后原子提交，SQLite 可由已提交 bundle 幂等恢复；artifact 文件/xcresult/trace bundle 执行路径、symlink、非空、权限与 hash 校验；RunResult v3、ArtifactIndex v2、RunSteps v1、FlowReplayPlan v1 及兼容读取已落地；XCUITest 仅记录真实 build/parse facts，Flow 仅持久化实际尝试步骤。新增 phase6-run-report-persistence 集成测试覆盖正常/failed/cancelled/infra_failed、目录型证据、commit marker 与 SQLite recovery。commit 前自审进一步将 CLI/backend 证据限定到各自 staging root，补齐父目录 symlink/realpath containment 校验，并将已失效的 xcresult 临时附件记为 failed outcome 而非虚报 collected。typecheck、lint、build、G1、G4b、G7 与 T6.8 定向回归通过；授权环境完整 bun test 通过（3547 passed、13 skipped、0 failed）。PR：https://github.com/logan-suu/iTestAgent/pull/77；摘要：规格评审修订、canonical run bundle 单 writer 提交协议、生产入口贯通、SQLite reconciliation、版本化契约及证据路径安全。2026-09-03 PR 复审先修订规格与 ADR-034，明确 canonical/legacy 版本门禁、跨进程单 writer、SQLite 事务恢复、双向引用、证据 outcome 类型、流式 hash 与精确权限；随后修复全部经代码验证的问题，包括畸形 backend payload 受控失败、Flow backend 一致性、迁移误吞错误、跨进程锁与 stale-lock 恢复、事务化索引及危险的真实 ~/.itestagent 测试清理。无新增延期项；授权环境完整 bun test 通过（3557 passed、13 skipped、0 failed），typecheck、lint 与定向回归通过。"
         },
         {
           "id": "6.9",

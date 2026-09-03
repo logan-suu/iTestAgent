@@ -56,7 +56,7 @@ function result(projectProfileRef?: string, mode: 'xcuitest' | 'device_backend' 
       startTime: '2026-09-03T00:00:00.000Z',
       endTime: '2026-09-03T00:00:00.100Z',
       targetKind: 'simulator',
-      backendUsed: 'xcodebuild',
+      backendUsed: mode === 'device_backend' ? 'appium' : 'xcodebuild',
       deviceId: 'SIM-1',
     },
     cases: [
@@ -90,6 +90,7 @@ function index() {
         path: 'artifacts/Test.xcresult',
         sizeBytes: 10,
         sha256: 'a'.repeat(64),
+        relatedStep: 'step-1',
         redactionStatus: 'raw-local-only',
       },
     ],
@@ -126,6 +127,17 @@ function flowPlan() {
 }
 
 describe('T6.8 canonical run bundle contracts', () => {
+  test('rejects unknown canonical versions and unknown nested RunStep fields', () => {
+    expect(RunResultSchema.safeParse({ ...result(), schemaVersion: '4.0' }).success).toBe(false);
+    expect(ArtifactIndexSchema.safeParse({ ...index(), schemaVersion: '3.0' }).success).toBe(false);
+    expect(() =>
+      RunStepsDocumentSchema.parse({
+        ...steps(),
+        steps: [{ ...steps().steps[0], unexpected: true }],
+      }),
+    ).toThrow();
+  });
+
   test('accepts a TestPlan bundle with a matching ProjectProfile reference and empty xcresult case steps', () => {
     const base = makeValidTestPlan();
     const plan = makeValidTestPlan({
@@ -200,5 +212,78 @@ describe('T6.8 canonical run bundle contracts', () => {
         ],
       }),
     ).toThrow();
+  });
+
+  test('binds Flow backend selection to the reported backend', () => {
+    const mismatched = structuredClone(result(undefined, 'device_backend'));
+    mismatched.execution.backendUsed = 'mobile-mcp';
+    const issues = validateRunBundleDocuments({
+      plan: flowPlan(),
+      steps: steps(),
+      result: mismatched,
+      artifactIndex: index(),
+    });
+    expect(issues.some((issue) => issue.path === 'result.execution.backendUsed')).toBe(true);
+  });
+
+  test('requires reciprocal step and artifact ownership references', () => {
+    const missingStepReference = structuredClone(steps());
+    const firstStep = missingStepReference.steps[0];
+    if (!firstStep) throw new Error('fixture must contain one step');
+    firstStep.artifacts = [];
+    const forwardIssues = validateRunBundleDocuments({
+      plan: flowPlan(),
+      steps: missingStepReference,
+      result: result(undefined, 'device_backend'),
+      artifactIndex: index(),
+    });
+    expect(forwardIssues.some((issue) => issue.path === 'artifacts[xcresult-1].relatedStep')).toBe(
+      true,
+    );
+
+    const missingArtifactReference = structuredClone(index());
+    const firstArtifact = missingArtifactReference.artifacts[0];
+    if (!firstArtifact) throw new Error('fixture must contain one artifact');
+    firstArtifact.relatedStep = undefined;
+    const reverseIssues = validateRunBundleDocuments({
+      plan: flowPlan(),
+      steps: steps(),
+      result: result(undefined, 'device_backend'),
+      artifactIndex: missingArtifactReference,
+    });
+    expect(reverseIssues.some((issue) => issue.path === 'steps[step-1].artifacts')).toBe(true);
+  });
+
+  test('rejects mismatched evidence types and orphaned artifacts', () => {
+    const mismatchedOutcome = structuredClone(index());
+    const firstOutcome = mismatchedOutcome.collectionOutcomes[0];
+    if (!firstOutcome) throw new Error('fixture must contain one outcome');
+    firstOutcome.type = 'trace';
+    expect(
+      validateRunBundleDocuments({
+        plan: flowPlan(),
+        steps: steps(),
+        result: result(undefined, 'device_backend'),
+        artifactIndex: mismatchedOutcome,
+      }).some((issue) => issue.path === 'collectionOutcomes.type'),
+    ).toBe(true);
+
+    const orphaned = structuredClone(index());
+    orphaned.artifacts.push({
+      id: 'orphan-log',
+      type: 'log',
+      path: 'artifacts/orphan.log',
+      sizeBytes: 1,
+      sha256: 'c'.repeat(64),
+      redactionStatus: 'safe',
+    });
+    expect(
+      validateRunBundleDocuments({
+        plan: flowPlan(),
+        steps: steps(),
+        result: result(undefined, 'device_backend'),
+        artifactIndex: orphaned,
+      }).some((issue) => issue.path === 'artifacts[orphan-log]'),
+    ).toBe(true);
   });
 });

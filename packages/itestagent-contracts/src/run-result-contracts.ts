@@ -239,7 +239,7 @@ export type RunStep = z.infer<typeof RunStepSchema>;
 export const RunResultSchema = z
   .object({
     /** Schema version. */
-    schemaVersion: z.string().min(1),
+    schemaVersion: z.literal(RUN_RESULT_SCHEMA_VERSION),
     /** Unique run ID. */
     runId: z.string(),
     /** Final execution status. */
@@ -284,7 +284,7 @@ export const RunResultSchema = z
     explanation: FailureExplanationSchema.optional(),
   })
   .superRefine((result, ctx) => {
-    if (result.schemaVersion === RUN_RESULT_SCHEMA_VERSION && !result.execution.mode) {
+    if (!result.execution.mode) {
       ctx.addIssue({
         code: 'custom',
         path: ['execution', 'mode'],

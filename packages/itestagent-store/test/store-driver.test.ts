@@ -67,6 +67,29 @@ describe('StoreDriver', () => {
       db.close();
       expect(rows.cnt).toBe(1);
     });
+
+    it('does not mark a partially present run-bundle schema as migrated', async () => {
+      await driver.migrate();
+      const dbPath = join(testRoot, 'db', 'itestagent.db');
+      const { Database } = await import('bun:sqlite');
+      const setupDb = new Database(dbPath);
+      setupDb.run("DELETE FROM _migrations WHERE name = '003_run_bundle_indexes'");
+      setupDb.run('DROP TABLE run_artifacts');
+      setupDb.close();
+
+      await expect(driver.migrate()).rejects.toThrow();
+
+      const readDb = new Database(dbPath, { readonly: true });
+      const migration = readDb
+        .query("SELECT name FROM _migrations WHERE name = '003_run_bundle_indexes'")
+        .get();
+      const runsTable = readDb
+        .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'runs'")
+        .get();
+      readDb.close();
+      expect(migration).toBeNull();
+      expect(runsTable).not.toBeNull();
+    });
   });
 
   describe('transaction', () => {
