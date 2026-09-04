@@ -81,4 +81,15 @@ export interface DeviceBackend {
 
   /** 收集日志（syslog/crashlog） */
   collectLogs(input: LogCollectInput, signal?: AbortSignal): Promise<ArtifactRef>;
+
+  /** Optional owner-scoped cleanup. Timed-out/failed cleanup must report non-reusability. */
+  closeSession?(signal?: AbortSignal): Promise<BackendCleanupOutcome>;
+}
+
+export type BackendCleanupStatus = 'closed' | 'already_closed' | 'timed_out' | 'failed';
+
+export interface BackendCleanupOutcome {
+  readonly status: BackendCleanupStatus;
+  readonly reusable: boolean;
+  readonly issues: readonly string[];
 }

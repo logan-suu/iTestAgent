@@ -74,11 +74,37 @@ export type DeviceConfig = z.infer<typeof DeviceConfigSchema>;
 export const TuiConfigSchema = z
   .object({
     /** TUI framework */
-    framework: z.enum(['opentui', 'ink']).optional().default('opentui'),
+    framework: z.enum(['auto', 'opentui', 'ink', 'ansi']).optional().default('auto'),
   })
   .strict();
 
 export type TuiConfig = z.infer<typeof TuiConfigSchema>;
+
+// ─── Persistent Permission Config Section ──────────────────
+
+/**
+ * Only deny decisions may cross a session boundary. The config loader owns
+ * the additional rule that this section may only originate from the global
+ * config file.
+ */
+export const PermissionsConfigSchema = z
+  .object({
+    deniedRules: z
+      .array(
+        z
+          .object({
+            action: z.string().min(1),
+            resource: z.string().min(1),
+            effect: z.literal('deny'),
+          })
+          .strict(),
+      )
+      .optional()
+      .default([]),
+  })
+  .strict();
+
+export type PermissionsConfig = z.infer<typeof PermissionsConfigSchema>;
 
 // ─── Root Config Schema ────────────────────────────────────
 
@@ -105,6 +131,8 @@ export const ItestAgentConfigSchema = z
     device: DeviceConfigSchema.optional(),
     /** TUI config */
     tui: TuiConfigSchema.optional(),
+    /** Persistent deny rules. Valid only in the global config layer. */
+    permissions: PermissionsConfigSchema.optional(),
   })
   .strict()
   .transform((data) => ({
@@ -112,6 +140,7 @@ export const ItestAgentConfigSchema = z
     model: data.model ?? ModelConfigSchema.parse({}),
     device: data.device ?? DeviceConfigSchema.parse({}),
     tui: data.tui ?? TuiConfigSchema.parse({}),
+    permissions: data.permissions ?? PermissionsConfigSchema.parse({}),
   }));
 
 export type ItestAgentConfig = z.infer<typeof ItestAgentConfigSchema>;

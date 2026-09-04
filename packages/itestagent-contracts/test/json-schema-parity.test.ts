@@ -261,9 +261,9 @@ test('tui section matches TuiConfigSchema exactly', () => {
   expect(tui.additionalProperties).toBe(false);
   const framework = (tui.properties as JsonRecord).framework as JsonRecord;
   expect(framework.type).toBe('string');
-  expect((framework.enum as string[]).slice().sort()).toEqual(['ink', 'opentui']);
-  expect(framework.default).toBe('opentui');
-  expect(DEFAULT_CONFIG.tui.framework).toBe(framework.default as 'opentui' | 'ink');
+  expect((framework.enum as string[]).slice().sort()).toEqual(['ansi', 'auto', 'ink', 'opentui']);
+  expect(framework.default).toBe('auto');
+  expect(DEFAULT_CONFIG.tui.framework).toBe(framework.default as 'auto');
 });
 
 // ─── B03: result.schema.json ↔ RunResultSchema parity ────────────────────────

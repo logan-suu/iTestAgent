@@ -1,8 +1,7 @@
 /** @jsxImportSource react */
 
-import { Box, Text, render } from 'ink';
-import { useInput } from 'ink';
-import React, { useState, useEffect } from 'react';
+import { Box, Text, render, useApp, useInput } from 'ink';
+import React, { useEffect, useRef, useState } from 'react';
 import type { TuiRenderer } from '../renderer.js';
 import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { tuiShellReducer } from '../tui-shell.js';
@@ -14,6 +13,8 @@ function App(props: {
 }): React.ReactElement {
   const [state, setState] = useState<TuiShellState>(props.initialState);
   const [draft, setDraft] = useState('');
+  const draftRef = useRef('');
+  const { exit } = useApp();
 
   useEffect(() => {
     props.stateRef.current = (s: TuiShellState) => setState(s);
@@ -30,8 +31,12 @@ function App(props: {
         meta?: boolean;
       },
     ) => {
+      if (key.ctrl && input === 'c') {
+        exit();
+        return;
+      }
       if (key.return) {
-        const text = draft.trim();
+        const text = draftRef.current.trim();
         if (text) {
           props.dispatch({ type: 'input', text });
           props.dispatch({ type: 'submit' });
@@ -40,16 +45,19 @@ function App(props: {
             s = tuiShellReducer(s, { type: 'submit' });
             return s;
           });
+          draftRef.current = '';
           setDraft('');
         }
         return;
       }
       if (key.backspace || key.delete) {
-        setDraft((prev) => prev.slice(0, -1));
+        draftRef.current = draftRef.current.slice(0, -1);
+        setDraft(draftRef.current);
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        setDraft((prev) => prev + input);
+        draftRef.current += input;
+        setDraft(draftRef.current);
       }
     },
   );
@@ -89,15 +97,12 @@ export function createInkRenderer(): TuiRenderer {
 
   return {
     async start(initialState, dispatch) {
-      const { unmount } = render(React.createElement(App, { initialState, dispatch, stateRef }));
-      await new Promise<void>((resolve) => {
-        const cleanup = () => {
-          unmount();
-          resolve();
-        };
-        process.once('SIGINT', cleanup);
-        process.once('SIGTERM', cleanup);
-      });
+      const instance = render(React.createElement(App, { initialState, dispatch, stateRef }));
+      try {
+        await instance.waitUntilExit();
+      } finally {
+        instance.unmount();
+      }
     },
     update(state: TuiShellState) {
       stateRef.current?.(state);

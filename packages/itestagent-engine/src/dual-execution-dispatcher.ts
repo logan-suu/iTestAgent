@@ -51,6 +51,17 @@ export interface DualExecutionDispatcherDeps {
   }): Promise<XcuitestReadinessResult>;
 }
 
+/** Carries a completed DeviceBackend result when teardown makes the backend terminal. */
+export class DeviceBackendCleanupError extends Error {
+  constructor(
+    message: string,
+    readonly partialResult: unknown,
+  ) {
+    super(message);
+    this.name = 'DeviceBackendCleanupError';
+  }
+}
+
 /**
  * Dispatch a confirmed v3 TestPlan to exactly one semantic route.
  * Runtime failures are returned on that route and never trigger cross-route
@@ -95,7 +106,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             plan: input.plan,
             workspace: input.workspace,
             destination: input.destination,
-            signal: input.signal,
+            ...(input.signal ? { signal: input.signal } : {}),
           });
         } catch (error) {
           return {
@@ -122,6 +133,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             only: input.plan.rerun?.selectedCaseIds ?? selected.targets,
             destination: input.destination,
             resultBundlePath: input.resultBundlePath,
+            signal: input.signal,
           });
           return {
             status: input.signal?.aborted
@@ -159,6 +171,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
         return {
           status: input.signal?.aborted ? 'cancelled' : 'failed',
           path,
+          ...(error instanceof DeviceBackendCleanupError ? { result: error.partialResult } : {}),
           error: error instanceof Error ? error.message : String(error),
           fallbackHistory: [],
         };

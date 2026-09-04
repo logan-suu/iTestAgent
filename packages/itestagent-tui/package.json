@@ -7,7 +7,8 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./pure": "./src/pure.ts"
+    "./pure": "./src/pure.ts",
+    "./permissions": "./src/global-deny-store.ts"
   },
   "description": "TUI Shell — interactive agent interface (OpenTUI target mainline / Ink verified fallback)",
   "scripts": {
@@ -17,18 +18,19 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.0",
-    "@opentui/core": "^0.4.3",
-    "@opentui/solid": "^0.4.3",
+    "@opentui/core": "0.5.10",
+    "@opentui/solid": "0.5.10",
     "ai": "^7.0.0",
-    "ink": "^5.0.0",
+    "ink": "7.1.1",
     "itestagent-contracts": "workspace:*",
     "itestagent-engine": "workspace:*",
     "itestagent-project-analyzer": "workspace:*",
     "jsonc-parser": "^3.3.0",
-    "react": "^19.0.0",
+    "react": "19.2.8",
+    "react-devtools-core": "6.1.2",
     "solid-js": "^1.9.12"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0"
+    "@types/react": "19.2.0"
   }
 }

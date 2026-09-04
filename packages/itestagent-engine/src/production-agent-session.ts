@@ -5,6 +5,7 @@ import {
   createAppiumDeviceDiscoveryProvider,
 } from 'itestagent-backends-device-appium';
 import type {
+  BackendCleanupOutcome,
   BuildDestination,
   DeviceBackend,
   DeviceDiscoveryProvider,
@@ -27,7 +28,7 @@ export interface ProductionAgentSessionDependencies {
   analyzeWorkspace(workspace: string): Promise<ProjectAnalysisResult>;
   deviceDiscovery: DeviceDiscoveryProvider;
   createDeviceBackend(device: DeviceInfo): DeviceBackend;
-  closeDeviceBackend?(backend: DeviceBackend): Promise<void>;
+  closeDeviceBackend?(backend: DeviceBackend, signal?: AbortSignal): Promise<BackendCleanupOutcome>;
 }
 
 export interface ProductionAgentSessionOptions {
@@ -60,9 +61,9 @@ export function createProductionAgentSessionDependencies(
             ? { platformVersion: device.osVersion }
             : {}),
       }).backend,
-    closeDeviceBackend: async (backend) => {
-      const closeable = backend as DeviceBackend & { closeSession?: () => Promise<void> };
-      await closeable.closeSession?.();
+    closeDeviceBackend: async (backend, signal) => {
+      const outcome = await backend.closeSession?.(signal);
+      return outcome ?? { status: 'already_closed', reusable: true, issues: [] };
     },
   };
 }
@@ -72,7 +73,9 @@ export async function revalidateProductionXcuitest(input: {
   plan: TestPlan;
   workspace: string;
   destination: BuildDestination;
+  signal?: AbortSignal;
 }): Promise<{ ready: boolean; reason?: string }> {
+  input.signal?.throwIfAborted();
   const selected = input.plan.execution.xcuitest;
   if (!selected) return { ready: false, reason: 'confirmed XCUITest configuration is missing' };
   const backend = createXcodeProjAnalyzerBackend();
@@ -80,7 +83,9 @@ export async function revalidateProductionXcuitest(input: {
     return { ready: false, reason: 'project analyzer cannot revalidate XCUITest execution assets' };
   }
   const discovery = await backend.discover(input.workspace);
+  input.signal?.throwIfAborted();
   const graph = await backend.graph(discovery);
+  input.signal?.throwIfAborted();
   const assets = await backend.discoverXcuitestExecutionAssets({
     root: input.workspace,
     discovery,
@@ -88,6 +93,7 @@ export async function revalidateProductionXcuitest(input: {
     targetKind: input.plan.device.kind,
     destination: input.destination,
   });
+  input.signal?.throwIfAborted();
   const match = assets.configurations.find(
     (configuration) =>
       configuration.scheme === selected.scheme &&

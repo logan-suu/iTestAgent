@@ -53,7 +53,7 @@ describe('Phase 1 Integration: Config Resolution (CLI → Contracts → SecretSt
     for (const src of sources) expect(src.exists).toBe(false);
     expect(config.schemaVersion).toBe('1.0');
     expect(config.model.provider).toBe('openai');
-    expect(config.tui.framework).toBe('opentui');
+    expect(config.tui.framework).toBe('auto');
   });
 
   test('loadConfig merges three layers', async () => {

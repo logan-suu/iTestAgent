@@ -26,15 +26,16 @@ function makeMockWdioClient(
     performActions: mock(() => Promise.resolve()),
     releaseActions: mock(() => Promise.resolve()),
     keys: mock(() => Promise.resolve()),
-    execute: mock((script: string, _args?: unknown) => {
+    execute: mock(<T = unknown>(script: string, _args?: unknown): Promise<T> => {
       if (script === 'mobile:listApps')
         return Promise.resolve(
           overrides?.apps ?? [{ bundleId: 'com.apple.Preferences', name: 'Settings' }],
-        );
-      return Promise.resolve({});
+        ) as Promise<T>;
+      return Promise.resolve({} as T);
     }),
     startRecordingScreen: mock(() => Promise.resolve()),
     stopRecordingScreen: mock(() => Promise.resolve('base64video')),
+    $: mock(() => Promise.resolve({ click: mock(() => Promise.resolve()) })),
   };
 }
 
@@ -79,6 +80,33 @@ describe('RealAppiumDriver', () => {
       const err = new AppiumDriverError('connection_error', 'Cannot connect');
       expect(err.code).toBe('connection_error');
       expect(err.name).toBe('AppiumDriverError');
+    });
+
+    it('deletes a session that resolves after cancellation', async () => {
+      let resolveRemote: ((client: typeof mockClient) => void) | undefined;
+      const pendingDriver = new RealAppiumDriver(
+        'http://127.0.0.1:4723',
+        () =>
+          new Promise<typeof mockClient>((resolve) => {
+            resolveRemote = resolve;
+          }),
+      );
+      const controller = new AbortController();
+      const creation = pendingDriver.createSession(
+        { platformName: 'iOS', 'appium:udid': 'TEST-UDID' },
+        controller.signal,
+      );
+      while (!resolveRemote) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
+      controller.abort(new Error('run cancelled'));
+      await expect(creation).rejects.toThrow('run cancelled');
+      resolveRemote?.(mockClient);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockClient.deleteSession).toHaveBeenCalledTimes(1);
+      expect(pendingDriver.isSessionActive()).toBe(false);
     });
   });
 

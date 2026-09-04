@@ -78,7 +78,7 @@ type ProductionFlowReplayFailure = Extract<ProductionFlowReplayResult, { success
 export interface ProductionFlowReplayDependencies {
   createBackend(config: ProductionAppiumConfig): {
     backend: DeviceBackend;
-    close(): Promise<void>;
+    close(): Promise<unknown>;
   };
 }
 

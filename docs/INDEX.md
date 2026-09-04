@@ -48,6 +48,7 @@
 | Flow 生产重放命令、目标/状态门禁、backend 与证据边界 | `decisions/ADR-033-flow-replay-production-semantics.md` |
 | Run bundle 提交、完整性 marker、证据采集结果与 legacy limitation | `decisions/ADR-034-run-bundle-commit-and-evidence-outcomes.md` |
 | 证据驱动 explain、XCUITest failed-only child run、DeviceBackend Flow 重放边界、parentRunId 与 flaky 判定 | `decisions/ADR-035-evidence-explain-and-rerun-lineage.md` |
+| 生产 renderer 行为门禁、高风险权限记忆、Route B 默认、端到端 abort 与 terminal teardown | `decisions/ADR-036-reliability-security-closure-policy.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -164,4 +165,4 @@
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~034（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界、自包含 run 契约、本地原始证据、Flow 生产重放，以及 Run bundle commit marker/证据采集结果语义）
+- ADR 记录：ADR-020~036（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界、自包含 run 契约、本地原始证据、Flow 生产重放、Run bundle commit marker、explain/rerun lineage，以及生产可靠性与安全收口）

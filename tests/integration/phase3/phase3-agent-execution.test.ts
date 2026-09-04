@@ -132,10 +132,7 @@ describe('Phase 3 Agent Execution', () => {
     expect(result.status).toBe('error');
   });
 
-  it('PermissionEngine allow permits execution', async () => {
-    const pe = new PermissionEngine();
-    pe.addRule({ action: '*', resource: '*', effect: 'allow' });
-
+  it('safe actions execute without a persistent allow rule', async () => {
     const dispatcher = setupDispatcher();
     const result = await dispatcher.dispatch({
       id: 'c_allowed',

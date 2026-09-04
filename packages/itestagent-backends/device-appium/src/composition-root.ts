@@ -41,6 +41,8 @@ export interface ProductionAppiumConfig {
    * WDA startup mode (physical only). Required for physical sessions.
    */
   wdaStartupMode?: WdaStartupMode;
+  /** Route C is retained only for an explicitly requested diagnostic run. */
+  routePurpose?: 'production' | 'diagnostic';
   /**
    * WDA URL for external-url mode.
    * Required when wdaStartupMode is 'external-url'.
@@ -94,6 +96,45 @@ export interface AppiumBackendAssembly {
   realDriver: RealAppiumDriver;
 }
 
+export interface ResolvedProductionWdaRoute {
+  mode: WdaStartupMode;
+  purpose: 'production' | 'diagnostic';
+  webDriverAgentUrl?: string;
+}
+
+/** Resolve the physical-device route without starting Appium, WDA, or a device session. */
+export function resolveProductionWdaRoute(
+  config: ProductionAppiumConfig,
+): ResolvedProductionWdaRoute {
+  const mode =
+    config.wdaStartupMode ??
+    (config.targetKind === 'physical' ? 'external-url' : 'managed-xcodebuild');
+  const purpose = config.routePurpose ?? 'production';
+  if (config.targetKind === 'physical' && mode === 'preinstalled') {
+    throw new Error(
+      'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
+    );
+  }
+  if (
+    config.targetKind === 'physical' &&
+    mode === 'managed-xcodebuild' &&
+    purpose !== 'diagnostic'
+  ) {
+    throw new Error(
+      'Route C (managed-xcodebuild) is diagnostic-only; set routePurpose="diagnostic" explicitly.',
+    );
+  }
+  return {
+    mode,
+    purpose,
+    ...(config.webDriverAgentUrl
+      ? { webDriverAgentUrl: config.webDriverAgentUrl }
+      : config.targetKind === 'physical' && mode === 'external-url'
+        ? { webDriverAgentUrl: `http://127.0.0.1:${config.wdaLocalPort ?? 8100}` }
+        : {}),
+  };
+}
+
 // ─── Factory function ────────────────────────────────────────────────
 
 /**
@@ -109,17 +150,8 @@ export interface AppiumBackendAssembly {
  */
 export function createAppiumDeviceBackend(config: ProductionAppiumConfig): AppiumBackendAssembly {
   const targetKind = config.targetKind;
-  if (targetKind === 'physical' && config.wdaStartupMode === undefined) {
-    throw new Error(
-      'Physical Appium sessions require an explicit WDA route: external-url (Route B) or managed-xcodebuild (Route C).',
-    );
-  }
-  if (targetKind === 'physical' && config.wdaStartupMode === 'preinstalled') {
-    throw new Error(
-      'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
-    );
-  }
-  const wdaStartupMode: WdaStartupMode = config.wdaStartupMode ?? 'managed-xcodebuild';
+  const resolvedRoute = resolveProductionWdaRoute(config);
+  const wdaStartupMode = resolvedRoute.mode;
   const appiumServerUrl = config.appiumServerUrl ?? 'http://127.0.0.1:4723';
 
   const realDriver = new RealAppiumDriver(appiumServerUrl);
@@ -138,12 +170,7 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
   }
 
   // Validate mode-specific requirements
-  if (targetKind === 'physical' && wdaStartupMode === 'external-url' && !config.webDriverAgentUrl) {
-    throw new Error(
-      'webDriverAgentUrl is required for external-url mode. ' +
-        'Provide the WDA URL (e.g. "http://127.0.0.1:8100") or switch wdaStartupMode.',
-    );
-  }
+  const webDriverAgentUrl = resolvedRoute.webDriverAgentUrl;
 
   if (
     targetKind === 'physical' &&
@@ -164,7 +191,7 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     artifactDirectory: config.artifactDirectory,
     wdaBundleId: config.wdaBaseBundleId,
     wdaStartupMode,
-    webDriverAgentUrl: config.webDriverAgentUrl,
+    webDriverAgentUrl,
     wdaLocalPort: config.wdaLocalPort,
     mjpegServerPort: config.mjpegServerPort,
     deviceName: config.deviceName,

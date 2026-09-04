@@ -124,7 +124,7 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
   const sources: ConfigSource[] = [];
   const contents: Record<string, unknown>[] = [];
 
-  for (const configPath of configPaths) {
+  for (const [layerIndex, configPath] of configPaths.entries()) {
     const source: ConfigSource = { path: configPath, exists: false };
     try {
       const fileContent = await readFile(configPath, 'utf-8');
@@ -135,6 +135,11 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
         throw new Error(`Invalid JSONC syntax at offset ${parseErrors[0]?.offset}`);
       }
       if (isPlainObject(source.content)) {
+        if (layerIndex > 0 && 'permissions' in source.content) {
+          throw new Error(
+            'The permissions section is global-only and cannot be declared in project config',
+          );
+        }
         contents.push(source.content);
       }
     } catch (error: unknown) {

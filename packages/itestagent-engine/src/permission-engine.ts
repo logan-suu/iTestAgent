@@ -62,6 +62,9 @@ export class PermissionEngine {
 
     if (options?.preloadedRules) {
       for (const rule of options.preloadedRules) {
+        if (rule.effect !== 'deny') {
+          throw new Error('Only deny permission rules may be preloaded across sessions');
+        }
         this.rules.push({ ...rule });
       }
     }
@@ -171,16 +174,17 @@ export class PermissionEngine {
    *
    * @param callId - The callId from the corresponding requestPermission call.
    * @param effect - 'allow' or 'deny' (ask is not valid here — that's the pending state).
-   * @param remember - If true, persist the decision as a rule for future checks.
+   * @param persisted - True only after the caller successfully persisted a deny rule.
    */
-  resolve(callId: string, effect: PermissionEffect, remember: boolean): void {
+  resolve(callId: string, effect: PermissionEffect, persisted: boolean): void {
     const pending = this.pending.get(callId);
     if (!pending) return; // Already resolved, cancelled, or timed out — no-op
 
     clearTimeout(pending.timer);
     this.pending.delete(callId);
 
-    if (remember) {
+    const remembered = persisted && effect === 'deny';
+    if (remembered) {
       this.addRule({
         action: pending.action,
         resource: pending.resource,
@@ -194,7 +198,7 @@ export class PermissionEngine {
       return;
     }
 
-    pending.resolve({ effect, remembered: remember });
+    pending.resolve({ effect, remembered });
   }
 
   /**
@@ -216,6 +220,9 @@ export class PermissionEngine {
 
   /** Add a user-defined permission rule. Duplicates are appended (latest wins on check). */
   addRule(rule: PermissionRule): void {
+    if (rule.effect === 'allow') {
+      throw new Error('Allow permission rules cannot persist across actions or sessions');
+    }
     this.rules.push({ ...rule });
   }
 

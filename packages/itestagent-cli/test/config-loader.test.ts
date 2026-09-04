@@ -24,7 +24,7 @@ test('getDefaultConfig returns schema defaults', () => {
   expect(config.schemaVersion).toBe('1.0');
   expect(config.model.provider).toBe('openai');
   expect(config.device.allowCrossTargetFallback).toBe(false);
-  expect(config.tui.framework).toBe('opentui');
+  expect(config.tui.framework).toBe('auto');
 });
 
 test('loadConfig returns defaults when no config files exist', async () => {
@@ -35,7 +35,7 @@ test('loadConfig returns defaults when no config files exist', async () => {
   expect(config.schemaVersion).toBe('1.0');
   expect(config.model.provider).toBe('openai');
   expect(config.device.allowCrossTargetFallback).toBe(false);
-  expect(config.tui.framework).toBe('opentui');
+  expect(config.tui.framework).toBe('auto');
   expect(sources).toHaveLength(3);
   expect(sources.every((s) => !s.exists)).toBe(true);
 });
@@ -90,7 +90,7 @@ test('loadConfig merges three layers (project-root > project-local > global)', a
   expect(config.device.allowCrossTargetFallback).toBe(true);
   expect(config.device.preferredBackends?.physical).toEqual(['mock']);
   // tui uses default
-  expect(config.tui.framework).toBe('opentui');
+  expect(config.tui.framework).toBe('auto');
 });
 
 test('loadConfig parses JSONC with comments (US-18.2 AC2)', async () => {
@@ -119,6 +119,34 @@ test('loadConfig supports $schema field (US-18.2 AC2)', async () => {
     homeDir: tempHome,
   });
   expect(config.$schema).toBe('https://itestagent.dev/schemas/config.schema.json');
+});
+
+test('loadConfig accepts global deny rules and rejects project permission sections', async () => {
+  await mkdir(join(tempHome, '.itestagent', 'config'), { recursive: true });
+  await writeFile(
+    join(tempHome, '.itestagent', 'config', 'itestagent.jsonc'),
+    JSON.stringify({
+      permissions: {
+        deniedRules: [{ action: 'uninstall_app', resource: '*', effect: 'deny' }],
+      },
+    }),
+  );
+  expect(
+    (
+      await loadConfig({
+        projectDir: tempProject,
+        homeDir: tempHome,
+      })
+    ).config.permissions.deniedRules,
+  ).toHaveLength(1);
+
+  await writeFile(
+    join(tempProject, 'itestagent.jsonc'),
+    JSON.stringify({ permissions: { deniedRules: [] } }),
+  );
+  await expect(loadConfig({ projectDir: tempProject, homeDir: tempHome })).rejects.toThrow(
+    'permissions section is global-only',
+  );
 });
 
 test('loadConfig rejects invalid config (Zod validation)', async () => {

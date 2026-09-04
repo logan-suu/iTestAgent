@@ -138,17 +138,13 @@ describe('Phase 3 CredentialManager integration', () => {
 
   it('stores credential to keychain when remembered', async () => {
     const keychainStore = new MemorySecretStore();
-    permissionEngine.addRule({
-      action: 'store_credential',
-      resource: 'remembered_key',
-      effect: 'allow',
-    });
+    const explicitlyAuthorizedPersistence = new PermissionEngine({ highRiskActions: [] });
 
     const cm = new CredentialManager(
       memoryStore,
       keychainStore,
       async () => ({ status: 'provided' as const, value: 'remembered-value', remembered: true }),
-      permissionEngine,
+      explicitlyAuthorizedPersistence,
     );
 
     await cm.resolveCredential({

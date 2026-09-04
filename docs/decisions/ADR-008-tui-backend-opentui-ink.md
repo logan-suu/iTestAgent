@@ -1,9 +1,11 @@
-# ADR-008: TuiShell 选型——OpenTUI+SolidJS 目标主线 + Ink 已验证 fallback
+# ADR-008: TuiShell 选型——OpenTUI+SolidJS 目标候选 + Ink fallback
 
-**状态**: 已接受，部分实施（生产入口切换由 T6.10/DEF-025 跟踪）
-**日期**: 2026-07-15（决策）/ 2026-07-16（初始实施）/ 2026-08-31（实施状态同步）
+**状态**: 已接受，生产门禁由 ADR-036/T6.10 复核
+**日期**: 2026-07-15（决策）/ 2026-07-16（初始实施）/ 2026-08-31（实施状态同步）/ 2026-09-04（规格复审）
 **决策人**: AI Agent（基于 T0.4 横评实测）
 **关联**: ADR-005、T0.4 横评文档、Phase 1 T1.2
+
+> **2026-09-04 supersession update**：ADR-036 将产品验收从框架名称改为真实 PTY 行为门禁。OpenTUI 继续作为目标候选，但只有当前稳定版本同时通过首帧、输入、流式更新、resize、退出与资源清理才能成为生产默认。显式 renderer 不可用时 fail-closed，不得静默切换。Route 的最终选择以 T6.10 的 renderer matrix 证据为准。
 
 ## 背景
 
@@ -34,12 +36,12 @@ iTestAgent 是 TUI-first 的 Agent。ADR-005 确定了可插拔 TuiShell 架构�
 ## 决策
 
 ```
-目标主线 = OpenTUI + SolidJS（OpenCode-style build pattern）
-MVP fallback / M0 proven = Ink + shared TuiShell view model / reducer
+目标候选 = OpenTUI + SolidJS（OpenCode-style build pattern；生产资格受 ADR-036 行为门禁约束）
+Fallback = Ink + shared TuiShell view model / reducer
 Rejected = Rezi（当前 npm registry 下不存在为 TUI 框架）
 ```
 
-### 选择 OpenTUI+SolidJS 为目标主线的理由
+### 选择 OpenTUI+SolidJS 为目标候选的理由
 
 1. 对齐 OpenCode TUI 技术栈（keymap/scrollback/tool card/plugin 经验复用）
 2. T0.4b 证明标准构建问题可解（native variant install + Solid plugin + Bun target build）
@@ -66,9 +68,10 @@ Rejected = Rezi（当前 npm registry 下不存在为 TUI 框架）
 
 ```
 TuiShellViewModel / TuiShellEvent / reducer: framework-independent ✅
-OpenTUIRenderer: 目标主线 renderer 已实现（OpenTUI 0.4.3 + SolidJS 1.9，位于 src/renderers/opentui-renderer.tsx）
-InkRenderer: CI-friendly fallback（未实现，保留为后续应急方案）
+OpenTUIRenderer: 目标 renderer 已实现；package range 为 ^0.4.3，当前 lock 解析为 0.4.5，T6.10 将复验当前稳定版本
+InkRenderer: 已实现的交互式 fallback（src/renderers/ink-renderer.tsx）
 ANSI renderer: 当前生产交互入口使用，直至 T6.10/DEF-025 解决 OpenTUI 动态更新阻塞
+Renderer selector: 已实现能力与显式配置策略，但尚未接入 entry.ts
 ```
 
 实施细节：
@@ -80,11 +83,11 @@ ANSI renderer: 当前生产交互入口使用，直至 T6.10/DEF-025 解决 Open
 
 ### 2026-08-31 实施状态同步
 
-后续真实渲染验证发现 OpenTUI 0.4.3 native render loop 启动后会阻塞 JS event loop，导致计时器、输入回调和服务端流式更新无法继续。该证据已记录在 `DEF-025`，生产交互入口因此暂时直接使用 ANSI renderer。此项只同步实现事实，不改变 2026-08-28 人工确认的技术方向：OpenTUI 仍为目标主线，不默认切换到 Ink；生产入口切换由 T6.10/DEF-025 跟踪。
+后续真实渲染验证发现 OpenTUI 0.4.3 native render loop 启动后会阻塞 JS event loop，导致计时器、输入回调和服务端流式更新无法继续。该证据已记录在 `DEF-025`，生产交互入口因此暂时直接使用 ANSI renderer。2026-09-04 评审确认旧版本证据不能永久替代当前版本复验，也不能继续把框架名称写成产品 AC；T6.10 按 ADR-036 先运行真实 PTY matrix，再依据行为证据选择生产 renderer。
 
 ### OpenTUI 交互式 shell 验证状态
 
-- ✅ 真实交互式 shell（OpenTUI 0.4.3 在真实终端中已验证可交互）
+- ⚠️ OpenTUI 0.4.3 仅证明首帧；输入回调、计时器与异步更新失败，因此未通过生产交互门禁
 - ⏳ 长日志和 scrollback（Phase 3-4 随 agent 交互逐步实现）
 - ⏳ Markdown 渲染（Phase 3 随工具调用卡片实现）
 - ⏳ 工具调用卡片（Phase 3 T3.4c ToolDispatcher 实现）
@@ -92,9 +95,7 @@ ANSI renderer: 当前生产交互入口使用，直至 T6.10/DEF-025 解决 Open
 
 ### Ink fallback 状态
 
-Ink 16/16 通过 T0.4 横评，但 Phase 1 T1.2 未实现 InkRenderer。
-当前 `TuiRenderer` 接口设计确保后续无需改动 `tui-shell.ts` 即可添加 Ink 实现。
-添加路径：创建 `src/renderers/ink-renderer.tsx` 实现 `TuiRenderer`，`entry.ts` 替换一行即可。
+Ink 16/16 通过 T0.4 横评，且仓库已经实现 `src/renderers/ink-renderer.tsx`。现有测试主要使用 mocked Ink 模块，T6.10 仍需用与 OpenTUI 相同的真实 PTY 门禁验证；通过后才能在 OpenTUI 未通过时作为生产交互 renderer。`TuiRenderer` 接口与 shared reducer 保持 renderer 可替换。
 
 ## 后果
 

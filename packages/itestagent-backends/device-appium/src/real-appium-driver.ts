@@ -32,6 +32,7 @@ interface WdioClient {
 }
 
 type WdioRemoteFn = (options: Record<string, unknown>) => Promise<WdioClient>;
+type WdioRemoteOverrideFn = (options: Record<string, unknown>) => Promise<unknown>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -51,27 +52,40 @@ export class RealAppiumDriver implements AppiumDriver {
   private client: WdioClient | null = null;
   private sessionId: string | null = null;
   private active = false;
+  private terminalReason: string | null = null;
+  private readonly remoteOverride: WdioRemoteOverrideFn | undefined;
 
-  constructor(serverUrl = 'http://127.0.0.1:4723') {
+  constructor(serverUrl = 'http://127.0.0.1:4723', remoteOverride?: WdioRemoteOverrideFn) {
     this.serverUrl = serverUrl;
+    this.remoteOverride = remoteOverride;
   }
 
   // ── Session ──────────────────────────────────────────────────────
 
-  async createSession(caps: Record<string, unknown>): Promise<AppiumSession> {
-    let remoteFn: WdioRemoteFn;
-    try {
-      const mod = await import('webdriverio');
-      remoteFn = mod.remote as unknown as WdioRemoteFn;
-    } catch {
+  async createSession(caps: Record<string, unknown>, signal?: AbortSignal): Promise<AppiumSession> {
+    signal?.throwIfAborted();
+    if (this.terminalReason) {
       throw new AppiumDriverError(
-        'connection_error',
-        'webdriverio module not found. Install with: bun add webdriverio',
+        'session_create_failed',
+        `Driver is terminal: ${this.terminalReason}`,
       );
     }
+    let remoteFn = this.remoteOverride as WdioRemoteFn | undefined;
+    if (!remoteFn) {
+      try {
+        const mod = await import('webdriverio');
+        remoteFn = mod.remote as unknown as WdioRemoteFn;
+      } catch {
+        throw new AppiumDriverError(
+          'connection_error',
+          'webdriverio module not found. Install with: bun add webdriverio',
+        );
+      }
+    }
+    signal?.throwIfAborted();
 
     try {
-      this.client = await remoteFn({
+      const pendingClient = remoteFn({
         hostname: new URL(this.serverUrl).hostname,
         port: Number(new URL(this.serverUrl).port) || 4723,
         path: '/',
@@ -80,10 +94,13 @@ export class RealAppiumDriver implements AppiumDriver {
         connectionRetryTimeout: 180_000, // 3min: Appium xcodebuild + WDA startup needs headroom
         connectionRetryCount: 0, // no retries: xcodebuild is expensive, let caller decide
       });
-      this.sessionId = this.client.sessionId;
+      const client = await this.awaitSessionClient(pendingClient, signal);
+      signal?.throwIfAborted();
+      this.client = client;
+      this.sessionId = client.sessionId;
       this.active = true;
 
-      const observedCapabilities = this.client.capabilities as Record<string, unknown>;
+      const observedCapabilities = client.capabilities as Record<string, unknown>;
       const wdaBundleId =
         observedCapabilities['appium:updatedWDABundleId'] ??
         observedCapabilities.updatedWDABundleId;
@@ -95,6 +112,7 @@ export class RealAppiumDriver implements AppiumDriver {
         ...(typeof wdaBundleId === 'string' && wdaBundleId.length > 0 ? { wdaBundleId } : {}),
       };
     } catch (error) {
+      signal?.throwIfAborted();
       const msg = sanitizeMessage(error);
       if (msg.includes('ECONNREFUSED') || msg.includes('Could not connect')) {
         throw new AppiumDriverError(
@@ -106,6 +124,52 @@ export class RealAppiumDriver implements AppiumDriver {
         'session_create_failed',
         `Failed to create Appium session: ${msg}`,
       );
+    }
+  }
+
+  /**
+   * Bound WebDriverIO session creation by the run signal. If WebDriverIO
+   * resolves after cancellation, delete that late session instead of exposing
+   * it through this driver instance.
+   */
+  private async awaitSessionClient(
+    pendingClient: Promise<WdioClient>,
+    signal?: AbortSignal,
+  ): Promise<WdioClient> {
+    if (!signal) return pendingClient;
+    signal.throwIfAborted();
+
+    let cancelled = false;
+    let abortListener: (() => void) | undefined;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      abortListener = () => {
+        cancelled = true;
+        try {
+          signal.throwIfAborted();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      signal.addEventListener('abort', abortListener, { once: true });
+    });
+
+    void pendingClient.then(
+      async (lateClient) => {
+        if (cancelled) {
+          try {
+            await lateClient.deleteSession();
+          } catch {
+            // The backend reports terminal cleanup separately; never reuse a late session.
+          }
+        }
+      },
+      () => undefined,
+    );
+
+    try {
+      return await Promise.race([pendingClient, aborted]);
+    } finally {
+      if (abortListener) signal.removeEventListener('abort', abortListener);
     }
   }
 
@@ -132,6 +196,10 @@ export class RealAppiumDriver implements AppiumDriver {
 
   getSessionId(): string | null {
     return this.sessionId;
+  }
+
+  markTerminal(reason: string): void {
+    this.terminalReason = reason;
   }
 
   // ── Screen info ───────────────────────────────────────────────────

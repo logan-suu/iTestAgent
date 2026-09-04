@@ -23,6 +23,7 @@ import type {
   AppInfo,
   ArtifactRef,
   BackendCapabilities,
+  BackendCleanupOutcome,
   CrashSummary,
   DeviceBackend,
   DeviceInfo,
@@ -178,6 +179,8 @@ export interface AppiumDeviceBackendOptions {
    * Optional for mock/testing.
    */
   wdaManager?: WdaManager;
+  /** Bound for session deletion before this backend becomes terminal. */
+  sessionDeleteTimeoutMs?: number;
 }
 
 // ─── Default capabilities ────────────────────────────────────────────────
@@ -270,6 +273,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private activeSession: AppiumSession | null = null;
   private sessionMutex: Promise<void> | null = null;
   private screenSize: AppiumScreenSize | null = null;
+  private terminalReason: string | null = null;
 
   constructor(driver: AppiumDriver, options: AppiumDeviceBackendOptions) {
     this.logger = createRedactingLogger('AppiumDeviceBackend');
@@ -308,6 +312,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       wdaProjectPath: options.wdaProjectPath,
       xcodeOrgId: options.xcodeOrgId,
       xcodeSigningId: options.xcodeSigningId,
+      sessionDeleteTimeoutMs: options.sessionDeleteTimeoutMs ?? 15_000,
     };
   }
 
@@ -330,17 +335,21 @@ export class AppiumDeviceBackend implements DeviceBackend {
    *   - external-url: launch WDA via wdaManager → waitForReady → pass webDriverAgentUrl
    *   - managed-xcodebuild: Appium manages WDA internally
    */
-  private async ensureSession(): Promise<void> {
+  private async ensureSession(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    if (this.terminalReason) {
+      throw new Error(`backend_not_reusable: ${this.terminalReason}`);
+    }
     if (this.sessionActive) return;
     if (this.sessionMutex) {
-      await this.sessionMutex;
+      await this.awaitAbortable(this.sessionMutex, signal);
       return;
     }
 
-    this.sessionMutex = this.doCreateSession();
+    this.sessionMutex = this.doCreateSession(signal);
 
     try {
-      await this.sessionMutex;
+      await this.awaitAbortable(this.sessionMutex, signal);
     } finally {
       this.sessionMutex = null;
     }
@@ -351,20 +360,20 @@ export class AppiumDeviceBackend implements DeviceBackend {
    *
    * Phase 3: Now uses finally block to ensure cleanup on failure.
    */
-  private async doCreateSession(): Promise<void> {
+  private async doCreateSession(signal?: AbortSignal): Promise<void> {
     try {
       let caps: Record<string, unknown>;
 
       if (this.targetKind === 'simulator') {
         caps = this.buildSimulatorCaps();
       } else {
-        caps = await this.buildPhysicalCaps();
+        caps = await this.buildPhysicalCaps(signal);
       }
 
-      this.activeSession = await this.driver.createSession(caps);
+      this.activeSession = await this.driver.createSession(caps, signal);
       this.sessionActive = true;
 
-      this.screenSize = await this.driver.getScreenSize();
+      this.screenSize = await this.awaitAbortable(this.driver.getScreenSize(), signal);
     } catch (error) {
       // Roll back session state: createSession may have succeeded while a
       // later setup step (getScreenSize) failed — leaving sessionActive=true
@@ -383,7 +392,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       if (this.wdaManager && this.targetKind === 'physical') {
         if (this.wdaStartupMode === 'external-url' && this.wdaManager.isRunning()) {
           try {
-            await this.wdaManager.stop();
+            await this.wdaManager.stop(undefined, signal);
           } catch {
             // Best-effort cleanup
           }
@@ -416,19 +425,19 @@ export class AppiumDeviceBackend implements DeviceBackend {
   /**
    * Build physical capabilities with mode-specific WDA handling.
    */
-  private async buildPhysicalCaps(): Promise<Record<string, unknown>> {
+  private async buildPhysicalCaps(signal?: AbortSignal): Promise<Record<string, unknown>> {
     const mode = this.wdaStartupMode;
 
     if (mode === 'preinstalled') {
-      return this.buildPreinstalledCaps();
+      return this.buildPreinstalledCaps(signal);
     }
 
     if (mode === 'external-url') {
-      return this.buildExternalUrlCaps();
+      return this.buildExternalUrlCaps(signal);
     }
 
     // managed-xcodebuild: Appium manages WDA internally
-    return this.buildManagedXcodebuildCaps();
+    return this.buildManagedXcodebuildCaps(signal);
   }
 
   /**
@@ -437,12 +446,13 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * Physical production construction rejects this mode before it can execute;
    * installed inventory alone cannot establish readiness.
    */
-  private async buildPreinstalledCaps(): Promise<Record<string, unknown>> {
+  private async buildPreinstalledCaps(signal?: AbortSignal): Promise<Record<string, unknown>> {
     // Verify preinstalled WDA if WdaManager is available
     if (this.wdaManager && this.opts.wdaBundleId) {
       const result = await this.wdaManager.verifyPreinstalledWDA(
         this.opts.udid,
         this.opts.wdaBundleId,
+        signal,
       );
       if (!result.ready) {
         throw new Error(
@@ -469,7 +479,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
    *
    * Launches WDA → waits for /status ready → passes webDriverAgentUrl.
    */
-  private async buildExternalUrlCaps(): Promise<Record<string, unknown>> {
+  private async buildExternalUrlCaps(signal?: AbortSignal): Promise<Record<string, unknown>> {
+    signal?.throwIfAborted();
     // Attach mode: an explicit webDriverAgentUrl means WDA is already hosted
     // (G5 recipe: xcodebuild test-without-building + external usbmux tunnel).
     // No WdaManager lifecycle is required — Appium attaches to the live server.
@@ -512,11 +523,12 @@ export class AppiumDeviceBackend implements DeviceBackend {
         codeSignIdentity: this.opts.xcodeSigningId,
         derivedDataPath: this.opts.derivedDataPath,
         productBundleIdentifier: this.opts.wdaBundleId,
+        signal,
       });
     }
 
     // Wait for WDA to be ready
-    await this.wdaManager.waitForReady(this.opts.wdaLocalPort);
+    await this.wdaManager.waitForReady(this.opts.wdaLocalPort, undefined, signal);
 
     const wdaUrl = this.opts.webDriverAgentUrl ?? `http://127.0.0.1:${this.opts.wdaLocalPort}`;
 
@@ -539,7 +551,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
    * If WdaManager is configured, launches WDA before Appium session.
    * Uses usePrebuiltWDA to skip build-for-testing only.
    */
-  private async buildManagedXcodebuildCaps(): Promise<Record<string, unknown>> {
+  private async buildManagedXcodebuildCaps(signal?: AbortSignal): Promise<Record<string, unknown>> {
+    signal?.throwIfAborted();
     const hasSigning = Boolean(this.opts.xcodeOrgId);
 
     // When Appium handles signing (xcodeOrgId present), WdaManager must NOT launch WDA
@@ -581,26 +594,71 @@ export class AppiumDeviceBackend implements DeviceBackend {
    *
    * Idempotent — safe to call even if no session is active.
    */
-  async closeSession(): Promise<void> {
+  async closeSession(signal?: AbortSignal): Promise<BackendCleanupOutcome> {
+    if (this.terminalReason) {
+      return { status: 'failed', reusable: false, issues: [this.terminalReason] };
+    }
+    const issues: string[] = [];
+    let status: BackendCleanupOutcome['status'] = this.sessionActive ? 'closed' : 'already_closed';
     // Wait for any in-flight session creation to complete
     if (this.sessionMutex) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let abortListener: (() => void) | undefined;
       try {
-        await this.sessionMutex;
+        const boundary: Promise<'timed_out'> = signal?.aborted
+          ? Promise.resolve('timed_out')
+          : new Promise((resolve) => {
+              timer = setTimeout(() => resolve('timed_out'), this.opts.sessionDeleteTimeoutMs);
+              if (signal) {
+                abortListener = () => resolve('timed_out');
+                signal.addEventListener('abort', abortListener, { once: true });
+              }
+            });
+        const creation = this.sessionMutex.then(
+          () => 'settled' as const,
+          () => 'settled' as const,
+        );
+        const waitStatus = await Promise.race([creation, boundary]);
+        if (waitStatus === 'timed_out') {
+          status = 'timed_out';
+          issues.push(
+            signal?.aborted ? 'session creation wait aborted' : 'session creation wait timed out',
+          );
+        }
       } catch {
         /* session creation failed — proceed to cleanup */
+      } finally {
+        if (timer) clearTimeout(timer);
+        if (abortListener) signal?.removeEventListener('abort', abortListener);
       }
     }
 
     // Delete Appium session if active. G5 finding: WDA teardown can hang on
     // devicectl — bound by a 15s guard so callers never block forever.
-    if (this.sessionActive) {
+    if (this.sessionActive && status !== 'timed_out') {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let abortListener: (() => void) | undefined;
       try {
-        await Promise.race([
-          this.driver.deleteSession(),
-          new Promise<void>((resolve) => setTimeout(resolve, 15_000)),
-        ]);
-      } catch {
-        // Best-effort cleanup — don't throw on delete failure
+        const boundary: Promise<'timed_out'> = signal?.aborted
+          ? Promise.resolve('timed_out')
+          : new Promise((resolve) => {
+              timer = setTimeout(() => resolve('timed_out'), this.opts.sessionDeleteTimeoutMs);
+              if (signal) {
+                abortListener = () => resolve('timed_out');
+                signal.addEventListener('abort', abortListener, { once: true });
+              }
+            });
+        const deletion = this.driver.deleteSession().then(() => 'closed' as const);
+        status = await Promise.race([deletion, boundary]);
+        if (status === 'timed_out') {
+          issues.push(signal?.aborted ? 'session deletion aborted' : 'session deletion timed out');
+        }
+      } catch (error: unknown) {
+        status = 'failed';
+        issues.push(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (timer) clearTimeout(timer);
+        if (abortListener) signal?.removeEventListener('abort', abortListener);
       }
       this.sessionActive = false;
       this.activeSession = null;
@@ -611,14 +669,24 @@ export class AppiumDeviceBackend implements DeviceBackend {
     // (was previously gated by sessionActive, causing leaks)
     if (this.wdaManager) {
       try {
-        await this.wdaManager.stop();
+        await this.wdaManager.stop(undefined, signal);
       } catch {
-        // Best-effort WDA cleanup
+        issues.push('WDA cleanup failed');
       }
     }
 
     // G5 recipe: tear down the usbmux tunnel with the session.
     this.iproxyTunnel?.stop();
+    const reusable = status !== 'timed_out' && status !== 'failed' && issues.length === 0;
+    if (!reusable) {
+      this.terminalReason = issues.join('; ') || `cleanup ${status}`;
+      this.driver.markTerminal?.(this.terminalReason);
+    }
+    return {
+      status: reusable ? status : status === 'closed' ? 'failed' : status,
+      reusable,
+      issues,
+    };
   }
 
   // ── Coordinate conversion ──────────────────────────────────────────
@@ -643,6 +711,29 @@ export class AppiumDeviceBackend implements DeviceBackend {
   }
 
   // ── Error handling ─────────────────────────────────────────────────
+
+  /** Return promptly when the run is cancelled while a WebDriver command is pending. */
+  private async awaitAbortable<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
+    signal?.throwIfAborted();
+    if (!signal) return operation;
+
+    let abortListener: (() => void) | undefined;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      abortListener = () => {
+        try {
+          signal.throwIfAborted();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      signal.addEventListener('abort', abortListener, { once: true });
+    });
+    try {
+      return await Promise.race([operation, aborted]);
+    } finally {
+      if (abortListener) signal.removeEventListener('abort', abortListener);
+    }
+  }
 
   /** Convert AppiumDriverError to iTestAgent ActionResult (R5: never silent). */
   private toActionResult(error: unknown, operation: string): ActionResult {
@@ -704,7 +795,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         : 'route_c_appium_managed';
     const startedAt = Date.now();
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
       if (signal?.aborted) {
         await this.closeSession();
         signal.throwIfAborted();
@@ -898,9 +989,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async listApps(_deviceId: string, signal?: AbortSignal): Promise<AppInfo[]> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const apps = await this.driver.listApps();
+      const apps = await this.awaitAbortable(this.driver.listApps(), signal);
 
       return apps.map((app) => ({
         bundleId: app.bundleId,
@@ -909,6 +1000,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         buildNumber: app.buildNumber,
       }));
     } catch (error) {
+      signal?.throwIfAborted();
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[listApps] ${errorMsg}`);
       return [];
@@ -919,11 +1011,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async launchApp(input: LaunchAppInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const result = await this.driver.launchApp(input.bundleId);
+      const result = await this.awaitAbortable(this.driver.launchApp(input.bundleId), signal);
       if (result.success) {
-        await this.driver.activateApp(input.bundleId);
+        await this.awaitAbortable(this.driver.activateApp(input.bundleId), signal);
       }
 
       return {
@@ -932,6 +1024,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.toActionResult(error, 'launchApp');
     }
   }
@@ -940,15 +1033,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async terminateApp(input: TerminateAppInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const result = await this.driver.terminateApp(input.bundleId);
+      const result = await this.awaitAbortable(this.driver.terminateApp(input.bundleId), signal);
       return {
         success: result.success,
         message: result.message,
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.toActionResult(error, 'terminateApp');
     }
   }
@@ -957,9 +1051,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async getUiTree(_input: DeviceTarget, signal?: AbortSignal): Promise<UiTreeSnapshot> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const raw = await this.driver.getPageSource();
+      const raw = await this.awaitAbortable(this.driver.getPageSource(), signal);
 
       return {
         raw,
@@ -967,6 +1061,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         capturedAt: new Date().toISOString(),
       };
     } catch (error) {
+      signal?.throwIfAborted();
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[getUiTree] ${errorMsg}`);
       return {
@@ -981,9 +1076,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async screenshot(_input: ScreenshotInput, signal?: AbortSignal): Promise<ArtifactRef> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const base64 = await this.driver.takeScreenshot();
+      const base64 = await this.awaitAbortable(this.driver.takeScreenshot(), signal);
       const screenshotBytes = Buffer.from(base64, 'base64');
       if (screenshotBytes.length === 0) {
         throw new Error('Screenshot capture returned empty content');
@@ -1004,6 +1099,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         redactionStatus: 'raw-local-only',
       };
     } catch (error) {
+      signal?.throwIfAborted();
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[screenshot] ${errorMsg}`);
       return {
@@ -1027,9 +1123,10 @@ export class AppiumDeviceBackend implements DeviceBackend {
     const accId = (input as { accessibilityId?: string }).accessibilityId;
     if (accId) {
       try {
-        await this.ensureSession();
-        return await this.driver.tapElement(accId);
+        await this.ensureSession(signal);
+        return await this.awaitAbortable(this.driver.tapElement(accId), signal);
       } catch (error) {
+        signal?.throwIfAborted();
         // Only fall through to the coordinate path when the element click
         // provably never dispatched (element lookup failed). A post-click
         // failure must not re-tap — the app may have already processed the
@@ -1040,16 +1137,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }
     }
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
       const point = this.toPixels(input.x, input.y);
-      const result = await this.driver.tap(point);
+      const result = await this.awaitAbortable(this.driver.tap(point), signal);
       return {
         success: result.success,
         message: result.message,
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.toActionResult(error, 'tap');
     }
   }
@@ -1058,17 +1156,21 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async swipe(input: SwipeInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
       const from = this.toPixels(input.fromX, input.fromY);
       const to = this.toPixels(input.toX, input.toY);
-      const result = await this.driver.swipe(from, to, input.durationMs);
+      const result = await this.awaitAbortable(
+        this.driver.swipe(from, to, input.durationMs),
+        signal,
+      );
       return {
         success: result.success,
         message: result.message,
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.toActionResult(error, 'swipe');
     }
   }
@@ -1077,15 +1179,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async typeText(input: TypeTextInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const result = await this.driver.typeText(input.text);
+      const result = await this.awaitAbortable(this.driver.typeText(input.text), signal);
       return {
         success: result.success,
         message: result.message,
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.toActionResult(error, 'typeText');
     }
   }
@@ -1094,15 +1197,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async pressButton(input: PressButtonInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const result = await this.driver.pressButton(input.button);
+      const result = await this.awaitAbortable(this.driver.pressButton(input.button), signal);
       return {
         success: result.success,
         message: result.message,
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return {
         success: false,
         error: `pressButton(${input.button}): not supported — Appium mobile: pressButton requires iOS 17+`,
@@ -1114,16 +1218,17 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async openUrl(input: OpenUrlInput, signal?: AbortSignal): Promise<ActionResult> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
       const bundleId = this.opts.bundleId;
-      const result = await this.driver.openUrl(input.url, bundleId);
+      const result = await this.awaitAbortable(this.driver.openUrl(input.url, bundleId), signal);
       return {
         success: result.success,
         message: result.message,
         error: result.error ? redactError(result.error) : undefined,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return this.toActionResult(error, 'openUrl');
     }
   }
@@ -1132,14 +1237,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async startRecording(_input: RecordingInput, signal?: AbortSignal): Promise<RecordingHandle> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const result = await this.driver.startRecording();
+      const result = await this.awaitAbortable(this.driver.startRecording(), signal);
       return {
         handleId: result.recordingId,
         startedAt: new Date().toISOString(),
       };
     } catch (error) {
+      signal?.throwIfAborted();
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[startRecording] ${errorMsg}`);
       return {
@@ -1153,9 +1259,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async stopRecording(input: RecordingHandle, signal?: AbortSignal): Promise<ArtifactRef> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const base64 = await this.driver.stopRecording(input.handleId);
+      const base64 = await this.awaitAbortable(this.driver.stopRecording(input.handleId), signal);
       const videoBytes = Buffer.from(base64, 'base64');
       if (videoBytes.length === 0) {
         throw new Error('Video capture returned empty content');
@@ -1176,6 +1282,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         redactionStatus: 'raw-local-only',
       };
     } catch (error) {
+      signal?.throwIfAborted();
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[stopRecording] ${errorMsg}`);
       return {
@@ -1241,12 +1348,15 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
   async collectLogs(input: LogCollectInput, signal?: AbortSignal): Promise<ArtifactRef> {
     try {
-      await this.ensureSession();
+      await this.ensureSession(signal);
 
-      const content = await this.driver.collectLogs({
-        type: input.type,
-        durationSeconds: input.durationSeconds,
-      });
+      const content = await this.awaitAbortable(
+        this.driver.collectLogs({
+          type: input.type,
+          durationSeconds: input.durationSeconds,
+        }),
+        signal,
+      );
 
       const id = `log_${input.type}_${Date.now()}`;
       return {
@@ -1257,6 +1367,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
         redactionStatus: 'raw-local-only',
       };
     } catch (error) {
+      signal?.throwIfAborted();
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[collectLogs] ${errorMsg}`);
       return {

@@ -208,7 +208,7 @@ export interface AppiumDriver {
    *
    * @throws AppiumDriverError (session_create_failed / connection_error / timeout)
    */
-  createSession(caps: Record<string, unknown>): Promise<AppiumSession>;
+  createSession(caps: Record<string, unknown>, signal?: AbortSignal): Promise<AppiumSession>;
 
   /**
    * Delete the current session and release resources (WDA ports, etc.).
@@ -227,6 +227,9 @@ export interface AppiumDriver {
    * Get the current session ID, or null if no session is active.
    */
   getSessionId(): string | null;
+
+  /** Permanently prevent reuse after an indeterminate teardown. */
+  markTerminal?(reason: string): void;
 
   // ── Screen info ───────────────────────────────────────────────────
 

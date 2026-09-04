@@ -18,6 +18,23 @@ export function createAnsiRenderer(): TuiRenderer {
   let dispatchFn: ((event: TuiShellEvent) => void) | null = null;
   const rl: ReturnType<typeof createInterface> | null = null;
   let activeDataListener: ((chunk: string) => void) | null = null;
+  let activeResizeListener: (() => void) | null = null;
+  let resolveExit: (() => void) | null = null;
+
+  const cleanup = () => {
+    process.stdin.setRawMode?.(false);
+    process.stdin.pause();
+    if (activeDataListener) {
+      process.stdin.removeListener('data', activeDataListener);
+      activeDataListener = null;
+    }
+    if (activeResizeListener) {
+      process.stdout.off('resize', activeResizeListener);
+      activeResizeListener = null;
+    }
+    resolveExit?.();
+    resolveExit = null;
+  };
 
   const input = createAnsiInputHandler({
     write: (chunk) => {
@@ -62,13 +79,9 @@ export function createAnsiRenderer(): TuiRenderer {
       }
     },
     interrupt: () => {
-      process.stdin.setRawMode?.(false);
-      process.stdin.pause();
-      if (activeDataListener) {
-        process.stdin.removeListener('data', activeDataListener);
-      }
-      process.exit(0);
+      cleanup();
     },
+    maskInput: () => currentState?.mode === 'setup' && currentState.setupStep === 1,
   });
 
   return {
@@ -110,17 +123,23 @@ export function createAnsiRenderer(): TuiRenderer {
         input.handleChunk(chunk);
       };
       activeDataListener = onData;
+      activeResizeListener = () => renderScreen(currentState);
 
       process.stdin.on('data', onData);
+      process.stdout.on('resize', activeResizeListener);
 
       // Wait for exit signal
+      const onSignal = () => {
+        process.stdout.write(`${RESET}\r\n`);
+        cleanup();
+      };
       await new Promise<void>((resolve) => {
-        process.once('SIGINT', () => {
-          process.stdout.write(`${RESET}\r\n`);
-          process.stdin.setRawMode?.(false);
-          resolve();
-        });
+        resolveExit = resolve;
+        process.once('SIGINT', onSignal);
+        process.once('SIGTERM', onSignal);
       });
+      process.removeListener('SIGINT', onSignal);
+      process.removeListener('SIGTERM', onSignal);
     },
 
     update(state: TuiShellState) {

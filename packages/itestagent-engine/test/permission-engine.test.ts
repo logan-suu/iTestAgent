@@ -51,11 +51,14 @@ describe('AC1: rule model + wildcard matching', () => {
     expect(engine.check('clear_app_data', 'com.example.app')).toBe('ask');
   });
 
-  test('explicit allow rule overrides high-risk default', () => {
-    const engine = makeEngine({
-      preloadedRules: [{ action: 'clear_app_data', resource: 'com.example.app', effect: 'allow' }],
-    });
-    expect(engine.check('clear_app_data', 'com.example.app')).toBe('allow');
+  test('rejects a cross-session allow rule', () => {
+    expect(() =>
+      makeEngine({
+        preloadedRules: [
+          { action: 'clear_app_data', resource: 'com.example.app', effect: 'allow' },
+        ],
+      }),
+    ).toThrow('Only deny permission rules');
   });
 
   test('explicit deny rule overrides high-risk default', () => {
@@ -82,24 +85,20 @@ describe('AC1: rule model + wildcard matching', () => {
     expect(engine.check('write_project_file', 'anything')).toBe('ask');
   });
 
-  test('exact resource match takes priority over wildcard', () => {
+  test('rejects adding an allow rule', () => {
     const engine = makeEngine();
-    engine.addRule({ action: 'write_project_file', resource: '*', effect: 'deny' });
-    engine.addRule({ action: 'write_project_file', resource: 'src/special.ts', effect: 'allow' });
-
-    // Exact match
-    expect(engine.check('write_project_file', 'src/special.ts')).toBe('allow');
-    // Wildcard fallback
-    expect(engine.check('write_project_file', 'src/other.ts')).toBe('deny');
+    expect(() =>
+      engine.addRule({ action: 'write_project_file', resource: 'src/special.ts', effect: 'allow' }),
+    ).toThrow('Allow permission rules cannot persist');
   });
 
   test('addRule and removeRule manage user-defined rules', () => {
     const engine = makeEngine();
     expect(engine.getRules()).toHaveLength(0);
 
-    engine.addRule({ action: 'clear_app_data', resource: 'com.x', effect: 'allow' });
+    engine.addRule({ action: 'clear_app_data', resource: 'com.x', effect: 'deny' });
     expect(engine.getRules()).toHaveLength(1);
-    expect(engine.check('clear_app_data', 'com.x')).toBe('allow');
+    expect(engine.check('clear_app_data', 'com.x')).toBe('deny');
 
     engine.removeRule('clear_app_data', 'com.x');
     expect(engine.getRules()).toHaveLength(0);
@@ -108,7 +107,7 @@ describe('AC1: rule model + wildcard matching', () => {
 
   test('clearRules removes all user-defined rules', () => {
     const engine = makeEngine();
-    engine.addRule({ action: 'clear_app_data', resource: 'com.x', effect: 'allow' });
+    engine.addRule({ action: 'clear_app_data', resource: 'com.x', effect: 'deny' });
     engine.addRule({ action: 'uninstall_app', resource: '*', effect: 'deny' });
     expect(engine.getRules()).toHaveLength(2);
 
@@ -198,7 +197,7 @@ describe('AC3: ask blocks + always remember + persistence', () => {
     expect(result.remembered).toBe(false);
   });
 
-  test('resolve with remember=true persists the rule', async () => {
+  test('allow cannot be remembered even when the caller requests persistence', async () => {
     const engine = makeEngine();
     const callId = 'call-3';
 
@@ -207,11 +206,9 @@ describe('AC3: ask blocks + always remember + persistence', () => {
 
     const result = await promise;
     expect(result.effect).toBe('allow');
-    expect(result.remembered).toBe(true);
-
-    // Subsequent check should now return allow due to persisted rule
-    expect(engine.check('write_project_file', 'src/app.ts')).toBe('allow');
-    expect(engine.getRules()).toHaveLength(1);
+    expect(result.remembered).toBe(false);
+    expect(engine.check('write_project_file', 'src/app.ts')).toBe('ask');
+    expect(engine.getRules()).toHaveLength(0);
   });
 
   test('resolve with remember=true for deny persists the deny rule', async () => {
@@ -344,13 +341,12 @@ describe('AC4: deny prevents execution + stop loop', () => {
     expect(result.effect).toBe('deny');
   });
 
-  test('preloaded allow rule causes requestPermission to resolve immediately', async () => {
-    const engine = makeEngine({
-      preloadedRules: [{ action: 'clear_app_data', resource: 'com.safe.app', effect: 'allow' }],
-    });
-
-    const result = await engine.requestPermission('call-fast2', 'clear_app_data', 'com.safe.app');
-    expect(result.effect).toBe('allow');
+  test('preloaded allow rule is rejected before any request can bypass confirmation', () => {
+    expect(() =>
+      makeEngine({
+        preloadedRules: [{ action: 'clear_app_data', resource: 'com.safe.app', effect: 'allow' }],
+      }),
+    ).toThrow('Only deny permission rules');
   });
 
   test('cancel a non-existent callId is a no-op (no error)', () => {
@@ -430,40 +426,33 @@ describe('persistence: exportRules / fromRules', () => {
     expect(engine.exportRules()).toEqual([]);
   });
 
-  test('exportRules returns all user-added rules', () => {
+  test('exportRules returns user-added deny rules', () => {
     const engine = makeEngine();
-    engine.addRule({ action: 'clear_app_data', resource: 'com.x', effect: 'allow' });
     engine.addRule({ action: 'uninstall_app', resource: '*', effect: 'deny' });
 
     const exported = engine.exportRules();
-    expect(exported).toHaveLength(2);
-    expect(exported).toContainEqual({
-      action: 'clear_app_data',
-      resource: 'com.x',
-      effect: 'allow',
-    });
+    expect(exported).toHaveLength(1);
     expect(exported).toContainEqual({ action: 'uninstall_app', resource: '*', effect: 'deny' });
   });
 
   test('exportRules does not include remembered-through-resolve rules added by resolve (they are in addRule)', () => {
     // Rules added via resolve(remember=true) or addRule both appear in exportRules
     const engine = makeEngine();
-    engine.addRule({ action: 'a', resource: 'r', effect: 'allow' });
     engine.addRule({ action: 'b', resource: '*', effect: 'deny' });
 
-    expect(engine.exportRules()).toHaveLength(2);
+    expect(engine.exportRules()).toHaveLength(1);
   });
 
   test('fromRules restores engine with preloaded rules', () => {
     const rules: PermissionRule[] = [
       { action: 'clear_app_data', resource: '*', effect: 'deny' },
-      { action: 'write_project_file', resource: 'src/ok.ts', effect: 'allow' },
+      { action: 'write_project_file', resource: 'src/ok.ts', effect: 'deny' },
     ];
 
     const engine = PermissionEngine.fromRules(rules);
 
     expect(engine.check('clear_app_data', 'any.app')).toBe('deny');
-    expect(engine.check('write_project_file', 'src/ok.ts')).toBe('allow');
+    expect(engine.check('write_project_file', 'src/ok.ts')).toBe('deny');
     expect(engine.check('write_project_file', 'src/other.ts')).toBe('ask'); // not matched
     expect(engine.getRules()).toHaveLength(2);
   });
@@ -477,13 +466,13 @@ describe('persistence: exportRules / fromRules', () => {
   test('round-trip: exportRules → fromRules preserves behavior', () => {
     const engine1 = makeEngine();
     engine1.addRule({ action: 'clear_app_data', resource: '*', effect: 'deny' });
-    engine1.addRule({ action: 'write_project_file', resource: 'src/safe.ts', effect: 'allow' });
+    engine1.addRule({ action: 'write_project_file', resource: 'src/safe.ts', effect: 'deny' });
 
     const exported = engine1.exportRules();
     const engine2 = PermissionEngine.fromRules(exported);
 
     expect(engine2.check('clear_app_data', 'any.app')).toBe('deny');
-    expect(engine2.check('write_project_file', 'src/safe.ts')).toBe('allow');
+    expect(engine2.check('write_project_file', 'src/safe.ts')).toBe('deny');
     expect(engine2.check('write_project_file', 'src/unsafe.ts')).toBe('ask');
     expect(engine2.getRules()).toHaveLength(2);
   });
@@ -496,7 +485,7 @@ describe('persistence: exportRules / fromRules', () => {
 describe('edge cases', () => {
   test('duplicate rule (same action+resource): latest wins', () => {
     const engine = makeEngine();
-    engine.addRule({ action: 'clear_app_data', resource: '*', effect: 'allow' });
+    engine.addRule({ action: 'clear_app_data', resource: '*', effect: 'deny' });
     engine.addRule({ action: 'clear_app_data', resource: '*', effect: 'deny' });
 
     // Latest rule should win
@@ -506,7 +495,7 @@ describe('edge cases', () => {
 
   test('removeRule only removes exact action+resource match', () => {
     const engine = makeEngine();
-    engine.addRule({ action: 'a', resource: 'r1', effect: 'allow' });
+    engine.addRule({ action: 'a', resource: 'r1', effect: 'deny' });
     engine.addRule({ action: 'a', resource: 'r2', effect: 'deny' });
 
     engine.removeRule('a', 'r1');

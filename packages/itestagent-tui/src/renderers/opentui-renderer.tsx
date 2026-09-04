@@ -469,6 +469,10 @@ export function createOpenTuiRenderer(): TuiRenderer {
   return {
     async start(initialState, dispatch) {
       const detachResize = lifecycle.bind(process.stdout);
+      let resolveDestroyed: (() => void) | null = null;
+      const destroyed = new Promise<void>((resolve) => {
+        resolveDestroyed = resolve;
+      });
       try {
         await otRender(
           () => <App initialState={initialState} dispatch={dispatch} setStateRef={lifecycle.ref} />,
@@ -476,8 +480,12 @@ export function createOpenTuiRenderer(): TuiRenderer {
             stdout: process.stdout,
             stdin: process.stdin,
             exitOnCtrlC: true,
+            onDestroy: () => resolveDestroyed?.(),
           },
         );
+        // @opentui/solid >=0.5 resolves render() after mounting. Keep the
+        // renderer lifecycle alive until the underlying CliRenderer exits.
+        await destroyed;
       } finally {
         detachResize();
       }

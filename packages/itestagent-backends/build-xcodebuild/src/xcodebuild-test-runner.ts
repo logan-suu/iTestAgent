@@ -21,6 +21,7 @@ export interface XcodebuildTestRunInput {
   /** Test identifiers filtered as `-only-testing:<target>[/suite[/case]]`. */
   only?: string[];
   extraArgs?: string[];
+  signal?: AbortSignal;
 }
 
 export interface XcodebuildTestRunOutput {
@@ -46,6 +47,9 @@ export async function runXcodebuildTests(
   args.push(...(input.extraArgs ?? []));
 
   const start = Date.now();
-  const result = await runner('xcodebuild', args, { cwd: input.projectRoot });
+  const result = await runner('xcodebuild', args, {
+    cwd: input.projectRoot,
+    ...(input.signal ? { signal: input.signal } : {}),
+  });
   return { ...result, durationMs: Date.now() - start };
 }

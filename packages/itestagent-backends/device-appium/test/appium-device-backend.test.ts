@@ -39,7 +39,10 @@ import type {
 interface MockDriverConfig {
   createSessionResult?: AppiumSession;
   createSessionError?: AppiumDriverError;
+  createSessionBlock?: Promise<void>;
+  getPageSourceBlock?: Promise<void>;
   deleteSessionError?: AppiumDriverError;
+  deleteSessionBlock?: Promise<void>;
   screenSize?: AppiumScreenSize;
   getPageSourceResult?: string;
   getPageSourceError?: Error;
@@ -123,6 +126,7 @@ class MockAppiumDriver implements AppiumDriver {
   readonly typedTexts: string[] = [];
   readonly pressedButtons: string[] = [];
   lastSessionCaps: Record<string, unknown> | undefined;
+  lastSessionSignal: AbortSignal | undefined;
 
   constructor(config?: MockDriverConfig) {
     this.config = config ?? {};
@@ -134,9 +138,11 @@ class MockAppiumDriver implements AppiumDriver {
 
   // ── Session ──────────────────────────────────────────────────
 
-  async createSession(caps: Record<string, unknown>): Promise<AppiumSession> {
+  async createSession(caps: Record<string, unknown>, signal?: AbortSignal): Promise<AppiumSession> {
     this.calls.push('createSession');
     this.lastSessionCaps = caps;
+    this.lastSessionSignal = signal;
+    await this.config.createSessionBlock;
     if (this.config.createSessionError) throw this.config.createSessionError;
     const session = this.config.createSessionResult ?? DEFAULT_SESSION;
     this.sessionActive = true;
@@ -146,6 +152,7 @@ class MockAppiumDriver implements AppiumDriver {
 
   async deleteSession(): Promise<AppiumActionResult> {
     this.calls.push('deleteSession');
+    await this.config.deleteSessionBlock;
     if (this.config.deleteSessionError) throw this.config.deleteSessionError;
     this.sessionActive = false;
     this.sessionId = null;
@@ -197,6 +204,7 @@ class MockAppiumDriver implements AppiumDriver {
 
   async getPageSource(): Promise<string> {
     this.calls.push('getPageSource');
+    await this.config.getPageSourceBlock;
     if (this.config.getPageSourceError) throw this.config.getPageSourceError;
     return this.config.getPageSourceResult ?? DEFAULT_PAGE_SOURCE;
   }
@@ -309,6 +317,24 @@ function createBackend(config?: MockDriverConfig): {
   return { backend, mock };
 }
 
+function createBackendWithDeleteTimeout(
+  config: MockDriverConfig,
+  sessionDeleteTimeoutMs: number,
+): { backend: AppiumDeviceBackend; mock: MockAppiumDriver } {
+  const mock = new MockAppiumDriver(config);
+  return {
+    mock,
+    backend: new AppiumDeviceBackend(mock, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      bundleId: TEST_BUNDLE_ID,
+      wdaStartupMode: 'managed-xcodebuild',
+      physicalDeviceDiscovery: async () => [],
+      sessionDeleteTimeoutMs,
+    }),
+  };
+}
+
 const SIM_UDID = 'F7C1CF80-42FC-4B59-88E4-7A8E8D2E9A3B';
 
 function createSimulatorBackend(config?: MockDriverConfig): {
@@ -378,6 +404,26 @@ describe('AppiumDeviceBackend', () => {
       expect(mock.isSessionActive()).toBe(true);
     });
 
+    it('passes the run signal to session creation', async () => {
+      const controller = new AbortController();
+
+      await backend.getUiTree({ deviceId: TEST_UDID }, controller.signal);
+
+      expect(mock.lastSessionSignal).toBe(controller.signal);
+    });
+
+    it('aborts promptly while a WebDriver command is pending', async () => {
+      const never = new Promise<void>(() => {});
+      const scoped = createBackend({ getPageSourceBlock: never });
+      const controller = new AbortController();
+      const action = scoped.backend.getUiTree({ deviceId: TEST_UDID }, controller.signal);
+      await Promise.resolve();
+
+      controller.abort(new Error('run cancelled'));
+
+      await expect(action).rejects.toThrow('run cancelled');
+    });
+
     it('does not create session for listDevices (devicectl-based)', async () => {
       await backend.listDevices();
       expect(mock.calls).not.toContain('createSession');
@@ -412,6 +458,61 @@ describe('AppiumDeviceBackend', () => {
 
       const deleteCalls = mock.calls.filter((c) => c === 'deleteSession');
       expect(deleteCalls.length).toBe(0);
+    });
+
+    it('makes the backend terminal when session deletion times out', async () => {
+      const never = new Promise<void>(() => {});
+      const scoped = createBackendWithDeleteTimeout({ deleteSessionBlock: never }, 5);
+      await scoped.backend.getUiTree({ deviceId: TEST_UDID });
+
+      const cleanup = await scoped.backend.closeSession();
+      expect(cleanup.status).toBe('timed_out');
+      expect(cleanup.reusable).toBe(false);
+      expect(cleanup.issues).toContain('session deletion timed out');
+
+      await scoped.backend.getUiTree({ deviceId: TEST_UDID });
+      expect(scoped.mock.calls.filter((call) => call === 'createSession')).toHaveLength(1);
+      expect((await scoped.backend.closeSession()).reusable).toBe(false);
+    });
+
+    it('makes the backend terminal when teardown receives an already-aborted signal', async () => {
+      const scoped = createBackendWithDeleteTimeout({}, 15_000);
+      await scoped.backend.getUiTree({ deviceId: TEST_UDID });
+      const controller = new AbortController();
+      controller.abort(new Error('cancelled before teardown'));
+
+      const cleanup = await scoped.backend.closeSession(controller.signal);
+
+      expect(cleanup).toEqual({
+        status: 'timed_out',
+        reusable: false,
+        issues: ['session deletion aborted'],
+      });
+      expect(await scoped.backend.closeSession()).toEqual({
+        status: 'failed',
+        reusable: false,
+        issues: ['session deletion aborted'],
+      });
+    });
+
+    it('bounds teardown while session creation is still in flight', async () => {
+      const never = new Promise<void>(() => {});
+      const scoped = createBackendWithDeleteTimeout({ createSessionBlock: never }, 5);
+      const action = scoped.backend.getUiTree({ deviceId: TEST_UDID });
+
+      const cleanup = await scoped.backend.closeSession();
+
+      expect(cleanup).toEqual({
+        status: 'timed_out',
+        reusable: false,
+        issues: ['session creation wait timed out'],
+      });
+      expect(await scoped.backend.closeSession()).toEqual({
+        status: 'failed',
+        reusable: false,
+        issues: ['session creation wait timed out'],
+      });
+      void action;
     });
 
     it('handles session creation failure gracefully', async () => {

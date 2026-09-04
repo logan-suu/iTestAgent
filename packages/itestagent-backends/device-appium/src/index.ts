@@ -76,8 +76,12 @@ export type {
   WdaManagerOptions,
 } from './wda-manager.js';
 
-export { createAppiumDeviceBackend } from './composition-root.js';
-export type { ProductionAppiumConfig, AppiumBackendAssembly } from './composition-root.js';
+export { createAppiumDeviceBackend, resolveProductionWdaRoute } from './composition-root.js';
+export type {
+  ProductionAppiumConfig,
+  AppiumBackendAssembly,
+  ResolvedProductionWdaRoute,
+} from './composition-root.js';
 
 export { redactError, redactErrorMessage } from './redactor.js';
 

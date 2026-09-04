@@ -126,7 +126,7 @@ export class CredentialManager implements CredentialManagerInterface {
       // Step 3b: Store to Keychain if remembered AND permission allows (R7/ADR-010)
       if (remembered && this.keychainStore) {
         if (this.permissionEngine) {
-          const gate = this.permissionEngine.check('credential_store', key);
+          const gate = this.permissionEngine.check('store_credential', key);
           if (gate === 'allow') {
             await this.keychainStore.set(key, value);
           }

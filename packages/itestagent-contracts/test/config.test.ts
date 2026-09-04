@@ -18,6 +18,7 @@ import {
   DeviceConfigSchema,
   ItestAgentConfigSchema,
   ModelConfigSchema,
+  PermissionsConfigSchema,
   TuiConfigSchema,
   parseConfig,
 } from '../src/config.js';
@@ -33,10 +34,11 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.schemaVersion).toBe('1.0');
   });
 
-  test('always fills model/device/tui sections (never undefined)', () => {
+  test('always fills model/device/tui/permissions sections (never undefined)', () => {
     expect(DEFAULT_CONFIG.model).toBeDefined();
     expect(DEFAULT_CONFIG.device).toBeDefined();
     expect(DEFAULT_CONFIG.tui).toBeDefined();
+    expect(DEFAULT_CONFIG.permissions).toBeDefined();
   });
 
   test('model section is at its defaults', () => {
@@ -52,7 +54,8 @@ describe('DEFAULT_CONFIG', () => {
   });
 
   test('tui section is at its defaults', () => {
-    expect(DEFAULT_CONFIG.tui.framework).toBe('opentui');
+    expect(DEFAULT_CONFIG.tui.framework).toBe('auto');
+    expect(DEFAULT_CONFIG.permissions.deniedRules).toEqual([]);
   });
 
   test('$schema stays unset when not provided', () => {
@@ -170,13 +173,31 @@ describe('device config parsing', () => {
 // ─── TUI section ─────────────────────────────────────────────────────────────
 
 describe('tui config parsing', () => {
-  test('fills framework default opentui when tui omitted', () => {
+  test('fills framework default auto when tui omitted', () => {
     const config = parseConfig({});
-    expect(config.tui.framework).toBe('opentui');
+    expect(config.tui.framework).toBe('auto');
   });
 
   test('accepts the verified ink fallback', () => {
     expect(parseConfig({ tui: { framework: 'ink' } }).tui.framework).toBe('ink');
+  });
+
+  test('accepts explicit ansi and opentui renderers', () => {
+    expect(parseConfig({ tui: { framework: 'ansi' } }).tui.framework).toBe('ansi');
+    expect(parseConfig({ tui: { framework: 'opentui' } }).tui.framework).toBe('opentui');
+  });
+
+  test('only accepts deny rules for persistent permissions', () => {
+    expect(
+      PermissionsConfigSchema.parse({
+        deniedRules: [{ action: 'uninstall_app', resource: '*', effect: 'deny' }],
+      }).deniedRules,
+    ).toHaveLength(1);
+    expect(
+      PermissionsConfigSchema.safeParse({
+        deniedRules: [{ action: 'uninstall_app', resource: '*', effect: 'allow' }],
+      }).success,
+    ).toBe(false);
   });
 
   test('rejects frameworks outside the documented enum', () => {
@@ -219,7 +240,7 @@ describe('parseConfig', () => {
     expect(config.schemaVersion).toBe('1.0');
     expect(config.model.provider).toBe('openai');
     expect(config.device.allowCrossTargetFallback).toBe(false);
-    expect(config.tui.framework).toBe('opentui');
+    expect(config.tui.framework).toBe('auto');
   });
 
   test('throws on non-object input', () => {

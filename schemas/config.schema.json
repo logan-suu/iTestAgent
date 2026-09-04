@@ -74,13 +74,34 @@
     },
     "tui": {
       "type": "object",
-      "description": "TUI config (tech selection §5: OpenTUI+SolidJS target mainline, Ink verified fallback).",
+      "description": "TUI renderer selection. Auto uses the renderer verified by the current real-PTY gate.",
       "properties": {
         "framework": {
           "type": "string",
-          "enum": ["opentui", "ink"],
-          "description": "TUI framework.",
-          "default": "opentui"
+          "enum": ["auto", "opentui", "ink", "ansi"],
+          "description": "TUI renderer preference.",
+          "default": "auto"
+        }
+      },
+      "additionalProperties": false
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Persistent deny rules. This section is valid only in the global config file.",
+      "properties": {
+        "deniedRules": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": { "type": "string", "minLength": 1 },
+              "resource": { "type": "string", "minLength": 1 },
+              "effect": { "type": "string", "const": "deny" }
+            },
+            "required": ["action", "resource", "effect"],
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

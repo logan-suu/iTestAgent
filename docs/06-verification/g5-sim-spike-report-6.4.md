@@ -1,5 +1,7 @@
 # Task 6.4 G5 真机前置链验证报告
 
+> **2026-09-04 decision update**：本报告保留 2026-09-01 的候选比较与证据事实。后续 T6.10 规格评审通过 ADR-036 将 Route B 定为 physical production default，Route C 改为用户显式诊断路线；Route C parity 不再阻塞 Route B 的 MVP 出口。原文中的“候选偏好”“最终默认等待 DEF-033”属于当时结论，已被 ADR-036 的决策状态取代。
+
 **任务**：T6.4 真机执行前置链：App 来源归一化、构建安装启动、WDA 主动可用性与自愈
 
 **验证时间**：2026-09-01

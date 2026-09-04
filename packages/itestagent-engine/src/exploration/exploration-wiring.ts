@@ -27,6 +27,8 @@ export interface ExplorationSurfaceConfig {
   platformVersion?: string;
   /** Explicit WDA startup route. Inventory-only preinstalled mode is not executable. */
   wdaStartupMode: 'external-url' | 'managed-xcodebuild';
+  /** Required for the retained Route C diagnostics path. */
+  routePurpose?: 'production' | 'diagnostic';
   /** Active WDA endpoint required by the external-url route. */
   webDriverAgentUrl?: string;
   /** Signing team ID (managed-xcodebuild route). */
@@ -76,6 +78,9 @@ export function createAppiumExplorationRuntime(
   config: ExplorationSurfaceConfig,
   llm?: { baseUrl: string; apiKey: string; model: string; goal: string; featureName?: string },
 ): ExplorationRuntime {
+  if (config.wdaStartupMode === 'managed-xcodebuild' && config.routePurpose !== 'diagnostic') {
+    throw new Error('Route C is diagnostic-only; set routePurpose="diagnostic" explicitly');
+  }
   const tunnel = createIProxyTunnel({ iproxyPath: config.iproxyPath });
 
   const backend = new AppiumDeviceBackend(
@@ -89,7 +94,11 @@ export function createAppiumExplorationRuntime(
       // "Unknown device or simulator UDID".
       platformVersion: config.platformVersion,
       wdaStartupMode: config.wdaStartupMode,
-      webDriverAgentUrl: config.webDriverAgentUrl,
+      webDriverAgentUrl:
+        config.webDriverAgentUrl ??
+        (config.wdaStartupMode === 'external-url'
+          ? `http://127.0.0.1:${config.wdaLocalPort ?? 8100}`
+          : undefined),
       xcodeOrgId: config.xcodeOrgId,
       xcodeSigningId: config.xcodeSigningId ?? 'Apple Development',
       wdaBundleId: config.wdaBundleId,

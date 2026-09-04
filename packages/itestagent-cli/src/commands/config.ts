@@ -1,3 +1,4 @@
+import { revokeGlobalDeniedRule } from 'itestagent-tui/permissions';
 /**
  * Config command handlers — B17 module split (promotion guide §11.3 "CLI
  * safety/config"). Extracted verbatim from the former inline implementations
@@ -164,4 +165,17 @@ export async function runConfigDeleteSecret(
 
   await store.delete(key);
   stdout.write(`Credential "${key}" removed from Keychain.\n`);
+}
+
+/** Revoke one exact persistent deny rule from the global config. */
+export async function runConfigRevokeDeny(
+  action: string,
+  resource: string,
+  ctx: Pick<ConfigCommandContext, 'stdout'> = {},
+): Promise<void> {
+  const removed = await revokeGlobalDeniedRule(action, resource);
+  if (!removed) {
+    throw new PublicCliError(`Persistent deny rule not found: ${action} on ${resource}`);
+  }
+  (ctx.stdout ?? process.stdout).write(`Revoked persistent deny: ${action} on ${resource}\n`);
 }
