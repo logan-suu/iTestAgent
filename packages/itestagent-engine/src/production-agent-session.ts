@@ -1,5 +1,6 @@
 import { createXcodeProjAnalyzerBackend } from 'itestagent-backends-analyzer-xcodeproj';
 import {
+  type DeviceDiscoveryRuntime,
   type ProductionAppiumConfig,
   createAppiumDeviceBackend,
   createAppiumDeviceDiscoveryProvider,
@@ -32,10 +33,16 @@ export interface ProductionAgentSessionDependencies {
   deviceDiscovery: DeviceDiscoveryProvider;
   createDeviceBackend(device: DeviceInfo): DeviceBackend;
   closeDeviceBackend?(backend: DeviceBackend, signal?: AbortSignal): Promise<BackendCleanupOutcome>;
+  /** Whether this exact backend route will build, sign, or launch a managed WDA. */
+  preparesWda?(device: DeviceInfo): boolean;
 }
 
 export interface ProductionAgentSessionOptions {
   appium?: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'deviceName'>;
+  /** External command/filesystem boundary for deterministic device-discovery tests. */
+  deviceDiscoveryRuntime?: DeviceDiscoveryRuntime;
+  /** Explicit persistence root; production defaults to the canonical user data directory. */
+  dataRoot?: string;
 }
 
 export interface ProductionExecutionTransports {
@@ -55,10 +62,10 @@ export function createProductionAgentSessionDependencies(
   return {
     analyzeWorkspace: async (workspace) => {
       const analysis = await analyzeProject(createXcodeProjAnalyzerBackend(), workspace);
-      saveProfile(analysis.profile);
+      saveProfile(analysis.profile, options.dataRoot ? { dataRoot: options.dataRoot } : undefined);
       return analysis;
     },
-    deviceDiscovery: createAppiumDeviceDiscoveryProvider(),
+    deviceDiscovery: createAppiumDeviceDiscoveryProvider(options.deviceDiscoveryRuntime),
     createDeviceBackend: (device) =>
       createAppiumDeviceBackend({
         ...options.appium,
@@ -74,6 +81,14 @@ export function createProductionAgentSessionDependencies(
     closeDeviceBackend: async (backend, signal) => {
       const outcome = await backend.closeSession?.(signal);
       return outcome ?? { status: 'already_closed', reusable: true, issues: [] };
+    },
+    preparesWda: (device) => {
+      if (device.targetKind !== 'physical') return false;
+      const mode = options.appium?.wdaStartupMode ?? 'external-url';
+      return (
+        mode === 'managed-xcodebuild' ||
+        (mode === 'external-url' && !options.appium?.webDriverAgentUrl)
+      );
     },
   };
 }

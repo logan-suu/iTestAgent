@@ -24,6 +24,7 @@ import {
   assertProviderUrl,
   createProductionAgentSessionDependencies,
   executeProductionTestPlanToDefaultStore,
+  productionPermissionActions,
   suggestExplorationAction,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
@@ -159,6 +160,10 @@ export interface AgentSessionDependencies {
   listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
   closeDeviceBackend?: ProductionAgentSessionDependencies['closeDeviceBackend'];
+  /** Full production composition; tests should replace only its external transport boundaries. */
+  production?: ProductionAgentSessionDependencies;
+  /** Route-derived WDA lifecycle fact for an explicitly supplied DeviceBackend. */
+  preparesWda?: (device: DeviceInfo) => boolean;
   transports?: ProductionExecutionTransports;
   /** Model suggestion boundary only; the production exploration loop remains active. */
   suggestExplorationAction?: ProductionActionSuggestion;
@@ -246,7 +251,7 @@ export async function createAgentSession(
   workspace: string,
   dependencies: AgentSessionDependencies = {},
 ): Promise<TuiAgentSession> {
-  const production = createProductionAgentSessionDependencies();
+  const production = dependencies.production ?? createProductionAgentSessionDependencies();
   const runtimeConfig = loadTuiRuntimeConfig({ workspace });
   const config: SessionConfig = {
     baseURL: runtimeConfig.model.baseURL ?? 'https://api.deepseek.com/v1',
@@ -269,6 +274,9 @@ export async function createAgentSession(
 
   const analyzeWorkspace = dependencies.analyzeWorkspace ?? production.analyzeWorkspace;
   const listDevices = dependencies.listDevices ?? (() => production.deviceDiscovery.discover());
+  const preparesWda =
+    dependencies.preparesWda ??
+    (dependencies.createDeviceBackend ? () => false : (production.preparesWda ?? (() => false)));
   let discovery = normalizeDiscovery(await listDevices());
   let devices = discovery.devices;
   const physicalDevice = devices.find((device) => device.targetKind === 'physical');
@@ -299,6 +307,26 @@ export async function createAgentSession(
   };
   let latestCommittedRun: { runId: string; runDir: string } | null = null;
 
+  const confirmedExecutionContext = () => {
+    const plan = planningSession?.getConfirmedPlan();
+    if (!plan) {
+      throw new Error(
+        'plan_confirmation_required: confirm the displayed TestPlan before execution',
+      );
+    }
+    const device = selectConfirmedPlanDevice(plan, devices);
+    const bundleId = cachedAnalysis?.profile.app.bundleId;
+    if (!bundleId) {
+      throw new Error('execution_blocked: project profile has no confirmed bundleId');
+    }
+    const resource = `${bundleId}@${device.udid}`;
+    const actions =
+      plan.execution.resolvedPath === 'xcuitest'
+        ? [...productionPermissionActions(plan)]
+        : ['replace_device_app', ...productionPermissionActions(plan, preparesWda(device))];
+    return { plan, device, bundleId, resource, actions };
+  };
+
   const executeConfirmedPlan =
     dependencies.executeConfirmedPlan ??
     (async ({ plan, workspace: executionWorkspace, device, signal }) => {
@@ -307,17 +335,24 @@ export async function createAgentSession(
       if (!bundleId) {
         throw new Error('execution_blocked: project profile has no confirmed bundleId');
       }
-      // ToolDispatcher has just authorized these exact one-shot actions for this tool call.
+      const executionContext = confirmedExecutionContext();
+      if (
+        executionContext.plan.runId !== plan.runId ||
+        executionContext.device.udid !== device.udid
+      ) {
+        throw new Error(
+          'execution_context_changed: confirmed plan or device changed after authorization',
+        );
+      }
       const authorizedByExecutionTool = new Set(
-        plan.execution.resolvedPath === 'xcuitest'
-          ? ['execute_project_build', 'replace_device_app']
-          : ['replace_device_app'],
+        executionContext.actions.map((action) => `${action}\u0000${executionContext.resource}`),
       );
       const executed = await executeProductionTestPlanToDefaultStore({
         plan,
         workspace: executionWorkspace,
         device,
         bundleId,
+        preparesWda: preparesWda(device),
         suggest:
           dependencies.suggestExplorationAction ??
           (({ caseId, uiTree, history, signal: suggestionSignal }) =>
@@ -330,7 +365,7 @@ export async function createAgentSession(
               signal: suggestionSignal,
             })),
         authorize: (action, resource) =>
-          authorizedByExecutionTool.has(action)
+          authorizedByExecutionTool.has(`${action}\u0000${resource}`)
             ? Promise.resolve(true)
             : toolDispatcher.authorize(
                 `execution-${crypto.randomUUID()}`,
@@ -410,25 +445,13 @@ export async function createAgentSession(
         },
       },
       executeTestPlan: {
-        action: () =>
-          planningSession?.getConfirmedPlan()?.execution.resolvedPath === 'xcuitest'
-            ? 'execute_project_build'
-            : 'replace_device_app',
-        additionalActions: () =>
-          planningSession?.getConfirmedPlan()?.execution.resolvedPath === 'xcuitest'
-            ? ['replace_device_app']
-            : [],
-        resource: 'confirmed-plan-target',
+        action: () => confirmedExecutionContext().actions[0] ?? 'replace_device_app',
+        additionalActions: () => confirmedExecutionContext().actions.slice(1),
+        resource: () => confirmedExecutionContext().resource,
         backendName: 'itestagent-engine',
         execute: async (_args, signal) => {
-          const plan = planningSession?.getConfirmedPlan();
-          if (!plan) {
-            throw new Error(
-              'plan_confirmation_required: confirm the displayed TestPlan before execution',
-            );
-          }
-          const selectedDevice = selectConfirmedPlanDevice(plan, devices);
-          return executeConfirmedPlan({ plan, workspace, device: selectedDevice, signal });
+          const { plan, device } = confirmedExecutionContext();
+          return executeConfirmedPlan({ plan, workspace, device, signal });
         },
       },
       generateReport: {
