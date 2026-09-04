@@ -300,10 +300,11 @@ describe('CP.3: RSM → PermissionEngine → SSEHub (P1→P3)', () => {
     expect(pe.check('tap', 'button')).toBe('deny');
   });
 
-  test('PermissionEngine rule allow overrides', () => {
+  test('PermissionEngine rejects cross-action allow rules', () => {
     const pe = new PermissionEngine();
-    pe.addRule({ action: 'app:launch', resource: '*', effect: 'allow' });
-    expect(pe.check('app:launch', 'com.test.app')).toBe('allow');
+    expect(() => pe.addRule({ action: 'app:launch', resource: '*', effect: 'allow' })).toThrow(
+      'cannot persist',
+    );
   });
 
   test('PermissionEngine cancel for high-risk ask rejects promise', async () => {

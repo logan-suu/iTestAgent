@@ -67,6 +67,7 @@ export class ReportSynthesizer {
         runtimeIdentifier: this.input.device.runtimeIdentifier,
       },
       execution: this.input.execution,
+      ...(this.input.cleanupOutcome ? { cleanupOutcome: this.input.cleanupOutcome } : {}),
       cases: this.input.cases,
       metrics: this.input.metrics,
       environment: {

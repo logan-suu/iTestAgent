@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-01T07:14:04Z",
+  "last_updated": "2026-09-04T15:57:08Z",
   "items": [
     {
       "id": "DEF-001",
@@ -435,11 +435,12 @@
       "item": "OpenTUI renderer issues reported: nested <text> crash on native renderer, input focus not set, onSubmit not bound to keyboard events",
       "detail": "The report identifies specific OpenTUI renderer integration issues (packages/itestagent-tui/src/renderers/opentui-renderer.tsx). These are likely OpenTUI framework maturity issues rather than iTestAgent defects. The renderer tests also reportedly mock the real component tree, masking these issues. If OpenTUI cannot resolve these, the Ink fallback (ADR-008) should be activated. Resolution path: (a) investigate and fix if in our code, (b) report upstream if OpenTUI bug, (c) switch to Ink fallback if unresolvable. INVESTIGATED (real-render spike, no mocks, answerback-pty): @opentui/solid 0.4.3 + @opentui/core 0.4.3 darwin-arm64 + bun 1.3.14 — first paint works (static text, signals, For, Show, scrollbox, span, full chat shell all render), BUT the native render loop starves the JS event loop after start: setTimeout/setInterval, stdin onInput/onSubmit callbacks never fire again (verified: 1s/3s/6s timers 0 hits; typed keys 0 callbacks). => dynamic/server-driven updates are impossible; only a static first frame is achievable. NOT an iTestAgent component defect (identical JSX renders when driven pre-start; panels paint standalone). Path (b) selected: upstream report to OpenTUI required (loop never yields to JS). Mitigation until fixed: renderer-selection should prefer ink/ansi for interactive sessions; opentui stays target-mainline pending upstream fix (ADR-008 unchanged). DECISION (human, 2026-08-28): keep opentui as the interactive renderer mainline — no default switch to ink; ADR-008 unchanged. The starvation evidence is recorded here for the upstream report; re-evaluate only if a future OpenTUI release still blocks dynamic updates after the upstream fix window.",
       "target_phase": "6",
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "6.10 real-PTY renderer matrix and production renderer selection",
       "created_at": "2026-07-25T10:00:00.000Z",
-      "notes": " Task 3.17 disposition: deferred: OpenTUI third-party dependency (monitor upstream fixes)",
-      "last_updated": "2026-08-28T10:35:17Z"
+      "notes": "Task 3.17 disposition: deferred: OpenTUI third-party dependency (monitor upstream fixes) 2026-09-04 T6.10 specification review (ADR-036): product AC is now renderer-agnostic and behavior-gated. Re-test the current stable OpenTUI release in a real PTY against first-paint/input/streaming/resize/shutdown cleanup; use Ink as production interactive renderer if OpenTUI fails, with ANSI limited to dumb/non-interactive or explicit configuration. Do not resolve until the matrix and production wiring pass. 2026-09-04 T6.10 closure: OpenTUI/core 0.5.10, Ink 7.1.1 and ANSI passed native PTY first-frame, per-character input, submit, resize and clean-exit gates. Production auto now selects the verified OpenTUI version and displays the reason; explicit selection fails closed on import failure. Evidence: docs/06-verification/tui-renderer-matrix-6.10.md.",
+      "last_updated": "2026-09-04T15:37:12Z",
+      "resolved_at": "2026-09-04T15:37:12Z"
     },
     {
       "id": "DEF-026",
@@ -533,9 +534,12 @@
       "item": "closeSession 15s Promise.race leaves deleteSession dangling (no cancellation)",
       "detail": "In AppiumDeviceBackend.closeSession(), Promise.race([driver.deleteSession(), 15s timeout]) stops WAITING after 15s but does not cancel driver.deleteSession() itself. The method then marks sessionActive=false, stops WDA and the tunnel, while the stale deletion may still be in flight. A subsequent createSession() on the same driver instance could then interleave with the still-running deletion and corrupt session state. Proper fix requires driver-level cancellation (abort/timeout on the Appium client request) or invalidating the driver after a timed-out deletion — a cross-cutting lifecycle change. Accepted pragmatic risk: in current usage closeSession is the terminal teardown of a run's session lifecycle (one run = one session), so a follow-up createSession on the same backend instance is not exercised. Revisit when the engine adds rerun/re-session flows.",
       "target_phase": 6,
-      "status": "open",
-      "resolved_by": null,
-      "created_at": "2026-08-28T18:30:00.000Z"
+      "status": "resolved",
+      "resolved_by": "6.10 terminal Appium teardown and fresh-instance isolation",
+      "created_at": "2026-08-28T18:30:00.000Z",
+      "notes": "2026-09-04 T6.10 specification review (ADR-036): timeout is not successful deletion. The backend/driver must become terminal and non-reusable, late completion must not affect a fresh instance, and a structured cleanup outcome must report timed_out/failed/residue. Keep open until automated and G5/G5-SIM lifecycle evidence pass. 2026-09-04 T6.10 closure: delete/create teardown is bounded; timeout, failure, or cancellation makes both backend and driver terminal and non-reusable; late completion cannot restore the old instance. Automated lifecycle tests, G5-SIM, and physical Route B all passed normal cleanup, cancelled cleanup, reuse refusal, and independent fresh-backend recovery. Evidence: docs/06-verification/g5-sim-spike-report-6.10.md.",
+      "last_updated": "2026-09-04T15:48:39Z",
+      "resolved_at": "2026-09-04T15:48:39Z"
     },
     {
       "id": "DEF-030",
@@ -600,12 +604,14 @@
       "task": "6.4",
       "severity": "major",
       "item": "Physical preflight accepts AbortSignal but production devicectl and permission wiring do not propagate cancellation",
-      "detail": "PR #73 review remediation now checks AbortSignal between every coordinator stage, propagates it into devicectl inventory/install/launch subprocesses with SIGTERM, and couples pending PermissionEngine asks to cancellation. Real-device revalidation now proves Route B observes runtime WDA identity from /status, returns fail-closed about 0.9 seconds after an abort issued during readiness, and leaves no WDA xcodebuild or iproxy process. Route C returns about 8.5 seconds after the same abort, then spends about 15 seconds in guarded cleanup and still leaves an Appium-owned xcodebuild that requires exact-PID termination; normal Route C session deletion also leaves that child. The remaining gap is therefore narrowed to end-to-end cancellation and ownership of in-flight Appium/WebDriverIO and Route C xcodebuild work, plus coordinator-level final cancellation classification. This remains assigned to T6.10. ADR-028 now records Route B as the current candidate preference and Route C as an explicit diagnostic route, while keeping the final production-default decision partial. T6.10 must close the Route C child-ownership gap and rerun the complete production abort chain before resolving this item; do not delete it.",
+      "detail": "PR #73 review remediation now checks AbortSignal between every coordinator stage, propagates it into devicectl inventory/install/launch subprocesses with SIGTERM, and couples pending PermissionEngine asks to cancellation. Real-device revalidation now proves Route B observes runtime WDA identity from /status, returns fail-closed about 0.9 seconds after an abort issued during readiness, and leaves no WDA xcodebuild or iproxy process. Route C returns about 8.5 seconds after the same abort, then spends about 15 seconds in guarded cleanup and still leaves an Appium-owned xcodebuild that requires exact-PID termination; normal Route C session deletion also leaves that child. The remaining gap is therefore narrowed to end-to-end cancellation and ownership of in-flight Appium/WebDriverIO and Route C xcodebuild work, plus coordinator-level final cancellation classification. This remains assigned to T6.10. The 2026-09-01 ADR-028 state recorded Route B as a candidate preference and kept the production-default decision partial; ADR-036 supersedes that decision state. T6.10 must close the complete Route B production abort chain. ADR-036 makes Route B the physical production default and Route C an explicit diagnostic route; Route C must fail closed with a cleanup limitation when its independently owned Appium lifecycle and children cannot be proven clean, but Route C parity no longer blocks the MVP.",
       "target_phase": 6,
-      "status": "open",
-      "resolved_by": null,
+      "status": "resolved",
+      "resolved_by": "6.10 end-to-end AbortSignal and Route B owner-cleanup closure",
       "created_at": "2026-09-01T06:05:27Z",
-      "notes": "2026-09-01 T6.5 self-check extends the same T6.10 cancellation audit to the confirmed XCUITest production route. ADR-030 removed analyzer xcodebuild execution from pre-confirmation discovery and reduced candidate revalidation to metadata-only reads, but runXcunitFlow still does not pass the accepted signal into confirmed xcodebuild test or xcresult parsing subprocesses. Fixing the remaining gap requires changing shared build/parser subprocess contracts and verifying child cleanup, so it remains in DEF-033/T6.10 rather than being hidden or duplicated. T6.5 G5/G5-SIM must not claim cancellation coverage."
+      "notes": "2026-09-01 T6.5 self-check extends the same T6.10 cancellation audit to the confirmed XCUITest production route. ADR-030 removed analyzer xcodebuild execution from pre-confirmation discovery and reduced candidate revalidation to metadata-only reads, but runXcunitFlow still does not pass the accepted signal into confirmed xcodebuild test or xcresult parsing subprocesses. Fixing the remaining gap requires changing shared build/parser subprocess contracts and verifying child cleanup, so it remains in DEF-033/T6.10 rather than being hidden or duplicated. T6.5 G5/G5-SIM must not claim cancellation coverage. 2026-09-04 specification review: also cover pending permission asks, DeviceBackend exploration, XCUITest xcodebuild and xcresult parsing with one AbortSignal, unique terminal classification, partial evidence commit, and owner-scoped cleanup. 2026-09-04 T6.10 closure: one AbortSignal now propagates through production dispatch, permission asks, DeviceBackend exploration, confirmed xcodebuild, and xcresult parsing. A real child-process abort test passes. Physical Route B verified cancelled teardown becomes terminal, a fresh backend recovers, and owner-scoped iproxy/WDA process cleanup leaves no residue. Route C is explicit diagnostic-only and cannot be selected as the production default or as a silent fallback. Evidence: docs/06-verification/g5-sim-spike-report-6.10.md. Final self-review added the missing AiSdkAgentRuntime-to-ToolDispatcher signal bridge; tests directly prove runtime signal identity, cancellation of a pending permission ask, and delivery to the TUI confirmed-execution seam.",
+      "last_updated": "2026-09-04T15:57:08Z",
+      "resolved_at": "2026-09-04T15:57:08Z"
     }
   ]
 }

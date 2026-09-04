@@ -1,9 +1,8 @@
 /**
  * Renderer selection policy for the TUI.
  *
- * B27: introduces a capability-based selector between the three TuiRenderer
- * implementations. This module is pure policy — wiring it into entry.ts is a
- * later batch (entry.ts is outside the B27 allowlist).
+ * ADR-036: selection is explicit and observable. `auto` uses terminal
+ * capabilities plus the renderer that passed the current real-PTY gate.
  *
  * Policy (in order):
  *   1. A recognized `framework` preference ('opentui' | 'ink' | 'ansi',
@@ -16,6 +15,14 @@
  */
 
 export type RendererKind = 'opentui' | 'ink' | 'ansi';
+export type RendererPreference = 'auto' | RendererKind;
+
+export interface RendererSelection {
+  readonly kind: RendererKind;
+  readonly preference: RendererPreference;
+  readonly explicit: boolean;
+  readonly reason: string;
+}
 
 /** Terminal capabilities relevant to renderer selection. */
 export interface TerminalCapabilities {
@@ -35,6 +42,9 @@ export interface RendererPreferences {
 }
 
 const RENDERER_KINDS: ReadonlySet<string> = new Set(['opentui', 'ink', 'ansi']);
+
+/** Updated only after the matching package version passes the real-PTY matrix. */
+export const VERIFIED_INTERACTIVE_RENDERER: RendererKind = 'opentui';
 
 /** True only for unambiguous CI markers ('true' / '1'). */
 function parseCiFlag(value: string | undefined): boolean {
@@ -67,13 +77,37 @@ export function selectRenderer(
   capabilities: TerminalCapabilities,
   preferences: RendererPreferences = {},
 ): RendererKind {
+  return selectRendererWithReason(capabilities, preferences).kind;
+}
+
+export function selectRendererWithReason(
+  capabilities: TerminalCapabilities,
+  preferences: RendererPreferences = {},
+): RendererSelection {
   const preferred = preferences.framework?.trim().toLowerCase();
   if (preferred && RENDERER_KINDS.has(preferred)) {
-    return preferred as RendererKind;
+    return {
+      kind: preferred as RendererKind,
+      preference: preferred as RendererKind,
+      explicit: true,
+      reason: `explicit tui.framework=${preferred}`,
+    };
   }
 
-  if (!capabilities.isTTY) return 'ansi';
-  if (capabilities.term === 'dumb') return 'ansi';
-  if (capabilities.ci) return 'ink';
-  return 'opentui';
+  const preference: RendererPreference = 'auto';
+  if (!capabilities.isTTY) {
+    return { kind: 'ansi', preference, explicit: false, reason: 'auto: stdin is not a TTY' };
+  }
+  if (capabilities.term === 'dumb') {
+    return { kind: 'ansi', preference, explicit: false, reason: 'auto: TERM=dumb' };
+  }
+  if (capabilities.ci) {
+    return { kind: 'ink', preference, explicit: false, reason: 'auto: CI compatibility' };
+  }
+  return {
+    kind: VERIFIED_INTERACTIVE_RENDERER,
+    preference,
+    explicit: false,
+    reason: `auto: ${VERIFIED_INTERACTIVE_RENDERER} passed the real-PTY gate`,
+  };
 }

@@ -48,7 +48,8 @@ describe('applyAgentPatch', () => {
       type: 'permission_request',
       payload: { callId: 'call-1', action: 'generate_draft_test', resource: '/workspace' },
     });
-    expect(updated.messages.at(-1)?.text).toContain('allow, session, or deny');
+    expect(updated.messages.at(-1)?.text).toContain('allow, deny, or always-deny');
+    expect(updated.messages.at(-1)?.text).toContain('Allow applies to this action only');
     expect(updated.messages.at(-1)?.text).toContain('generate_draft_test');
   });
 

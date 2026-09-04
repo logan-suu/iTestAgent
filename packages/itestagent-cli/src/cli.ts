@@ -10,6 +10,7 @@ import {
   runConfigDefault,
   runConfigDeleteSecret,
   runConfigGetSecret,
+  runConfigRevokeDeny,
   runConfigSetSecret,
   runConfigShow,
 } from './commands/config.js';
@@ -308,8 +309,12 @@ export function createProgram(): Command {
       'iOS version (required for appium RemoteXPC matching, e.g. 18.2.1)',
     )
     .option('--goal <goal>', 'verification goal — enables LLM assertion suggestions (AC4)')
-    .requiredOption('--wda-mode <mode>', 'WDA startup route: external-url | managed-xcodebuild')
-    .option('--wda-url <url>', 'active WDA endpoint (required for external-url route)')
+    .option(
+      '--wda-mode <mode>',
+      'WDA startup route: external-url (production) | managed-xcodebuild (diagnostic)',
+      'external-url',
+    )
+    .option('--wda-url <url>', 'explicit active WDA endpoint (attach mode only)')
     .option('--xcode-org-id <id>', 'signing team ID (managed-xcodebuild route)')
     .option('--wda-bundle-id <id>', 'WDA base bundle id (free-account slot reuse)')
     .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
@@ -360,11 +365,6 @@ export function createProgram(): Command {
         if (!['external-url', 'managed-xcodebuild'].includes(options.wdaMode)) {
           throw new PublicCliError(
             `Unsupported WDA route "${options.wdaMode}"; expected external-url or managed-xcodebuild`,
-          );
-        }
-        if (options.wdaMode === 'external-url' && !options.wdaUrl) {
-          throw new PublicCliError(
-            '--wda-url is required when --wda-mode external-url is selected',
           );
         }
         if (options.wdaMode === 'managed-xcodebuild' && options.wdaUrl) {
@@ -451,7 +451,11 @@ export function createProgram(): Command {
             platformVersion,
             ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
             wdaStartupMode: options.wdaMode as 'external-url' | 'managed-xcodebuild',
-            ...(options.wdaUrl ? { webDriverAgentUrl: options.wdaUrl } : {}),
+            ...(options.wdaMode === 'external-url'
+              ? options.wdaUrl
+                ? { webDriverAgentUrl: options.wdaUrl }
+                : {}
+              : { routePurpose: 'diagnostic' as const }),
             ...(options.xcodeOrgId ? { xcodeOrgId: options.xcodeOrgId } : {}),
             ...(options.wdaBundleId ? { wdaBundleId: options.wdaBundleId } : {}),
             appiumServerUrl: options.appiumUrl,
@@ -485,12 +489,13 @@ export function createProgram(): Command {
             targetKind: 'physical',
             dynamicActions: {
               cases: confirmedPlan.execution.features,
-              suggest: ({ caseId, uiTree, history }) =>
+              suggest: ({ caseId, uiTree, history, signal }) =>
                 suggestExplorationAction({
                   generate: explorationGenerator,
                   caseId,
                   uiTree,
                   history,
+                  signal,
                 }),
             },
             ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
@@ -676,6 +681,17 @@ export function createProgram(): Command {
     .action(async (key: string) => {
       try {
         await runConfigDeleteSecret(key);
+      } catch (error) {
+        handleCommandError(error);
+      }
+    });
+
+  configCmd
+    .command('revoke-deny <action> <resource>')
+    .description('revoke one persistent global deny rule')
+    .action(async (action: string, resource: string) => {
+      try {
+        await runConfigRevokeDeny(action, resource);
       } catch (error) {
         handleCommandError(error);
       }
@@ -1118,6 +1134,7 @@ export function createProgram(): Command {
               appiumServerUrl: options.appiumUrl,
               platformVersion: options.platformVersion,
               wdaStartupMode: options.wdaMode,
+              routePurpose: options.wdaMode === 'managed-xcodebuild' ? 'diagnostic' : 'production',
               webDriverAgentUrl: options.wdaUrl,
               wdaBaseBundleId: options.wdaBundleId,
               wdaProjectPath: options.wdaProjectPath,

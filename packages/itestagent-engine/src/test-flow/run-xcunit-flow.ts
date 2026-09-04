@@ -31,6 +31,8 @@ export interface XcunitFlowInput {
   resultBundlePath: string;
   /** Extract screenshot attachments from the bundle. */
   includeAttachments?: boolean;
+  /** Shared cancellation signal for xcodebuild and xcresult parsing. */
+  signal?: AbortSignal;
 }
 
 export interface XcunitFlowDeps {
@@ -74,6 +76,7 @@ export async function runXcunitFlow(
     destination: input.destination,
     only: input.only,
     extraArgs: ['-resultBundlePath', input.resultBundlePath],
+    ...(input.signal ? { signal: input.signal } : {}),
   });
 
   let parsed: XcresultParseResult | null = null;
@@ -84,6 +87,7 @@ export async function runXcunitFlow(
     parsed = await deps.parse({
       xcresultPath: input.resultBundlePath,
       includeAttachments: input.includeAttachments,
+      ...(input.signal ? { signal: input.signal } : {}),
     });
   } catch (err) {
     parseError = err instanceof Error ? err.message : String(err);

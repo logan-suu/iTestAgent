@@ -111,7 +111,7 @@ export async function saveProjectConfig(
   }
 
   // Include TUI config if non-default
-  if (config.tui.framework !== 'opentui') {
+  if (config.tui.framework !== 'auto') {
     toWrite.tui = { framework: config.tui.framework };
   }
 

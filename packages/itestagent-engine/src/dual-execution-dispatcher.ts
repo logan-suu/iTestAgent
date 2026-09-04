@@ -1,4 +1,4 @@
-import type { BuildDestination, TestPlan } from 'itestagent-contracts';
+import type { BackendCleanupOutcome, BuildDestination, TestPlan } from 'itestagent-contracts';
 import type { XcunitFlowInput, XcunitFlowResult } from './test-flow/run-xcunit-flow.js';
 
 export interface XcuitestReadinessResult {
@@ -24,6 +24,7 @@ export type ConfirmedExecutionDispatchResult =
       path: 'xcuitest';
       result?: XcunitFlowResult;
       error?: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       fallbackHistory: [];
     }
   | {
@@ -31,12 +32,14 @@ export type ConfirmedExecutionDispatchResult =
       path: 'device_backend';
       result?: unknown;
       error?: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       fallbackHistory: [];
     }
   | {
       status: 'blocked';
       path: 'xcuitest' | 'device_backend';
       error: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       fallbackHistory: [];
     };
 
@@ -49,6 +52,18 @@ export interface DualExecutionDispatcherDeps {
     destination: BuildDestination;
     signal?: AbortSignal;
   }): Promise<XcuitestReadinessResult>;
+}
+
+/** Carries a completed DeviceBackend result when teardown makes the backend terminal. */
+export class DeviceBackendCleanupError extends Error {
+  constructor(
+    message: string,
+    readonly partialResult: unknown,
+    readonly cleanupOutcome: BackendCleanupOutcome,
+  ) {
+    super(message);
+    this.name = 'DeviceBackendCleanupError';
+  }
 }
 
 /**
@@ -95,7 +110,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             plan: input.plan,
             workspace: input.workspace,
             destination: input.destination,
-            signal: input.signal,
+            ...(input.signal ? { signal: input.signal } : {}),
           });
         } catch (error) {
           return {
@@ -122,6 +137,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
             only: input.plan.rerun?.selectedCaseIds ?? selected.targets,
             destination: input.destination,
             resultBundlePath: input.resultBundlePath,
+            signal: input.signal,
           });
           return {
             status: input.signal?.aborted
@@ -159,6 +175,10 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
         return {
           status: input.signal?.aborted ? 'cancelled' : 'failed',
           path,
+          ...(error instanceof DeviceBackendCleanupError ? { result: error.partialResult } : {}),
+          ...(error instanceof DeviceBackendCleanupError
+            ? { cleanupOutcome: error.cleanupOutcome }
+            : {}),
           error: error instanceof Error ? error.message : String(error),
           fallbackHistory: [],
         };

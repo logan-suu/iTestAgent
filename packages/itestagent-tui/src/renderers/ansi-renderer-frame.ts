@@ -96,6 +96,16 @@ export function renderFrame(state: TuiShellState): string[] {
       lines.push(`${DIM}Default: ${state.setupModel}${RESET}`);
       lines.push('Press Enter to accept default, or type a custom model name.');
       if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
+    } else if (step === 3) {
+      lines.push(`${BOLD}Credential Storage${RESET}`);
+      lines.push('Type "session" to keep the API key in memory for this process.');
+      lines.push('Type "save" to review a separate device-local Keychain confirmation.');
+      if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
+    } else if (step === 4) {
+      lines.push(`${BOLD}Keychain Confirmation${RESET}`);
+      lines.push('Review the disclosure above, then type "save" to authorize one write.');
+      lines.push('Type "session" to decline persistence.');
+      if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
     }
     lines.push('');
     lines.push(`${DIM}Ctrl+C to exit setup at any time.${RESET}`);

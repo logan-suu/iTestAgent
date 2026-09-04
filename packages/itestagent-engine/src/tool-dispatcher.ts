@@ -314,7 +314,10 @@ export class ToolDispatcher {
    *
    * @returns ToolResult with status 'ok' or 'error'.
    */
-  async dispatch(call: { id: string; name: string; arguments: Record<string, unknown> }): Promise<{
+  async dispatch(
+    call: { id: string; name: string; arguments: Record<string, unknown> },
+    signal?: AbortSignal,
+  ): Promise<{
     callId: string;
     status: 'ok' | 'error';
     output: unknown;
@@ -322,9 +325,10 @@ export class ToolDispatcher {
   }> {
     const callId = call.id;
     const startedAt = Date.now();
+    const activeSignal = signal ?? this.signal;
 
     // 0. Abort check
-    if (this.signal?.aborted) {
+    if (activeSignal?.aborted) {
       return this.errorResult(callId, 'Tool call aborted before execution', 'aborted');
     }
 
@@ -373,8 +377,16 @@ export class ToolDispatcher {
         : mapping.resource
       : deriveResource(resolvedAction, parsedRecord);
 
-    const permissionResult = await this.checkPermission(callId, resolvedAction, resource);
+    const permissionResult = await this.checkPermission(
+      callId,
+      resolvedAction,
+      resource,
+      activeSignal,
+    );
     if (permissionResult.denied) {
+      if (activeSignal?.aborted) {
+        return this.errorResult(callId, 'Tool call aborted while awaiting permission', 'aborted');
+      }
       return this.errorResult(
         callId,
         permissionResult.reason ?? `Permission denied: ${mapping.action} on ${resource}`,
@@ -386,8 +398,16 @@ export class ToolDispatcher {
         ? mapping.additionalActions(parsedRecord)
         : (mapping.additionalActions ?? []);
     for (const action of additionalActions) {
-      const additionalPermission = await this.checkPermission(callId, action, resource);
+      const additionalPermission = await this.checkPermission(
+        callId,
+        action,
+        resource,
+        activeSignal,
+      );
       if (additionalPermission.denied) {
+        if (activeSignal?.aborted) {
+          return this.errorResult(callId, 'Tool call aborted while awaiting permission', 'aborted');
+        }
         return this.errorResult(
           callId,
           additionalPermission.reason ?? `Permission denied: ${action} on ${resource}`,
@@ -445,7 +465,7 @@ export class ToolDispatcher {
       });
 
       // Abort check before execution
-      if (this.signal?.aborted) {
+      if (activeSignal?.aborted) {
         this.emit({
           type: 'tool.failed',
           callId,
@@ -455,12 +475,16 @@ export class ToolDispatcher {
       }
 
       const rawResult = mapping.execute
-        ? await mapping.execute(parsedArgs, this.signal)
+        ? await mapping.execute(parsedArgs, activeSignal)
         : await (
             backend?.[mapping.method as keyof DeviceBackend] as (
               ...args: unknown[]
             ) => Promise<unknown>
-          ).call(backend, parsedArgs, this.signal);
+          ).call(backend, parsedArgs, activeSignal);
+
+      if (activeSignal?.aborted) {
+        return this.errorResult(callId, 'Tool call aborted during execution', 'aborted');
+      }
 
       // 8. Check for backend-level failure (H-02 fix: success:false → error).
       if (rawResult && typeof rawResult === 'object') {
@@ -527,6 +551,9 @@ export class ToolDispatcher {
         ...(artifacts.length > 0 ? { artifacts } : {}),
       };
     } catch (err: unknown) {
+      if (activeSignal?.aborted) {
+        return this.errorResult(callId, 'Tool call aborted during execution', 'aborted');
+      }
       // 13. Normalize error (R5: never silent)
       const errorInfo = normalizeError(err);
 
@@ -555,8 +582,13 @@ export class ToolDispatcher {
   }
 
   /** Run a standalone semantic authorization through the same PermissionEngine/event boundary. */
-  async authorize(callId: string, action: string, resource: string): Promise<boolean> {
-    return !(await this.checkPermission(callId, action, resource)).denied;
+  async authorize(
+    callId: string,
+    action: string,
+    resource: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    return !(await this.checkPermission(callId, action, resource, signal ?? this.signal)).denied;
   }
 
   // ─── Private helpers ─────────────────────────────────────────
@@ -565,6 +597,7 @@ export class ToolDispatcher {
     callId: string,
     action: string,
     resource: string,
+    signal?: AbortSignal,
   ): Promise<{ denied: boolean; reason?: string }> {
     const gate = this.permissionEngine.check(action, resource);
 
@@ -584,8 +617,14 @@ export class ToolDispatcher {
       resource,
     });
 
+    const permission = this.permissionEngine.requestPermission(callId, action, resource);
+    const cancelPendingAsk = () =>
+      this.permissionEngine.cancel(callId, 'run aborted while awaiting permission');
+    if (signal?.aborted) cancelPendingAsk();
+    else signal?.addEventListener('abort', cancelPendingAsk, { once: true });
+
     try {
-      const result = await this.permissionEngine.requestPermission(callId, action, resource);
+      const result = await permission;
 
       this.emit({
         type: 'permission.resolved',
@@ -606,7 +645,12 @@ export class ToolDispatcher {
         effect: 'deny',
       });
 
-      return { denied: true, reason: `Permission timeout: ${message}` };
+      return {
+        denied: true,
+        reason: `${signal?.aborted ? 'Permission cancelled' : 'Permission timeout'}: ${message}`,
+      };
+    } finally {
+      signal?.removeEventListener('abort', cancelPendingAsk);
     }
   }
 

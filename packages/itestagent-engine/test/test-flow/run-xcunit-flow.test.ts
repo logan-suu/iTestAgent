@@ -111,4 +111,31 @@ describe('runXcunitFlow', () => {
     expect(capturedTestPlan).toBe('Smoke');
     expect(capturedDestination).toEqual({ kind: 'physical', udid: 'U1' });
   });
+
+  it('passes the same AbortSignal to xcodebuild and xcresult parsing', async () => {
+    const controller = new AbortController();
+    let runSignal: AbortSignal | undefined;
+    let parseSignal: AbortSignal | undefined;
+    const { deps } = makeDeps({
+      async runTests(input) {
+        runSignal = input.signal;
+        return { exitCode: 0, stdout: '', stderr: '', durationMs: 1 };
+      },
+      async parse(options) {
+        parseSignal = options.signal;
+        return { ...PARSED } as never;
+      },
+    });
+    await runXcunitFlow(
+      {
+        projectRoot: '/proj',
+        scheme: 'SampleApp',
+        resultBundlePath: '/tmp/signal.xcresult',
+        signal: controller.signal,
+      },
+      deps,
+    );
+    expect(runSignal).toBe(controller.signal);
+    expect(parseSignal).toBe(controller.signal);
+  });
 });

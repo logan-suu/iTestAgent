@@ -12,10 +12,14 @@
  * R5: Configuration errors throw immediately — no silent fallback.
  */
 
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { TargetKind } from 'itestagent-contracts';
 import type { WdaStartupMode } from './appium-capabilities.js';
 import { AppiumDeviceBackend } from './appium-device-backend.js';
 import type { AppiumDeviceBackendOptions } from './appium-device-backend.js';
+import { type IProxyTunnel, createIProxyTunnel } from './iproxy-tunnel.js';
 import { RealAppiumDriver } from './real-appium-driver.js';
 import { WdaManager } from './wda-manager.js';
 import type { WdaManagerOptions } from './wda-manager.js';
@@ -41,6 +45,8 @@ export interface ProductionAppiumConfig {
    * WDA startup mode (physical only). Required for physical sessions.
    */
   wdaStartupMode?: WdaStartupMode;
+  /** Route C is retained only for an explicitly requested diagnostic run. */
+  routePurpose?: 'production' | 'diagnostic';
   /**
    * WDA URL for external-url mode.
    * Required when wdaStartupMode is 'external-url'.
@@ -90,8 +96,45 @@ export interface AppiumBackendAssembly {
    * Available for preinstalled WDA preparation and lifecycle control.
    */
   wdaManager?: WdaManager;
+  /** Owned usbmux tunnel for managed Route B. */
+  iproxyTunnel?: IProxyTunnel;
   /** The RealAppiumDriver instance (wraps webdriverio). */
   realDriver: RealAppiumDriver;
+}
+
+export interface ResolvedProductionWdaRoute {
+  mode: WdaStartupMode;
+  purpose: 'production' | 'diagnostic';
+  webDriverAgentUrl?: string;
+}
+
+/** Resolve the physical-device route without starting Appium, WDA, or a device session. */
+export function resolveProductionWdaRoute(
+  config: ProductionAppiumConfig,
+): ResolvedProductionWdaRoute {
+  const mode =
+    config.wdaStartupMode ??
+    (config.targetKind === 'physical' ? 'external-url' : 'managed-xcodebuild');
+  const purpose = config.routePurpose ?? 'production';
+  if (config.targetKind === 'physical' && mode === 'preinstalled') {
+    throw new Error(
+      'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
+    );
+  }
+  if (
+    config.targetKind === 'physical' &&
+    mode === 'managed-xcodebuild' &&
+    purpose !== 'diagnostic'
+  ) {
+    throw new Error(
+      'Route C (managed-xcodebuild) is diagnostic-only; set routePurpose="diagnostic" explicitly.',
+    );
+  }
+  return {
+    mode,
+    purpose,
+    ...(config.webDriverAgentUrl ? { webDriverAgentUrl: config.webDriverAgentUrl } : {}),
+  };
 }
 
 // ─── Factory function ────────────────────────────────────────────────
@@ -109,22 +152,25 @@ export interface AppiumBackendAssembly {
  */
 export function createAppiumDeviceBackend(config: ProductionAppiumConfig): AppiumBackendAssembly {
   const targetKind = config.targetKind;
-  if (targetKind === 'physical' && config.wdaStartupMode === undefined) {
-    throw new Error(
-      'Physical Appium sessions require an explicit WDA route: external-url (Route B) or managed-xcodebuild (Route C).',
-    );
-  }
-  if (targetKind === 'physical' && config.wdaStartupMode === 'preinstalled') {
-    throw new Error(
-      'preinstalled is inventory-only and cannot establish physical WDA readiness; select Route B or Route C.',
-    );
-  }
-  const wdaStartupMode: WdaStartupMode = config.wdaStartupMode ?? 'managed-xcodebuild';
+  const resolvedRoute = resolveProductionWdaRoute(config);
+  const wdaStartupMode = resolvedRoute.mode;
   const appiumServerUrl = config.appiumServerUrl ?? 'http://127.0.0.1:4723';
+  const installedWdaProject = join(
+    homedir(),
+    '.appium',
+    'node_modules',
+    'appium-xcuitest-driver',
+    'node_modules',
+    'appium-webdriveragent',
+    'WebDriverAgent.xcodeproj',
+  );
+  const wdaProjectPath =
+    config.wdaProjectPath ?? (existsSync(installedWdaProject) ? installedWdaProject : undefined);
 
   const realDriver = new RealAppiumDriver(appiumServerUrl);
 
   let wdaManager: WdaManager | undefined;
+  let iproxyTunnel: IProxyTunnel | undefined;
 
   // Only create WdaManager for physical devices
   if (targetKind === 'physical') {
@@ -135,13 +181,22 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
       wdaOpts.stagingDir = config.wdaStagingDir;
     }
     wdaManager = new WdaManager(wdaOpts);
+    if (wdaStartupMode === 'external-url' && !resolvedRoute.webDriverAgentUrl) {
+      iproxyTunnel = createIProxyTunnel();
+    }
   }
 
   // Validate mode-specific requirements
-  if (targetKind === 'physical' && wdaStartupMode === 'external-url' && !config.webDriverAgentUrl) {
+  const webDriverAgentUrl = resolvedRoute.webDriverAgentUrl;
+
+  if (
+    targetKind === 'physical' &&
+    wdaStartupMode === 'external-url' &&
+    !webDriverAgentUrl &&
+    !wdaProjectPath
+  ) {
     throw new Error(
-      'webDriverAgentUrl is required for external-url mode. ' +
-        'Provide the WDA URL (e.g. "http://127.0.0.1:8100") or switch wdaStartupMode.',
+      'Managed Route B requires WebDriverAgent.xcodeproj; install the Appium XCUITest driver or provide wdaProjectPath. Use webDriverAgentUrl only to attach to an already-owned WDA.',
     );
   }
 
@@ -164,19 +219,20 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     artifactDirectory: config.artifactDirectory,
     wdaBundleId: config.wdaBaseBundleId,
     wdaStartupMode,
-    webDriverAgentUrl: config.webDriverAgentUrl,
+    webDriverAgentUrl,
     wdaLocalPort: config.wdaLocalPort,
     mjpegServerPort: config.mjpegServerPort,
     deviceName: config.deviceName,
     platformVersion: config.platformVersion,
     derivedDataPath: config.derivedDataPath,
-    wdaProjectPath: config.wdaProjectPath,
+    wdaProjectPath,
     xcodeOrgId: config.xcodeOrgId,
     xcodeSigningId: config.xcodeSigningId,
     wdaManager,
+    iproxyTunnel,
   };
 
   const backend = new AppiumDeviceBackend(realDriver, backendOptions);
 
-  return { backend, wdaManager, realDriver };
+  return { backend, wdaManager, iproxyTunnel, realDriver };
 }

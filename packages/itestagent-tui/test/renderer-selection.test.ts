@@ -21,6 +21,7 @@ import {
   type TerminalCapabilities,
   detectCapabilities,
   selectRenderer,
+  selectRendererWithReason,
 } from '../src/renderer-selection.js';
 
 function caps(overrides: Partial<TerminalCapabilities> = {}): TerminalCapabilities {
@@ -79,6 +80,21 @@ describe('selectRenderer — capability fallbacks', () => {
 
   it('treats missing preferences identically to empty preferences', () => {
     expect(selectRenderer(caps())).toBe(selectRenderer(caps(), {}));
+  });
+
+  it('makes the automatic and explicit selection reasons observable', () => {
+    expect(selectRendererWithReason(caps(), { framework: 'ink' })).toEqual({
+      kind: 'ink',
+      preference: 'ink',
+      explicit: true,
+      reason: 'explicit tui.framework=ink',
+    });
+    expect(selectRendererWithReason(caps())).toMatchObject({
+      kind: 'opentui',
+      preference: 'auto',
+      explicit: false,
+      reason: expect.stringContaining('real-PTY gate'),
+    });
   });
 });
 

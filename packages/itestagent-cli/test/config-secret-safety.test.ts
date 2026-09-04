@@ -16,6 +16,7 @@ import {
   type ConfigCommandContext,
   runConfigDeleteSecret,
   runConfigGetSecret,
+  runConfigRevokeDeny,
   runConfigSetSecret,
   runConfigShow,
 } from '../src/commands/config.js';
@@ -174,6 +175,35 @@ describe('runConfigDeleteSecret', () => {
       confirmFn: async () => 'no',
     });
     await expectPublicCliError(runConfigDeleteSecret(KEY, ctx), 'Aborted');
+  });
+});
+
+describe('runConfigRevokeDeny', () => {
+  it('does not broaden permissions until the user confirms', async () => {
+    let revoked = false;
+    const { ctx } = makeCtx({
+      confirmFn: async () => 'no',
+      revokeDeniedRuleFn: async () => {
+        revoked = true;
+        return true;
+      },
+    });
+    await expectPublicCliError(runConfigRevokeDeny('delete', '*', ctx), 'Aborted');
+    expect(revoked).toBe(false);
+  });
+
+  it('revokes the exact deny after confirmation', async () => {
+    const calls: string[] = [];
+    const { ctx, outText } = makeCtx({
+      confirmFn: async () => 'yes',
+      revokeDeniedRuleFn: async (action, resource) => {
+        calls.push(`${action}:${resource}`);
+        return true;
+      },
+    });
+    await runConfigRevokeDeny('delete', 'account', ctx);
+    expect(calls).toEqual(['delete:account']);
+    expect(outText()).toContain('Revoked persistent deny');
   });
 });
 

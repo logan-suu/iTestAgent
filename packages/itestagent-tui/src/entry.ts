@@ -1,11 +1,20 @@
-import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { parseIntentResult, parseTestPlan } from 'itestagent-contracts';
+import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
-import { parse as parseJsonc } from 'jsonc-parser';
-import type { TuiRenderer } from './renderer.js';
+import { DEFAULT_API_KEY_TARGET } from './api-key-loader.js';
+import { formatPersistenceAuthorizationNotice } from './credential-prompt.js';
+import {
+  PERSISTENCE_CONFIRMATION_TOKEN,
+  authorizePersistence,
+  createSecurityRunner,
+  saveCredential,
+} from './keychain-persistence.js';
+import { createConfiguredRenderer } from './renderer-factory.js';
+import { loadTuiRuntimeConfig } from './runtime-config.js';
 import {
   type TuiShellEvent,
   type TuiShellState,
@@ -19,58 +28,24 @@ function isFirstRun(): boolean {
   return !existsSync(resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc'));
 }
 
-function saveConfig(baseUrl: string, model: string): void {
+async function saveConfig(baseUrl: string, model: string): Promise<void> {
   const dir = resolve(homedir(), '.itestagent', 'config');
   const path = resolve(dir, 'itestagent.jsonc');
-  Bun.write(
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  await writeFile(
     path,
     JSON.stringify(
       {
         schemaVersion: '1.0',
         model: { provider: 'openai', baseURL: baseUrl, apiKeyRef: 'openai_api_key', model },
         device: { allowCrossTargetFallback: false },
-        tui: { framework: 'opentui' },
+        tui: { framework: 'auto' },
       },
       null,
       2,
     ),
+    { encoding: 'utf8', mode: 0o600 },
   );
-}
-
-function loadConfigForDisplay(): { baseURL: string; model: string } {
-  const path = resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc');
-  try {
-    const raw = readFileSync(path, 'utf-8');
-    const cfg = parseJsonc(raw) as Record<string, unknown>;
-    const m = cfg.model as Record<string, unknown> | undefined;
-    return {
-      baseURL: (m?.baseURL as string) ?? 'unknown',
-      model: (m?.model as string) ?? 'unknown',
-    };
-  } catch {
-    return { baseURL: 'unknown', model: 'unknown' };
-  }
-}
-
-function saveApiKey(key: string): Promise<boolean> {
-  return new Promise((resolvePromise) => {
-    const child = spawn(
-      '/usr/bin/security',
-      [
-        'add-generic-password',
-        '-s',
-        'itestagent/openai_api_key',
-        '-a',
-        'itestagent',
-        '-w',
-        key,
-        '-U',
-      ],
-      { stdio: 'ignore' },
-    );
-    child.on('close', (code) => resolvePromise(code === 0));
-    child.on('error', () => resolvePromise(false));
-  });
 }
 
 // ── TUI entry ───────────────────────────────────────────────
@@ -82,16 +57,38 @@ export async function startTui(workspace?: string): Promise<void> {
     return;
   }
 
-  const { createAnsiRenderer } = await import('./renderers/ansi-renderer.js');
-
   const ws = workspace ?? process.cwd();
+  const needsSetup = isFirstRun();
+  const runtimeConfig = loadTuiRuntimeConfig({ workspace: ws });
+  if (needsSetup && !['auto', 'ansi'].includes(runtimeConfig.tui.framework)) {
+    throw new Error(
+      `renderer_unavailable: ${runtimeConfig.tui.framework}: secure masked first-run setup requires tui.framework=auto or ansi`,
+    );
+  }
+  const createdRenderer = await createConfiguredRenderer(
+    needsSetup ? 'ansi' : runtimeConfig.tui.framework,
+  );
+  const selectedRenderer = needsSetup
+    ? {
+        ...createdRenderer,
+        preference: runtimeConfig.tui.framework,
+        explicit: runtimeConfig.tui.framework === 'ansi',
+        reason:
+          runtimeConfig.tui.framework === 'ansi'
+            ? 'explicit tui.framework=ansi'
+            : 'auto: secure masked first-run credential setup',
+      }
+    : createdRenderer;
+  const renderer = selectedRenderer.renderer;
   let state: TuiShellState = createInitialState(ws);
   let pendingUserText = '';
   let pendingPermissionId: string | null = null;
   let agentTurnActive = false;
+  let sessionApiKey: string | null = null;
+  let setupPersistencePending = false;
+  let setupFinishing = false;
 
   // Detect first-run → enter setup wizard
-  const needsSetup = isFirstRun();
   if (needsSetup) {
     state = tuiShellReducer(state, { type: 'setup_start' });
     state = { ...state, setupBaseUrl: 'https://api.deepseek.com/v1', setupModel: 'deepseek-chat' };
@@ -106,10 +103,9 @@ export async function startTui(workspace?: string): Promise<void> {
       const { createAgentSession } = await import('./agent-session.js');
       agentSession = await createAgentSession(ws);
       // Show loaded config so user knows what's active
-      const cfg = loadConfigForDisplay();
       state = tuiShellReducer(state, {
         type: 'system_message',
-        text: `iTestAgent ready.\n${cfg.baseURL} / ${cfg.model}\nWorkspace: ${ws}\nType a message to get started.`,
+        text: `iTestAgent ready.\n${runtimeConfig.model.baseURL ?? 'default endpoint'} / ${runtimeConfig.model.model ?? 'default model'}\nRenderer: ${selectedRenderer.kind} (${selectedRenderer.reason})\nWorkspace: ${ws}\nType a message to get started.`,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -120,7 +116,32 @@ export async function startTui(workspace?: string): Promise<void> {
     }
   }
 
-  const renderer: TuiRenderer = createAnsiRenderer();
+  const finishSetup = async (credentialOutcome: string): Promise<void> => {
+    if (setupFinishing) return;
+    setupFinishing = true;
+    try {
+      await saveConfig(state.setupBaseUrl, state.setupModel);
+      const currentKey = sessionApiKey;
+      const { createAgentSession } = await import('./agent-session.js');
+      agentSession = await createAgentSession(ws, {
+        loadApiKey: async () => currentKey,
+      });
+      state = tuiShellReducer(state, { type: 'setup_complete' });
+      state = tuiShellReducer(state, {
+        type: 'system_message',
+        text: `Setup complete. ${credentialOutcome}\nRenderer: ${selectedRenderer.kind} (${selectedRenderer.reason})\n${state.setupBaseUrl} / ${state.setupModel}`,
+      });
+      sessionApiKey = null;
+    } catch (error: unknown) {
+      state = tuiShellReducer(state, {
+        type: 'system_message',
+        text: `Setup could not start the agent: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    } finally {
+      setupFinishing = false;
+      renderer.update(state);
+    }
+  };
 
   await renderer.start(state, (event: TuiShellEvent) => {
     // ── Setup mode handling ──────────────────────────────
@@ -133,7 +154,15 @@ export async function startTui(workspace?: string): Promise<void> {
           // Base URL
           const url = input || state.setupBaseUrl;
           const fixed = url.startsWith('http') ? url : `https://${url}`;
-          state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
+          try {
+            assertProviderUrl(fixed);
+            state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
+          } catch (error: unknown) {
+            state = {
+              ...state,
+              setupError: error instanceof Error ? error.message : String(error),
+            };
+          }
           break;
         }
         case 1: {
@@ -141,9 +170,7 @@ export async function startTui(workspace?: string): Promise<void> {
           if (!input || input.length < 10) {
             state = { ...state, setupError: 'API key too short. Paste the full key.' };
           } else {
-            saveApiKey(input).then((ok) => {
-              if (!ok) console.error('Warning: failed to save API key to Keychain');
-            });
+            sessionApiKey = input;
             state = { ...state, setupStep: 2, setupError: '' };
           }
           break;
@@ -151,21 +178,51 @@ export async function startTui(workspace?: string): Promise<void> {
         case 2: {
           // Model name
           const model = input || state.setupModel;
-          saveConfig(state.setupBaseUrl, model);
-          state = { ...state, setupModel: model };
-          state = tuiShellReducer(state, { type: 'setup_complete' });
-          state = tuiShellReducer(state, {
-            type: 'system_message',
-            text: `Setup complete! ${state.setupBaseUrl} / ${model}\nType a message to get started.`,
-          });
+          state = { ...state, setupModel: model, setupStep: 3, setupError: '' };
+          break;
+        }
+        case 3: {
+          if (input === 'session') {
+            void finishSetup('API key is available for this process only.');
+          } else if (input === 'save') {
+            const notice = formatPersistenceAuthorizationNotice(DEFAULT_API_KEY_TARGET).join('\n');
+            state = { ...state, setupStep: 4, setupError: '' };
+            state = tuiShellReducer(state, {
+              type: 'system_message',
+              text: `${notice}\nType "${PERSISTENCE_CONFIRMATION_TOKEN}" again to authorize this one Keychain write, or type "session" to decline.`,
+            });
+          } else {
+            state = { ...state, setupError: 'Type session or save.' };
+          }
+          break;
+        }
+        case 4: {
+          if (input === 'session') {
+            void finishSetup('Keychain save declined; API key is available for this process only.');
+            break;
+          }
+          if (input !== PERSISTENCE_CONFIRMATION_TOKEN || !sessionApiKey) {
+            state = { ...state, setupError: 'Type save to confirm or session to decline.' };
+            break;
+          }
+          if (setupPersistencePending) break;
+          setupPersistencePending = true;
+          const authorization = authorizePersistence(input, DEFAULT_API_KEY_TARGET);
           void (async () => {
-            try {
-              const { createAgentSession } = await import('./agent-session.js');
-              agentSession = await createAgentSession(ws);
-              renderer.update(state);
-            } catch {
-              /* noop */
-            }
+            const result = authorization.ok
+              ? await saveCredential(
+                  createSecurityRunner(),
+                  DEFAULT_API_KEY_TARGET,
+                  sessionApiKey ?? '',
+                  authorization.value,
+                )
+              : authorization;
+            setupPersistencePending = false;
+            await finishSetup(
+              result.ok
+                ? 'API key saved to the verified device-local Keychain item.'
+                : `Keychain save was not verified (${result.error.code}); API key is available for this process only.`,
+            );
           })();
           break;
         }
@@ -239,16 +296,25 @@ export async function startTui(workspace?: string): Promise<void> {
       pendingUserText = '';
       state = tuiShellReducer(state, event);
 
-      if (['allow', 'yes', 'y', 'session'].includes(decision)) {
-        agentSession.resolvePermission(pendingPermissionId, 'allow', decision === 'session');
+      if (['allow', 'yes', 'y'].includes(decision)) {
+        void agentSession.resolvePermission(pendingPermissionId, 'allow', false);
         pendingPermissionId = null;
-      } else if (['deny', 'no', 'n'].includes(decision)) {
-        agentSession.resolvePermission(pendingPermissionId, 'deny');
+      } else if (['deny', 'no', 'n', 'always-deny'].includes(decision)) {
+        const callId = pendingPermissionId;
+        void agentSession
+          .resolvePermission(callId, 'deny', decision === 'always-deny')
+          .catch((error: unknown) => {
+            state = tuiShellReducer(state, {
+              type: 'system_message',
+              text: `Permission decision was not persisted: ${error instanceof Error ? error.message : String(error)}`,
+            });
+            renderer.update(state);
+          });
         pendingPermissionId = null;
       } else {
         state = tuiShellReducer(state, {
           type: 'system_message',
-          text: 'Reply with allow, session, or deny.',
+          text: 'Reply with allow, deny, or always-deny.',
         });
       }
       renderer.update(state);
@@ -398,7 +464,7 @@ export function applyAgentPatch(
       const resource = String(patch.payload.resource ?? 'unknown resource');
       return tuiShellReducer(state, {
         type: 'system_message',
-        text: `Permission required: ${action} on ${resource}. Reply allow, session, or deny.`,
+        text: `Permission required: ${action} on ${resource}. Reply allow, deny, or always-deny. Allow applies to this action only.`,
       });
     }
     case 'permission_resolved': {

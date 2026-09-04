@@ -18,6 +18,8 @@ export interface XcodebuildProcessOptions {
   timeoutMs?: number;
   /** Working directory for the child process. */
   cwd?: string;
+  /** Cancel the owned child process. */
+  signal?: AbortSignal;
 }
 
 /**

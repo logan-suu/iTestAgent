@@ -10,7 +10,7 @@ import type {
 } from 'itestagent-contracts';
 import { redactValue } from './context-builder.js';
 
-export type ToolExecutor = (call: ToolCall) => Promise<ToolResult>;
+export type ToolExecutor = (call: ToolCall, signal?: AbortSignal) => Promise<ToolResult>;
 
 export interface AiToolDefinition {
   description: string;
@@ -140,7 +140,7 @@ export class AiSdkAgentRuntime implements AgentRuntime {
         output: { error: 'no tool executor configured' },
       };
     }
-    return this.toolExecutor(call);
+    return this.toolExecutor(call, this.abortController?.signal);
   }
 
   async abort(reason: string): Promise<void> {
@@ -204,11 +204,14 @@ export class AiSdkAgentRuntime implements AgentRuntime {
           if (!executor) {
             throw new Error('no tool executor configured');
           }
-          const result = await executor({
-            id: options.toolCallId,
-            name,
-            arguments: args as Record<string, unknown>,
-          });
+          const result = await executor(
+            {
+              id: options.toolCallId,
+              name,
+              arguments: args as Record<string, unknown>,
+            },
+            this.abortController?.signal,
+          );
           if (result.status === 'error') {
             const output = result.output as Record<string, unknown> | undefined;
             const message =

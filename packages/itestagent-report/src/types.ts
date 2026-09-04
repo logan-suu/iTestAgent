@@ -4,6 +4,7 @@
  * shared type vocabulary.
  */
 import type {
+  BackendCleanupOutcome,
   BaselineDelta,
   EvidenceCollectionOutcome,
   ExecutionSummary,
@@ -76,6 +77,9 @@ export interface ReportSynthesizerInput {
 
   /** Execution summary */
   execution: ExecutionSummary;
+
+  /** Optional owner cleanup result, especially for cancelled or terminal backends. */
+  cleanupOutcome?: BackendCleanupOutcome;
 
   /** Test case results */
   cases: TestCaseResult[];

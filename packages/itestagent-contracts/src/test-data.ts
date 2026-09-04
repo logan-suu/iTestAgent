@@ -267,6 +267,8 @@ export const CredentialEntrySchema = z.object({
   storedAt: z.string(),
   /** Whether this entry is session-only (not persisted) */
   sessionOnly: z.boolean(),
+  /** Safe diagnostic when persistence was requested but not completed. */
+  persistenceError: z.string().optional(),
   /** Human-readable label */
   label: z.string().optional(),
 });

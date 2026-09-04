@@ -46,9 +46,10 @@
 | | `docs/02-architecture/数据流全链路技术说明文档.md` | §3~12 数据流全链路 |
 | | `docs/decisions/ADR-010-agent-harness-runtime-boundary.md` | Harness 边界：自研/复用/禁止 |
 | | `docs/decisions/ADR-012-wda-lifecycle-separation.md` | WDA lifecycle separation and historical Route B/C evidence |
-| | `docs/decisions/ADR-028-physical-preflight-and-wda-readiness.md` | Current WDA preflight rule: Route B/C are evidence-gated candidates; active readiness probe is mandatory before T6.4 selects a default |
+| | `docs/decisions/ADR-028-physical-preflight-and-wda-readiness.md` | WDA active readiness and AppSource preflight; Route B is the physical production default and Route C is explicit diagnostic per ADR-036 |
 | | `docs/decisions/ADR-029-dual-execution-route-resolution.md` | Confirmed XCUITest routing, route-specific readiness, and no post-start semantic fallback |
 | | `docs/decisions/ADR-030-metadata-only-xcuitest-candidates.md` | Metadata-only pre-confirmation candidates, typed discovery outcomes, and project-build permission boundary |
+| | `docs/decisions/ADR-036-reliability-security-closure-policy.md` | Production renderer behavior gate, one-shot high-risk allow, Route B default, end-to-end abort, and terminal teardown |
 | **实现 Backend（Device/Performance/Build）** | `docs/02-architecture/架构设计文档.md` | §5 Backend 接口设计 |
 | | `docs/02-architecture/技术选型文档.md` | §9 真机执行技术栈 |
 | **实现 Project Analyzer / ProjectAnalyzerBackend** | `docs/02-architecture/架构设计文档.md` | §3 project-analyzer、§5.4 ProjectAnalyzerBackend |
@@ -129,7 +130,7 @@ R3 真机能力不得“看代码就算过”，必须真机 spike 实测(G5)；
 R4 不把“从代码推断的核心链路”当既定事实，只能候选+证据+用户确认
 R5 不静默降级/臆造指标(尤其 FPS、xctrace summary)，不确定必须显式标注
 R6 账号/OTP/token 等 secret 不落盘明文、不入日志/报告/提交；截图/视频/UI tree 等原始设备证据仅可在 run artifacts 中以 raw-local-only 保存，禁止进入模型上下文或外传，跨出本地证据边界前必须生成脱敏派生内容（ADR-032）
-R7 高风险操作必须二次确认（清数据/卸载重装/写项目/存凭证/更新 baseline/保存或覆盖 Flow/生成草稿，以及删除、支付、账号、安全设置、授权变更或语义不确定的敏感 UI 动作）；已确认 TestPlan 范围内的普通导航与非敏感输入无需逐点击确认（ADR-032）
+R7 Every high-risk operation requires per-action confirmation (clear data/reinstall/write project/store credentials/update baseline/save or overwrite Flow/generate draft, plus deletion, payment, account, security setting, authorization change, or semantically uncertain sensitive UI actions). High-risk allow decisions cannot persist across sessions, and persistent deny rules must be revocable. Ordinary navigation and non-sensitive input within a confirmed TestPlan do not require confirmation per click (ADR-032/036).
 R8 未经人确认的实现计划不得进入编码
 R9 组件命名统一 itestagent-*，禁止使用 qa-*
 R10 不引入 Effect-TS / SQLite 事件溯源等重型编排；不 fork/不 import OpenCode 私有核心
@@ -142,7 +143,7 @@ R12 所有对外可见的版本控制内容必须使用英文；项目文档（d
 ```
 语言/运行时   TypeScript + Bun
 CLI          Commander（轻量入口）
-TUI          OpenTUI / Ink（横评完成：OpenTUI 目标主线 + Ink 已验证 fallback，Rezi 已排除）
+TUI          OpenTUI / Ink / ANSI (all renderers implemented; ADR-036 real-PTY behavior gates determine the production default; Rezi excluded)
 本地服务      Bun local server + 事件流(SSE)
 编排          自建 Agent 循环 + Vercel AI SDK 多步 tool-calling
 工具协议      MCP TypeScript SDK（真机能力封装为 MCP tools）
@@ -488,7 +489,7 @@ R14 发现缺陷必须先判断是否必须延期（外部依赖、跨 Phase 协
 ```
 packages/
   itestagent-cli/                 (CLI 入口, Commander)
-  itestagent-tui/                 (TUI Shell, OpenTUI 目标主线 / Ink 已验证 fallback)
+  itestagent-tui/                 (TUI Shell, OpenTUI candidate / Ink fallback / ANSI dumb-terminal path; production default follows ADR-036)
   itestagent-engine/              (Agent 编排循环 + 权限引擎)
   itestagent-server/              (本地 Bun server + SSE + session 状态)
   itestagent-store/               (SQLite + Drizzle + 文件系统 artifacts)

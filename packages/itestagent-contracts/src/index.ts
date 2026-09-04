@@ -1,5 +1,6 @@
 export {
   ItestAgentConfigSchema,
+  PermissionsConfigSchema,
   DEFAULT_CONFIG,
   parseConfig,
 } from './config.js';
@@ -19,6 +20,7 @@ export type {
   ModelConfig,
   DeviceConfig,
   TuiConfig,
+  PermissionsConfig,
 } from './config.js';
 
 export {
@@ -213,7 +215,11 @@ export type {
 
 export type { BuildDriver } from './build-driver.js';
 
-export type { DeviceBackend } from './device-backend.js';
+export type {
+  DeviceBackend,
+  BackendCleanupStatus,
+  BackendCleanupOutcome,
+} from './device-backend.js';
 
 export {
   ProjectDiscoverySchema,

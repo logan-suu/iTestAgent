@@ -187,7 +187,45 @@ describe('AiSdkAgentRuntime', () => {
     const call = makeToolCall();
     const result = await runtime.executeToolCall(call);
     expect(result.status).toBe('ok');
-    expect(toolExecutor).toHaveBeenCalledWith(call);
+    expect(toolExecutor).toHaveBeenCalledWith(call, undefined);
+  });
+
+  test('passes the runtime AbortSignal to the tool executor', async () => {
+    let sdkSignal: AbortSignal | undefined;
+    let executorSignal: AbortSignal | undefined;
+    mock.module('ai', () => ({
+      streamText: (args: {
+        abortSignal?: AbortSignal;
+        tools: Record<string, { execute(args: unknown, options: { toolCallId: string }): unknown }>;
+      }) => {
+        sdkSignal = args.abortSignal;
+        return {
+          fullStream: (async function* () {
+            await args.tools.tap?.execute({ x: 0.5, y: 0.5 }, { toolCallId: 'signal_call' });
+            yield { type: 'finish', finishReason: 'stop' };
+          })(),
+        };
+      },
+      stepCountIs: () => () => false,
+      tool: (definition: unknown) => definition,
+    }));
+    // biome-ignore lint/suspicious/noExplicitAny: test model stub
+    const fakeModel = { specificationVersion: 'v4', provider: 'test', modelId: 'test' } as any;
+    const rt = new AiSdkAgentRuntime({
+      model: fakeModel,
+      tools: { tap: { description: 'tap', parameters: {} } },
+      toolExecutor: async (call, signal) => {
+        executorSignal = signal;
+        return makeOkResult(call.id);
+      },
+    });
+
+    for await (const _event of rt.streamTurn(makeTurnInput())) {
+      // Consume the stream so the SDK tool executes.
+    }
+
+    expect(executorSignal).toBe(sdkSignal);
+    expect(executorSignal).toBeInstanceOf(AbortSignal);
   });
 
   // ─── executeToolCall: no executor → error ─────────────────

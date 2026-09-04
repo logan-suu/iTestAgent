@@ -6,7 +6,7 @@
 **关联任务**：T6.4
 **关联条目**：DEF-031、DEF-033
 
-> **2026-09-01 G5 Update**：同一台真机上，Route B 与 Route C 均完成 WDA active readiness、Appium session、UI tree、截图、Home 动作与常规清理验证。PR review 修复后又完成 identity/abort 复验：Route B 从活动 WDA `/status` 观测 runtime build identity，正常与 abort 清理均无残留；Route C 正常与 abort 后均可见 Appium-owned `xcodebuild` 残留，其中 abort 在发出约 8.5 秒后才返回，残留进程需按精确 PID 手工回收。基于当前证据，Route B 改为当前候选偏好，Route C 保留为显式诊断路线；在 DEF-033 完成 in-flight Appium cancellation、child ownership 和最终两路线清理 G5 前，路线对比保持 partial，不得宣称已确定最终 production default，也不得静默 fallback。DEF-031 已由“inventory fail-closed → active probe ready”的真机证据关闭。用户完成 Xcode Accounts 登录并自行释放免费开发者 App 名额后，IntegrationApp 也完成签名归一化、首次安装、inventory 复核与启动 G5。
+> **2026-09-04 T6.10 Update**：ADR-036 复审现有 G5 与 process ownership 后，将 Route B 定为 physical production default。Route B 从活动 WDA `/status` 观测 runtime identity，正常与 abort 清理均无残留；Route C 正常与 abort 后仍可见 Appium-owned `xcodebuild`，因此只保留为用户显式选择的诊断路线，不参与自动选择或静默 fallback，也不再阻塞 Route B 的 MVP 出口。Route C 无法证明本轮独立 Appium lifecycle 及其 child 完整回收时必须失败关闭并报告 cleanup limitation。DEF-031 已由“inventory fail-closed → active probe ready”的真机证据关闭；DEF-033 继续负责完整生产取消链和 Route C 限制的诚实呈现。
 
 ## 背景
 
@@ -32,9 +32,9 @@ App 来源契约也存在格式缺口：规格允许用户提供 `.app` 或 `.ip
 
 缺点：仓库内缺少一份替代旧结论的当前 Route B/Route C 对比报告；直接切换违反 R3/R4。
 
-### 方案 C：候选路线 + 主动可用性门禁（决策）
+### 方案 C：候选路线 + 主动可用性门禁（初始决策，默认路线由 ADR-036 收口）
 
-Route B 与 Route C 都保留为显式候选。T6.4 在当前真实 iPhone 环境中用同一套成功标准复验后，才选择生产默认路线并把证据写入 `docs/06-verification/`。在证据产生前，规格和生产组合不得把任一路线描述为当前唯一默认。
+Route B 与 Route C 在 T6.4 中作为显式候选完成同设备复验。后续 identity/abort 证据证明 Route B 具备明确 owner 与无残留清理，Route C 仍受 Appium-owned child 限制；ADR-036 因此完成默认路线决策。
 
 ## 决策
 
@@ -57,8 +57,9 @@ ready = route-specific launch/session succeeds
 
 - Route B：iTestAgent/WdaManager 拥有 WDA build/install/launch，拥有其启动的 `iproxy`，Appium 仅通过 `webDriverAgentUrl` 建立 WebDriver session。
 - Route C：Appium 通过 `managed-xcodebuild` 和 `allowProvisioningDeviceRegistration` 管理每次 WDA 启动；iTestAgent 仍负责前置诊断、错误分类和用户确认。
-- 两条路线使用相同验收：WDA active probe、Appium session、UI tree、截图、动作、清理和 abort。任一路线缺少 abort 证据时，对比结论只能是 partial。
-- T6.4 的 G5 报告必须记录环境、命令/配置、失败分类、资源所有权、证据路径和候选偏好；最终 production default 只能在 DEF-033 与两路线 abort G5 完成后确定。不得静默 fallback。
+- Route B 已凭主动 probe、Appium session、UI tree、截图、动作、identity 与 abort 无残留证据成为 physical production default。
+- Route C 只作为用户显式选择的诊断路线，不进入 auto、不静默 fallback；无法证明本轮独立 Appium lifecycle 及 child 完整回收时必须失败关闭并记录 cleanup limitation。
+- T6.4/T6.10 的 G5 报告必须记录环境、命令/配置、失败分类、资源所有权、证据路径与实际路线。Route C 的限制不再阻塞 Route B 的 production default 或 MVP 出口。
 
 ### 3. AppSource 必须归一化并验证
 
@@ -77,14 +78,14 @@ ready = route-specific launch/session succeeds
 ### 5. 任务所有权
 
 - T6.4 独占 AppSource、physical build/install/launch、WDA active readiness、自愈与 DEF-031 的实现和 G5 责任。
-- T6.10 完成 DEF-033、两路线 abort G5 与最终 production default 收口，并验证 T6.4 已建立的其他门禁在完整 session/rerun/redaction 链中不回归；不重复实现或关闭 DEF-031。
+- T6.10 按 ADR-036 完成 DEF-033 的完整生产 abort、cleanup outcome 与 Route C 诊断限制，验证 Route B 默认及 T6.4 其他门禁在完整 session/rerun/redaction 链中不回归；不重复实现或关闭 DEF-031。
 
 ## 后果
 
 ### 正面
 
 - 消除“已安装即 ready”的 R5 违规。
-- 避免在证据不完整时固化 Route B 或 Route C。
+- 用明确 owner 与 abort 证据选择 Route B，避免 Route C 第三方 child ownership 阻塞可靠主线。
 - AppSource 从路径存在检查升级为可安装制品契约。
 - R7 门禁在真机修改发生前落到明确边界。
 
@@ -92,15 +93,15 @@ ready = route-specific launch/session succeeds
 
 - T6.4 必须增加一次 Route B/Route C 当前环境对比 G5，不能只依赖历史报告。
 - `.ipa` 需要受控解包和更多失败分类。
-- 最终生产默认路线需在 T6.4 验证报告完成后再次同步 ADR/技术选型。
+- Route C 不再具备自动 fallback 地位；需要该诊断路线的用户必须承担额外环境限制并看到显式说明。
 
 ## 验证要求
 
 1. 自动化契约测试覆盖 AppSource 优先级、`.ipa` 归一化、兼容性失败、R7 拒绝和 readiness fail-closed。
-2. 真实 iPhone 分别验证 Route B、Route C，包括正常路径与 abort 清理；若某路线环境依赖或 abort 证据缺失，报告必须标记 partial/blocked/inconclusive。
+2. 真实 iPhone 必须验证 Route B production composition 的正常路径与 abort 清理；Route C 若执行，只作为独立诊断证据，环境依赖、child ownership 或 abort 缺口必须标记 partial/blocked/inconclusive。
 3. 用可用 WDA 与不可用/过期 WDA 状态证明主动探测不会把“已安装但不可用”判为 ready。
 4. 验证重签/重装后重新探测成功，并保留脱敏证据。
-5. DEF-031 在实现、自动化测试和 G5 全部完成前保持 open。
+5. DEF-031 已在实现、自动化测试和 G5 全部完成后关闭；后续回归必须继续证明 inventory 不会被误判为 readiness。
 
 ## 关联文档
 

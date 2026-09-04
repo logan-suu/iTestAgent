@@ -5,6 +5,8 @@
 **决策人**: AI Agent（基于 Harness Runtime 架构与实施报告）
 **关联**: ADR-001（去风险 MVP）、ADR-005（可插拔 Backend 架构）、AGENTS.md §4 架构与命名
 
+> **2026-09-04 T6.10 update**：ADR-036 收紧权限与终止语义。高风险 `allow` 只作用于当前明确请求，不能跨 session 持久化；用户可明确持久化 `deny` 并撤销。AbortSignal 必须贯穿 XCUITest build/parse、DeviceBackend、readiness 与 pending ask；cleanup 不完整必须结构化报告，session/backend teardown 超时后实例不可复用。
+
 ## 背景
 
 iTestAgent 需要一个 Agent Harness Runtime 来编排 iPhone 真机测试的全流程：意图理解 → 计划确认 → 构建/安装 → 执行 → 证据采集 → 失败归因 → 报告。
@@ -97,7 +99,7 @@ Run AbortController -> AI SDK -> MCP tool -> Backend -> Bun.spawn
    }
    ```
 
-2. **PermissionEngine**：`{action, resource, effect: allow|deny|ask}`；所有 tool call 必须经过权限层
+2. **PermissionEngine**：`{action, resource, effect: allow|deny|ask}`；所有 tool call 必须经过权限层。高风险 allow 为当前请求一次性授权，不得通过 remembered/wildcard 跨 session 绕过后续确认；持久化 deny 必须可查看与撤销（ADR-036）
 
 3. **RunStateMachine**：`created → planning → awaiting_confirm → preparing_device → building_installing → executing → collecting → parsing → explaining → reported → done`；异常分支：cancelled/blocked/infra_failed/failed
 
@@ -152,11 +154,13 @@ TUI cancel → server command → AgentRuntime.abort → ToolDispatcher cancel
 - 已生成 evidence 仍可索引
 - ask 可取消且有 timeout
 - 同一设备串行，不同设备可并行
+- XCUITest build/parse、DeviceBackend 探索、WDA readiness 与 pending ask 接收同一 run AbortSignal
+- cleanup timeout/失败必须形成结构化 outcome；teardown 超时的 backend/driver 进入 terminal 状态且不可复用
 
 ### 安全与可靠性
 
-- **Permission**：高风险（清数据/卸载/写项目/凭证/baseline/Flow/草稿/非 HTTP URL/隐私媒体）默认 ask
-- **Secret**：TUI input → session memory → valueRef → backend → clear memory；记住时才写 Keychain；禁止 secret 写 JSONC/prompt/history/RunStep/log/result
+- **Permission**：高风险（清数据/卸载/写项目/凭证/baseline/Flow/草稿/非 HTTP URL/隐私媒体）默认 ask 且逐次确认；高风险 allow 不跨 session，持久化 deny 可撤销
+- **Secret**：TUI input → session memory → valueRef → backend → clear memory；独立披露并确认后才写 Keychain，且只有写入与访问控制验证成功才能报告 remembered；禁止 secret 写 JSONC/prompt/history/RunStep/log/result
 - **Error levels**：L1 瞬态（3 次指数退避）/ L2 需确认（暂停等待用户）/ L3 阻断（中止+doctor 建议）/ L4 不确定（inconclusive，不编造）
 - **Fallback**：healthcheck fail → next backend；语义变化 → ask user；reason → result
 - **Evidence**：ArtifactRef 带 redactionStatus；隐私截图/视频默认 `raw-local-only`；日志写入前脱敏；外传前脱敏或询问

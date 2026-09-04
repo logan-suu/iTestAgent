@@ -261,7 +261,7 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 
 ## 7. 建议的后续行动
 
-> 以下建议已过时。当前推荐：Route C（managed-xcodebuild + allowProvisioningDeviceRegistration: true）。
+> 以下为 2026-07-25 的历史建议，已被 2026-09-04 的 Route B production default 决策取代；保留仅用于解释旧环境证据。
 
 1. **短期（Phase 3 出口）**：在 `itestagent doctor` 中添加免费账号检测和引导提示（已实现）
 2. **中期（Phase 4）**：在 `iTestAgent TUI` 启动时，如果检测到免费账号 + 真机探索路径，推荐 Route C（已实现）
@@ -282,7 +282,7 @@ G5 真机验证于 2026-07-25 在 **iPhone 14 Plus (iOS 18.2.1)** 上执行，Ap
 | **Route A** | `usePreinstalledWDA` | ❌ **G5 TIMEOUT** | Appium 内部 `preinstalledWDA` RemoteXPC 启动超时 60s |
 | **Route B** | `webDriverAgentUrl` | ⏸️ **NOT TESTED** | 需要 iproxy for USB port forwarding（未安装） |
 
-**当前结论（2026-09-01）**：T6.4 已在同一真机上验证 Route B/C 均通过主动 readiness 与 Appium session。PR review 后的 identity/abort 复验证明 Route B 正常与 abort 清理均无残留，Route C 则会遗留 Appium-owned `xcodebuild`。Route B 因此成为当前候选偏好，Route C 保留为显式诊断路线；最终 production default 等待 DEF-033，且不得静默 fallback。详情见 ADR-028 与 `docs/06-verification/g5-sim-spike-report-6.4.md`。
+**当前结论（2026-09-04）**：T6.4 已在同一真机上验证 Route B/C 均通过主动 readiness 与 Appium session。identity/abort 复验证明 Route B 正常与 abort 清理均无残留，Route C 则会遗留 Appium-owned `xcodebuild`。ADR-036 因此将 Route B 定为 physical production default；Route C 仅保留为用户显式诊断路线，不进入 auto 或静默 fallback，无法证明本轮独立 Appium lifecycle 与 child 完整回收时必须失败关闭并报告 cleanup limitation。详情见 ADR-028、ADR-036 与 `docs/06-verification/g5-sim-spike-report-6.4.md`。
 
 ### 8.2 Route C 详情：`managed-xcodebuild` + `allowProvisioningDeviceRegistration` ✅
 

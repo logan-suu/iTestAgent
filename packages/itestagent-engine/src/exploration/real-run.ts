@@ -31,30 +31,48 @@ export interface BackendActionResult {
 
 export interface RealRunBackend {
   /** Input shapes align with the contracts DeviceBackend (deviceId required). */
-  getUiTree(input: { deviceId: string }): Promise<{
+  getUiTree(
+    input: { deviceId: string },
+    signal?: AbortSignal,
+  ): Promise<{
     raw: string;
     format: string;
     capturedAt: string;
   }>;
-  screenshot(input: { deviceId: string }): Promise<{ id: string; type: string; path: string }>;
-  launchApp(input: { bundleId: string }): Promise<BackendActionResult>;
+  screenshot(
+    input: { deviceId: string },
+    signal?: AbortSignal,
+  ): Promise<{ id: string; type: string; path: string }>;
+  launchApp(input: { bundleId: string }, signal?: AbortSignal): Promise<BackendActionResult>;
   /** Interaction primitives — optional; backends declare capability support. */
-  tap?(input: {
-    deviceId: string;
-    x: number;
-    y: number;
-    accessibilityId?: string;
-  }): Promise<BackendActionResult>;
-  swipe?(input: {
-    deviceId: string;
-    fromX: number;
-    fromY: number;
-    toX: number;
-    toY: number;
-    durationMs?: number;
-  }): Promise<BackendActionResult>;
-  typeText?(input: { deviceId: string; text: string }): Promise<BackendActionResult>;
-  pressButton?(input: { deviceId: string; button: string }): Promise<BackendActionResult>;
+  tap?(
+    input: {
+      deviceId: string;
+      x: number;
+      y: number;
+      accessibilityId?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<BackendActionResult>;
+  swipe?(
+    input: {
+      deviceId: string;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      durationMs?: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<BackendActionResult>;
+  typeText?(
+    input: { deviceId: string; text: string },
+    signal?: AbortSignal,
+  ): Promise<BackendActionResult>;
+  pressButton?(
+    input: { deviceId: string; button: string },
+    signal?: AbortSignal,
+  ): Promise<BackendActionResult>;
 }
 
 export interface RealDeviceRunOptions {
@@ -82,6 +100,7 @@ export interface RealDeviceRunOptions {
       caseId: string;
       uiTree: string;
       history: readonly RunStep[];
+      signal?: AbortSignal;
     }) => Promise<ExplorationAction | 'done'>;
     readonly authorizeSensitiveAction?: (input: {
       callId: string;
@@ -102,7 +121,7 @@ export interface RealDeviceRunOptions {
    * TUI panel).
    */
   readonly llmSuggest?: {
-    generate: (prompt: string) => Promise<string>;
+    generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
     goal: string;
     featureName?: string;
   };
@@ -126,6 +145,8 @@ export interface RealDeviceRunOptions {
   readonly exploration?: Partial<ExplorationOptions>;
   /** Transitional legacy index publication. Production composition must leave this false. */
   readonly publishLegacyArtifactIndex?: boolean;
+  /** One cancellation signal shared with dispatcher, backend, and caller-owned cleanup. */
+  readonly signal?: AbortSignal;
 }
 
 export interface RealDeviceRunResult {
@@ -153,10 +174,11 @@ export function isSensitiveUiAction(action: ExplorationAction): boolean {
 
 /** Ask the configured model for one low-risk action within a confirmed case. */
 export async function suggestExplorationAction(input: {
-  generate: (prompt: string) => Promise<string>;
+  generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
   caseId: string;
   uiTree: string;
   history: readonly RunStep[];
+  signal?: AbortSignal;
 }): Promise<ExplorationAction | 'done'> {
   const response = await input.generate(
     [
@@ -170,6 +192,7 @@ export async function suggestExplorationAction(input: {
       'Use {"action":"done"} when the case goal is reached or no safe progress is possible.',
       'For an action include target and, when applicable, text, direction, or waitMs.',
     ].join('\n'),
+    input.signal,
   );
   const match = response.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`exploration_suggestion_invalid: no JSON action for ${input.caseId}`);
@@ -215,6 +238,7 @@ export function collectDispatcherArtifactRefs(
 
 export function createBackendToolDispatcher(
   backend: RealRunBackend,
+  signal?: AbortSignal,
 ): ExplorerToolDispatcher & ArtifactRefsProvider {
   const artifactRefs: { id: string; type: 'screenshot'; path: string }[] = [];
   return {
@@ -224,11 +248,11 @@ export function createBackendToolDispatcher(
     async dispatch(call) {
       const args = call.arguments as Record<string, string | undefined>;
       if (call.name === 'get_ui_tree') {
-        const tree = await backend.getUiTree({ deviceId: String(args.deviceId ?? '') });
+        const tree = await backend.getUiTree({ deviceId: String(args.deviceId ?? '') }, signal);
         return { callId: call.id, status: 'ok', output: { raw: tree.raw, format: tree.format } };
       }
       if (call.name === 'launch_app') {
-        const launched = await backend.launchApp({ bundleId: args.bundleId ?? '' });
+        const launched = await backend.launchApp({ bundleId: args.bundleId ?? '' }, signal);
         return { callId: call.id, status: launched.success ? 'ok' : 'error', output: launched };
       }
       if (call.name === 'tap') {
@@ -239,12 +263,15 @@ export function createBackendToolDispatcher(
             output: { error: 'backend does not support tap' },
           };
         }
-        const result = await backend.tap({
-          deviceId: String(args.deviceId ?? ''),
-          x: Number(args.x ?? 0),
-          y: Number(args.y ?? 0),
-          accessibilityId: args.accessibilityId,
-        });
+        const result = await backend.tap(
+          {
+            deviceId: String(args.deviceId ?? ''),
+            x: Number(args.x ?? 0),
+            y: Number(args.y ?? 0),
+            accessibilityId: args.accessibilityId,
+          },
+          signal,
+        );
         return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
       }
       if (call.name === 'swipe') {
@@ -255,14 +282,17 @@ export function createBackendToolDispatcher(
             output: { error: 'backend does not support swipe' },
           };
         }
-        const result = await backend.swipe({
-          deviceId: String(args.deviceId ?? ''),
-          fromX: Number(args.fromX ?? 0),
-          fromY: Number(args.fromY ?? 0),
-          toX: Number(args.toX ?? 0),
-          toY: Number(args.toY ?? 0),
-          durationMs: args.durationMs ? Number(args.durationMs) : undefined,
-        });
+        const result = await backend.swipe(
+          {
+            deviceId: String(args.deviceId ?? ''),
+            fromX: Number(args.fromX ?? 0),
+            fromY: Number(args.fromY ?? 0),
+            toX: Number(args.toX ?? 0),
+            toY: Number(args.toY ?? 0),
+            durationMs: args.durationMs ? Number(args.durationMs) : undefined,
+          },
+          signal,
+        );
         return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
       }
       if (call.name === 'type_text') {
@@ -273,10 +303,13 @@ export function createBackendToolDispatcher(
             output: { error: 'backend does not support typeText' },
           };
         }
-        const result = await backend.typeText({
-          deviceId: String(args.deviceId ?? ''),
-          text: String(args.text ?? ''),
-        });
+        const result = await backend.typeText(
+          {
+            deviceId: String(args.deviceId ?? ''),
+            text: String(args.text ?? ''),
+          },
+          signal,
+        );
         return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
       }
       if (call.name === 'press_button') {
@@ -287,14 +320,17 @@ export function createBackendToolDispatcher(
             output: { error: 'backend does not support pressButton' },
           };
         }
-        const result = await backend.pressButton({
-          deviceId: String(args.deviceId ?? ''),
-          button: String(args.button ?? 'home'),
-        });
+        const result = await backend.pressButton(
+          {
+            deviceId: String(args.deviceId ?? ''),
+            button: String(args.button ?? 'home'),
+          },
+          signal,
+        );
         return { callId: call.id, status: result.success ? 'ok' : 'error', output: result };
       }
       if (call.name === 'screenshot') {
-        const ref = await backend.screenshot({ deviceId: String(args.deviceId ?? '') });
+        const ref = await backend.screenshot({ deviceId: String(args.deviceId ?? '') }, signal);
         if (!ref.path) {
           // A capture failure must not surface as a successful artifact (R5).
           return {
@@ -329,6 +365,7 @@ export function createBackendToolDispatcher(
 export async function runRealDeviceExploration(
   options: RealDeviceRunOptions,
 ): Promise<RealDeviceRunResult> {
+  options.signal?.throwIfAborted();
   const explorer = new DeviceExplorer(
     options.toolDispatcher,
     {
@@ -348,12 +385,18 @@ export async function runRealDeviceExploration(
     const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
     for (const caseId of options.dynamicActions.cases) {
       for (let index = 0; index < maxSteps; index += 1) {
-        const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
+        options.signal?.throwIfAborted();
+        const tree = await options.backend.getUiTree(
+          { deviceId: options.deviceId },
+          options.signal,
+        );
         const suggestion = await options.dynamicActions.suggest({
           caseId,
           uiTree: redactUiTreeForModel(tree.raw),
           history: explorer.getSteps().filter((step) => step.caseId === caseId),
+          signal: options.signal,
         });
+        options.signal?.throwIfAborted();
         if (suggestion === 'done') break;
         if (isSensitiveUiAction(suggestion)) {
           const authorize = options.dynamicActions.authorizeSensitiveAction;
@@ -393,7 +436,7 @@ export async function runRealDeviceExploration(
   }
   const uiTrees = [...latestCheckpointByCase.values()];
   if (uiTrees.length === 0 && options.llmSuggest) {
-    const tree = await options.backend.getUiTree({ deviceId: options.deviceId });
+    const tree = await options.backend.getUiTree({ deviceId: options.deviceId }, options.signal);
     uiTrees.push({ caseId: 'exploration', raw: tree.raw });
   }
 
@@ -412,6 +455,7 @@ export async function runRealDeviceExploration(
         featureName: options.llmSuggest.featureName,
       },
       { generate: options.llmSuggest.generate },
+      options.signal,
     );
     llmSuggestions = suggestion.suggestions;
     llmReason = suggestion.reason;

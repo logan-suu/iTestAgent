@@ -6,7 +6,11 @@ import type { DeviceInfo, RunResult, TestPlan } from 'itestagent-contracts';
 import { loadProfile } from 'itestagent-project-analyzer';
 import type { RunStore } from 'itestagent-store';
 import { persistConfirmedRun } from './confirmed-run-bundle.js';
-import type { ConfirmedExecutionDispatchResult } from './dual-execution-dispatcher.js';
+import {
+  type ConfirmedExecutionDispatchResult,
+  DeviceBackendCleanupError,
+} from './dual-execution-dispatcher.js';
+import { assertProviderUrl } from './exploration/assertion-suggester.js';
 import {
   type ExplorationAction,
   createBackendToolDispatcher,
@@ -23,6 +27,7 @@ export type ProductionActionSuggestion = (input: {
   caseId: string;
   uiTree: string;
   history: readonly import('itestagent-contracts').RunStep[];
+  signal?: AbortSignal;
 }) => Promise<ExplorationAction | 'done'>;
 
 /** Build the model-backed DeviceBackend action suggestion at the engine boundary. */
@@ -31,15 +36,18 @@ export function createProductionActionSuggestion(input: {
   model?: string;
   baseURL?: string;
 }): ProductionActionSuggestion {
+  if (input.baseURL) assertProviderUrl(input.baseURL);
   const model = createOpenAI({ apiKey: input.apiKey, baseURL: input.baseURL }).chat(
     input.model ?? 'gpt-4o',
   );
-  return ({ caseId, uiTree, history }) =>
+  return ({ caseId, uiTree, history, signal }) =>
     suggestExplorationAction({
-      generate: async (prompt) => (await generateText({ model, prompt })).text,
+      generate: async (prompt, runSignal) =>
+        (await generateText({ model, prompt, abortSignal: runSignal })).text,
       caseId,
       uiTree,
       history,
+      signal,
     });
 }
 
@@ -150,10 +158,11 @@ export async function executeProductionTestPlan(
   const production = input.production ?? createProductionAgentSessionDependencies();
   const dispatcher = createProductionDualExecutionDispatcher(async ({ plan }) => {
     const backend = production.createDeviceBackend(input.device);
+    let result: Awaited<ReturnType<typeof runRealDeviceExploration>>;
     try {
-      return await runRealDeviceExploration({
+      result = await runRealDeviceExploration({
         backend,
-        toolDispatcher: createBackendToolDispatcher(backend),
+        toolDispatcher: createBackendToolDispatcher(backend, input.signal),
         runDir: stagingDir,
         runId: plan.runId,
         bundleId: input.bundleId,
@@ -165,10 +174,28 @@ export async function executeProductionTestPlan(
           authorizeSensitiveAction: ({ action, resource }) => input.authorize(action, resource),
         },
         policy: plan.execution.assertion.policy,
+        signal: input.signal,
       });
-    } finally {
-      await production.closeDeviceBackend?.(backend);
+    } catch (executionError) {
+      const cleanup = await production.closeDeviceBackend?.(backend, input.signal);
+      if (cleanup && !cleanup.reusable) {
+        throw new DeviceBackendCleanupError(
+          `backend_execution_and_cleanup_failed: ${executionError instanceof Error ? executionError.message : String(executionError)}; cleanup ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
+          undefined,
+          cleanup,
+        );
+      }
+      throw executionError;
     }
+    const cleanup = await production.closeDeviceBackend?.(backend, input.signal);
+    if (cleanup && !cleanup.reusable) {
+      throw new DeviceBackendCleanupError(
+        `backend_cleanup_incomplete: ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
+        result,
+        cleanup,
+      );
+    }
+    return result;
   });
   try {
     const dispatch = await dispatcher.dispatch({

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 import type { TestPlan } from 'itestagent-contracts';
-import { createDualExecutionDispatcher } from '../src/dual-execution-dispatcher.js';
+import {
+  DeviceBackendCleanupError,
+  createDualExecutionDispatcher,
+} from '../src/dual-execution-dispatcher.js';
 
 function plan(path: 'xcuitest' | 'device_backend'): TestPlan {
   return {
@@ -110,6 +113,34 @@ describe('createDualExecutionDispatcher', () => {
     const result = await dispatcher.dispatch(input(plan('device_backend')));
     expect(result).toMatchObject({ status: 'completed', path: 'device_backend' });
     expect(calls).toEqual(['device-backend']);
+  });
+
+  it('retains the completed result when teardown makes the backend terminal', async () => {
+    const partialResult = { steps: [{ sequence: 1 }] };
+    const dispatcher = createDualExecutionDispatcher({
+      revalidateXcuitest: async () => ({ ready: true }),
+      runXcuitest: async () => ({ exitCode: 0, durationMs: 1, parsed: null }),
+      runDeviceBackend: async () => {
+        throw new DeviceBackendCleanupError(
+          'backend_cleanup_incomplete: timed_out',
+          partialResult,
+          {
+            status: 'timed_out',
+            reusable: false,
+            issues: ['session deletion timed out'],
+          },
+        );
+      },
+    });
+
+    const result = await dispatcher.dispatch(input(plan('device_backend')));
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      path: 'device_backend',
+      result: partialResult,
+      error: 'backend_cleanup_incomplete: timed_out',
+    });
   });
 
   it('keeps xcodebuild, test, and parse failures on XCUITest without fallback', async () => {

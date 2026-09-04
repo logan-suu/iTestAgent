@@ -118,26 +118,38 @@ export class CredentialManager implements CredentialManagerInterface {
 
       const value = response.value;
       const remembered = response.remembered ?? false;
+      let persisted = false;
+      let persistenceError: string | undefined;
 
       // Step 3a: Store to session memory
       await this.memoryStore.set(key, value);
       this.trackSessionKey(key);
 
       // Step 3b: Store to Keychain if remembered AND permission allows (R7/ADR-010)
-      if (remembered && this.keychainStore) {
-        if (this.permissionEngine) {
-          const gate = this.permissionEngine.check('credential_store', key);
-          if (gate === 'allow') {
-            await this.keychainStore.set(key, value);
-          }
+      if (remembered) {
+        if (!this.keychainStore) {
+          persistenceError = 'Keychain persistence is unavailable';
         } else {
-          await this.keychainStore.set(key, value);
+          const gate = this.permissionEngine?.check('store_credential', key) ?? 'allow';
+          if (gate === 'allow') {
+            try {
+              await this.keychainStore.set(key, value);
+              persisted = true;
+            } catch {
+              persistenceError = 'Keychain write was not verified';
+            }
+          } else {
+            persistenceError = 'Keychain persistence was not authorized';
+          }
         }
       }
 
       return {
         status: 'prompted',
-        entry: this.makeEntry(key, value, kind, label, !remembered),
+        entry: {
+          ...this.makeEntry(key, value, kind, label, !persisted),
+          ...(persistenceError ? { persistenceError } : {}),
+        },
       };
     }
 

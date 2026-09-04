@@ -24,7 +24,7 @@ export interface SuggestionContext {
 
 export interface SuggesterDeps {
   /** LLM completion function (e.g. AI SDK generateText on the configured model). */
-  readonly generate: (prompt: string) => Promise<string>;
+  readonly generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
 }
 
 export interface SuggestionResult {
@@ -114,10 +114,11 @@ export function extractJsonArray(text: string): unknown[] | null {
 export async function suggestAssertions(
   ctx: SuggestionContext,
   deps: SuggesterDeps,
+  signal?: AbortSignal,
 ): Promise<SuggestionResult> {
   let response: string;
   try {
-    response = await deps.generate(buildPrompt(ctx));
+    response = await deps.generate(buildPrompt(ctx), signal);
   } catch (err) {
     return {
       suggestions: [],
@@ -162,9 +163,11 @@ export async function suggestAssertions(
 }
 
 /** Real LLM provider — AI SDK generateText wrapped as the suggester's generate fn. */
-export function createAiSdkGenerateFn(model: LanguageModel): (prompt: string) => Promise<string> {
-  return async (prompt: string) => {
-    const { text } = await generateText({ model, prompt });
+export function createAiSdkGenerateFn(
+  model: LanguageModel,
+): (prompt: string, signal?: AbortSignal) => Promise<string> {
+  return async (prompt: string, signal?: AbortSignal) => {
+    const { text } = await generateText({ model, prompt, abortSignal: signal });
     return text;
   };
 }
@@ -186,7 +189,7 @@ export interface SuggesterModelConfig {
  */
 export function createConfiguredGenerateFn(
   config: SuggesterModelConfig,
-): (prompt: string) => Promise<string> {
+): (prompt: string, signal?: AbortSignal) => Promise<string> {
   assertProviderUrl(config.baseUrl);
   const openai = createOpenAI({ baseURL: config.baseUrl, apiKey: config.apiKey });
   return createAiSdkGenerateFn(openai(config.model));

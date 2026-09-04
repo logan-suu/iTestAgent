@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { CredentialRequest, SecretStore } from 'itestagent-contracts';
+import { PermissionEngine } from '../src/permission-engine.js';
 import { CredentialManager } from '../src/test-data/credential-manager.js';
 
 // ─── In-memory SecretStore for tests ────────────────────────
@@ -217,6 +218,52 @@ describe('CredentialManager — US-10.2', () => {
 
       const keychainVal = await keychainStore.get('temp_cred');
       expect(keychainVal).toBeNull();
+    });
+
+    it('reports session-only when the persistence gate still requires confirmation', async () => {
+      const memStore = new TestSecretStore();
+      const keychainStore = new TestSecretStore();
+      const manager = new CredentialManager(
+        memStore,
+        keychainStore,
+        makePromptCallback({ guarded: { value: 'guarded-value', remembered: true } }),
+        new PermissionEngine(),
+      );
+
+      const result = await manager.resolveCredential(makeRequest({ key: 'guarded' }));
+
+      expect(await keychainStore.get('guarded')).toBeNull();
+      expect(result).toMatchObject({
+        status: 'prompted',
+        entry: {
+          sessionOnly: true,
+          persistenceError: 'Keychain persistence was not authorized',
+        },
+      });
+    });
+
+    it('retains the value in session memory when the Keychain write fails', async () => {
+      const memStore = new TestSecretStore();
+      const keychainStore: SecretStore = {
+        get: async () => null,
+        set: async () => {
+          throw new Error('fixture write failure');
+        },
+        delete: async () => undefined,
+      };
+      const manager = new CredentialManager(
+        memStore,
+        keychainStore,
+        makePromptCallback({ guarded: { value: 'guarded-value', remembered: true } }),
+      );
+
+      const result = await manager.resolveCredential(makeRequest({ key: 'guarded' }));
+
+      expect(await memStore.get('guarded')).toBe('guarded-value');
+      expect(result).toMatchObject({
+        status: 'prompted',
+        entry: { sessionOnly: true, persistenceError: 'Keychain write was not verified' },
+      });
     });
   });
 

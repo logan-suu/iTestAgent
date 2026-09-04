@@ -273,12 +273,12 @@ describe('createAgentSession production composition', () => {
 
 describe('AgentSession tools', () => {
   it('dispatches the exact confirmed v3 plan instead of returning the task 6.5 placeholder', async () => {
-    const dispatched: Array<{ runId: string; device: string }> = [];
+    const dispatched: Array<{ runId: string; device: string; signal?: AbortSignal }> = [];
     const session = await createAgentSession(
       '/workspace',
       dependencies({
-        executeConfirmedPlan: async ({ plan, device }) => {
-          dispatched.push({ runId: plan.runId, device: device.udid });
+        executeConfirmedPlan: async ({ plan, device, signal }) => {
+          dispatched.push({ runId: plan.runId, device: device.udid, signal });
           return { status: 'completed', path: plan.execution.resolvedPath };
         },
       }),
@@ -293,9 +293,11 @@ describe('AgentSession tools', () => {
     session.resolvePermission('execute-1', 'allow');
     const output = await outputPromise;
     expect(output).toEqual({ status: 'completed', path: 'device_backend' });
-    expect(dispatched).toEqual([
-      { runId: session.getConfirmedPlan()?.runId as string, device: PHYSICAL_DEVICE.udid },
-    ]);
+    expect(dispatched[0]).toMatchObject({
+      runId: session.getConfirmedPlan()?.runId as string,
+      device: PHYSICAL_DEVICE.udid,
+    });
+    expect(dispatched[0]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('returns the real analyzer envelope supplied by the production seam', async () => {
@@ -423,6 +425,30 @@ describe('AgentSession streaming and permission bridge', () => {
     }
     expect(remaining.some((patch) => patch.type === 'permission_resolved')).toBe(true);
     expect(remaining.some((patch) => patch.type === 'error')).toBe(true);
+  });
+
+  it('session disposal aborts the runtime signal and cancels a pending permission ask', async () => {
+    streamScenario = async function* (args) {
+      try {
+        await args.tools.compileTestPlan?.execute({}, { toolCallId: 'dispose-permission' });
+      } catch (error: unknown) {
+        yield { type: 'tool-error', toolCallId: 'dispose-permission', error };
+      }
+    };
+    const session = await createAgentSession('/workspace', dependencies());
+    const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
+    expect((await iterator.next()).value?.type).toBe('devices_update');
+    await nextPatchOfType(iterator, 'permission_request');
+
+    session.dispose();
+
+    const remaining: TuiStatePatch[] = [];
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+      remaining.push(next.value);
+    }
+    expect(remaining.some((patch) => patch.type === 'permission_resolved')).toBe(true);
   });
 
   it('rejects concurrent turns instead of interleaving session state', async () => {

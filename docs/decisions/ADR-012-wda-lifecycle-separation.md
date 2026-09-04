@@ -5,7 +5,7 @@
 **Deciders**: Logan Su + Sisyphus (AGENTS.md)
 **G5 Evidence**: G5 spike report 3.7 §3a-3c (devicectl install ✅, xcodebuild test-without-building ✅, Appium xcodebuild ❌)
 
-> **2026-09-01 supersession update**：本 ADR 的生命周期分离原则仍有效。ADR-028/T6.4 已在同一真机上验证 Route B/C 均通过主动 readiness 与 Appium session；PR review 后的 identity/abort 复验证明 Route B 正常与 abort 均无进程残留，而 Route C 仍会遗留 Appium-owned `xcodebuild`。Route B 因此成为当前候选偏好，Route C 保留为显式诊断路线；最终 production default 等待 DEF-033 收口，不得静默 fallback。WDA readiness 必须由主动启动/`/status` 或等价 session probe 证明，不能只检查安装状态。
+> **2026-09-04 supersession update**：本 ADR 的生命周期分离原则仍有效。ADR-036 基于 T6.4 同设备 identity/abort 证据，将 Route B 定为 physical production default：iTestAgent/WdaManager 拥有 WDA 与 tunnel，Appium 只连接 external URL。Route C 仍会遗留 Appium-owned `xcodebuild`，因此只保留为用户显式选择的诊断路线，不参与自动选择或静默 fallback，也不再阻塞 Route B 的 MVP 出口。WDA readiness 必须由主动启动/`/status` 或等价 session probe 证明，不能只检查安装状态。
 
 ---
 

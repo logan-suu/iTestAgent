@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { type LanguageModel, generateText } from 'ai';
 import type {
@@ -20,6 +20,7 @@ import {
   PermissionEngine,
   PlanningSession,
   ToolDispatcher,
+  assertProviderUrl,
   createBackendToolDispatcher,
   createProductionAgentSessionDependencies,
   createProductionDualExecutionDispatcher,
@@ -28,27 +29,13 @@ import {
   suggestExplorationAction,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
-import { parse as parseJsonc } from 'jsonc-parser';
+import { persistGlobalDeniedRule } from './global-deny-store.js';
 import { retainMessages } from './message-retention.js';
+import { loadTuiRuntimeConfig } from './runtime-config.js';
 
 interface SessionConfig {
   baseURL?: string;
   model?: string;
-}
-
-function loadConfig(): SessionConfig {
-  const configPath = resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc');
-  try {
-    const raw = readFileSync(configPath, 'utf-8');
-    const cfg = parseJsonc(raw) as Record<string, unknown>;
-    const modelCfg = cfg.model as Record<string, unknown> | undefined;
-    return {
-      baseURL: (modelCfg?.baseURL as string) ?? 'https://api.deepseek.com/v1',
-      model: (modelCfg?.model as string) ?? 'deepseek-chat',
-    };
-  } catch {
-    return {};
-  }
 }
 
 async function loadApiKey(): Promise<string | null> {
@@ -177,6 +164,7 @@ export interface AgentSessionDependencies {
     plan: TestPlan;
     workspace: string;
     device: DeviceInfo;
+    signal?: AbortSignal;
   }) => Promise<unknown>;
 }
 
@@ -188,7 +176,7 @@ export interface TuiAgentSession {
   confirmPlan(): readonly TuiStatePatch[];
   cancelPlan(): readonly TuiStatePatch[];
   getConfirmedPlan(): TestPlan | null;
-  resolvePermission(callId: string, effect: 'allow' | 'deny', remember?: boolean): void;
+  resolvePermission(callId: string, effect: 'allow' | 'deny', remember?: boolean): Promise<void>;
   cancelPermission(callId: string, reason?: string): void;
   dispose(): void;
 }
@@ -257,7 +245,12 @@ export async function createAgentSession(
   dependencies: AgentSessionDependencies = {},
 ): Promise<TuiAgentSession> {
   const production = createProductionAgentSessionDependencies();
-  const config = loadConfig();
+  const runtimeConfig = loadTuiRuntimeConfig({ workspace });
+  const config: SessionConfig = {
+    baseURL: runtimeConfig.model.baseURL ?? 'https://api.deepseek.com/v1',
+    model: runtimeConfig.model.model ?? 'deepseek-chat',
+  };
+  assertProviderUrl(config.baseURL ?? 'https://api.deepseek.com/v1');
   const apiKey = await (dependencies.loadApiKey ?? loadApiKey)();
   if (!apiKey) {
     throw new Error(
@@ -286,8 +279,11 @@ export async function createAgentSession(
     );
   }
 
-  const permissionEngine = new PermissionEngine();
+  const permissionEngine = new PermissionEngine({
+    preloadedRules: runtimeConfig.permissions.deniedRules,
+  });
   const pendingPermissionIds = new Set<string>();
+  const pendingPermissions = new Map<string, { action: string; resource: string }>();
   let activeQueue: PatchQueue | null = null;
   let activeTurn = false;
   let discoveryNoticeEmitted = false;
@@ -303,45 +299,50 @@ export async function createAgentSession(
 
   const executeConfirmedPlan =
     dependencies.executeConfirmedPlan ??
-    (async ({ plan, workspace: executionWorkspace, device }) => {
+    (async ({ plan, workspace: executionWorkspace, device, signal }) => {
       const storeRoot = process.env.ITESTAGENT_HOME ?? join(homedir(), '.itestagent');
       const resultBundlePath = join(storeRoot, 'runs', plan.runId, 'staging', 'tests.xcresult');
       if (plan.execution.resolvedPath === 'xcuitest') {
         mkdirSync(dirname(resultBundlePath), { recursive: true });
       }
-      const dispatcher = createProductionDualExecutionDispatcher(async ({ plan: routedPlan }) => {
-        const analysis = await analyzeOnce();
-        const bundleId = analysis.profile.app.bundleId;
-        if (!bundleId) {
-          throw new Error('device_backend_blocked: project profile has no confirmed bundleId');
-        }
-        const backend = (dependencies.createDeviceBackend ?? production.createDeviceBackend)(
-          device,
-        );
-        const runDir = join(storeRoot, 'runs', routedPlan.runId, 'staging');
-        return runRealDeviceExploration({
-          backend,
-          toolDispatcher: createBackendToolDispatcher(backend),
-          runDir,
-          runId: routedPlan.runId,
-          bundleId,
-          deviceId: device.udid,
-          targetKind: device.targetKind,
-          dynamicActions: {
-            cases: routedPlan.execution.features,
-            suggest: ({ caseId, uiTree, history }) =>
-              suggestExplorationAction({
-                generate: async (prompt) => (await generateText({ model, prompt })).text,
-                caseId,
-                uiTree,
-                history,
-              }),
-            authorizeSensitiveAction: ({ callId, action, resource }) =>
-              toolDispatcher.authorize(callId, action, resource),
-          },
-          policy: routedPlan.execution.assertion.policy,
-        });
-      });
+      const dispatcher = createProductionDualExecutionDispatcher(
+        async ({ plan: routedPlan, signal: routeSignal }) => {
+          const analysis = await analyzeOnce();
+          const bundleId = analysis.profile.app.bundleId;
+          if (!bundleId) {
+            throw new Error('device_backend_blocked: project profile has no confirmed bundleId');
+          }
+          const backend = (dependencies.createDeviceBackend ?? production.createDeviceBackend)(
+            device,
+          );
+          const runDir = join(storeRoot, 'runs', routedPlan.runId, 'staging');
+          return runRealDeviceExploration({
+            backend,
+            toolDispatcher: createBackendToolDispatcher(backend, routeSignal),
+            runDir,
+            runId: routedPlan.runId,
+            bundleId,
+            deviceId: device.udid,
+            targetKind: device.targetKind,
+            dynamicActions: {
+              cases: routedPlan.execution.features,
+              suggest: ({ caseId, uiTree, history, signal: suggestionSignal }) =>
+                suggestExplorationAction({
+                  generate: async (prompt, runSignal) =>
+                    (await generateText({ model, prompt, abortSignal: runSignal })).text,
+                  caseId,
+                  uiTree,
+                  history,
+                  signal: suggestionSignal,
+                }),
+              authorizeSensitiveAction: ({ callId, action, resource }) =>
+                toolDispatcher.authorize(callId, action, resource, routeSignal),
+            },
+            policy: routedPlan.execution.assertion.policy,
+            signal: routeSignal,
+          });
+        },
+      );
       const dispatch = await dispatcher.dispatch({
         plan,
         confirmed: true,
@@ -351,6 +352,7 @@ export async function createAgentSession(
             ? { targetKind: 'physical', udid: device.udid }
             : { targetKind: 'simulator', simulatorId: device.udid },
         resultBundlePath,
+        signal,
       });
       const committed = await persistConfirmedRunToDefaultStore({
         plan,
@@ -435,7 +437,7 @@ export async function createAgentSession(
             : [],
         resource: 'confirmed-plan-target',
         backendName: 'itestagent-engine',
-        execute: async () => {
+        execute: async (_args, signal) => {
           const plan = planningSession?.getConfirmedPlan();
           if (!plan) {
             throw new Error(
@@ -443,7 +445,7 @@ export async function createAgentSession(
             );
           }
           const selectedDevice = selectConfirmedPlanDevice(plan, devices);
-          return executeConfirmedPlan({ plan, workspace, device: selectedDevice });
+          return executeConfirmedPlan({ plan, workspace, device: selectedDevice, signal });
         },
       },
       generateReport: {
@@ -459,8 +461,14 @@ export async function createAgentSession(
       },
     },
     onEvent: (event) => {
-      if (event.type === 'permission.requested') pendingPermissionIds.add(event.callId);
-      if (event.type === 'permission.resolved') pendingPermissionIds.delete(event.callId);
+      if (event.type === 'permission.requested') {
+        pendingPermissionIds.add(event.callId);
+        pendingPermissions.set(event.callId, { action: event.action, resource: event.resource });
+      }
+      if (event.type === 'permission.resolved') {
+        pendingPermissionIds.delete(event.callId);
+        pendingPermissions.delete(event.callId);
+      }
       if (
         event.type === 'permission.requested' ||
         event.type === 'permission.resolved' ||
@@ -476,7 +484,8 @@ export async function createAgentSession(
   const agentRuntime = new AiSdkAgentRuntime({
     model,
     tools: AGENT_TOOLS,
-    toolExecutor: (call: ToolCall): Promise<ToolResult> => toolDispatcher.dispatch(call),
+    toolExecutor: (call: ToolCall, signal?: AbortSignal): Promise<ToolResult> =>
+      toolDispatcher.dispatch(call, signal),
     system: buildSystemPrompt(workspace),
     maxSteps: 15,
   });
@@ -610,8 +619,20 @@ export async function createAgentSession(
       return planningSession?.getConfirmedPlan() ?? null;
     },
 
-    resolvePermission(callId, effect, remember = false) {
-      permissionEngine.resolve(callId, effect, remember);
+    async resolvePermission(callId, effect, remember = false) {
+      let persisted = false;
+      if (effect === 'deny' && remember) {
+        const request = pendingPermissions.get(callId);
+        if (!request) throw new Error(`Permission request not found: ${callId}`);
+        try {
+          await persistGlobalDeniedRule({ ...request, effect: 'deny' });
+          persisted = true;
+        } catch (error: unknown) {
+          permissionEngine.resolve(callId, 'deny', false);
+          throw error;
+        }
+      }
+      permissionEngine.resolve(callId, effect, persisted);
     },
 
     cancelPermission(callId, reason = 'user cancelled') {
@@ -623,6 +644,7 @@ export async function createAgentSession(
         permissionEngine.cancel(callId, 'session closed');
       }
       pendingPermissionIds.clear();
+      pendingPermissions.clear();
       void agentRuntime.abort('session closed');
     },
   };

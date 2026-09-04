@@ -349,6 +349,7 @@ export class WdaManager {
       stdout: 'pipe',
       stderr: 'pipe',
       signal: options.signal,
+      detached: true,
       env: {
         ...process.env,
         ...(options.mjpegServerPort ? { MJPEG_SERVER_PORT: String(options.mjpegServerPort) } : {}),
@@ -583,69 +584,49 @@ export class WdaManager {
   async stop(graceMs?: number, signal?: AbortSignal): Promise<void> {
     if (!this.runningProcess) return;
 
-    const process = this.runningProcess;
+    const ownedProcess = this.runningProcess;
     this.runningProcess = null;
 
     const grace = graceMs ?? 3000;
 
-    // Already dead — nothing to do
-    if (process.killed || process.exitCode !== null) return;
-
-    try {
-      // SIGTERM
-      process.kill('SIGTERM');
-
-      let timedOut = false;
-
+    const signalGroup = (stopSignal: NodeJS.Signals): void => {
       try {
-        // Wait for grace period or process exit
-        await Promise.race([
-          process.exited,
-          new Promise<void>((_, reject) =>
-            setTimeout(() => {
-              timedOut = true;
-              reject(new Error('grace timeout'));
-            }, grace),
-          ),
-          ...(signal
-            ? [
-                new Promise<void>((_, reject) => {
-                  const onAbort = () => reject(new Error('stop cancelled'));
-                  signal.addEventListener('abort', onAbort, { once: true });
-                }),
-              ]
-            : []),
-        ]);
-      } catch {
-        if (timedOut) {
-          // Process didn't exit in time — force kill
-          try {
-            process.kill('SIGKILL');
-            await process.exited;
-          } catch {
-            // Best-effort cleanup
-          }
-        }
-        // If cancelled via AbortSignal, still try to kill
-        if (signal?.aborted && !process.killed) {
-          try {
-            process.kill('SIGKILL');
-            await process.exited;
-          } catch {
-            // Best-effort
-          }
+        process.kill(-ownedProcess.pid, stopSignal);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+          ownedProcess.kill(stopSignal);
         }
       }
-    } catch {
-      // Best-effort cleanup — ensure process is dead
+    };
+
+    // xcrun/xcodebuild may leave descendants alive when only the leader is
+    // signalled. launch() creates a dedicated process group so teardown can
+    // terminate every process owned by this WDA lifecycle.
+    signalGroup(signal?.aborted ? 'SIGKILL' : 'SIGTERM');
+
+    if (!signal?.aborted) {
+      let abortListener: (() => void) | undefined;
       try {
-        if (!process.killed) {
-          process.kill('SIGKILL');
-        }
-      } catch {
-        // Absolute best-effort
+        await Promise.race([
+          ownedProcess.exited.then(() => undefined),
+          Bun.sleep(grace),
+          new Promise<void>((resolve) => {
+            if (signal) {
+              abortListener = resolve;
+              signal.addEventListener('abort', abortListener, { once: true });
+            }
+          }),
+        ]);
+      } finally {
+        if (abortListener) signal?.removeEventListener('abort', abortListener);
       }
     }
+
+    // Force the whole group down after the grace period or cancellation. This
+    // is safe after a clean exit: ESRCH means the owned group is already gone.
+    signalGroup('SIGKILL');
+
+    await Promise.race([ownedProcess.exited.then(() => undefined), Bun.sleep(1000)]);
   }
 
   /**

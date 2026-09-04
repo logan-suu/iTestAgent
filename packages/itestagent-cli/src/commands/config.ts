@@ -1,3 +1,4 @@
+import { revokeGlobalDeniedRule } from 'itestagent-tui/permissions';
 /**
  * Config command handlers — B17 module split (promotion guide §11.3 "CLI
  * safety/config"). Extracted verbatim from the former inline implementations
@@ -40,6 +41,8 @@ export interface ConfigCommandContext {
   confirmFn?: (input: { action: string; details: string }) => Promise<string>;
   /** Injectable hidden-input reader (defaults to readHiddenSecret). */
   readHiddenFn?: typeof readHiddenSecret;
+  /** Injectable persistent-deny mutation for tests. */
+  revokeDeniedRuleFn?: typeof revokeGlobalDeniedRule;
 }
 
 /** Shows the effective merged config, its source files, and credentials status. */
@@ -164,4 +167,22 @@ export async function runConfigDeleteSecret(
 
   await store.delete(key);
   stdout.write(`Credential "${key}" removed from Keychain.\n`);
+}
+
+/** Revoke one exact persistent deny rule from the global config. */
+export async function runConfigRevokeDeny(
+  action: string,
+  resource: string,
+  ctx: Pick<ConfigCommandContext, 'stdout' | 'confirmFn' | 'revokeDeniedRuleFn'> = {},
+): Promise<void> {
+  const confirmed = await (ctx.confirmFn ?? confirmAction)({
+    action: 'Revoke persistent deny',
+    details: `Allow future permission prompts for "${action}" on "${resource}"`,
+  });
+  if (confirmed !== 'yes') throw new PublicCliError('Aborted.');
+  const removed = await (ctx.revokeDeniedRuleFn ?? revokeGlobalDeniedRule)(action, resource);
+  if (!removed) {
+    throw new PublicCliError(`Persistent deny rule not found: ${action} on ${resource}`);
+  }
+  (ctx.stdout ?? process.stdout).write(`Revoked persistent deny: ${action} on ${resource}\n`);
 }

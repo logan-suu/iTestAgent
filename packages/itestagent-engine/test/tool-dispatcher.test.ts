@@ -482,15 +482,12 @@ describe('Permission gate — allow/deny/ask flow', () => {
     expect(backend.tapCalls).toHaveLength(0);
   });
 
-  test('allow rule on specific device overrides high-risk default', async () => {
+  test('persistent allow rules cannot override the high-risk default', () => {
     const pe = new PermissionEngine({ highRiskActions: ['tap'] });
-    pe.addRule({ action: 'tap', resource: 'deviceId:device-1', effect: 'allow' });
-    const { dispatcher, backend } = createDispatcher({ permissionEngine: pe });
-
-    const result = await dispatcher.dispatch(makeToolCall());
-
-    expect(result.status).toBe('ok');
-    expect(backend.tapCalls).toHaveLength(1);
+    expect(() =>
+      pe.addRule({ action: 'tap', resource: 'deviceId:device-1', effect: 'allow' }),
+    ).toThrow('cannot persist');
+    expect(pe.check('tap', 'deviceId:device-1')).toBe('ask');
   });
 
   test('permission denied result preserves original callId', async () => {
@@ -716,6 +713,27 @@ describe('Abort signal propagation', () => {
 
     const result = await dispatchPromise;
     expect(result.status).toBe('error');
+  });
+
+  test('a per-dispatch signal cancels a pending permission ask', async () => {
+    const controller = new AbortController();
+    const { backend } = createDispatcher();
+    const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 5000 });
+    const registry = new BackendRegistry();
+    registry.register('fake', backend);
+    const dispatcher = new ToolDispatcher({
+      permissionEngine: pe,
+      backendSelector: new BackendSelector(registry),
+      targetKind: 'physical',
+    });
+
+    const pending = dispatcher.dispatch(makeToolCall({ id: 'runtime_signal' }), controller.signal);
+    controller.abort('user cancelled');
+
+    const result = await pending;
+    expect(result.status).toBe('error');
+    expect(result.output).toMatchObject({ code: 'aborted' });
+    expect(backend.tapCalls).toHaveLength(0);
   });
 });
 

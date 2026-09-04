@@ -28,6 +28,8 @@ export interface AnsiInputHooks {
   submit(text: string): void;
   /** Called after the Ctrl+C reset+newline was written; restores the TTY. */
   interrupt(): void;
+  /** True while the active field contains secret material. */
+  maskInput?: () => boolean;
 }
 
 export interface AnsiInputHandler {
@@ -43,6 +45,7 @@ const CTRL_C = 3;
 
 export function createAnsiInputHandler(hooks: AnsiInputHooks): AnsiInputHandler {
   let inputBuffer = '';
+  const visibleBuffer = () => (hooks.maskInput?.() ? '*'.repeat(inputBuffer.length) : inputBuffer);
 
   const handleChunk = (chunk: string) => {
     for (const char of chunk) {
@@ -61,7 +64,7 @@ export function createAnsiInputHandler(hooks: AnsiInputHooks): AnsiInputHandler 
           inputBuffer = inputBuffer.slice(0, -1);
           hooks.write('\x1b[G');
           hooks.write('\x1b[0K');
-          hooks.write(`> ${inputBuffer}`);
+          hooks.write(`> ${visibleBuffer()}`);
         }
         continue;
       }
@@ -77,7 +80,7 @@ export function createAnsiInputHandler(hooks: AnsiInputHooks): AnsiInputHandler 
       // Printable characters
       if (code >= 32 && code < 127) {
         inputBuffer += char;
-        hooks.write(char);
+        hooks.write(hooks.maskInput?.() ? '*' : char);
       }
     }
   };
