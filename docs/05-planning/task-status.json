@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-09-04T00:52:35Z",
+  "last_updated": "2026-09-04T01:48:59Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1313,8 +1313,8 @@
           "id": "6.9",
           "title": "证据驱动解释与真实重跑：failed-only 调度、parentRunId 与 flaky 关联",
           "story": "US-14.1, US-16.1",
-          "status": "in_progress",
-          "last_updated": "2026-09-04T01:45:19Z",
+          "status": "done",
+          "last_updated": "2026-09-04T01:48:59Z",
           "documents_required": [
             "docs/01-spec/全量用户故事与验收标准规格书.md",
             "docs/02-architecture/架构设计文档.md",
@@ -1329,14 +1329,14 @@
             "6.8"
           ],
           "test_file": "tests/integration/phase6/phase6-explain-rerun-dispatch.test.ts",
-          "notes": "explain 必须消费 6.8 的真实 run 证据；rerun 移除仅打印 TODO，复用原 TestPlan/数据真正调度失败 case，并把新 run 关联到原 run。2026-09-03 用户确认启动 T6.9，并要求先评审现有规格合理性；规格评审发现 canonical bundle 缺少 rerun 血缘、explain 未锁定完整 bundle/模型安全输入、旧 flaky 规则混入 explored 与无关历史。已新增 ADR-035 并同步 US-14.1/US-16.1、架构、数据流与 schema；实现完整 bundle 加载、只读 explain、failed-only child plan、XCUITest/DeviceBackend 精确调度、lineage 恢复与确定性 flaky 判定。typecheck、lint、build、G7 及 T6.9 定向测试（contracts/engine/report/integration 92 pass，CLI 6 pass，0 fail）通过。G5-SIM（iPhone 16 Pro/iOS 18.2）与 G5（iPhone 14 Plus/iOS 18.2.1）真实 Appium/WDA 验证通过；报告：docs/06-verification/g5-sim-spike-report-6.9.md。已修复全仓测试的宿主环境耦合：Keychain/doctor 宿主集成显式启用，doctor 编排注入 runner，Seatbelt 禁止监听时只跳过真实 HTTP 集成；test:ci 3429 pass/39 skip/0 fail，bun test 3549 pass/40 skip/0 fail。PR：https://github.com/logan-suu/iTestAgent/pull/78；摘要：canonical bundle 证据解释、真实 failed-only child rerun、双执行路径精确 case 调度、lineage/flaky 证据，以及 G5/G5-SIM 双目标验证。任务保持 in_progress，等待人类合并。 2026-09-04 PR #78 二次规格评审发现原 ADR-035 不合理：DeviceBackend 按 selectedCaseIds 重新探索不具备可复现动作/数据/断言，与 US-9.1/ADR-031 的 confirmed Flow 边界冲突；xcresult parser 的 Class/Method 两段 caseId 也不是有效的 xcodebuild Target/Class/Method。已先修订 US-16.1、ADR-035、架构、数据流、避坑手册、计划与 INDEX：T6.9 真实 failed-only 限权威 XCUITest identifier，DeviceBackend 探索 case 在设备访问和 child run 创建前以 rerun_case_not_reproducible 阻断并引导 run flow；既有 Appium 证据仅证明生产组合/case 隔离。另锁定 runId 1-128 字符统一约束。代码修复计划获人类确认后已完成：contract、rerun compiler 与 production executor 三层阻断 DeviceBackend 探索重跑；xcresult parser 使用 Apple xcresult test node 恢复权威 Target/Class/Method 并支持真实自闭合 JUnit testcase；CLI 移除 DeviceBackend/WDA 重跑参数；所有持久化 runId 契约统一。修复后 XCUITest failed-only 已在 iPhone 16 Pro iOS 18.2 Simulator 完成 G5-SIM，并在 iPhone 14 Plus iOS 18.2.1 完成 G5；两者均只执行选中 case，控制用例未出现，lineage/flaky 与 raw-local-only xcresult 已进入 canonical bundle。最终门禁：typecheck、lint、build、G1、G4b、G7、diff-check 通过；定向 rerun 29 pass、xcresult parser 17 pass、CLI 6 pass；test:ci 3436 pass/39 skip/0 fail，bun test 3559 pass/40 skip/0 fail。任务保持 in_progress，等待 PR #78 人类合并。 2026-09-04 CodeRabbit 最新增量复审新增两条意见，经实际代码验证均成立并已修复：避坑手册明确 runId 首字符必须为 ASCII 字母或数字；test-plan JSON Schema 将错误的四反斜线 whitespace class 修正为标准 JSON 转义，并新增 published-schema 行为测试，验证含字母 s 的合法三段 identifier 可通过、含空白标识被拒绝。最终 test:ci 3437 pass/39 skip/0 fail，bun test 3560 pass/40 skip/0 fail；typecheck、lint、G1、G4b、G7 与 diff-check 通过。"
+          "notes": "explain 必须消费 6.8 的真实 run 证据；rerun 移除仅打印 TODO，复用原 TestPlan/数据真正调度失败 case，并把新 run 关联到原 run。2026-09-03 用户确认启动 T6.9，并要求先评审现有规格合理性；规格评审发现 canonical bundle 缺少 rerun 血缘、explain 未锁定完整 bundle/模型安全输入、旧 flaky 规则混入 explored 与无关历史。已新增 ADR-035 并同步 US-14.1/US-16.1、架构、数据流与 schema；实现完整 bundle 加载、只读 explain、failed-only child plan、XCUITest/DeviceBackend 精确调度、lineage 恢复与确定性 flaky 判定。typecheck、lint、build、G7 及 T6.9 定向测试（contracts/engine/report/integration 92 pass，CLI 6 pass，0 fail）通过。G5-SIM（iPhone 16 Pro/iOS 18.2）与 G5（iPhone 14 Plus/iOS 18.2.1）真实 Appium/WDA 验证通过；报告：docs/06-verification/g5-sim-spike-report-6.9.md。已修复全仓测试的宿主环境耦合：Keychain/doctor 宿主集成显式启用，doctor 编排注入 runner，Seatbelt 禁止监听时只跳过真实 HTTP 集成；test:ci 3429 pass/39 skip/0 fail，bun test 3549 pass/40 skip/0 fail。PR：https://github.com/logan-suu/iTestAgent/pull/78；摘要：canonical bundle 证据解释、真实 failed-only child rerun、双执行路径精确 case 调度、lineage/flaky 证据，以及 G5/G5-SIM 双目标验证。任务保持 in_progress，等待人类合并。 2026-09-04 PR #78 二次规格评审发现原 ADR-035 不合理：DeviceBackend 按 selectedCaseIds 重新探索不具备可复现动作/数据/断言，与 US-9.1/ADR-031 的 confirmed Flow 边界冲突；xcresult parser 的 Class/Method 两段 caseId 也不是有效的 xcodebuild Target/Class/Method。已先修订 US-16.1、ADR-035、架构、数据流、避坑手册、计划与 INDEX：T6.9 真实 failed-only 限权威 XCUITest identifier，DeviceBackend 探索 case 在设备访问和 child run 创建前以 rerun_case_not_reproducible 阻断并引导 run flow；既有 Appium 证据仅证明生产组合/case 隔离。另锁定 runId 1-128 字符统一约束。代码修复计划获人类确认后已完成：contract、rerun compiler 与 production executor 三层阻断 DeviceBackend 探索重跑；xcresult parser 使用 Apple xcresult test node 恢复权威 Target/Class/Method 并支持真实自闭合 JUnit testcase；CLI 移除 DeviceBackend/WDA 重跑参数；所有持久化 runId 契约统一。修复后 XCUITest failed-only 已在 iPhone 16 Pro iOS 18.2 Simulator 完成 G5-SIM，并在 iPhone 14 Plus iOS 18.2.1 完成 G5；两者均只执行选中 case，控制用例未出现，lineage/flaky 与 raw-local-only xcresult 已进入 canonical bundle。最终门禁：typecheck、lint、build、G1、G4b、G7、diff-check 通过；定向 rerun 29 pass、xcresult parser 17 pass、CLI 6 pass；test:ci 3436 pass/39 skip/0 fail，bun test 3559 pass/40 skip/0 fail。任务保持 in_progress，等待 PR #78 人类合并。 2026-09-04 CodeRabbit 最新增量复审新增两条意见，经实际代码验证均成立并已修复：避坑手册明确 runId 首字符必须为 ASCII 字母或数字；test-plan JSON Schema 将错误的四反斜线 whitespace class 修正为标准 JSON 转义，并新增 published-schema 行为测试，验证含字母 s 的合法三段 identifier 可通过、含空白标识被拒绝。最终 test:ci 3437 pass/39 skip/0 fail，bun test 3560 pass/40 skip/0 fail；typecheck、lint、G1、G4b、G7 与 diff-check 通过。 Completion confirmed: PR #78 was merged by logan-suu into dev-1.0 at 2026-09-04T01:48:03Z (merge commit b82b0e0ddd0b7fa4c0990e5b025eaf3499af68f8); CI, gitleaks, and CodeRabbit succeeded, all three verified review threads were resolved, and G5/G5-SIM selected-case evidence passed."
         },
         {
           "id": "6.10",
           "title": "真机闭环可靠性与安全收口：TUI、session、readiness 门禁回归、权限、abort 与脱敏",
           "story": "US-4.1, US-10.1~10.2, US-17.2, US-18.3",
-          "status": "pending",
-          "last_updated": "2026-09-01T04:34:11Z",
+          "status": "ready",
+          "last_updated": "2026-09-04T01:48:59Z",
           "documents_required": [
             "AGENTS.md",
             "docs/03-implementation/开发避坑与关键注意点手册.md",
