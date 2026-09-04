@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-09-04T18:38:25Z",
+  "last_updated": "2026-09-04T19:00:49Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1366,7 +1366,7 @@
           "title": "生产组合自动化闭环测试：TUI 指令到报告、解释和重跑的跨包验证",
           "story": "US-2.1~2.3, US-3.1~3.3, US-4.1~4.2, US-5.1~5.2, US-6.1~6.2, US-7.1, US-8.1~8.2, US-9.1~9.2, US-10.1~10.2, US-11.1, US-13.1, US-14.1, US-15.1, US-16.1, US-17.1~17.2, US-18.3, US-19.1",
           "status": "in_progress",
-          "last_updated": "2026-09-04T18:38:25Z",
+          "last_updated": "2026-09-04T19:00:49Z",
           "documents_required": [
             "AGENTS.md",
             "docs/01-spec/全量用户故事与验收标准规格书.md",
@@ -1392,7 +1392,7 @@
             "6.10"
           ],
           "test_file": "tests/integration/phase6/phase6-physical-closed-loop.test.ts",
-          "notes": "T6.11 是 Phase 6 生产组合的跨包行为测试，不是单文件覆盖 MVP 19 项的发布总验收。必须分别覆盖 DeviceBackend lane（TUI 到 canonical Run bundle/explain，自动探索 failed-only 在设备访问和 child run 创建前阻断并引导 confirmed Flow）与 XCUITest lane（metadata-only 路由确认到 Run bundle/explain/精确 failed-only child run），并验证 R6/R7、abort/cleanup、runId/parentRunId 连贯性。测试必须调用与用户入口相同的生产 composition root；CI 可用 test doubles/fixtures 替代设备、Appium、xcodebuild、LLM、时钟等外部传输或非确定性边界，但禁止替换编排、权限、存储、报告、解释或重跑逻辑，也禁止只断言函数存在。doctor、本地 Server、真实 Simulator 构建安装、性能/baseline、安装与配置管理、测试草稿继续由专项门禁验收。 2026-09-04T17:59:54Z dependency cascade: all dependencies are done; task is ready. 2026-09-04T18:16:10Z specification review: replaced ambiguous MVP-1~19 scope with the approved Phase 6 production closed-loop matrix; no product behavior or architecture decision changed. 2026-09-04T18:22:36Z implementation plan approved by the project owner; task moved to in_progress. 2026-09-04T18:38:25Z implementation verified: TUI DeviceBackend, XCUITest precise failed-only child, shared explain/rerun handlers, raw-local-only boundaries, abort/cleanup, and canonical run lineage passed. T6.1 RED contract is now a normal green regression. Full gates: typecheck, lint, build, and bun test 3602 pass / 29 skip / 0 fail. G6 report: docs/06-verification/phase6-production-closed-loop-report-6.11.md. Task remains in_progress pending commit/PR and human merge."
+          "notes": "T6.11 是 Phase 6 生产组合的跨包行为测试，不是单文件覆盖 MVP 19 项的发布总验收。必须分别覆盖 DeviceBackend lane（TUI 到 canonical Run bundle/explain，自动探索 failed-only 在设备访问和 child run 创建前阻断并引导 confirmed Flow）与 XCUITest lane（metadata-only 路由确认到 Run bundle/explain/精确 failed-only child run），并验证 R6/R7、abort/cleanup、runId/parentRunId 连贯性。测试必须调用与用户入口相同的生产 composition root；CI 可用 test doubles/fixtures 替代设备、Appium、xcodebuild、LLM、时钟等外部传输或非确定性边界，但禁止替换编排、权限、存储、报告、解释或重跑逻辑，也禁止只断言函数存在。doctor、本地 Server、真实 Simulator 构建安装、性能/baseline、安装与配置管理、测试草稿继续由专项门禁验收。 2026-09-04T17:59:54Z dependency cascade: all dependencies are done; task is ready. 2026-09-04T18:16:10Z specification review: replaced ambiguous MVP-1~19 scope with the approved Phase 6 production closed-loop matrix; no product behavior or architecture decision changed. 2026-09-04T18:22:36Z implementation plan approved by the project owner; task moved to in_progress. 2026-09-04T18:38:25Z implementation verified: TUI DeviceBackend, XCUITest precise failed-only child, shared explain/rerun handlers, raw-local-only boundaries, abort/cleanup, and canonical run lineage passed. T6.1 RED contract is now a normal green regression. Full gates: typecheck, lint, build, and bun test 3602 pass / 29 skip / 0 fail. G6 report: docs/06-verification/phase6-production-closed-loop-report-6.11.md. 2026-09-04T19:00:49Z PR #80: https://github.com/logan-suu/iTestAgent/pull/80. Branch test/phase6-production-closed-loop; implementation commit 1653fbf. Final gates: typecheck, lint, build, bun test 3602 pass / 29 skip / 0 fail, G7, staged gitleaks, and diff-check passed. Task remains in_progress pending human merge."
         },
         {
           "id": "6.12",
