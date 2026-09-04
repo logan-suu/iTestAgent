@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
 import type { ArtifactRef } from './device-types.js';
+import { RunIdSchema } from './run-id.js';
 
 /**
  * PerformanceBackend 类型 Schema（Zod）+ 接口定义
@@ -167,7 +168,7 @@ export const BaselineDeltaSchema = z.object({
   /** 基线唯一标识 */
   baselineId: z.string(),
   /** 对比的 run ID */
-  runId: z.string(),
+  runId: RunIdSchema,
   /** 对比时间（ISO 8601） */
   comparedAt: z.string(),
   /** 执行目标类型（ADR-011 §6：baseline 分域隔离） */

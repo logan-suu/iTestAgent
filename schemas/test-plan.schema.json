@@ -4,7 +4,19 @@
   "title": "TestPlan",
   "description": "iTestAgent TestPlan — single source of truth for a test run. Source: 架构设计文档 §6.2 + 数据流全链路 §6. Stored at ~/.itestagent/runs/<run_id>/plan.yaml (YAML-encoded, schema validates the parsed JSON).",
   "type": "object",
-  "required": ["schemaVersion", "runId", "projectProfileRef", "target", "device", "appSource", "backendPreference", "execution", "artifacts", "performance", "safety"],
+  "required": [
+    "schemaVersion",
+    "runId",
+    "projectProfileRef",
+    "target",
+    "device",
+    "appSource",
+    "backendPreference",
+    "execution",
+    "artifacts",
+    "performance",
+    "safety"
+  ],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
@@ -13,7 +25,10 @@
     },
     "runId": {
       "type": "string",
-      "description": "Unique run identifier, e.g. run_20260710_001."
+      "description": "Unique run identifier, e.g. run_20260710_001.",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
     },
     "projectProfileRef": {
       "type": "string",
@@ -58,13 +73,23 @@
       "properties": {
         "selector": {
           "type": "string",
-          "enum": ["local_connected", "by_udid", "by_name"],
+          "enum": [
+            "local_connected",
+            "by_udid",
+            "by_name"
+          ],
           "description": "Physical device selection strategy."
         },
-        "udid": { "type": "string" },
-        "name": { "type": "string" }
+        "udid": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
       },
-      "required": ["selector"]
+      "required": [
+        "selector"
+      ]
     },
     "SimulatorDeviceSelector": {
       "type": "object",
@@ -72,15 +97,32 @@
       "properties": {
         "selector": {
           "type": "string",
-          "enum": ["booted", "by_udid", "by_name", "create_from_profile"],
+          "enum": [
+            "booted",
+            "by_udid",
+            "by_name",
+            "create_from_profile"
+          ],
           "description": "Simulator device selection strategy."
         },
-        "udid": { "type": "string" },
-        "name": { "type": "string" },
-        "runtimeIdentifier": { "type": "string", "description": "e.g. com.apple.CoreSimulator.SimRuntime.iOS-18-2" },
-        "deviceTypeIdentifier": { "type": "string", "description": "e.g. com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro" }
+        "udid": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "runtimeIdentifier": {
+          "type": "string",
+          "description": "e.g. com.apple.CoreSimulator.SimRuntime.iOS-18-2"
+        },
+        "deviceTypeIdentifier": {
+          "type": "string",
+          "description": "e.g. com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
+        }
       },
-      "required": ["selector"]
+      "required": [
+        "selector"
+      ]
     },
     "DeviceSelector": {
       "type": "object",
@@ -88,13 +130,22 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["physical", "simulator"],
+          "enum": [
+            "physical",
+            "simulator"
+          ],
           "description": "ADR-011: Target execution kind (physical device or iOS Simulator)."
         },
-        "physical": { "$ref": "#/$defs/PhysicalDeviceSelector" },
-        "simulator": { "$ref": "#/$defs/SimulatorDeviceSelector" }
+        "physical": {
+          "$ref": "#/$defs/PhysicalDeviceSelector"
+        },
+        "simulator": {
+          "$ref": "#/$defs/SimulatorDeviceSelector"
+        }
       },
-      "required": ["kind"]
+      "required": [
+        "kind"
+      ]
     },
     "BackendPreference": {
       "type": "object",
@@ -106,28 +157,43 @@
           "description": "Ordered preference list. Fallback chain.",
           "items": {
             "type": "string",
-            "enum": ["mobile-mcp", "appium", "iphone-use", "mock"]
+            "enum": [
+              "mobile-mcp",
+              "appium",
+              "iphone-use",
+              "mock"
+            ]
           }
         },
         "performance": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["xctrace-analyzer-core", "instrumentsmcp", "raw-xcrun"]
+            "enum": [
+              "xctrace-analyzer-core",
+              "instrumentsmcp",
+              "raw-xcrun"
+            ]
           }
         },
         "build": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["xcodebuild", "fastlane"]
+            "enum": [
+              "xcodebuild",
+              "fastlane"
+            ]
           }
         },
         "analyzer": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["xcodequery", "xcodeproj"]
+            "enum": [
+              "xcodequery",
+              "xcodeproj"
+            ]
           }
         }
       }
@@ -138,40 +204,66 @@
       "properties": {
         "prefer": {
           "type": "string",
-          "enum": ["auto", "xcuitest", "device_backend"],
+          "enum": [
+            "auto",
+            "xcuitest",
+            "device_backend"
+          ],
           "description": "auto: prefer XCUITest if exists, else device_backend."
         },
         "fallback": {
           "type": "string",
-          "enum": ["device_backend", "abort"]
+          "enum": [
+            "device_backend",
+            "abort"
+          ]
         },
         "resolvedPath": {
           "type": "string",
-          "enum": ["xcuitest", "device_backend"],
+          "enum": [
+            "xcuitest",
+            "device_backend"
+          ],
           "description": "Execution route resolved and confirmed before execution."
         },
         "selectionReason": {
           "type": "string",
-          "enum": ["explicit_preference", "evidence_backed_xcuitest", "confirmed_no_xcuitest_candidate", "user_selected_after_ambiguity"]
+          "enum": [
+            "explicit_preference",
+            "evidence_backed_xcuitest",
+            "confirmed_no_xcuitest_candidate",
+            "user_selected_after_ambiguity"
+          ]
         },
         "features": {
           "type": "array",
           "description": "Feature names from ProjectProfile to cover.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "flows": {
           "type": "array",
           "description": "Flow YAML IDs to replay (if any).",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "testData": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "allowAgentGeneratedData": { "type": "boolean" },
-            "askUserInTuiWhenRequired": { "type": "boolean" }
+            "allowAgentGeneratedData": {
+              "type": "boolean"
+            },
+            "askUserInTuiWhenRequired": {
+              "type": "boolean"
+            }
           },
-          "required": ["allowAgentGeneratedData", "askUserInTuiWhenRequired"]
+          "required": [
+            "allowAgentGeneratedData",
+            "askUserInTuiWhenRequired"
+          ]
         },
         "assertion": {
           "type": "object",
@@ -179,17 +271,30 @@
           "properties": {
             "policy": {
               "type": "string",
-              "enum": ["user_goal_then_profile_then_agent_confirmed", "explore_only"],
+              "enum": [
+                "user_goal_then_profile_then_agent_confirmed",
+                "explore_only"
+              ],
               "description": "No assertion → status can only be explored/inconclusive/needs_assertion (R5)."
             }
           },
-          "required": ["policy"]
+          "required": [
+            "policy"
+          ]
         },
         "metrics": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["launch_time", "memory_peak", "crash", "test_duration", "hitches", "fps", "xctrace_summary"]
+            "enum": [
+              "launch_time",
+              "memory_peak",
+              "crash",
+              "test_duration",
+              "hitches",
+              "fps",
+              "xctrace_summary"
+            ]
           }
         },
         "xcuitest": {
@@ -197,35 +302,67 @@
           "additionalProperties": false,
           "description": "Confirmed XCUITest configuration for the resolved route.",
           "properties": {
-            "scheme": { "type": "string" },
-            "configuration": { "type": "string" },
-            "testPlan": { "type": "string" },
+            "scheme": {
+              "type": "string"
+            },
+            "configuration": {
+              "type": "string"
+            },
+            "testPlan": {
+              "type": "string"
+            },
             "targets": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "evidence": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "limitations": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           },
-          "required": ["scheme"]
+          "required": [
+            "scheme"
+          ]
         }
       },
       "allOf": [
         {
           "if": {
-            "properties": { "resolvedPath": { "const": "xcuitest" } },
-            "required": ["resolvedPath"]
+            "properties": {
+              "resolvedPath": {
+                "const": "xcuitest"
+              }
+            },
+            "required": [
+              "resolvedPath"
+            ]
           },
-          "then": { "required": ["xcuitest"] }
+          "then": {
+            "required": [
+              "xcuitest"
+            ]
+          }
         }
       ],
-      "required": ["prefer", "fallback", "resolvedPath", "selectionReason", "features", "testData", "assertion"]
+      "required": [
+        "prefer",
+        "fallback",
+        "resolvedPath",
+        "selectionReason",
+        "features",
+        "testData",
+        "assertion"
+      ]
     },
     "ArtifactPolicy": {
       "type": "object",
@@ -235,7 +372,15 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["screenshot", "video", "syslog", "crashlog", "xcresult", "trace", "uitree"]
+            "enum": [
+              "screenshot",
+              "video",
+              "syslog",
+              "crashlog",
+              "xcresult",
+              "trace",
+              "uitree"
+            ]
           }
         },
         "report": {
@@ -246,15 +391,24 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["summary_md", "result_json", "artifact_index_json"],
+                "enum": [
+                  "summary_md",
+                  "result_json",
+                  "artifact_index_json"
+                ],
                 "description": "Fixed three-piece report (ADR-004). No HTML."
               }
             }
           },
-          "required": ["outputs"]
+          "required": [
+            "outputs"
+          ]
         }
       },
-      "required": ["collect", "report"]
+      "required": [
+        "collect",
+        "report"
+      ]
     },
     "PerformancePlan": {
       "type": "object",
@@ -262,17 +416,29 @@
       "properties": {
         "baseline": {
           "type": "string",
-          "enum": ["local_auto", "skip"],
+          "enum": [
+            "local_auto",
+            "skip"
+          ],
           "description": "local_auto: first successful run establishes baseline (ADR)."
         },
         "baselineDomain": {
           "type": "string",
-          "enum": ["physical", "simulator"],
+          "enum": [
+            "physical",
+            "simulator"
+          ],
           "description": "ADR-011: Baseline domain isolation. physical and simulator baselines are strictly separated."
         },
-        "thresholdRequired": { "type": "boolean" }
+        "thresholdRequired": {
+          "type": "boolean"
+        }
       },
-      "required": ["baseline", "baselineDomain", "thresholdRequired"]
+      "required": [
+        "baseline",
+        "baselineDomain",
+        "thresholdRequired"
+      ]
     },
     "PermissionPolicyRef": {
       "type": "object",
@@ -280,18 +446,39 @@
       "properties": {
         "defaultMode": {
           "type": "string",
-          "enum": ["allow", "ask", "deny"],
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
           "description": "High-risk actions default to ask (R7)."
         },
         "highRiskActions": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["clear_app_data", "uninstall_app", "write_project_file", "store_credential", "update_baseline", "save_flow", "overwrite_flow", "generate_draft_test", "open_non_http_url", "access_private_media", "execute_project_build", "replace_device_app", "prepare_wda"]
+            "enum": [
+              "clear_app_data",
+              "uninstall_app",
+              "write_project_file",
+              "store_credential",
+              "update_baseline",
+              "save_flow",
+              "overwrite_flow",
+              "generate_draft_test",
+              "open_non_http_url",
+              "access_private_media",
+              "execute_project_build",
+              "replace_device_app",
+              "prepare_wda"
+            ]
           }
         }
       },
-      "required": ["defaultMode", "highRiskActions"]
+      "required": [
+        "defaultMode",
+        "highRiskActions"
+      ]
     },
     "Target": {
       "type": "object",
@@ -299,26 +486,51 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["current_workspace", "user_specified", "existing_artifact"],
+          "enum": [
+            "current_workspace",
+            "user_specified",
+            "existing_artifact"
+          ],
           "description": "Test target source."
         }
       },
-      "required": ["type"]
+      "required": [
+        "type"
+      ]
     },
     "RerunMetadata": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "parentRunId": { "type": "string", "minLength": 1 },
-        "mode": { "type": "string", "enum": ["failed_only", "all"] },
+        "parentRunId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "failed_only",
+            "all"
+          ]
+        },
         "selectedCaseIds": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\\\s/]+/[^\\\\s/]+/[^\\\\s/]+$"
+          }
         }
       },
-      "required": ["parentRunId", "mode", "selectedCaseIds"]
+      "required": [
+        "parentRunId",
+        "mode",
+        "selectedCaseIds"
+      ]
     },
     "AppSource": {
       "type": "object",
@@ -326,11 +538,44 @@
       "properties": {
         "strategy": {
           "type": "string",
-          "enum": ["auto_from_workspace", "user_specified", "existing_artifact"],
+          "enum": [
+            "auto_from_workspace",
+            "user_specified",
+            "existing_artifact"
+          ],
           "description": "App build source strategy."
         }
       },
-      "required": ["strategy"]
+      "required": [
+        "strategy"
+      ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "rerun"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/ExecutionPlan"
+              },
+              {
+                "properties": {
+                  "resolvedPath": {
+                    "const": "xcuitest"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

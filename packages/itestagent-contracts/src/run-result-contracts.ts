@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
+import { RunIdSchema } from './run-id.js';
 
 /**
  * RunResult contracts — RunStatus / PerformanceMetrics / ExecutionSummary /
@@ -241,9 +242,9 @@ export const RunResultSchema = z
     /** Schema version. */
     schemaVersion: z.literal(RUN_RESULT_SCHEMA_VERSION),
     /** Unique run ID. */
-    runId: z.string(),
+    runId: RunIdSchema,
     /** Immediate source run for a rerun child (ADR-035). */
-    parentRunId: z.string().min(1).optional(),
+    parentRunId: RunIdSchema.optional(),
     /** Final execution status. */
     status: RunStatusSchema,
     /** Optional associated ProjectProfile reference. */

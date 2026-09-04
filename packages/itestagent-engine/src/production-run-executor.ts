@@ -110,6 +110,11 @@ export function productionPermissionActions(
 export async function executeProductionTestPlan(
   input: ProductionRunExecutorInput,
 ): Promise<ConfirmedExecutionDispatchResult & { runDir: string }> {
+  if (input.plan.rerun && input.plan.execution.resolvedPath === 'device_backend') {
+    throw new Error(
+      'rerun_case_not_reproducible: DeviceBackend exploration cases are not replayable; save a confirmed Flow and use `itestagent run flow <flowId>`',
+    );
+  }
   const highRiskActions = productionPermissionActions(input.plan, input.preparesWda);
   for (const action of highRiskActions) {
     if (!(await input.authorize(action, `${input.bundleId}@${input.device.udid}`))) {

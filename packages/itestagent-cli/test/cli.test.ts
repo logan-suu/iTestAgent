@@ -66,16 +66,16 @@ test('Flow replay rejects valueRef prompting when stdin is not a TTY', () => {
   expect(() => assertInteractiveValueRefs(['session.secret.email'], true)).not.toThrow();
 });
 
-test('rerun command has --failed-only option (AGENTS.md §11: itestagent rerun <run> --failed-only)', () => {
+test('rerun exposes failed-only without DeviceBackend WDA controls', () => {
   const program = createProgram();
   const rerunCmd = program.commands.find((cmd) => cmd.name() === 'rerun');
   expect(rerunCmd).toBeDefined();
   const failedOnlyOption = rerunCmd?.options.find((opt) => opt.flags.includes('--failed-only'));
   expect(failedOnlyOption).toBeDefined();
-  expect(rerunCmd?.options.some((option) => option.flags.includes('--wda-mode'))).toBe(true);
-  expect(rerunCmd?.options.some((option) => option.flags.includes('--wda-local-port'))).toBe(true);
+  expect(rerunCmd?.options.some((option) => option.flags.includes('--wda-mode'))).toBe(false);
+  expect(rerunCmd?.options.some((option) => option.flags.includes('--wda-local-port'))).toBe(false);
   expect(rerunCmd?.options.some((option) => option.flags.includes('--mjpeg-server-port'))).toBe(
-    true,
+    false,
   );
 });
 
@@ -89,6 +89,8 @@ test('explore exposes an explicit WDA URL for Route B', () => {
 test('explore rejects unsafe run identifiers', () => {
   expect(() => assertSafeRunId('../../outside')).toThrow('not a safe identifier');
   expect(() => assertSafeRunId('run-safe_1.0')).not.toThrow();
+  expect(() => assertSafeRunId('a'.repeat(128))).not.toThrow();
+  expect(() => assertSafeRunId('a'.repeat(129))).toThrow('not a safe identifier');
 });
 
 test('explore cannot override a confirmed physical selector', () => {

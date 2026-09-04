@@ -31,6 +31,7 @@ import {
   type RunStep,
   RunStepsDocumentSchema,
   assertValidRunBundleDocuments,
+  isSafeRunId,
 } from 'itestagent-contracts';
 
 const activeRunIds = new Set<string>();
@@ -68,7 +69,7 @@ export interface MeasuredPath {
 }
 
 function assertSafeRunId(runId: string): void {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(runId)) throw new Error('unsafe runId');
+  if (!isSafeRunId(runId)) throw new Error('unsafe runId');
 }
 
 function isInside(root: string, candidate: string): boolean {

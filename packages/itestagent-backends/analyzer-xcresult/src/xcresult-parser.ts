@@ -24,6 +24,7 @@ import type { XcresultParseResult, XcresultParserDeps, XcresultParserOptions } f
 
 const XCRESULTPARSER_BIN = 'xcresultparser';
 const XCPARSE_BIN = 'xcparse';
+const XCRUN_BIN = 'xcrun';
 
 // ─── JUnit XML Parser (regex-based, no external dependency) ───
 
@@ -84,7 +85,7 @@ function parseJUnitXml(xml: string): {
   }
 
   // Extract testcase elements
-  const testcaseRegex = /<testcase\s+([^>]*?)>([\s\S]*?)<\/testcase>/g;
+  const testcaseRegex = /<testcase\s+([^>]*?)(?:\/\s*>|>([\s\S]*?)<\/testcase>)/g;
   const tests: ParsedJUnitTest[] = [];
 
   for (let match = testcaseRegex.exec(xml); match !== null; match = testcaseRegex.exec(xml)) {
@@ -145,6 +146,50 @@ function parseTargetInfo(stdout: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** Parse authoritative Target/Class/Method identifiers from Xcode test result nodes. */
+export function parseAuthoritativeCaseIds(stdout: string): string[] {
+  let root: unknown;
+  try {
+    root = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  const identifiers = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const child of value) visit(child);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const record = value as Record<string, unknown>;
+    if (record.nodeType === 'Test Case' && typeof record.nodeIdentifierURL === 'string') {
+      try {
+        const url = new URL(record.nodeIdentifierURL);
+        if (url.protocol === 'test:' && url.hostname === 'com.apple.xcode') {
+          const segments = url.pathname
+            .split('/')
+            .filter(Boolean)
+            .map((segment) => decodeURIComponent(segment));
+          const [target, className, method] = segments.slice(-3);
+          if (
+            target &&
+            className &&
+            method &&
+            [target, className, method].every((segment) => !/[\s/]/.test(segment))
+          ) {
+            identifiers.add(`${target}/${className}/${method}`);
+          }
+        }
+      } catch {
+        // R5: malformed node URLs are ignored rather than guessed.
+      }
+    }
+    for (const child of Object.values(record)) visit(child);
+  };
+  visit(root);
+  return [...identifiers];
+}
+
 // ─── Empty Result Helper ──────────────────────────────────────
 
 function emptyResult(reason?: string): XcresultParseResult {
@@ -183,9 +228,10 @@ export function createXcresultParser(deps: XcresultParserDeps) {
    * Steps:
    *   1. Verify xcresultPath exists on disk.
    *   2. Run `xcresultparser -o junit` → parse JUnit XML.
-   *   3. Run `xcresultparser --target-info` → extract target names.
-   *   4. If includeAttachments: run `xcparse screenshots` → list attachments.
-   *   5. Normalize and return.
+   *   3. Run `xcresultparser --target-info` → extract target names when available.
+   *   4. Run Xcode's `xcresulttool get test-results tests` → authoritative case IDs.
+   *   5. If includeAttachments: run `xcparse screenshots` → list attachments.
+   *   6. Normalize and return.
    *
    * R5: Never throws — returns empty/partial result with error field on failure.
    *
@@ -232,6 +278,24 @@ export function createXcresultParser(deps: XcresultParserDeps) {
     }
     // R5: --target-info failure is non-fatal; targetNames remains empty
 
+    const authoritativeResult = await spawnAsync(
+      XCRUN_BIN,
+      ['xcresulttool', 'get', 'test-results', 'tests', '--path', xcresultPath, '--compact'],
+      { signal },
+    );
+    if (signal?.aborted) return emptyResult('Parse aborted');
+    const authoritativeCaseIds =
+      authoritativeResult.exitCode === 0
+        ? parseAuthoritativeCaseIds(authoritativeResult.stdout)
+        : [];
+    if (targetNames.length === 0) {
+      targetNames = [
+        ...new Set(
+          authoritativeCaseIds.map((caseId) => caseId.split('/')[0]).filter(Boolean) as string[],
+        ),
+      ];
+    }
+
     // ── 3. Extract attachments via xcparse (if enabled) ───────
     const attachments: ArtifactRef[] = [];
 
@@ -275,7 +339,7 @@ export function createXcresultParser(deps: XcresultParserDeps) {
     }
 
     // ── 4. Normalize ──────────────────────────────────────────
-    const cases = normalizeTestCases(parsedTests);
+    const cases = normalizeTestCases(parsedTests, targetNames, authoritativeCaseIds);
     const execution = normalizeExecution(junitSummary, targetNames);
     const metrics = normalizeMetrics(junitSummary);
 

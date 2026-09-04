@@ -6,6 +6,7 @@ import {
   type TestCaseResult,
   type TestPlan,
   TestPlanSchema,
+  XCUITEST_ONLY_IDENTIFIER_PATTERN,
   createId,
 } from 'itestagent-contracts';
 
@@ -21,9 +22,9 @@ export class RerunValidationError extends Error {
   }
 }
 
-/** Xcode accepts target[/class[/method]] identifiers for -only-testing. */
+/** T6.9 reruns require the fully-qualified target/class/method Xcode identifier. */
 export function isXcuitestOnlyIdentifier(caseId: string): boolean {
-  return /^[^\s/]+\/[^\s/]+(?:\/[^\s/]+)?$/.test(caseId);
+  return XCUITEST_ONLY_IDENTIFIER_PATTERN.test(caseId);
 }
 
 /** Build a new immutable child plan from a committed parent bundle. */
@@ -39,6 +40,12 @@ export function createRerunPlan(input: {
       'parent plan and result do not share a runId',
     );
   }
+  if (input.parentPlan.execution.resolvedPath === 'device_backend') {
+    throw new RerunValidationError(
+      'rerun_case_not_reproducible',
+      'DeviceBackend exploration cases are not replayable; save a confirmed Flow and use `itestagent run flow <flowId>`',
+    );
+  }
   const eligible = input.parentResult.cases.filter((testCase) =>
     input.mode === 'all' ? true : testCase.status === 'failed' || testCase.status === 'flaky',
   );
@@ -49,10 +56,7 @@ export function createRerunPlan(input: {
     );
   }
   const selectedCaseIds = eligible.map((testCase) => testCase.caseId);
-  if (
-    input.parentPlan.execution.resolvedPath === 'xcuitest' &&
-    selectedCaseIds.some((caseId) => !isXcuitestOnlyIdentifier(caseId))
-  ) {
+  if (selectedCaseIds.some((caseId) => !isXcuitestOnlyIdentifier(caseId))) {
     throw new RerunValidationError(
       'rerun_xcuitest_identifier_unavailable',
       'one or more selected case IDs cannot be mapped to -only-testing identifiers',

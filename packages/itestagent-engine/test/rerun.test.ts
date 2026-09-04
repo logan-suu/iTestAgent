@@ -9,7 +9,7 @@ import {
 import { productionPermissionActions } from '../src/production-run-executor.js';
 import { RerunValidationError, applyRerunFlakiness, createRerunPlan } from '../src/rerun.js';
 
-function plan(path: 'xcuitest' | 'device_backend' = 'device_backend'): TestPlan {
+function plan(path: 'xcuitest' | 'device_backend' = 'xcuitest'): TestPlan {
   return TestPlanSchema.parse({
     schemaVersion: 'itestagent.test-plan.v3',
     runId: 'run-parent',
@@ -25,7 +25,11 @@ function plan(path: 'xcuitest' | 'device_backend' = 'device_backend'): TestPlan 
       resolvedPath: path,
       selectionReason:
         path === 'xcuitest' ? 'explicit_preference' : 'confirmed_no_xcuitest_candidate',
-      features: ['DemoUITests/testFailure', 'DemoUITests/testPass', 'DemoUITests/testExplore'],
+      features: [
+        'DemoUITests/LoginTests/testFailure',
+        'DemoUITests/LoginTests/testPass',
+        'DemoUITests/LoginTests/testExplore',
+      ],
       testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
       assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
       ...(path === 'xcuitest' ? { xcuitest: { scheme: 'Demo', targets: ['DemoUITests'] } } : {}),
@@ -94,10 +98,10 @@ describe('rerun plan compilation', () => {
     const child = createRerunPlan({
       parentPlan,
       parentResult: result('run-parent', [
-        { caseId: 'DemoUITests/testFailure', status: 'failed' },
-        { caseId: 'DemoUITests/testPass', status: 'passed' },
-        { caseId: 'DemoUITests/testExplore', status: 'explored' },
-        { caseId: 'DemoUITests/testFlaky', status: 'flaky' },
+        { caseId: 'DemoUITests/LoginTests/testFailure', status: 'failed' },
+        { caseId: 'DemoUITests/LoginTests/testPass', status: 'passed' },
+        { caseId: 'DemoUITests/LoginTests/testExplore', status: 'explored' },
+        { caseId: 'DemoUITests/LoginTests/testFlaky', status: 'flaky' },
       ]),
       mode: 'failed_only',
       runId: 'run-child',
@@ -106,7 +110,7 @@ describe('rerun plan compilation', () => {
     expect(child.rerun).toEqual({
       parentRunId: 'run-parent',
       mode: 'failed_only',
-      selectedCaseIds: ['DemoUITests/testFailure', 'DemoUITests/testFlaky'],
+      selectedCaseIds: ['DemoUITests/LoginTests/testFailure', 'DemoUITests/LoginTests/testFlaky'],
     });
     expect(parentPlan).toEqual(snapshot);
   });
@@ -116,8 +120,8 @@ describe('rerun plan compilation', () => {
       createRerunPlan({
         parentPlan: plan(),
         parentResult: result('run-parent', [
-          { caseId: 'DemoUITests/testPass', status: 'passed' },
-          { caseId: 'DemoUITests/testExplore', status: 'explored' },
+          { caseId: 'DemoUITests/LoginTests/testPass', status: 'passed' },
+          { caseId: 'DemoUITests/LoginTests/testExplore', status: 'explored' },
         ]),
         mode: 'failed_only',
       }),
@@ -132,6 +136,28 @@ describe('rerun plan compilation', () => {
         mode: 'failed_only',
       }),
     ).toThrow('rerun_xcuitest_identifier_unavailable');
+  });
+
+  it('rejects legacy two-segment XCUITest identifiers', () => {
+    expect(() =>
+      createRerunPlan({
+        parentPlan: plan('xcuitest'),
+        parentResult: result('run-parent', [
+          { caseId: 'DemoUITests/testFailure', status: 'failed' },
+        ]),
+        mode: 'failed_only',
+      }),
+    ).toThrow('rerun_xcuitest_identifier_unavailable');
+  });
+
+  it('rejects DeviceBackend exploration before creating a child plan', () => {
+    expect(() =>
+      createRerunPlan({
+        parentPlan: plan('device_backend'),
+        parentResult: result('run-parent', [{ caseId: 'checkout', status: 'failed' }]),
+        mode: 'failed_only',
+      }),
+    ).toThrow('rerun_case_not_reproducible');
   });
 });
 

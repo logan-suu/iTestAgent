@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RunIdSchema } from './run-id.js';
 import { RunStepSchema } from './run-result-contracts.js';
 
 export const RUN_STEPS_SCHEMA_VERSION = 'itestagent.run-steps.v1';
@@ -6,7 +7,7 @@ export const RUN_STEPS_SCHEMA_VERSION = 'itestagent.run-steps.v1';
 export const RunStepsDocumentSchema = z
   .object({
     schemaVersion: z.literal(RUN_STEPS_SCHEMA_VERSION),
-    runId: z.string().min(1),
+    runId: RunIdSchema,
     steps: z.array(RunStepSchema.strict()),
   })
   .strict()

@@ -67,11 +67,17 @@ function toRunStatus(junitStatus: string): CaseStatus {
  * Normalize parsed JUnit tests to iTestAgent TestCaseResult[].
  *
  * @param parsedTests - Parsed JUnit test cases from the XML.
- * @returns Array of TestCaseResult objects.
+ * @param targetNames - Authoritative target names from xcresultparser --target-info.
+ * @returns Array of TestCaseResult objects. A fully-qualified rerun identifier is
+ * emitted only when exactly one target owns the JUnit classname.
  */
-export function normalizeTestCases(parsedTests: ParsedJUnitTest[]): TestCaseResult[] {
+export function normalizeTestCases(
+  parsedTests: ParsedJUnitTest[],
+  targetNames: readonly string[] = [],
+  authoritativeCaseIds: readonly string[] = [],
+): TestCaseResult[] {
   return parsedTests.map((t) => ({
-    caseId: `${t.classname}/${t.name}`,
+    caseId: normalizeCaseId(t, targetNames, authoritativeCaseIds),
     name: t.name,
     status: toRunStatus(t.status),
     steps: [],
@@ -79,6 +85,33 @@ export function normalizeTestCases(parsedTests: ParsedJUnitTest[]): TestCaseResu
     error: t.failureMessage,
     artifacts: [],
   }));
+}
+
+function normalizeCaseId(
+  test: ParsedJUnitTest,
+  targetNames: readonly string[],
+  authoritativeCaseIds: readonly string[],
+): string {
+  const methodName = test.name.replace(/\(\)$/, '');
+  const authoritativeMatches = authoritativeCaseIds.filter((caseId) => {
+    const [target, className, method] = caseId.split('/');
+    if (!target || !className || method !== methodName) return false;
+    return test.classname === target || test.classname === `${target}.${className}`;
+  });
+  if (authoritativeMatches.length === 1) return authoritativeMatches[0] as string;
+
+  const matchingTargets = targetNames.filter(
+    (target) => target.length > 0 && test.classname.startsWith(`${target}.`),
+  );
+  if (matchingTargets.length !== 1) return `${test.classname}/${test.name}`;
+
+  const target = matchingTargets[0];
+  if (!target) return `${test.classname}/${test.name}`;
+  const className = test.classname.slice(target.length + 1);
+  if (!className || /[\s/]/.test(target) || /[\s/]/.test(className) || /[\s/]/.test(test.name)) {
+    return `${test.classname}/${test.name}`;
+  }
+  return `${target}/${className}/${methodName}`;
 }
 
 /**

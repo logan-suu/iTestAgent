@@ -2,7 +2,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { desc, eq } from 'drizzle-orm';
-import { parseArtifactIndex, parseRunResult, parseValidatedRunBundle } from 'itestagent-contracts';
+import {
+  isSafeRunId,
+  parseArtifactIndex,
+  parseRunResult,
+  parseValidatedRunBundle,
+} from 'itestagent-contracts';
 import type { ArtifactIndex, RunBundleDocuments, RunResult, RunStep } from 'itestagent-contracts';
 import {
   readPersistedArtifactIndex,
@@ -136,7 +141,7 @@ function remainsInside(root: string, candidate: string): boolean {
 }
 
 function assertSafeRunId(runId: string): void {
-  if (!/^(?!\.{1,2}$)[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(runId)) {
+  if (!isSafeRunId(runId)) {
     throw new Error('unsafe runId');
   }
 }

@@ -62,7 +62,7 @@ function result(projectProfileRef?: string, mode: 'xcuitest' | 'device_backend' 
     },
     cases: [
       {
-        caseId: 'case-1',
+        caseId: 'ExampleUITests/ExampleTests/testCase1',
         name: 'Example test',
         status: 'passed',
         steps: [],
@@ -181,7 +181,7 @@ describe('T6.8 canonical run bundle contracts', () => {
       rerun: {
         parentRunId: 'run_parent',
         mode: 'failed_only',
-        selectedCaseIds: ['case-1'],
+        selectedCaseIds: ['ExampleUITests/ExampleTests/testCase1'],
       },
     });
     const rerunResult = RunResultSchema.parse({
@@ -216,6 +216,38 @@ describe('T6.8 canonical run bundle contracts', () => {
     });
     expect(wrongCase.some((issue) => issue.path.includes('case-outside-selection'))).toBe(true);
     expect(wrongCase.some((issue) => issue.message.includes('missing selected case'))).toBe(true);
+  });
+
+  test('rejects DeviceBackend rerun plans and two-segment XCUITest identifiers', () => {
+    const base = makeValidTestPlan();
+    expect(
+      TestPlanSchema.safeParse({
+        ...base,
+        rerun: {
+          parentRunId: 'run_parent',
+          mode: 'failed_only',
+          selectedCaseIds: ['checkout'],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      TestPlanSchema.safeParse({
+        ...base,
+        execution: {
+          ...base.execution,
+          prefer: 'xcuitest',
+          fallback: 'abort',
+          resolvedPath: 'xcuitest',
+          selectionReason: 'explicit_preference',
+          xcuitest: { scheme: 'ExampleUITests' },
+        },
+        rerun: {
+          parentRunId: 'run_parent',
+          mode: 'failed_only',
+          selectedCaseIds: ['ExampleUITests/testFailure'],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   test('rejects parentRunId on ordinary TestPlan and Flow replay bundles', () => {
@@ -265,7 +297,11 @@ describe('T6.8 canonical run bundle contracts', () => {
     expect(
       TestPlanSchema.safeParse({
         ...base,
-        rerun: { parentRunId: runId, mode: 'all', selectedCaseIds: ['case-1'] },
+        rerun: {
+          parentRunId: runId,
+          mode: 'all',
+          selectedCaseIds: ['ExampleUITests/ExampleTests/testCase1'],
+        },
       }).success,
     ).toBe(false);
     expect(

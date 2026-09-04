@@ -7,4 +7,10 @@ describe('encodeScenarioV3', () => {
       'itestagent.scenario.v3',
     );
   });
+
+  it('rejects a scenario payload with an unsafe run ID', () => {
+    expect(() => encodeScenarioV3({ kind: 'feed-memory', runId: '../outside' })).toThrow(
+      'unsafe runId',
+    );
+  });
 });

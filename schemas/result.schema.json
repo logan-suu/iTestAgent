@@ -23,12 +23,17 @@
     },
     "runId": {
       "type": "string",
-      "description": "Unique run identifier. Must equal the runId of the paired artifact-index.json."
+      "description": "Unique run identifier. Must equal the runId of the paired artifact-index.json.",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
     },
     "parentRunId": {
       "type": "string",
       "minLength": 1,
-      "description": "Immediate source run for a rerun child. Must match plan.rerun.parentRunId (ADR-035)."
+      "description": "Immediate source run for a rerun child. Must match plan.rerun.parentRunId (ADR-035).",
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
     },
     "status": {
       "type": "string",
@@ -52,15 +57,36 @@
     "device": {
       "type": "object",
       "description": "Device the run executed on.",
-      "required": ["udid", "name", "model", "osVersion", "targetKind"],
+      "required": [
+        "udid",
+        "name",
+        "model",
+        "osVersion",
+        "targetKind"
+      ],
       "properties": {
-        "udid": { "type": "string", "description": "Device UDID." },
-        "name": { "type": "string", "description": "Human-readable device name." },
-        "model": { "type": "string", "description": "Hardware model identifier (e.g. iPhone15,2)." },
-        "osVersion": { "type": "string", "description": "OS version on the device." },
+        "udid": {
+          "type": "string",
+          "description": "Device UDID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable device name."
+        },
+        "model": {
+          "type": "string",
+          "description": "Hardware model identifier (e.g. iPhone15,2)."
+        },
+        "osVersion": {
+          "type": "string",
+          "description": "OS version on the device."
+        },
         "targetKind": {
           "type": "string",
-          "enum": ["physical", "simulator"],
+          "enum": [
+            "physical",
+            "simulator"
+          ],
           "description": "Execution target domain (ADR-011: physical and Simulator are first-class)."
         },
         "runtimeIdentifier": {
@@ -85,26 +111,63 @@
         "deviceId"
       ],
       "properties": {
-        "totalSteps": { "type": "integer", "minimum": 0 },
-        "completedSteps": { "type": "integer", "minimum": 0 },
-        "failedSteps": { "type": "integer", "minimum": 0 },
-        "skippedSteps": { "type": "integer", "minimum": 0 },
-        "durationMs": { "type": "integer", "minimum": 0, "description": "Total wall-clock duration in milliseconds." },
-        "startTime": { "type": "string", "description": "Start timestamp (ISO 8601)." },
-        "endTime": { "type": "string", "description": "End timestamp (ISO 8601)." },
+        "totalSteps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completedSteps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedSteps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skippedSteps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total wall-clock duration in milliseconds."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start timestamp (ISO 8601)."
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End timestamp (ISO 8601)."
+        },
         "mode": {
           "type": "string",
-          "enum": ["xcuitest", "device_backend"],
+          "enum": [
+            "xcuitest",
+            "device_backend"
+          ],
           "description": "Execution mode (ADR-011): XCUITest run or DeviceBackend exploration."
         },
         "targetKind": {
           "type": "string",
-          "enum": ["physical", "simulator"],
+          "enum": [
+            "physical",
+            "simulator"
+          ],
           "description": "Execution target domain (ADR-011)."
         },
-        "backendUsed": { "type": "string", "description": "Name of the backend that executed the run." },
-        "backendVersion": { "type": "string", "description": "Backend version (audit purposes)." },
-        "deviceId": { "type": "string", "description": "Target device identifier used for this run." }
+        "backendUsed": {
+          "type": "string",
+          "description": "Name of the backend that executed the run."
+        },
+        "backendVersion": {
+          "type": "string",
+          "description": "Backend version (audit purposes)."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Target device identifier used for this run."
+        }
       }
     },
     "cases": {
@@ -112,10 +175,23 @@
       "description": "Per-test-case results. caseId values must be unique (enforced by json-schema-cross-field.ts).",
       "items": {
         "type": "object",
-        "required": ["caseId", "name", "status", "steps", "durationMs", "artifacts"],
+        "required": [
+          "caseId",
+          "name",
+          "status",
+          "steps",
+          "durationMs",
+          "artifacts"
+        ],
         "properties": {
-          "caseId": { "type": "string", "description": "Unique case identifier." },
-          "name": { "type": "string", "description": "Human-readable case name." },
+          "caseId": {
+            "type": "string",
+            "description": "Unique case identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable case name."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -133,14 +209,25 @@
           "steps": {
             "type": "array",
             "description": "Related step IDs.",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
-          "durationMs": { "type": "integer", "minimum": 0, "description": "Case duration in milliseconds." },
-          "error": { "type": "string", "description": "Error message (filled on failure)." },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Case duration in milliseconds."
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message (filled on failure)."
+          },
           "artifacts": {
             "type": "array",
             "description": "Artifact ID references (not full ArtifactRef objects).",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -149,28 +236,65 @@
       "type": "object",
       "description": "Normalized performance metrics. Uncertain values MUST carry approximate:true (R5: no silent degradation or fabricated metrics). FPS is approximate by nature.",
       "properties": {
-        "launchDurationMs": { "type": "integer", "minimum": 0, "description": "App launch duration in milliseconds." },
-        "memoryPeakMB": { "type": "number", "minimum": 0, "description": "Peak memory in MB." },
-        "crashDetected": { "type": "boolean", "description": "Whether a crash was detected during the run." },
-        "hangCount": { "type": "integer", "minimum": 0, "description": "Number of hangs observed." },
+        "launchDurationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "App launch duration in milliseconds."
+        },
+        "memoryPeakMB": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peak memory in MB."
+        },
+        "crashDetected": {
+          "type": "boolean",
+          "description": "Whether a crash was detected during the run."
+        },
+        "hangCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of hangs observed."
+        },
         "hitchesSummary": {
           "type": "string",
-          "enum": ["low", "medium", "high", "inconclusive"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "inconclusive"
+          ],
           "description": "Coarse hitches severity level."
         },
-        "fpsApproximate": { "type": "number", "minimum": 0, "description": "Approximate FPS value (never exact; R5)." },
-        "approximate": { "type": "boolean", "description": "True when any metric is approximate/estimated (R5 annotation)." },
-        "rawTracePath": { "type": "string", "description": "Optional raw .trace file path for later drill-down." }
+        "fpsApproximate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Approximate FPS value (never exact; R5)."
+        },
+        "approximate": {
+          "type": "boolean",
+          "description": "True when any metric is approximate/estimated (R5 annotation)."
+        },
+        "rawTracePath": {
+          "type": "string",
+          "description": "Optional raw .trace file path for later drill-down."
+        }
       }
     },
     "environment": {
       "type": "object",
       "description": "Run environment metadata (ADR-011: mandatory for Simulator runs).",
-      "required": ["targetKind", "representativeOfPhysicalDevice", "comparisonScope"],
+      "required": [
+        "targetKind",
+        "representativeOfPhysicalDevice",
+        "comparisonScope"
+      ],
       "properties": {
         "targetKind": {
           "type": "string",
-          "enum": ["physical", "simulator"]
+          "enum": [
+            "physical",
+            "simulator"
+          ]
         },
         "representativeOfPhysicalDevice": {
           "type": "boolean",
@@ -178,44 +302,97 @@
         },
         "comparisonScope": {
           "type": "string",
-          "enum": ["simulator_only", "physical_only"],
+          "enum": [
+            "simulator_only",
+            "physical_only"
+          ],
           "description": "Baseline comparison domain (baselines never cross domains, ADR-011)."
         },
-        "hostFingerprint": { "type": "string", "description": "Host machine fingerprint (required for Simulator runs)." },
-        "xcodeVersion": { "type": "string", "description": "Xcode version (required for Simulator runs)." }
+        "hostFingerprint": {
+          "type": "string",
+          "description": "Host machine fingerprint (required for Simulator runs)."
+        },
+        "xcodeVersion": {
+          "type": "string",
+          "description": "Xcode version (required for Simulator runs)."
+        }
       }
     },
     "baselineDelta": {
       "type": "object",
       "description": "Delta versus the local baseline. Omitted on the first run (no baseline yet). Baselines are only created by successful runs and never cross comparisonScope domains.",
-      "required": ["baselineId", "runId", "comparedAt", "targetKind", "deltas", "summary"],
+      "required": [
+        "baselineId",
+        "runId",
+        "comparedAt",
+        "targetKind",
+        "deltas",
+        "summary"
+      ],
       "properties": {
-        "baselineId": { "type": "string", "description": "Baseline identifier compared against." },
-        "runId": { "type": "string", "description": "Run ID that produced the baseline." },
-        "comparedAt": { "type": "string", "description": "Comparison timestamp (ISO 8601)." },
+        "baselineId": {
+          "type": "string",
+          "description": "Baseline identifier compared against."
+        },
+        "runId": {
+          "type": "string",
+          "description": "Run ID that produced the baseline.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "comparedAt": {
+          "type": "string",
+          "description": "Comparison timestamp (ISO 8601)."
+        },
         "targetKind": {
           "type": "string",
-          "enum": ["physical", "simulator"],
+          "enum": [
+            "physical",
+            "simulator"
+          ],
           "description": "Comparison domain (ADR-011 §6: baselines are domain-isolated)."
         },
         "deltas": {
           "type": "object",
           "description": "Per-metric deltas. Signed numbers: positive = regression.",
           "properties": {
-            "launchDurationMs": { "type": "number", "description": "Launch duration delta in ms." },
-            "memoryPeakMB": { "type": "number", "description": "Peak memory delta in MB." },
-            "hangCount": { "type": "number", "description": "Hang count delta." },
+            "launchDurationMs": {
+              "type": "number",
+              "description": "Launch duration delta in ms."
+            },
+            "memoryPeakMB": {
+              "type": "number",
+              "description": "Peak memory delta in MB."
+            },
+            "hangCount": {
+              "type": "number",
+              "description": "Hang count delta."
+            },
             "hitches": {
               "type": "string",
-              "enum": ["improved", "regressed", "unchanged", "inconclusive"],
+              "enum": [
+                "improved",
+                "regressed",
+                "unchanged",
+                "inconclusive"
+              ],
               "description": "Hitches trend."
             },
-            "fpsApproximate": { "type": "number", "description": "Approximate FPS delta; negative = regression (FPS drop)." }
+            "fpsApproximate": {
+              "type": "number",
+              "description": "Approximate FPS delta; negative = regression (FPS drop)."
+            }
           }
         },
         "summary": {
           "type": "string",
-          "enum": ["improved", "regressed", "unchanged", "inconclusive"],
+          "enum": [
+            "improved",
+            "regressed",
+            "unchanged",
+            "inconclusive"
+          ],
           "description": "Overall verdict."
         }
       }
@@ -223,12 +400,18 @@
     "artifactRefs": {
       "type": "array",
       "description": "Artifact IDs into the paired artifact-index.json. Entries must be unique and each must resolve to an index id (enforced by json-schema-cross-field.ts).",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "explanation": {
       "type": "object",
       "description": "Failure explanation (omitted when passed). Evidence-driven attribution; no fabrication (R5).",
-      "required": ["explanationType", "summary", "evidence"],
+      "required": [
+        "explanationType",
+        "summary",
+        "evidence"
+      ],
       "properties": {
         "explanationType": {
           "type": "string",
@@ -243,20 +426,31 @@
           ],
           "description": "Failure classification."
         },
-        "summary": { "type": "string", "description": "Human-readable failure summary." },
+        "summary": {
+          "type": "string",
+          "description": "Human-readable failure summary."
+        },
         "evidence": {
           "type": "array",
           "description": "Supporting evidence list (artifact IDs or log excerpts).",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "suggestedActions": {
           "type": "array",
           "description": "Suggested remediation actions.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "confidence": {
           "type": "string",
-          "enum": ["high", "medium", "low"],
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
           "description": "Confidence level of the attribution."
         }
       }
@@ -264,8 +458,22 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "schemaVersion": { "const": "3.0" } } },
-      "then": { "properties": { "execution": { "required": ["mode"] } } }
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": "3.0"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "required": [
+              "mode"
+            ]
+          }
+        }
+      }
     }
   ]
 }

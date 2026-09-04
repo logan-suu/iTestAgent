@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
+import { RunIdSchema } from './run-id.js';
 
 /**
  * TestPlan Zod schemas — S3 phase: Intent + Profile → TestPlan.
@@ -231,10 +232,19 @@ export type PermissionPolicyRef = z.infer<typeof PermissionPolicyRefSchema>;
 
 // ─── Rerun Lineage (ADR-035) ────────────────────────────────
 
+export const XCUITEST_ONLY_IDENTIFIER_PATTERN = /^[^\s/]+\/[^\s/]+\/[^\s/]+$/;
+
+export const XcuitestOnlyIdentifierSchema = z
+  .string()
+  .regex(
+    XCUITEST_ONLY_IDENTIFIER_PATTERN,
+    'XCUITest rerun identifier must use Target/Class/Method',
+  );
+
 export const RerunMetadataSchema = z
   .object({
     /** Immediate source run, never silently rewritten to the root ancestor. */
-    parentRunId: z.string().min(1),
+    parentRunId: RunIdSchema,
     /** Cases selected for this child execution. */
     mode: z.enum(['failed_only', 'all']),
     selectedCaseIds: z.array(z.string().min(1)).min(1),
@@ -259,7 +269,7 @@ export const TestPlanSchema = z
     /** Schema version for forward-compat migrations (G2) */
     schemaVersion: z.literal(TEST_PLAN_SCHEMA_VERSION),
     /** Unique run identifier */
-    runId: z.string().min(1),
+    runId: RunIdSchema,
     /** Reference path to the source Project Profile */
     projectProfileRef: z.string().min(1),
     /** Test target (e.g. current_workspace) */
@@ -289,6 +299,24 @@ export const TestPlanSchema = z
         path: ['rerun', 'parentRunId'],
         message: 'rerun parentRunId must differ from runId',
       });
+    }
+    if (plan.rerun && plan.execution.resolvedPath !== 'xcuitest') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['rerun'],
+        message: 'rerun child plans require the xcuitest execution path',
+      });
+    }
+    if (plan.rerun && plan.execution.resolvedPath === 'xcuitest') {
+      for (const [index, caseId] of plan.rerun.selectedCaseIds.entries()) {
+        if (!XCUITEST_ONLY_IDENTIFIER_PATTERN.test(caseId)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['rerun', 'selectedCaseIds', index],
+            message: 'XCUITest rerun identifier must use Target/Class/Method',
+          });
+        }
+      }
     }
   });
 

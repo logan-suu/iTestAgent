@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { Command, InvalidArgumentError } from 'commander';
-import type { RunResult, TestPlan } from 'itestagent-contracts';
+import { type RunResult, type TestPlan, isSafeRunId } from 'itestagent-contracts';
 import {
   runConfigDefault,
   runConfigDeleteSecret,
@@ -73,7 +73,7 @@ interface ObservedPhysicalDevice {
 }
 
 export function assertSafeRunId(runId: string): void {
-  if (!/^(?!\.{1,2}$)[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(runId)) {
+  if (!isSafeRunId(runId)) {
     throw new PublicCliError(`Confirmed TestPlan runId is not a safe identifier: ${runId}`);
   }
 }
@@ -813,33 +813,13 @@ export function createProgram(): Command {
   // ─── rerun (US-16.1: rerun failed cases, task 5.4) ───
   program
     .command('rerun <run>')
-    .description('rerun a test run, optionally only failed cases')
+    .description('rerun XCUITest cases using authoritative test identifiers')
     .option('--failed-only', 'only rerun failed cases')
-    .option('--appium-url <url>', 'Appium server URL')
-    .option('--platform-version <version>', 'selected device iOS version')
-    .option('--wda-mode <mode>', 'physical WDA route: external-url or managed-xcodebuild')
-    .option('--wda-url <url>', 'Route B WebDriverAgent URL')
-    .option('--wda-bundle-id <id>', 'WDA base bundle identifier')
-    .option('--wda-project-path <path>', 'Route C WebDriverAgent.xcodeproj path')
-    .option('--wda-local-port <port>', 'local WDA port', parseReplayPort)
-    .option('--mjpeg-server-port <port>', 'local MJPEG port', parseReplayPort)
-    .option('--xcode-org-id <id>', 'Route C signing team ID')
-    .option('--xcode-signing-id <id>', 'Route C signing identity')
     .action(
       async (
         runId: string,
         options: {
           failedOnly?: boolean;
-          appiumUrl?: string;
-          platformVersion?: string;
-          wdaMode?: string;
-          wdaUrl?: string;
-          wdaBundleId?: string;
-          wdaProjectPath?: string;
-          wdaLocalPort?: number;
-          mjpegServerPort?: number;
-          xcodeOrgId?: string;
-          xcodeSigningId?: string;
         },
       ) => {
         const { createDefaultRunStore, resolveStoreRoot, createStoreCore } = await import(
@@ -847,7 +827,6 @@ export function createProgram(): Command {
         );
         const {
           PermissionEngine,
-          createProductionActionSuggestion,
           createProductionAgentSessionDependencies,
           createRerunPlan,
           executeProductionTestPlan,
@@ -875,42 +854,7 @@ export function createProgram(): Command {
             storeRoot,
             process.cwd(),
           );
-          if (
-            childPlan.execution.resolvedPath === 'device_backend' &&
-            childPlan.device.kind === 'physical'
-          ) {
-            if (options.wdaMode !== 'external-url' && options.wdaMode !== 'managed-xcodebuild') {
-              throw new PublicCliError(
-                'Physical DeviceBackend rerun requires --wda-mode external-url or managed-xcodebuild.',
-              );
-            }
-            if (options.wdaMode === 'external-url' && !options.wdaUrl) {
-              throw new PublicCliError('--wda-url is required for external-url physical rerun.');
-            }
-            if (
-              options.wdaMode === 'managed-xcodebuild' &&
-              !options.xcodeOrgId &&
-              !options.wdaProjectPath
-            ) {
-              throw new PublicCliError(
-                'managed-xcodebuild physical rerun requires --xcode-org-id or --wda-project-path.',
-              );
-            }
-          }
-          const production = createProductionAgentSessionDependencies({
-            appium: {
-              appiumServerUrl: options.appiumUrl,
-              platformVersion: options.platformVersion,
-              wdaStartupMode: options.wdaMode as 'external-url' | 'managed-xcodebuild' | undefined,
-              webDriverAgentUrl: options.wdaUrl,
-              wdaBaseBundleId: options.wdaBundleId,
-              wdaProjectPath: options.wdaProjectPath,
-              wdaLocalPort: options.wdaLocalPort,
-              mjpegServerPort: options.mjpegServerPort,
-              xcodeOrgId: options.xcodeOrgId,
-              xcodeSigningId: options.xcodeSigningId,
-            },
-          });
+          const production = createProductionAgentSessionDependencies();
           const discovered = await production.deviceDiscovery.discover();
           const device = selectPlanDevice(childPlan, discovered.devices);
           const permissionEngine = new PermissionEngine();
@@ -925,23 +869,6 @@ export function createProgram(): Command {
             return (await pending).effect === 'allow';
           };
 
-          let suggest: Parameters<typeof executeProductionTestPlan>[0]['suggest'] = async () => {
-            throw new PublicCliError('DeviceBackend rerun requires a configured model.');
-          };
-          if (childPlan.execution.resolvedPath === 'device_backend') {
-            const { config } = await loadConfig({ projectDir: workspace });
-            const { resolvedApiKey } = await resolveCredentials(config);
-            if (!resolvedApiKey) {
-              throw new PublicCliError(
-                'DeviceBackend rerun requires config.model.apiKeyRef resolving from Keychain.',
-              );
-            }
-            suggest = createProductionActionSuggestion({
-              apiKey: resolvedApiKey,
-              baseURL: config.model.baseURL,
-              model: config.model.model,
-            });
-          }
           const executed = await executeProductionTestPlan({
             plan: childPlan,
             parentResult: parent.result,
@@ -950,9 +877,10 @@ export function createProgram(): Command {
             bundleId,
             store,
             storeRoot,
-            suggest,
+            suggest: async () => {
+              throw new PublicCliError('XCUITest rerun does not use model-driven exploration.');
+            },
             authorize,
-            preparesWda: options.wdaMode === 'managed-xcodebuild',
             production,
           });
           const child = await store.loadRunBundle(childPlan.runId);

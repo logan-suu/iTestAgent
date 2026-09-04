@@ -5,31 +5,95 @@
   "description": "Canonical steps.json root contract. Cross-step sequence and reference rules are enforced by the runtime bundle validator (ADR-031/034).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "runId", "steps"],
+  "required": [
+    "schemaVersion",
+    "runId",
+    "steps"
+  ],
   "properties": {
-    "schemaVersion": { "const": "itestagent.run-steps.v1" },
-    "runId": { "type": "string", "minLength": 1 },
+    "schemaVersion": {
+      "const": "itestagent.run-steps.v1"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
     "steps": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["stepId", "sequence", "backend", "targetKind", "action", "input", "result", "status", "artifacts", "startedAt", "durationMs"],
+        "required": [
+          "stepId",
+          "sequence",
+          "backend",
+          "targetKind",
+          "action",
+          "input",
+          "result",
+          "status",
+          "artifacts",
+          "startedAt",
+          "durationMs"
+        ],
         "properties": {
-          "stepId": { "type": "string" },
-          "sequence": { "type": "integer", "minimum": 1 },
-          "backend": { "type": "string" },
-          "targetKind": { "enum": ["physical", "simulator"] },
-          "caseId": { "type": "string", "minLength": 1 },
-          "action": { "type": "string" },
-          "target": { "type": "string" },
+          "stepId": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "backend": {
+            "type": "string"
+          },
+          "targetKind": {
+            "enum": [
+              "physical",
+              "simulator"
+            ]
+          },
+          "caseId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
           "input": {},
           "result": {},
-          "status": { "enum": ["completed", "failed", "blocked"] },
-          "artifacts": { "type": "array", "items": { "type": "string" } },
-          "safetyGate": { "enum": ["allow", "ask", "deny"] },
-          "startedAt": { "type": "string" },
-          "durationMs": { "type": "integer", "minimum": 0 }
+          "status": {
+            "enum": [
+              "completed",
+              "failed",
+              "blocked"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "safetyGate": {
+            "enum": [
+              "allow",
+              "ask",
+              "deny"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       }
     }

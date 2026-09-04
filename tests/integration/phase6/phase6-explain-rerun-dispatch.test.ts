@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -280,10 +281,10 @@ describe('T6.9 evidence-driven explain and failed-only rerun dispatch', () => {
 
   test('rejects unsafe bundle identifiers at the store boundary', async () => {
     const { store } = await setup();
-    expect(store.loadRunBundle('../outside')).rejects.toThrow('unsafe runId');
+    await expect(store.loadRunBundle('../outside')).rejects.toThrow('unsafe runId');
   });
 
-  test('limits DeviceBackend dynamic execution and committed cases to selectedCaseIds', async () => {
+  test('rejects DeviceBackend exploration before child creation or device access', async () => {
     const { root, store } = await setup();
     const parentPlan = devicePlan('device-parent');
     await persistRunBundle({
@@ -327,59 +328,64 @@ describe('T6.9 evidence-driven explain and failed-only rerun dispatch', () => {
       },
     });
     const parent = await store.loadRunBundle(parentPlan.runId);
-    const childPlan = createRerunPlan({
-      parentPlan,
-      parentResult: parent.result,
-      mode: 'failed_only',
-      runId: 'device-child',
-    });
-    const suggestedCases: string[] = [];
-    let closedBackends = 0;
-    await executeProductionTestPlan({
-      plan: childPlan,
-      parentResult: parent.result,
-      workspace: '/workspace/Demo',
-      device: {
-        udid: 'SIM-1',
-        platform: 'ios',
-        name: 'Simulator',
-        model: 'iPhone',
-        osVersion: '18',
-        targetKind: 'simulator',
-        state: 'booted',
-      },
-      bundleId: 'com.example.Demo',
-      store,
-      storeRoot: root,
-      authorize: async () => true,
-      suggest: async ({ caseId }) => {
-        suggestedCases.push(caseId);
-        return 'done';
-      },
-      production: {
-        analyzeWorkspace: async () => {
-          throw new Error('project analysis is outside execution');
-        },
-        deviceDiscovery: {} as never,
-        createDeviceBackend: () =>
-          ({
-            launchApp: async () => ({ success: true }),
-            getUiTree: async () => ({
-              raw: '<App><Button name="Checkout" /></App>',
-              format: 'xml',
-              capturedAt: '2026-09-03T00:00:00.000Z',
-            }),
-          }) as never,
-        closeDeviceBackend: async () => {
-          closedBackends += 1;
-        },
-      },
-    });
+    expect(() =>
+      createRerunPlan({
+        parentPlan,
+        parentResult: parent.result,
+        mode: 'failed_only',
+        runId: 'device-child',
+      }),
+    ).toThrow('rerun_case_not_reproducible');
+    expect(existsSync(join(root, 'runs', 'device-child'))).toBe(false);
 
-    expect(suggestedCases).toEqual(['checkout-failure']);
-    expect(closedBackends).toBe(1);
-    const child = await store.loadRunBundle(childPlan.runId);
-    expect(child.result.parentRunId).toBe(parentPlan.runId);
-    expect(child.result.cases.map((item) => item.caseId)).toEqual(['checkout-failure']);
+    const invalidChild = {
+      ...parentPlan,
+      runId: 'device-child',
+      rerun: {
+        parentRunId: parentPlan.runId,
+        mode: 'failed_only',
+        selectedCaseIds: ['checkout-failure'],
+      },
+    } as TestPlan;
+    let authorizationRequests = 0;
+    let backendCreations = 0;
+    await expect(
+      executeProductionTestPlan({
+        plan: invalidChild,
+        parentResult: parent.result,
+        workspace: '/workspace/Demo',
+        device: {
+          udid: 'SIM-1',
+          platform: 'ios',
+          name: 'Simulator',
+          model: 'iPhone',
+          osVersion: '18',
+          targetKind: 'simulator',
+          state: 'booted',
+        },
+        bundleId: 'com.example.Demo',
+        store,
+        storeRoot: root,
+        authorize: async () => {
+          authorizationRequests += 1;
+          return true;
+        },
+        suggest: async () => 'done',
+        production: {
+          analyzeWorkspace: async () => {
+            throw new Error('project analysis is outside execution');
+          },
+          deviceDiscovery: {} as never,
+          createDeviceBackend: () => {
+            backendCreations += 1;
+            return {} as never;
+          },
+        },
+      }),
+    ).rejects.toThrow('rerun_case_not_reproducible');
+
+    expect(authorizationRequests).toBe(0);
+    expect(backendCreations).toBe(0);
+    expect(existsSync(join(root, 'runs', 'device-child'))).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RunIdSchema } from './run-id.js';
 
 /**
  * ArtifactIndex contract — the artifact-index.json manifest schema.
@@ -70,7 +71,7 @@ export const ArtifactIndexSchema = z.object({
   /** Schema version. */
   schemaVersion: z.literal(ARTIFACT_INDEX_SCHEMA_VERSION),
   /** Owning run ID. */
-  runId: z.string(),
+  runId: RunIdSchema,
   /** Collected artifacts. */
   artifacts: z.array(
     z.object({
