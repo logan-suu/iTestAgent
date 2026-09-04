@@ -1,6 +1,7 @@
 import type {
   ArtifactRef,
   BaselineDelta,
+  EvidenceCollectionOutcome,
   FailureExplanation,
   RunStatus,
   RunStep,
@@ -16,6 +17,7 @@ export interface ExplainContext {
   testPlanName?: string;
   steps: RunStep[];
   evidence: ArtifactRef[];
+  collectionOutcomes?: EvidenceCollectionOutcome[];
   traceSummary?: TraceSummary;
   baselineDelta?: BaselineDelta;
   targetKind: 'physical' | 'simulator';
@@ -26,6 +28,8 @@ export interface PreviousRunInfo {
   runId: string;
   status: RunStatus;
   scenario: string;
+  /** True only after the caller proves lineage, case, plan, and target comparability. */
+  comparable?: boolean;
 }
 
 export type LlmExplainFn = (context: ExplainContext) => Promise<FailureExplanation>;
@@ -280,12 +284,11 @@ export class FailureExplainer {
   // ── Rule: Flaky Detection ────────────────────────────────────
 
   private checkFlaky(previousRuns?: PreviousRunInfo[]): FailureExplanation | null {
-    if (!previousRuns || previousRuns.length < 2) return null;
+    const comparable = previousRuns?.filter((run) => run.comparable === true) ?? [];
+    if (comparable.length < 2) return null;
 
-    const passedCount = previousRuns.filter(
-      (r) => r.status === 'passed' || r.status === 'explored',
-    ).length;
-    const failedCount = previousRuns.filter(
+    const passedCount = comparable.filter((r) => r.status === 'passed').length;
+    const failedCount = comparable.filter(
       (r) => r.status === 'failed' || r.status === 'flaky',
     ).length;
 
@@ -293,7 +296,7 @@ export class FailureExplainer {
       return {
         explanationType: 'flaky',
         summary: `Test appears flaky: ${passedCount} previous runs passed, ${failedCount} failed.`,
-        evidence: previousRuns.map((r) => `${r.runId}:${r.status}`),
+        evidence: comparable.map((r) => `${r.runId}:${r.status}`),
         confidence: 'medium',
         suggestedActions: [
           'Re-run the same scenario 3-5 times to confirm flakiness',
@@ -309,15 +312,16 @@ export class FailureExplainer {
   // ── Rule: Historical Product Regression ──────────────────────
 
   private checkHistorical(previousRuns?: PreviousRunInfo[]): FailureExplanation | null {
-    if (!previousRuns || previousRuns.length === 0) return null;
+    const comparable = previousRuns?.filter((run) => run.comparable === true) ?? [];
+    if (comparable.length === 0) return null;
 
-    const allPassed = previousRuns.every((r) => r.status === 'passed' || r.status === 'explored');
+    const allPassed = comparable.every((r) => r.status === 'passed');
 
-    if (allPassed && previousRuns.length >= 1) {
+    if (allPassed) {
       return {
         explanationType: 'product_regression',
-        summary: `All ${previousRuns.length} previous runs for this scenario passed. Current failure suggests a product regression.`,
-        evidence: previousRuns.map((r) => `${r.runId}:${r.status}`),
+        summary: `All ${comparable.length} comparable previous runs for this scenario passed. Current failure suggests a product regression.`,
+        evidence: comparable.map((r) => `${r.runId}:${r.status}`),
         confidence: 'high',
         suggestedActions: [
           'Check recent code changes that may have introduced the regression',

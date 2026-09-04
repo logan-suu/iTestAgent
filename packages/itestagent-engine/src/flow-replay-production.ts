@@ -5,7 +5,7 @@ import {
   type ProductionAppiumConfig,
   createAppiumDeviceBackend,
 } from 'itestagent-backends-device-appium';
-import type { DeviceBackend, TargetKind } from 'itestagent-contracts';
+import { type DeviceBackend, type TargetKind, isSafeRunId } from 'itestagent-contracts';
 import {
   type FlowV2,
   type ReadFlowOptions,
@@ -138,7 +138,7 @@ export async function runProductionFlowReplay(
   }
 
   const runId = input.replay?.runId ?? `replay-${Date.now()}-${randomUUID()}`;
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(runId)) {
+  if (!isSafeRunId(runId)) {
     return blocked('flow.run_id_invalid', 'Replay runId must be a safe local identifier.', [
       'Use 1-128 letters, numbers, dots, underscores, or hyphens without path separators.',
     ]);

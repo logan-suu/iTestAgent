@@ -45,6 +45,11 @@ async function fixture() {
 }
 
 describe('RunWriter', () => {
+  test('uses the canonical 128-character run ID boundary', async () => {
+    const { runsRoot } = await fixture();
+    await expect(RunWriter.begin('a'.repeat(129), runsRoot)).rejects.toThrow('unsafe runId');
+  });
+
   test('owns plan, checkpoints, artifacts and commits result.json last', async () => {
     const { runsRoot, source, runId, plan } = await fixture();
     const writer = await RunWriter.begin(runId, runsRoot);

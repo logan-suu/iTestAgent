@@ -65,6 +65,32 @@ describe('createDualExecutionDispatcher', () => {
     expect(calls).toEqual(['xcuitest-readiness', 'xcuitest:Demo:Smoke:true']);
   });
 
+  it('uses rerun case identifiers for -only-testing without changing configured targets', async () => {
+    let captured: { only?: string[] } | undefined;
+    const rerunPlan: TestPlan = {
+      ...plan('xcuitest'),
+      runId: 'run-child',
+      rerun: {
+        parentRunId: 'run-1',
+        mode: 'failed_only',
+        selectedCaseIds: ['DemoUITests/LoginTests/testInvalidPassword'],
+      },
+    };
+    const dispatcher = createDualExecutionDispatcher({
+      revalidateXcuitest: async () => ({ ready: true }),
+      runXcuitest: async (run) => {
+        captured = { only: run.only };
+        return { exitCode: 0, durationMs: 1, parsed: { cases: [] } as never };
+      },
+      runDeviceBackend: async () => ({}),
+    });
+
+    await dispatcher.dispatch(input(rerunPlan));
+
+    expect(captured?.only).toEqual(['DemoUITests/LoginTests/testInvalidPassword']);
+    expect(rerunPlan.execution.xcuitest?.targets).toEqual(['DemoUITests']);
+  });
+
   it('runs only the DeviceBackend handler and does not require XCUITest/WDA-shared readiness', async () => {
     const calls: string[] = [];
     const dispatcher = createDualExecutionDispatcher({

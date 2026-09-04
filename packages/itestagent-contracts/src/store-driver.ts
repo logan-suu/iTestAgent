@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ArtifactRef } from './device-types.js';
+import { RunIdSchema } from './run-id.js';
 
 /**
  * Store Driver — 存储驱动接口与证据输入（§5.5）
@@ -60,7 +61,7 @@ export type ArtifactInput = z.infer<typeof ArtifactInputSchema>;
  */
 export const StoredRunPlanInputSchema = z.object({
   /** Unique run identifier; determines runs/<runId>/plan.yaml */
-  runId: z.string().min(1),
+  runId: RunIdSchema,
   /** Canonical TestPlan YAML text */
   planYaml: z.string().min(1),
   /** Reference path to the source Project Profile (AC4) */

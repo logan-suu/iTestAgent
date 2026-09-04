@@ -54,6 +54,9 @@ export interface ReportSynthesizerInput {
   /** Unique run identifier */
   runId: string;
 
+  /** Immediate source run for a rerun child (ADR-035). */
+  parentRunId?: string;
+
   /** Final run status */
   status: RunStatus;
 

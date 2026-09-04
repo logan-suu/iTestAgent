@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
+import { RunIdSchema } from './run-id.js';
 
 /**
  * RunResult contracts — RunStatus / PerformanceMetrics / ExecutionSummary /
@@ -241,7 +242,9 @@ export const RunResultSchema = z
     /** Schema version. */
     schemaVersion: z.literal(RUN_RESULT_SCHEMA_VERSION),
     /** Unique run ID. */
-    runId: z.string(),
+    runId: RunIdSchema,
+    /** Immediate source run for a rerun child (ADR-035). */
+    parentRunId: RunIdSchema.optional(),
     /** Final execution status. */
     status: RunStatusSchema,
     /** Optional associated ProjectProfile reference. */
@@ -284,6 +287,13 @@ export const RunResultSchema = z
     explanation: FailureExplanationSchema.optional(),
   })
   .superRefine((result, ctx) => {
+    if (result.parentRunId === result.runId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['parentRunId'],
+        message: 'parentRunId must differ from runId',
+      });
+    }
     if (!result.execution.mode) {
       ctx.addIssue({
         code: 'custom',

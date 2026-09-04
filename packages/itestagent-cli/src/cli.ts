@@ -3,7 +3,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { Command, InvalidArgumentError } from 'commander';
+import { type RunResult, type TestPlan, isSafeRunId } from 'itestagent-contracts';
 import {
   runConfigDefault,
   runConfigDeleteSecret,
@@ -13,7 +15,7 @@ import {
 } from './commands/config.js';
 import { confirmAction } from './config/confirm.js';
 import { readHiddenSecret } from './config/hidden-secret-input.js';
-import { loadConfig } from './config/loader.js';
+import { loadConfig, resolveCredentials } from './config/loader.js';
 import { saveProjectConfig } from './config/saver.js';
 import { PublicCliError, toPublicMessage } from './public-error.js';
 import { VERSION } from './version.js';
@@ -71,9 +73,20 @@ interface ObservedPhysicalDevice {
 }
 
 export function assertSafeRunId(runId: string): void {
-  if (!/^(?!\.{1,2}$)[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(runId)) {
+  if (!isSafeRunId(runId)) {
     throw new PublicCliError(`Confirmed TestPlan runId is not a safe identifier: ${runId}`);
   }
+}
+
+function rerunPlansAreComparable(child: TestPlan, parent: TestPlan): boolean {
+  const { runId: _childRunId, rerun: _childRerun, ...childSemantics } = child;
+  const { runId: _parentRunId, rerun: _parentRerun, ...parentSemantics } = parent;
+  return isDeepStrictEqual(childSemantics, parentSemantics);
+}
+
+function rerunResultsShareCase(child: RunResult, parent: RunResult): boolean {
+  const childCases = new Set(child.cases.map((testCase) => testCase.caseId));
+  return parent.cases.some((testCase) => childCases.has(testCase.caseId));
 }
 
 export function selectConfirmedPhysicalDevice(input: {
@@ -694,57 +707,66 @@ export function createProgram(): Command {
     .action(async (runId: string, options: { json?: boolean }) => {
       const { createDefaultRunStore } = await import('itestagent-store');
       const { FailureExplainer } = await import('itestagent-engine');
-      const { resolveStoreRoot, createDb } = await import('itestagent-store');
+      const { resolveStoreRoot, createStoreCore } = await import('itestagent-store');
 
       try {
-        // Resolve run ID (handle "latest")
         const storeRoot = resolveStoreRoot();
-        const db = createDb(`${storeRoot}/db/itestagent.db`);
-        const store = createDefaultRunStore(db);
-        const resolvedId = runId === 'latest' ? (await store.findLatest())?.runId : runId;
-
-        if (!resolvedId) {
+        const core = createStoreCore(`${storeRoot}/db/itestagent.db`);
+        await core.driver.migrate();
+        const store = createDefaultRunStore(core.db);
+        const bundle =
+          runId === 'latest'
+            ? await store.findLatestValidBundle()
+            : await store.loadRunBundle(runId);
+        if (!bundle) {
           console.error(
             `Error: No runs found${runId === 'latest' ? '' : ` — run "${runId}" not found`}.`,
           );
           process.exit(1);
         }
-
-        // Load run data
-        const runResult = await store.loadRunResult(resolvedId);
-        const artifactIndex = await store.loadArtifactIndex(resolvedId);
-        const previousRuns = await store.getPreviousRuns(resolvedId);
-
-        // Build ExplainContext and run explainer
-        const explainer = new FailureExplainer();
-        const explanation = await explainer.explain({
-          runId: resolvedId,
-          status: runResult.status,
-          projectProfileRef: runResult.projectProfileRef,
-          steps: [],
-          evidence: artifactIndex.artifacts.map((a) => ({
-            id: a.id,
-            type: a.type,
-            path: a.path,
-            redactionStatus: a.redactionStatus,
-          })),
-          baselineDelta: runResult.baselineDelta,
-          targetKind: runResult.environment.targetKind,
-          previousRuns: previousRuns
-            .filter((r) => r.runId !== resolvedId)
-            .map((r) => ({
-              runId: r.runId,
-              status: r.status as
-                | 'passed'
-                | 'failed'
-                | 'explored'
-                | 'inconclusive'
-                | 'needs_assertion'
-                | 'flaky'
-                | 'blocked',
-              scenario: r.profileRef,
-            })),
-        });
+        const runResult = bundle.result;
+        const resolvedId = runResult.runId;
+        let previousRuns: Array<{
+          runId: string;
+          status: typeof runResult.status;
+          scenario: string;
+          comparable: boolean;
+        }> = [];
+        if (runResult.parentRunId && bundle.plan.schemaVersion === 'itestagent.test-plan.v3') {
+          try {
+            const parent = await store.loadRunBundle(runResult.parentRunId);
+            const plansComparable =
+              parent.plan.schemaVersion === 'itestagent.test-plan.v3' &&
+              rerunPlansAreComparable(bundle.plan, parent.plan);
+            previousRuns = [
+              {
+                runId: parent.result.runId,
+                status: parent.result.status,
+                scenario: parent.result.cases.map((testCase) => testCase.caseId).join(','),
+                comparable:
+                  plansComparable &&
+                  parent.result.projectProfileRef === runResult.projectProfileRef &&
+                  parent.result.environment.targetKind === runResult.environment.targetKind &&
+                  rerunResultsShareCase(runResult, parent.result),
+              },
+            ];
+          } catch {
+            previousRuns = [];
+          }
+        }
+        const explanation =
+          runResult.explanation ??
+          (await new FailureExplainer().explain({
+            runId: resolvedId,
+            status: runResult.status,
+            projectProfileRef: runResult.projectProfileRef,
+            steps: bundle.steps.steps,
+            evidence: bundle.artifactIndex.artifacts,
+            collectionOutcomes: bundle.artifactIndex.collectionOutcomes,
+            baselineDelta: runResult.baselineDelta,
+            targetKind: runResult.environment.targetKind,
+            previousRuns,
+          }));
 
         // Output
         if (options.json) {
@@ -791,65 +813,89 @@ export function createProgram(): Command {
   // ─── rerun (US-16.1: rerun failed cases, task 5.4) ───
   program
     .command('rerun <run>')
-    .description('rerun a test run, optionally only failed cases')
+    .description('rerun XCUITest cases using authoritative test identifiers')
     .option('--failed-only', 'only rerun failed cases')
-    .action(async (runId: string, options: { failedOnly?: boolean }) => {
-      const { createDefaultRunStore } = await import('itestagent-store');
-      const { resolveStoreRoot, createDb } = await import('itestagent-store');
-      const { readFileSync } = await import('node:fs');
-      const { join } = await import('node:path');
-      const { parseTestPlanYaml } = await import('itestagent-engine');
-
-      try {
-        const storeRoot = resolveStoreRoot();
-        const db = createDb(`${storeRoot}/db/itestagent.db`);
-        const store = createDefaultRunStore(db);
-
-        // Load original run
-        const runResult = await store.loadRunResult(runId);
-        const planPath = join(store.getRunDir(runId), 'plan.yaml');
-        const planRaw = readFileSync(planPath, 'utf-8');
-        const originalPlan = parseTestPlanYaml(planRaw);
-
-        // AC2: reuse original TestPlan and data
-        const flowCount = originalPlan.execution.flows?.length ?? 0;
-        const totalCases = runResult.cases?.length ?? 0;
-        const failedCases = runResult.cases?.filter((c) => c.status !== 'passed') ?? [];
-
-        console.log(`\nRun       : ${runId}`);
-        console.log(`Status    : ${runResult.status}`);
-        console.log(`Target    : ${runResult.environment.targetKind}`);
-        console.log(`Cases     : ${totalCases} total, ${failedCases.length} failed/skipped`);
-        console.log(`${'─'.repeat(50)}`);
-
-        if (options.failedOnly) {
-          console.log('\nFailed cases to rerun:');
-          for (const c of failedCases) {
-            console.log(`  • ${c.caseId}: ${c.name} [${c.status}]`);
-          }
-        } else {
-          console.log(`\nRerunning all ${flowCount} flow(s) from original TestPlan.`);
-        }
-
-        // AC3: link new run to original run for flaky detection
-        console.log(`\nOriginal run: ${runId}`);
-        console.log(`Plan flows   : ${flowCount}`);
-
-        // TODO: full execution dispatch requires engine integration (Phase 5.6)
-        // The rerun logic loads the original TestPlan, filters failed cases,
-        // and links the new run to the original via parentRunId. The actual
-        // execution dispatch will be wired when the engine's public run API
-        // is stabilized.
-        console.log(
-          '\nNote: Full re-execution dispatch requires engine integration.\n' +
-            '      Run data loaded successfully — execution wiring pending Phase 5.6.',
+    .action(
+      async (
+        runId: string,
+        options: {
+          failedOnly?: boolean;
+        },
+      ) => {
+        const { createDefaultRunStore, resolveStoreRoot, createStoreCore } = await import(
+          'itestagent-store'
         );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`Error: Failed to rerun — ${message}`);
-        process.exit(1);
-      }
-    });
+        const {
+          PermissionEngine,
+          createProductionAgentSessionDependencies,
+          createRerunPlan,
+          executeProductionTestPlan,
+          loadProductionPlanContext,
+          selectPlanDevice,
+        } = await import('itestagent-engine');
+        try {
+          const storeRoot = resolveStoreRoot();
+          const core = createStoreCore(`${storeRoot}/db/itestagent.db`);
+          await core.driver.migrate();
+          const store = createDefaultRunStore(core.db);
+          const parent = await store.loadRunBundle(runId);
+          if (parent.plan.schemaVersion !== 'itestagent.test-plan.v3') {
+            throw new PublicCliError(
+              'Flow replay bundles cannot be rerun as TestPlans; use `itestagent run flow <flowId>`.',
+            );
+          }
+          const childPlan = createRerunPlan({
+            parentPlan: parent.plan,
+            parentResult: parent.result,
+            mode: options.failedOnly ? 'failed_only' : 'all',
+          });
+          const { workspace, bundleId } = loadProductionPlanContext(
+            childPlan,
+            storeRoot,
+            process.cwd(),
+          );
+          const production = createProductionAgentSessionDependencies();
+          const discovered = await production.deviceDiscovery.discover();
+          const device = selectPlanDevice(childPlan, discovered.devices);
+          const permissionEngine = new PermissionEngine();
+          const authorize = async (action: string, resource: string): Promise<boolean> => {
+            const gate = permissionEngine.check(action, resource);
+            if (gate === 'allow') return true;
+            if (gate === 'deny') return false;
+            const callId = `rerun-${randomUUID()}`;
+            const pending = permissionEngine.requestPermission(callId, action, resource);
+            const answer = await confirmAction({ action, details: resource });
+            permissionEngine.resolve(callId, answer === 'yes' ? 'allow' : 'deny', false);
+            return (await pending).effect === 'allow';
+          };
+
+          const executed = await executeProductionTestPlan({
+            plan: childPlan,
+            parentResult: parent.result,
+            workspace,
+            device,
+            bundleId,
+            store,
+            storeRoot,
+            suggest: async () => {
+              throw new PublicCliError('XCUITest rerun does not use model-driven exploration.');
+            },
+            authorize,
+            production,
+          });
+          const child = await store.loadRunBundle(childPlan.runId);
+          console.log(`\nRerun    : ${childPlan.runId}`);
+          console.log(`Parent   : ${runId}`);
+          console.log(`Cases    : ${childPlan.rerun?.selectedCaseIds.join(', ')}`);
+          console.log(`Status   : ${child.result.status}`);
+          console.log(`Run dir  : ${executed.runDir}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`Error: Failed to rerun — ${message}`);
+          process.exit(1);
+        }
+      },
+    );
 
   // ─── run flow (US-9.2 AC2: replay iTestAgent Flow) ───
   // Task 5.2: Full replay execution via FlowReplayEngine.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
+import { RunIdSchema } from './run-id.js';
 import { ArtifactPolicySchema } from './test-plan.js';
 
 export const FLOW_REPLAY_PLAN_SCHEMA_VERSION = 'itestagent.flow-replay-plan.v1';
@@ -40,7 +41,7 @@ const FlowReplayReadinessSchema = z
 export const FlowReplayPlanSchema = z
   .object({
     schemaVersion: z.literal(FLOW_REPLAY_PLAN_SCHEMA_VERSION),
-    runId: z.string().min(1),
+    runId: RunIdSchema,
     flow: z
       .object({
         flowId: z.string().min(1),

@@ -3,6 +3,7 @@ import { platform } from 'node:os';
 import { KeychainSecretStore } from '../src/config/keychain-secret-store.js';
 
 const isMacOS = platform() === 'darwin';
+const runKeychainIntegration = isMacOS && process.env.ITESTAGENT_RUN_KEYCHAIN_INTEGRATION === '1';
 
 // Test keys use a unique suffix to avoid collision with real credentials
 const TEST_PREFIX = `itestagent-test-${Date.now()}-`;
@@ -30,21 +31,27 @@ afterAll(async () => {
 
 // --- macOS-only integration tests ---
 
-test.skipIf(!isMacOS)('set + get returns stored value (macOS Keychain)', async () => {
-  const key = testKey();
-  const secret = 'test-secret-value-123';
-  await store.set(key, secret);
-  const result = await store.get(key);
-  expect(result).toBe(secret);
-});
+test.skipIf(!runKeychainIntegration)(
+  'set + get returns stored value (macOS Keychain)',
+  async () => {
+    const key = testKey();
+    const secret = 'test-secret-value-123';
+    await store.set(key, secret);
+    const result = await store.get(key);
+    expect(result).toBe(secret);
+  },
+);
 
-test.skipIf(!isMacOS)('get returns null for nonexistent key (macOS Keychain)', async () => {
-  const key = testKey();
-  const result = await store.get(key);
-  expect(result).toBeNull();
-});
+test.skipIf(!runKeychainIntegration)(
+  'get returns null for nonexistent key (macOS Keychain)',
+  async () => {
+    const key = testKey();
+    const result = await store.get(key);
+    expect(result).toBeNull();
+  },
+);
 
-test.skipIf(!isMacOS)('delete removes key from Keychain', async () => {
+test.skipIf(!runKeychainIntegration)('delete removes key from Keychain', async () => {
   const key = testKey();
   await store.set(key, 'delete-me');
   await store.delete(key);
@@ -52,7 +59,7 @@ test.skipIf(!isMacOS)('delete removes key from Keychain', async () => {
   expect(result).toBeNull();
 });
 
-test.skipIf(!isMacOS)('set overwrites existing Keychain entry', async () => {
+test.skipIf(!runKeychainIntegration)('set overwrites existing Keychain entry', async () => {
   const key = testKey();
   await store.set(key, 'old-value');
   await store.set(key, 'new-value');

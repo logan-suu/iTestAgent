@@ -4,6 +4,7 @@ import type {
   ArtifactIndex,
   DeviceInfo,
   EvidenceCollectionOutcome,
+  RunResult,
   RunStatus,
   RunStep,
   TestCaseResult,
@@ -14,6 +15,7 @@ import {
   AssertionEvaluateOutputSchema,
   RunStepsDocumentSchema,
 } from 'itestagent-contracts';
+import type { ReportSynthesizerInput } from 'itestagent-report';
 import type { RunStore } from 'itestagent-store';
 import {
   createDefaultRunStore,
@@ -23,6 +25,7 @@ import {
 } from 'itestagent-store';
 import type { ConfirmedExecutionDispatchResult } from './dual-execution-dispatcher.js';
 import type { RealDeviceRunResult } from './exploration/real-run.js';
+import { applyRerunFlakiness } from './rerun.js';
 import { persistRunBundle } from './run-bundle-coordinator.js';
 
 export interface PersistConfirmedRunInput {
@@ -31,6 +34,7 @@ export interface PersistConfirmedRunInput {
   device: DeviceInfo;
   dispatch: ConfirmedExecutionDispatchResult;
   resultBundlePath: string;
+  parentResult?: RunResult;
 }
 
 export async function persistConfirmedRunToDefaultStore(
@@ -177,7 +181,7 @@ export async function persistConfirmedRun(
     status = result.assertion.status;
     const caseIds = [
       ...new Set([
-        ...plan.execution.features,
+        ...(plan.rerun?.selectedCaseIds ?? plan.execution.features),
         ...result.assertion.cases.map((testCase) => testCase.caseId),
         ...steps.flatMap((step) => (step.caseId ? [step.caseId] : [])),
       ]),
@@ -229,65 +233,94 @@ export async function persistConfirmedRun(
     }
   }
 
+  const report: ReportSynthesizerInput = {
+    runId: plan.runId,
+    ...(plan.rerun ? { parentRunId: plan.rerun.parentRunId } : {}),
+    status,
+    projectProfileRef: plan.projectProfileRef,
+    device: {
+      udid: device.udid,
+      name: device.name ?? device.udid,
+      model: device.model ?? 'unavailable',
+      osVersion: device.osVersion ?? 'unavailable',
+      targetKind: device.targetKind,
+      runtimeIdentifier: device.runtimeIdentifier,
+    },
+    execution: {
+      mode: dispatch.path,
+      totalSteps: steps.length,
+      completedSteps: steps.filter((step) => step.status === 'completed').length,
+      failedSteps: steps.filter((step) => step.status === 'failed').length,
+      skippedSteps: 0,
+      durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
+      startTime: startedAt,
+      endTime: endedAt,
+      targetKind: device.targetKind,
+      backendUsed,
+      deviceId: device.udid,
+    },
+    cases,
+    metrics,
+    environment: {
+      targetKind: device.targetKind,
+      representativeOfPhysicalDevice: device.targetKind === 'physical',
+      comparisonScope:
+        device.targetKind === 'physical' ? ('physical_only' as const) : ('simulator_only' as const),
+    },
+    artifactRefs: artifacts.map((artifact) => artifact.id),
+    allArtifacts: artifacts,
+    collectionOutcomes: outcomes,
+    steps,
+    ...(status === 'blocked' || status === 'cancelled' || status === 'infra_failed'
+      ? {
+          explanation: {
+            explanationType: 'env_issue' as const,
+            summary:
+              dispatch.error ??
+              (invalidDeviceResult
+                ? 'device_backend.invalid_result: backend returned an invalid result payload.'
+                : 'Execution did not produce an assertion result.'),
+            evidence: [],
+            confidence: 'high' as const,
+          },
+        }
+      : {}),
+  };
+  if (plan.rerun && !input.parentResult) {
+    throw new Error('rerun_parent_result_required: rerun persistence requires the parent result');
+  }
+  if (plan.rerun && input.parentResult) {
+    const adjusted = applyRerunFlakiness({
+      parent: input.parentResult,
+      child: {
+        schemaVersion: '3.0',
+        runId: report.runId,
+        parentRunId: plan.rerun.parentRunId,
+        status: report.status,
+        projectProfileRef: report.projectProfileRef,
+        device: report.device,
+        execution: report.execution,
+        cases: report.cases,
+        metrics: report.metrics,
+        environment: report.environment,
+        artifactRefs: report.artifactRefs,
+        explanation: report.explanation,
+      },
+    });
+    report.status = adjusted.status;
+    report.cases = adjusted.cases;
+    report.explanation = adjusted.explanation;
+  }
   return persistRunBundle({
     store: input.store,
     plan,
+    parentRunId: plan.rerun?.parentRunId,
     artifactSourceRoot:
       dispatch.status !== 'blocked' &&
       dispatch.path === 'device_backend' &&
       isRealDeviceResult(dispatch.result)
         ? dispatch.result.runDir
         : dirname(input.resultBundlePath),
-    report: {
-      runId: plan.runId,
-      status,
-      projectProfileRef: plan.projectProfileRef,
-      device: {
-        udid: device.udid,
-        name: device.name ?? device.udid,
-        model: device.model ?? 'unavailable',
-        osVersion: device.osVersion ?? 'unavailable',
-        targetKind: device.targetKind,
-        runtimeIdentifier: device.runtimeIdentifier,
-      },
-      execution: {
-        mode: dispatch.path,
-        totalSteps: steps.length,
-        completedSteps: steps.filter((step) => step.status === 'completed').length,
-        failedSteps: steps.filter((step) => step.status === 'failed').length,
-        skippedSteps: 0,
-        durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
-        startTime: startedAt,
-        endTime: endedAt,
-        targetKind: device.targetKind,
-        backendUsed,
-        deviceId: device.udid,
-      },
-      cases,
-      metrics,
-      environment: {
-        targetKind: device.targetKind,
-        representativeOfPhysicalDevice: device.targetKind === 'physical',
-        comparisonScope: device.targetKind === 'physical' ? 'physical_only' : 'simulator_only',
-      },
-      artifactRefs: artifacts.map((artifact) => artifact.id),
-      allArtifacts: artifacts,
-      collectionOutcomes: outcomes,
-      steps,
-      ...(status === 'blocked' || status === 'cancelled' || status === 'infra_failed'
-        ? {
-            explanation: {
-              explanationType: 'env_issue' as const,
-              summary:
-                dispatch.error ??
-                (invalidDeviceResult
-                  ? 'device_backend.invalid_result: backend returned an invalid result payload.'
-                  : 'Execution did not produce an assertion result.'),
-              evidence: [],
-              confidence: 'high' as const,
-            },
-          }
-        : {}),
-    },
+    report,
   });
 }

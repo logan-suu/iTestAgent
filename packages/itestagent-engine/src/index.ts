@@ -199,6 +199,25 @@ export { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
 export { persistRunBundle } from './run-bundle-coordinator.js';
 export type { PersistRunBundleInput } from './run-bundle-coordinator.js';
 export {
+  applyRerunFlakiness,
+  createRerunPlan,
+  isXcuitestOnlyIdentifier,
+  RerunValidationError,
+} from './rerun.js';
+export type { RerunMode } from './rerun.js';
+export {
+  createProductionActionSuggestion,
+  executeProductionTestPlan,
+  loadProductionPlanContext,
+  productionPermissionActions,
+  selectPlanDevice,
+} from './production-run-executor.js';
+export type {
+  ProductionActionSuggestion,
+  ProductionPlanContext,
+  ProductionRunExecutorInput,
+} from './production-run-executor.js';
+export {
   persistConfirmedRun,
   persistConfirmedRunToDefaultStore,
 } from './confirmed-run-bundle.js';
@@ -254,4 +273,7 @@ export {
   createProductionDualExecutionDispatcher,
   revalidateProductionXcuitest,
 } from './production-agent-session.js';
-export type { ProductionAgentSessionDependencies } from './production-agent-session.js';
+export type {
+  ProductionAgentSessionDependencies,
+  ProductionAgentSessionOptions,
+} from './production-agent-session.js';

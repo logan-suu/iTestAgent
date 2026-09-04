@@ -11,6 +11,22 @@ import { SessionManager } from '../src/session-manager.js';
 import { SSEHub } from '../src/sse-hub.js';
 import type { SessionInfo } from '../src/types.js';
 
+function canBindLocalServer(): boolean {
+  try {
+    const probe = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: () => new Response('ok'),
+    });
+    probe.stop(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const describeWithLocalNetwork = describe.skipIf(!canBindLocalServer());
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 /** JSON body shape for generic responses. */
@@ -86,7 +102,7 @@ function callHandler(handler: ReturnType<typeof createFetchHandler>, req: Reques
 
 // ─── HTTP-level tests (non-streaming endpoints) ──────────────
 
-describe('Server /health', () => {
+describeWithLocalNetwork('Server /health', () => {
   test('GET /health returns 200 with status ok', () =>
     withServer(async (inst) => {
       const res = await fetch(url(inst, '/health'));
@@ -100,7 +116,7 @@ describe('Server /health', () => {
     }));
 });
 
-describe('Server /session', () => {
+describeWithLocalNetwork('Server /session', () => {
   test('POST /session creates a session and returns 201', () =>
     withServer(async (inst) => {
       const res = await fetch(url(inst, '/session'), {
@@ -273,7 +289,7 @@ describe('Server /events (SSE) — hub integration', () => {
 
 // ─── Server lifecycle ────────────────────────────────────────
 
-describe('Server lifecycle', () => {
+describeWithLocalNetwork('Server lifecycle', () => {
   test('server close stops accepting new connections', async () => {
     const inst = createServer(
       { port: 0 },
@@ -315,7 +331,7 @@ describe('Server lifecycle', () => {
   });
 });
 
-describe('Server 404', () => {
+describeWithLocalNetwork('Server 404', () => {
   test('unknown route returns 404', () =>
     withServer(async (inst) => {
       const res = await fetch(url(inst, '/unknown'));

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RunIdSchema } from './run-id.js';
 import { validateTestPlan } from './test-plan-validation.js';
 import type {
   ArtifactPolicy,
@@ -57,7 +58,7 @@ const MVP_METRIC_VALUES: readonly [TestPlanMetric, ...TestPlanMetric[]] = [
 ];
 
 export const MvpExecutionInputSchema = z.object({
-  runId: z.string().min(1),
+  runId: RunIdSchema,
   projectProfileRef: z.string().min(1),
   deviceKind: z.enum(['physical', 'simulator']),
   deviceSelector: MvpDeviceSelectorSchema,

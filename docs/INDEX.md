@@ -47,6 +47,7 @@
 | 本地原始证据、模型安全投影与语义 UI 风险边界 | `decisions/ADR-032-local-raw-evidence-and-semantic-ui-risk.md` |
 | Flow 生产重放命令、目标/状态门禁、backend 与证据边界 | `decisions/ADR-033-flow-replay-production-semantics.md` |
 | Run bundle 提交、完整性 marker、证据采集结果与 legacy limitation | `decisions/ADR-034-run-bundle-commit-and-evidence-outcomes.md` |
+| 证据驱动 explain、XCUITest failed-only child run、DeviceBackend Flow 重放边界、parentRunId 与 flaky 判定 | `decisions/ADR-035-evidence-explain-and-rerun-lineage.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |

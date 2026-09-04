@@ -22,8 +22,9 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
 
+import { normalizeTestCases } from '../src/normalize.js';
 import type { SpawnAsyncFn, XcresultParserDeps, XcresultParserOptions } from '../src/types.js';
-import { createXcresultParser } from '../src/xcresult-parser.js';
+import { createXcresultParser, parseAuthoritativeCaseIds } from '../src/xcresult-parser.js';
 
 // ─── Fixture Paths ────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ describe('parse', () => {
 
     // First test case
     expect(result.cases[0]).toEqual({
-      caseId: 'MyAppTests.LoginTests/testLoginSuccess',
+      caseId: 'MyAppTests/LoginTests/testLoginSuccess',
       name: 'testLoginSuccess',
       status: 'passed',
       steps: [],
@@ -93,7 +94,7 @@ describe('parse', () => {
 
     // Second test case
     expect(result.cases[1]).toEqual({
-      caseId: 'MyAppTests.SignupTests/testSignupFlow',
+      caseId: 'MyAppTests/SignupTests/testSignupFlow',
       name: 'testSignupFlow',
       status: 'passed',
       steps: [],
@@ -231,7 +232,70 @@ describe('parse', () => {
     // JUnit parsing still succeeds, targetNames is empty
     expect(result.error).toBeUndefined();
     expect(result.cases).toHaveLength(2);
+    expect(result.cases[0]?.caseId).toBe('MyAppTests.LoginTests/testLoginSuccess');
     expect(result.execution.targetNames).toEqual([]);
+  });
+
+  it('uses Xcode test node URLs when coverage target-info is unavailable', async () => {
+    const junitXml = `<?xml version="1.0"?><testsuites><testsuite tests="1"><testcase classname="SpikeAppUITests" name="testLaunchSystemSettings()" time="1.0"/></testsuite></testsuites>`;
+    const xcodeTests = JSON.stringify({
+      testNodes: [
+        {
+          children: [
+            {
+              nodeType: 'Test Case',
+              nodeIdentifierURL:
+                'test://com.apple.xcode/SpikeApp/SpikeAppUITests/SpikeAppUITests/testLaunchSystemSettings',
+            },
+          ],
+        },
+      ],
+    });
+    const parser = createParser(
+      createMockSpawn(
+        new Map([
+          ['-o junit', { exitCode: 0, stdout: junitXml, stderr: '' }],
+          ['--target-info', { exitCode: 1, stdout: '', stderr: 'no coverage report' }],
+          ['xcresulttool get test-results tests', { exitCode: 0, stdout: xcodeTests, stderr: '' }],
+        ]),
+      ),
+    );
+
+    const result = await parser.parse({ xcresultPath: validXcresultPath });
+
+    expect(result.cases[0]?.caseId).toBe(
+      'SpikeAppUITests/SpikeAppUITests/testLaunchSystemSettings',
+    );
+    expect(result.execution.targetNames).toEqual(['SpikeAppUITests']);
+  });
+
+  it('rejects malformed and non-Xcode authoritative node URLs', () => {
+    expect(
+      parseAuthoritativeCaseIds(
+        JSON.stringify({
+          testNodes: [
+            { nodeType: 'Test Case', nodeIdentifierURL: 'https://example.com/A/B/C' },
+            { nodeType: 'Test Case', nodeIdentifierURL: 'not a URL' },
+          ],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('does not invent a target when target ownership is ambiguous', () => {
+    const [testCase] = normalizeTestCases(
+      [
+        {
+          name: 'testLoginSuccess',
+          classname: 'MyAppTests.LoginTests',
+          time: 0.2,
+          status: 'passed',
+        },
+      ],
+      ['MyAppTests', 'MyAppTests'],
+    );
+
+    expect(testCase?.caseId).toBe('MyAppTests.LoginTests/testLoginSuccess');
   });
 
   it('returns empty result when xcresultPath does not exist (R5)', async () => {

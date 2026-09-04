@@ -3,6 +3,7 @@ import { AgentErrorSchema } from './agent-error.js';
 import { ToolResultSchema } from './agent-runtime.js';
 import { ArtifactRefSchema } from './device-types.js';
 import { PermissionEffectSchema } from './permission.js';
+import { RunIdSchema } from './run-id.js';
 import { RunStateSchema } from './run-state.js';
 
 /**
@@ -58,7 +59,7 @@ export type SessionStartedEvent = z.infer<typeof SessionStartedEventSchema>;
 export const TurnStartedEventSchema = z.object({
   type: z.literal('turn.started'),
   turnId: z.string(),
-  runId: z.string().optional(),
+  runId: RunIdSchema.optional(),
 });
 
 export type TurnStartedEvent = z.infer<typeof TurnStartedEventSchema>;
@@ -151,7 +152,7 @@ export type ToolFailedEvent = z.infer<typeof ToolFailedEventSchema>;
 
 export const RunStateChangedEventSchema = z.object({
   type: z.literal('run.state.changed'),
-  runId: z.string(),
+  runId: RunIdSchema,
   from: RunStateSchema,
   to: RunStateSchema,
   reason: z.string().optional(),

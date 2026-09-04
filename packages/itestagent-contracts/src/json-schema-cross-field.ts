@@ -242,12 +242,55 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
         message: 'targetKind does not match the TestPlan device kind',
       });
     }
+    if (plan.rerun) {
+      if (result.parentRunId !== plan.rerun.parentRunId) {
+        issues.push({
+          path: 'result.parentRunId',
+          message: 'rerun result parentRunId must match plan.rerun.parentRunId',
+        });
+      }
+      const selected = new Set(plan.rerun.selectedCaseIds);
+      for (const testCase of result.cases) {
+        if (!selected.has(testCase.caseId)) {
+          issues.push({
+            path: `result.cases[${testCase.caseId}]`,
+            message: 'rerun result contains a case outside plan.rerun.selectedCaseIds',
+          });
+        }
+      }
+      if (
+        ['passed', 'failed', 'flaky', 'explored', 'inconclusive', 'needs_assertion'].includes(
+          result.status,
+        )
+      ) {
+        const resultCases = new Set(result.cases.map((testCase) => testCase.caseId));
+        for (const caseId of selected) {
+          if (!resultCases.has(caseId)) {
+            issues.push({
+              path: 'result.cases',
+              message: `completed rerun result is missing selected case "${caseId}"`,
+            });
+          }
+        }
+      }
+    } else if (result.parentRunId !== undefined) {
+      issues.push({
+        path: 'result.parentRunId',
+        message: 'ordinary TestPlan bundle must not claim parentRunId',
+      });
+    }
   } else if (result.projectProfileRef !== undefined) {
     issues.push({
       path: 'result.projectProfileRef',
       message: 'FlowReplayPlan bundle must not claim projectProfileRef',
     });
   } else {
+    if (result.parentRunId !== undefined) {
+      issues.push({
+        path: 'result.parentRunId',
+        message: 'FlowReplayPlan bundle must not claim rerun parentRunId',
+      });
+    }
     if (result.execution.mode !== 'device_backend') {
       issues.push({
         path: 'result.execution.mode',

@@ -4,6 +4,16 @@ export {
   parseConfig,
 } from './config.js';
 
+export {
+  RUN_ID_MAX_LENGTH,
+  RUN_ID_PATTERN,
+  RUN_ID_PATTERN_SOURCE,
+  RunIdSchema,
+  isSafeRunId,
+} from './run-id.js';
+
+export type { RunId } from './run-id.js';
+
 export type {
   ItestAgentConfig,
   ModelConfig,
@@ -421,8 +431,11 @@ export {
   ArtifactPolicySchema,
   PerformancePlanSchema,
   PermissionPolicyRefSchema,
+  RerunMetadataSchema,
   XcuitestTargetSchema,
   TestPlanSchema,
+  XCUITEST_ONLY_IDENTIFIER_PATTERN,
+  XcuitestOnlyIdentifierSchema,
   TEST_PLAN_SCHEMA_VERSION,
   TEST_PLAN_METRIC_VALUES,
   parseTestPlan,
@@ -442,6 +455,7 @@ export type {
   ArtifactPolicy,
   PerformancePlan,
   PermissionPolicyRef,
+  RerunMetadata,
   XcuitestTarget,
   TestPlanMetric,
   TestPlan,
