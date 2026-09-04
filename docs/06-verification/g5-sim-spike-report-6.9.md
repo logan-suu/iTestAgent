@@ -18,8 +18,8 @@
 - T6.9 rerun boundary、runId contract 与 Phase 6 定向测试：29 pass，0 fail
 - xcresult 权威 identifier 与 JUnit 解析定向测试：17 pass，0 fail
 - T6.9 CLI explain/rerun 定向测试：6 pass，0 fail
-- `bun run test:ci`：3436 pass，39 skip，0 fail
-- `bun test`：3559 pass，40 skip，0 fail
+- `bun run test:ci`：3437 pass，39 skip，0 fail
+- `bun test`：3560 pass，40 skip，0 fail
 - `git diff --check`
 
 自动化覆盖包括：完整 bundle 加载和 `latest` 跳过损坏目录、计划与结果 lineage 交叉校验、failed/flaky 用例筛选、XCUITest `only` 过滤且不覆盖配置 targets、DeviceBackend 在权限/backend/child run 前阻断、确定性 flaky 判定、SQLite lineage 重建、CLI explain 消费真实证据、统一 runId 边界，以及 Apple xcresult test node 到 `-only-testing` identifier 的解析。真实 G5/G5-SIM 进一步证明该 identifier 只执行选中 case。

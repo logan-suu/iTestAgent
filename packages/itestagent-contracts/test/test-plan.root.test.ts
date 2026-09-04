@@ -173,4 +173,17 @@ describe('published schemas/test-plan.schema.json parity (B04)', () => {
     const schemaVersion = properties.schemaVersion as JsonRecord;
     expect(schemaVersion.const).toBe(TEST_PLAN_SCHEMA_VERSION);
   });
+
+  it('publishes an executable three-segment XCUITest rerun identifier pattern', () => {
+    const published = loadPublished();
+    const defs = published.$defs as JsonRecord;
+    const rerun = defs.RerunMetadata as JsonRecord;
+    const properties = rerun.properties as JsonRecord;
+    const selectedCaseIds = properties.selectedCaseIds as JsonRecord;
+    const items = selectedCaseIds.items as JsonRecord;
+    const pattern = new RegExp(items.pattern as string);
+
+    expect(pattern.test('Tests/LoginTests/testSuccess')).toBe(true);
+    expect(pattern.test('Tests/LoginTests/test Test')).toBe(false);
+  });
 });
