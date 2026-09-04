@@ -5,7 +5,7 @@
 - 任务：6.11「生产组合自动化闭环测试：TUI 指令到报告、解释和重跑的跨包验证」
 - 验证日期：2026-09-04
 - 结论：DeviceBackend 与 XCUITest 两条生产组合自动化闭环均已通过；T6.1 的 RED 结构契约已转为常规绿色回归。
-- 状态：PR #80 的评审修复已完成；代码任务保持 `in_progress`，等待远端复审与人工合并后再进入 `done`。
+- 状态：PR #80 已由人类合并到 `dev-1.0`（merge commit `dbc8750`）；任务 6.11 已进入 `done`，任务 6.12 已级联为 `ready`。
 - 边界：项目分析和设备发现使用生产 composition root；CI 只在 analyzer xcodebuild、devicectl/simctl、device/Appium、xcodebuild/xcresult 与 LLM 等外部传输边界使用确定性 doubles，不新增 G5/G5-SIM 结论；真实 iPhone 双路径出口由 T6.12 验收。
 
 ## 规格原文与覆盖证据
