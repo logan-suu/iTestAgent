@@ -83,8 +83,8 @@ TUI cancel → session command → AgentRuntime.abort → ToolDispatcher cancel
 - XCUITest 的 xcodebuild 与 xcresult parser、DeviceBackend 的探索动作和 Appium/WDA readiness 都接收同一取消信号；
 - 每个 provider/backend/server 只回收自己拥有的进程，不跨 owner 接管；
 - session 结束后无 pending tool、owned child、WDA tunnel 或占用端口；
-- 已生成的证据仍进入索引，run 标记 `cancelled`；
-- cleanup 超时或残留必须形成结构化 cleanup outcome，并使 run 至少为 `infra_failed`/带 cleanup limitation，不能吞掉错误。
+- 已生成的证据仍进入索引；用户 abort 后 run 主状态保持 `cancelled`；
+- cleanup 超时或残留必须形成独立的结构化 `cleanupOutcome`，不能吞掉错误或覆盖既有执行事实；只有非 abort 路径的 cleanup failure 才把 run 主状态设为 `infra_failed`。
 
 ### 5. Route B 是 physical production default
 
@@ -96,6 +96,12 @@ Route C（Appium managed xcodebuild）仅为用户显式选择的诊断路线：
 - 必须使用独立、可归属的 Appium lifecycle；
 - 无法证明本轮 Appium 与其 child 完整回收时，结果必须失败关闭并报告 cleanup limitation；
 - Route C 的第三方限制不再阻塞 Route B 的 production default 或 MVP 出口。
+
+Route B 的 production composition 必须区分两种输入：未提供外部 endpoint 时，由 iTestAgent/WdaManager 拥有 WDA 与 iproxy 的启动、readiness 和清理；用户显式提供 `webDriverAgentUrl` 时才进入 attach 模式。内部生成的 loopback URL 只是 managed Route B 的连接结果，不能作为“外部 WDA 已启动”的判据。
+
+### 5.1 项目配置不得重定向全局凭证
+
+`model.baseURL` 与 `apiKeyRef` 共同构成凭证绑定。项目配置属于 workspace 输入，不能仅凭配置层优先级把全局 Keychain 凭证发送到项目指定 endpoint。项目可以覆盖普通模型名称与非敏感运行选项；若要使用项目自定义 endpoint，必须提供本次 session 凭证或经过一次明确确认。provider URL 必须是 HTTPS，只有 loopback HTTP 可例外。
 
 ### 6. Session teardown 超时后实例终止
 

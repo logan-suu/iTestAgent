@@ -84,6 +84,15 @@ export function createAnsiRenderer(): TuiRenderer {
     maskInput: () => currentState?.mode === 'setup' && currentState.setupStep === 1,
   });
 
+  const redrawInput = () => {
+    const buffered = input.getInputBuffer();
+    const visible =
+      currentState.mode === 'setup' && currentState.setupStep === 1
+        ? '*'.repeat(buffered.length)
+        : buffered;
+    process.stdout.write(`> ${visible}`);
+  };
+
   return {
     async start(initialState, dispatch) {
       currentState = initialState;
@@ -123,7 +132,10 @@ export function createAnsiRenderer(): TuiRenderer {
         input.handleChunk(chunk);
       };
       activeDataListener = onData;
-      activeResizeListener = () => renderScreen(currentState);
+      activeResizeListener = () => {
+        renderScreen(currentState);
+        redrawInput();
+      };
 
       process.stdin.on('data', onData);
       process.stdout.on('resize', activeResizeListener);
@@ -145,7 +157,7 @@ export function createAnsiRenderer(): TuiRenderer {
     update(state: TuiShellState) {
       currentState = state;
       renderScreen(state);
-      process.stdout.write(`> ${input.getInputBuffer()}`);
+      redrawInput();
     },
   };
 }

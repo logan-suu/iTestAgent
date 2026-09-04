@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { resolveProductionWdaRoute } from '../src/composition-root.js';
 
 describe('resolveProductionWdaRoute', () => {
-  it('selects Route B with the loopback WDA endpoint for production physical runs', () => {
+  it('selects managed Route B without pretending that an external WDA already exists', () => {
     expect(
       resolveProductionWdaRoute({
         udid: 'PHONE',
@@ -11,8 +11,17 @@ describe('resolveProductionWdaRoute', () => {
     ).toEqual({
       mode: 'external-url',
       purpose: 'production',
-      webDriverAgentUrl: 'http://127.0.0.1:8100',
     });
+  });
+
+  it('preserves an explicitly supplied external WDA attach endpoint', () => {
+    expect(
+      resolveProductionWdaRoute({
+        udid: 'PHONE',
+        targetKind: 'physical',
+        webDriverAgentUrl: 'http://127.0.0.1:8200',
+      }),
+    ).toMatchObject({ webDriverAgentUrl: 'http://127.0.0.1:8200' });
   });
 
   it('allows Route C only when the caller marks the run as diagnostic', () => {

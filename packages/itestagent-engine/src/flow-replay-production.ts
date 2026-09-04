@@ -5,7 +5,12 @@ import {
   type ProductionAppiumConfig,
   createAppiumDeviceBackend,
 } from 'itestagent-backends-device-appium';
-import { type DeviceBackend, type TargetKind, isSafeRunId } from 'itestagent-contracts';
+import {
+  type BackendCleanupOutcome,
+  type DeviceBackend,
+  type TargetKind,
+  isSafeRunId,
+} from 'itestagent-contracts';
 import {
   type FlowV2,
   type ReadFlowOptions,
@@ -57,7 +62,7 @@ export type ProductionFlowReplayResult =
   | { success: true; replay: ReplayResult; backend: string }
   | {
       success: false;
-      status: 'blocked' | 'infra_failure';
+      status: 'blocked' | 'cancelled' | 'infra_failure';
       reasonCode: string;
       reason: string;
       remediation: string[];
@@ -65,9 +70,10 @@ export type ProductionFlowReplayResult =
       replay?: ReplayResult;
       /** Selected backend retained when only owner cleanup failed. */
       backend?: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       /** Earlier structured failure retained when cleanup also failed. */
       primaryFailure?: {
-        status: 'blocked' | 'infra_failure';
+        status: 'blocked' | 'cancelled' | 'infra_failure';
         reasonCode: string;
         reason: string;
       };
@@ -78,7 +84,7 @@ type ProductionFlowReplayFailure = Extract<ProductionFlowReplayResult, { success
 export interface ProductionFlowReplayDependencies {
   createBackend(config: ProductionAppiumConfig): {
     backend: DeviceBackend;
-    close(): Promise<unknown>;
+    close(): Promise<BackendCleanupOutcome>;
   };
 }
 
@@ -229,24 +235,53 @@ export async function runProductionFlowReplay(
   } catch (error) {
     result = {
       success: false,
-      status: 'infra_failure',
-      reasonCode: 'infra.production_replay_failed',
+      status: input.replay?.signal?.aborted ? 'cancelled' : 'infra_failure',
+      reasonCode: input.replay?.signal?.aborted
+        ? 'execution.cancelled'
+        : 'infra.production_replay_failed',
       reason: error instanceof Error ? error.message : String(error),
       remediation: ['Check Appium/WDA configuration and retry on the same explicit target.'],
     };
   }
 
   try {
-    await assembly?.close();
+    const cleanupOutcome = await assembly?.close();
+    if (cleanupOutcome && !cleanupOutcome.reusable) {
+      return {
+        success: false,
+        status: input.replay?.signal?.aborted ? 'cancelled' : 'infra_failure',
+        reasonCode: 'infra.backend_cleanup_failed',
+        reason: cleanupOutcome.issues.join('; ') || `Backend cleanup ${cleanupOutcome.status}`,
+        remediation: [
+          'Inspect Appium/WDA owner processes, clean up only the exact owned session, and retry.',
+        ],
+        cleanupOutcome,
+        replay: result.success ? result.replay : undefined,
+        backend: result.success ? result.backend : undefined,
+        primaryFailure: result.success
+          ? undefined
+          : {
+              status: result.status,
+              reasonCode: result.reasonCode,
+              reason: result.reason,
+            },
+      };
+    }
   } catch (error) {
+    const cleanupOutcome: BackendCleanupOutcome = {
+      status: 'failed',
+      reusable: false,
+      issues: [error instanceof Error ? error.message : String(error)],
+    };
     return {
       success: false,
-      status: 'infra_failure',
+      status: input.replay?.signal?.aborted ? 'cancelled' : 'infra_failure',
       reasonCode: 'infra.backend_cleanup_failed',
       reason: error instanceof Error ? error.message : String(error),
       remediation: [
         'Inspect Appium/WDA owner processes, clean up only the exact owned session, and retry.',
       ],
+      cleanupOutcome,
       replay: result.success ? result.replay : undefined,
       backend: result.success ? result.backend : undefined,
       primaryFailure: result.success

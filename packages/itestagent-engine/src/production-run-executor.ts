@@ -10,6 +10,7 @@ import {
   type ConfirmedExecutionDispatchResult,
   DeviceBackendCleanupError,
 } from './dual-execution-dispatcher.js';
+import { assertProviderUrl } from './exploration/assertion-suggester.js';
 import {
   type ExplorationAction,
   createBackendToolDispatcher,
@@ -26,6 +27,7 @@ export type ProductionActionSuggestion = (input: {
   caseId: string;
   uiTree: string;
   history: readonly import('itestagent-contracts').RunStep[];
+  signal?: AbortSignal;
 }) => Promise<ExplorationAction | 'done'>;
 
 /** Build the model-backed DeviceBackend action suggestion at the engine boundary. */
@@ -34,15 +36,18 @@ export function createProductionActionSuggestion(input: {
   model?: string;
   baseURL?: string;
 }): ProductionActionSuggestion {
+  if (input.baseURL) assertProviderUrl(input.baseURL);
   const model = createOpenAI({ apiKey: input.apiKey, baseURL: input.baseURL }).chat(
     input.model ?? 'gpt-4o',
   );
-  return ({ caseId, uiTree, history }) =>
+  return ({ caseId, uiTree, history, signal }) =>
     suggestExplorationAction({
-      generate: async (prompt) => (await generateText({ model, prompt })).text,
+      generate: async (prompt, runSignal) =>
+        (await generateText({ model, prompt, abortSignal: runSignal })).text,
       caseId,
       uiTree,
       history,
+      signal,
     });
 }
 
@@ -177,6 +182,7 @@ export async function executeProductionTestPlan(
         throw new DeviceBackendCleanupError(
           `backend_execution_and_cleanup_failed: ${executionError instanceof Error ? executionError.message : String(executionError)}; cleanup ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
           undefined,
+          cleanup,
         );
       }
       throw executionError;
@@ -186,6 +192,7 @@ export async function executeProductionTestPlan(
       throw new DeviceBackendCleanupError(
         `backend_cleanup_incomplete: ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
         result,
+        cleanup,
       );
     }
     return result;

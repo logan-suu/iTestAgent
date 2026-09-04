@@ -20,6 +20,7 @@ import {
   PermissionEngine,
   PlanningSession,
   ToolDispatcher,
+  assertProviderUrl,
   createBackendToolDispatcher,
   createProductionAgentSessionDependencies,
   createProductionDualExecutionDispatcher,
@@ -249,6 +250,7 @@ export async function createAgentSession(
     baseURL: runtimeConfig.model.baseURL ?? 'https://api.deepseek.com/v1',
     model: runtimeConfig.model.model ?? 'deepseek-chat',
   };
+  assertProviderUrl(config.baseURL ?? 'https://api.deepseek.com/v1');
   const apiKey = await (dependencies.loadApiKey ?? loadApiKey)();
   if (!apiKey) {
     throw new Error(
@@ -324,12 +326,14 @@ export async function createAgentSession(
             targetKind: device.targetKind,
             dynamicActions: {
               cases: routedPlan.execution.features,
-              suggest: ({ caseId, uiTree, history }) =>
+              suggest: ({ caseId, uiTree, history, signal: suggestionSignal }) =>
                 suggestExplorationAction({
-                  generate: async (prompt) => (await generateText({ model, prompt })).text,
+                  generate: async (prompt, runSignal) =>
+                    (await generateText({ model, prompt, abortSignal: runSignal })).text,
                   caseId,
                   uiTree,
                   history,
+                  signal: suggestionSignal,
                 }),
               authorizeSensitiveAction: ({ callId, action, resource }) =>
                 toolDispatcher.authorize(callId, action, resource, routeSignal),

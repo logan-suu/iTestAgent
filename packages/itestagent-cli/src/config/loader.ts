@@ -140,6 +140,14 @@ export async function loadConfig(options?: LoadConfigOptions): Promise<LoadConfi
             'The permissions section is global-only and cannot be declared in project config',
           );
         }
+        if (layerIndex > 0 && isPlainObject(source.content.model)) {
+          const model = source.content.model;
+          if ('baseURL' in model || 'apiKeyRef' in model) {
+            throw new Error(
+              'Project config cannot override credential-bound model.baseURL or model.apiKeyRef',
+            );
+          }
+        }
         contents.push(source.content);
       }
     } catch (error: unknown) {

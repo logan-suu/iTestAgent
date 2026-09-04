@@ -314,7 +314,7 @@ export function createProgram(): Command {
       'WDA startup route: external-url (production) | managed-xcodebuild (diagnostic)',
       'external-url',
     )
-    .option('--wda-url <url>', 'active WDA endpoint (required for external-url route)')
+    .option('--wda-url <url>', 'explicit active WDA endpoint (attach mode only)')
     .option('--xcode-org-id <id>', 'signing team ID (managed-xcodebuild route)')
     .option('--wda-bundle-id <id>', 'WDA base bundle id (free-account slot reuse)')
     .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
@@ -452,7 +452,9 @@ export function createProgram(): Command {
             ...(options.platformVersion ? { platformVersion: options.platformVersion } : {}),
             wdaStartupMode: options.wdaMode as 'external-url' | 'managed-xcodebuild',
             ...(options.wdaMode === 'external-url'
-              ? { webDriverAgentUrl: options.wdaUrl ?? 'http://127.0.0.1:8100' }
+              ? options.wdaUrl
+                ? { webDriverAgentUrl: options.wdaUrl }
+                : {}
               : { routePurpose: 'diagnostic' as const }),
             ...(options.xcodeOrgId ? { xcodeOrgId: options.xcodeOrgId } : {}),
             ...(options.wdaBundleId ? { wdaBundleId: options.wdaBundleId } : {}),
@@ -487,12 +489,13 @@ export function createProgram(): Command {
             targetKind: 'physical',
             dynamicActions: {
               cases: confirmedPlan.execution.features,
-              suggest: ({ caseId, uiTree, history }) =>
+              suggest: ({ caseId, uiTree, history, signal }) =>
                 suggestExplorationAction({
                   generate: explorationGenerator,
                   caseId,
                   uiTree,
                   history,
+                  signal,
                 }),
             },
             ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),

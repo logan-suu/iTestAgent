@@ -100,6 +100,7 @@ export interface RealDeviceRunOptions {
       caseId: string;
       uiTree: string;
       history: readonly RunStep[];
+      signal?: AbortSignal;
     }) => Promise<ExplorationAction | 'done'>;
     readonly authorizeSensitiveAction?: (input: {
       callId: string;
@@ -120,7 +121,7 @@ export interface RealDeviceRunOptions {
    * TUI panel).
    */
   readonly llmSuggest?: {
-    generate: (prompt: string) => Promise<string>;
+    generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
     goal: string;
     featureName?: string;
   };
@@ -173,10 +174,11 @@ export function isSensitiveUiAction(action: ExplorationAction): boolean {
 
 /** Ask the configured model for one low-risk action within a confirmed case. */
 export async function suggestExplorationAction(input: {
-  generate: (prompt: string) => Promise<string>;
+  generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
   caseId: string;
   uiTree: string;
   history: readonly RunStep[];
+  signal?: AbortSignal;
 }): Promise<ExplorationAction | 'done'> {
   const response = await input.generate(
     [
@@ -190,6 +192,7 @@ export async function suggestExplorationAction(input: {
       'Use {"action":"done"} when the case goal is reached or no safe progress is possible.',
       'For an action include target and, when applicable, text, direction, or waitMs.',
     ].join('\n'),
+    input.signal,
   );
   const match = response.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`exploration_suggestion_invalid: no JSON action for ${input.caseId}`);
@@ -391,6 +394,7 @@ export async function runRealDeviceExploration(
           caseId,
           uiTree: redactUiTreeForModel(tree.raw),
           history: explorer.getSteps().filter((step) => step.caseId === caseId),
+          signal: options.signal,
         });
         options.signal?.throwIfAborted();
         if (suggestion === 'done') break;
@@ -451,6 +455,7 @@ export async function runRealDeviceExploration(
         featureName: options.llmSuggest.featureName,
       },
       { generate: options.llmSuggest.generate },
+      options.signal,
     );
     llmSuggestions = suggestion.suggestions;
     llmReason = suggestion.reason;

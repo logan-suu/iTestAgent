@@ -404,12 +404,15 @@ describe('AppiumDeviceBackend', () => {
       expect(mock.isSessionActive()).toBe(true);
     });
 
-    it('passes the run signal to session creation', async () => {
+    it('passes a session signal linked to the run signal to session creation', async () => {
       const controller = new AbortController();
 
       await backend.getUiTree({ deviceId: TEST_UDID }, controller.signal);
 
-      expect(mock.lastSessionSignal).toBe(controller.signal);
+      expect(mock.lastSessionSignal).toBeDefined();
+      expect(mock.lastSessionSignal).not.toBe(controller.signal);
+      controller.abort();
+      expect(mock.lastSessionSignal?.aborted).toBe(true);
     });
 
     it('aborts promptly while a WebDriver command is pending', async () => {
@@ -513,6 +516,24 @@ describe('AppiumDeviceBackend', () => {
         issues: ['session creation wait timed out'],
       });
       void action;
+    });
+
+    it('deletes a session that finishes after the close wait times out', async () => {
+      let releaseCreation!: () => void;
+      const createSessionBlock = new Promise<void>((resolve) => {
+        releaseCreation = resolve;
+      });
+      const scoped = createBackendWithDeleteTimeout({ createSessionBlock }, 5);
+      const action = scoped.backend.getUiTree({ deviceId: TEST_UDID }).catch(() => undefined);
+      await Promise.resolve();
+
+      const cleanup = await scoped.backend.closeSession();
+      expect(cleanup).toMatchObject({ status: 'timed_out', reusable: false });
+
+      releaseCreation();
+      await action;
+      expect(scoped.mock.calls.filter((call) => call === 'deleteSession')).toHaveLength(1);
+      expect(scoped.mock.isSessionActive()).toBe(false);
     });
 
     it('handles session creation failure gracefully', async () => {

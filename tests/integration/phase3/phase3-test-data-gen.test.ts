@@ -159,6 +159,32 @@ describe('Phase 3 CredentialManager integration', () => {
     expect(stored).toBe('remembered-value');
   });
 
+  it('keeps remembered credentials session-only while persistence still requires approval', async () => {
+    const keychainStore = new MemorySecretStore();
+    const approvalRequired = new PermissionEngine({ highRiskActions: ['store_credential'] });
+    const cm = new CredentialManager(
+      memoryStore,
+      keychainStore,
+      async () => ({ status: 'provided' as const, value: 'session-value', remembered: true }),
+      approvalRequired,
+    );
+
+    const result = await cm.resolveCredential({
+      kind: 'password',
+      key: 'approval_required_key',
+      label: 'Approval Required Password',
+      required: true,
+    });
+
+    expect(await keychainStore.get('approval_required_key')).toBeNull();
+    expect(await memoryStore.get('approval_required_key')).toBe('session-value');
+    expect(result.status).toBe('prompted');
+    if (result.status === 'prompted') {
+      expect(result.entry.sessionOnly).toBe(true);
+      expect(result.entry.persistenceError).toBe('Keychain persistence was not authorized');
+    }
+  });
+
   it('does not persist when not remembered (session-only, AC2)', async () => {
     const keychainStore = new MemorySecretStore();
     const cm = new CredentialManager(memoryStore, keychainStore, async () => ({

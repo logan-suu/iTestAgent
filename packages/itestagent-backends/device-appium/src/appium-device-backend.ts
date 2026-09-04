@@ -272,6 +272,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
   private sessionActive = false;
   private activeSession: AppiumSession | null = null;
   private sessionMutex: Promise<void> | null = null;
+  private sessionCreationController: AbortController | null = null;
   private screenSize: AppiumScreenSize | null = null;
   private terminalReason: string | null = null;
 
@@ -346,13 +347,21 @@ export class AppiumDeviceBackend implements DeviceBackend {
       return;
     }
 
-    this.sessionMutex = this.doCreateSession(signal);
+    const controller = new AbortController();
+    this.sessionCreationController = controller;
+    const creationSignal = signal
+      ? AbortSignal.any([signal, controller.signal])
+      : controller.signal;
+    const creation = this.doCreateSession(creationSignal);
+    this.sessionMutex = creation;
+    void creation
+      .finally(() => {
+        if (this.sessionMutex === creation) this.sessionMutex = null;
+        if (this.sessionCreationController === controller) this.sessionCreationController = null;
+      })
+      .catch(() => undefined);
 
-    try {
-      await this.awaitAbortable(this.sessionMutex, signal);
-    } finally {
-      this.sessionMutex = null;
-    }
+    await this.awaitAbortable(creation, signal);
   }
 
   /**
@@ -372,6 +381,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
 
       this.activeSession = await this.driver.createSession(caps, signal);
       this.sessionActive = true;
+      signal?.throwIfAborted();
 
       this.screenSize = await this.awaitAbortable(this.driver.getScreenSize(), signal);
     } catch (error) {
@@ -515,7 +525,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     // Launch WDA
     if (!this.wdaManager.isRunning()) {
       await this.wdaManager.launch({
-        projectPath: '', // Configured per-deployment via WdaManager
+        projectPath: this.opts.wdaProjectPath ?? '',
         udid: this.opts.udid,
         wdaPort: this.opts.wdaLocalPort,
         mjpegServerPort: this.opts.mjpegServerPort,
@@ -600,6 +610,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
     }
     const issues: string[] = [];
     let status: BackendCleanupOutcome['status'] = this.sessionActive ? 'closed' : 'already_closed';
+    this.sessionCreationController?.abort(new Error('backend session is closing'));
     // Wait for any in-flight session creation to complete
     if (this.sessionMutex) {
       let timer: ReturnType<typeof setTimeout> | undefined;

@@ -39,6 +39,11 @@ function makeDependencies(
     healthy?: boolean;
     readiness?: boolean;
     closeError?: Error;
+    closeOutcome?: {
+      status: 'closed' | 'timed_out' | 'failed';
+      reusable: boolean;
+      issues: string[];
+    };
     onClose?: () => void;
     onLaunch?: () => void;
   } = {},
@@ -117,6 +122,7 @@ function makeDependencies(
         async close() {
           input.onClose?.();
           if (input.closeError) throw input.closeError;
+          return input.closeOutcome ?? { status: 'closed' as const, reusable: true, issues: [] };
         },
       };
     },
@@ -283,6 +289,37 @@ describe('runProductionFlowReplay', () => {
       reason: 'close exploded',
       backend: 'appium',
       replay: { steps: [{ stepId: 'cleanup-failure-step-1' }] },
+    });
+  });
+
+  test('treats a resolved non-reusable cleanup outcome as an infrastructure failure', async () => {
+    const result = await runProductionFlowReplay(
+      {
+        flow: makeFlow(),
+        targetKind: 'simulator',
+        deviceId: 'sim-1',
+        appium: {},
+        replay: { collectEvidence: false, runId: 'cleanup-outcome' },
+      },
+      makeDependencies({
+        closeOutcome: {
+          status: 'timed_out',
+          reusable: false,
+          issues: ['session deletion timed out'],
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      status: 'infra_failure',
+      reasonCode: 'infra.backend_cleanup_failed',
+      cleanupOutcome: {
+        status: 'timed_out',
+        reusable: false,
+        issues: ['session deletion timed out'],
+      },
+      replay: { steps: [{ stepId: 'cleanup-outcome-step-1' }] },
     });
   });
 

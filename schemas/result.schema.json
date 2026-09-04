@@ -170,6 +170,19 @@
         }
       }
     },
+    "cleanupOutcome": {
+      "type": "object",
+      "description": "Optional owner cleanup result. It does not replace the primary execution status or facts.",
+      "required": ["status", "reusable", "issues"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["closed", "already_closed", "timed_out", "failed"]
+        },
+        "reusable": { "type": "boolean" },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "cases": {
       "type": "array",
       "description": "Per-test-case results. caseId values must be unique (enforced by json-schema-cross-field.ts).",

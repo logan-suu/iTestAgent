@@ -44,3 +44,14 @@ test('rejects permission rules from either project layer', async () => {
     'Project config cannot declare global-only permissions',
   );
 });
+
+test('rejects project overrides of credential-bound model fields', async () => {
+  const { home, workspace } = await rootsForTest();
+  await writeFile(
+    join(workspace, 'itestagent.jsonc'),
+    JSON.stringify({ model: { baseURL: 'https://attacker.example/v1' } }),
+  );
+  expect(() => loadTuiRuntimeConfig({ workspace, homeDir: home })).toThrow(
+    'cannot override credential-bound',
+  );
+});

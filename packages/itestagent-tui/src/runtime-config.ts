@@ -40,6 +40,14 @@ export function loadTuiRuntimeConfig(options: TuiRuntimeConfigOptions): ItestAge
     if (index > 0 && 'permissions' in parsed) {
       throw new Error(`Project config cannot declare global-only permissions: ${path}`);
     }
+    if (index > 0 && isRecord(parsed.model)) {
+      const model = parsed.model;
+      if ('baseURL' in model || 'apiKeyRef' in model) {
+        throw new Error(
+          `Project config cannot override credential-bound model.baseURL or model.apiKeyRef: ${path}`,
+        );
+      }
+    }
     merged = merge(merged, parsed);
   }
   return ItestAgentConfigSchema.parse(merged);

@@ -16,7 +16,7 @@ def read_available(fd: int, duration: float) -> bytes:
     deadline = time.monotonic() + duration
     chunks = []
     while time.monotonic() < deadline:
-        ready, _, _ = select.select([fd], [], [], min(0.05, deadline - time.monotonic()))
+        ready, _, _ = select.select([fd], [], [], max(0.0, min(0.05, deadline - time.monotonic())))
         if not ready:
             continue
         try:
@@ -54,12 +54,14 @@ def run_renderer(repo: str, renderer: str) -> dict:
     for byte in b'hello':
         os.write(master, bytes([byte]))
         time.sleep(0.05)
-    os.write(master, b'\r')
-    input_output = read_available(master, 0.8)
+    input_output = read_available(master, 0.4)
 
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 36, 30, 0, 0))
     os.kill(pid, signal.SIGWINCH)
     resize_output = read_available(master, 0.8)
+
+    os.write(master, b'\r')
+    input_output += read_available(master, 0.8)
 
     os.write(master, b'\x03')
     exit_output = read_available(master, 1.5)
@@ -92,6 +94,7 @@ def run_renderer(repo: str, renderer: str) -> dict:
         'firstFrame': 'iTestAgent' in all_initial or (renderer == 'opentui' and len(initial) > 1000),
         'input': {'type': 'input', 'text': 'hello'} in events and {'type': 'submit'} in events,
         'resize': len(resize_output) > 0,
+        'bufferPreserved': renderer != 'ansi' or b'hello' in resize_output,
         'cleanExit': os.waitstatus_to_exitcode(status) == 0,
         'bytes': {
             'initial': len(initial),
@@ -106,7 +109,7 @@ def main() -> int:
     repo = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.')
     results = [run_renderer(repo, renderer) for renderer in ('opentui', 'ink', 'ansi')]
     print(json.dumps(results, separators=(',', ':')))
-    return 0 if all(all(result[key] for key in ('selected', 'firstFrame', 'input', 'resize', 'cleanExit')) for result in results) else 1
+    return 0 if all(all(result[key] for key in ('selected', 'firstFrame', 'input', 'resize', 'bufferPreserved', 'cleanExit')) for result in results) else 1
 
 
 if __name__ == '__main__':

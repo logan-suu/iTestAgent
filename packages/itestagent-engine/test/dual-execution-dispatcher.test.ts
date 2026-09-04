@@ -121,7 +121,15 @@ describe('createDualExecutionDispatcher', () => {
       revalidateXcuitest: async () => ({ ready: true }),
       runXcuitest: async () => ({ exitCode: 0, durationMs: 1, parsed: null }),
       runDeviceBackend: async () => {
-        throw new DeviceBackendCleanupError('backend_cleanup_incomplete: timed_out', partialResult);
+        throw new DeviceBackendCleanupError(
+          'backend_cleanup_incomplete: timed_out',
+          partialResult,
+          {
+            status: 'timed_out',
+            reusable: false,
+            issues: ['session deletion timed out'],
+          },
+        );
       },
     });
 

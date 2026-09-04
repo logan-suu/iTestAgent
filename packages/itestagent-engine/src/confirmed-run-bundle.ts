@@ -178,7 +178,12 @@ export async function persistConfirmedRun(
     artifacts = [...result.artifacts];
     startedAt = steps[0]?.startedAt ?? now;
     endedAt = new Date().toISOString();
-    status = result.assertion.status;
+    status =
+      dispatch.status === 'cancelled'
+        ? 'cancelled'
+        : dispatch.cleanupOutcome && !dispatch.cleanupOutcome.reusable
+          ? 'infra_failed'
+          : result.assertion.status;
     const caseIds = [
       ...new Set([
         ...(plan.rerun?.selectedCaseIds ?? plan.execution.features),
@@ -259,6 +264,7 @@ export async function persistConfirmedRun(
       backendUsed,
       deviceId: device.udid,
     },
+    ...(dispatch.cleanupOutcome ? { cleanupOutcome: dispatch.cleanupOutcome } : {}),
     cases,
     metrics,
     environment: {
@@ -300,6 +306,7 @@ export async function persistConfirmedRun(
         projectProfileRef: report.projectProfileRef,
         device: report.device,
         execution: report.execution,
+        cleanupOutcome: report.cleanupOutcome,
         cases: report.cases,
         metrics: report.metrics,
         environment: report.environment,

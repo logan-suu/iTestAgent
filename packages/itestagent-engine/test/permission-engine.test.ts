@@ -85,11 +85,14 @@ describe('AC1: rule model + wildcard matching', () => {
     expect(engine.check('write_project_file', 'anything')).toBe('ask');
   });
 
-  test('rejects adding an allow rule', () => {
+  test('rejects adding any rule other than deny', () => {
     const engine = makeEngine();
     expect(() =>
       engine.addRule({ action: 'write_project_file', resource: 'src/special.ts', effect: 'allow' }),
-    ).toThrow('Allow permission rules cannot persist');
+    ).toThrow('Only deny permission rules');
+    expect(() =>
+      engine.addRule({ action: 'write_project_file', resource: 'src/special.ts', effect: 'ask' }),
+    ).toThrow('Only deny permission rules');
   });
 
   test('addRule and removeRule manage user-defined rules', () => {

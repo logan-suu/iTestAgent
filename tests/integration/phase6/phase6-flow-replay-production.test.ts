@@ -93,6 +93,7 @@ function productionDependencies(input: {
         backend,
         async close() {
           input.calls.push('close');
+          return { status: 'closed' as const, reusable: true, issues: [] };
         },
       };
     },

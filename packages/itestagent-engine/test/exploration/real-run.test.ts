@@ -128,6 +128,22 @@ describe('model-safe exploration boundary', () => {
     expect(prompt).toContain('[REDACTED]');
   });
 
+  it('forwards the run AbortSignal to model generation', async () => {
+    const controller = new AbortController();
+    let received: AbortSignal | undefined;
+    await suggestExplorationAction({
+      caseId: 'login',
+      uiTree: '<App/>',
+      history: [],
+      signal: controller.signal,
+      generate: async (_prompt, signal) => {
+        received = signal;
+        return '{"action":"done"}';
+      },
+    });
+    expect(received).toBe(controller.signal);
+  });
+
   it('classifies sensitive UI semantics independently of the verb', () => {
     expect(isSensitiveUiAction({ action: 'tap', target: 'Delete account' })).toBe(true);
     expect(isSensitiveUiAction({ action: 'tap', target: 'Open settings' })).toBe(false);

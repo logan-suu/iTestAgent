@@ -12,10 +12,14 @@
  * R5: Configuration errors throw immediately — no silent fallback.
  */
 
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { TargetKind } from 'itestagent-contracts';
 import type { WdaStartupMode } from './appium-capabilities.js';
 import { AppiumDeviceBackend } from './appium-device-backend.js';
 import type { AppiumDeviceBackendOptions } from './appium-device-backend.js';
+import { type IProxyTunnel, createIProxyTunnel } from './iproxy-tunnel.js';
 import { RealAppiumDriver } from './real-appium-driver.js';
 import { WdaManager } from './wda-manager.js';
 import type { WdaManagerOptions } from './wda-manager.js';
@@ -92,6 +96,8 @@ export interface AppiumBackendAssembly {
    * Available for preinstalled WDA preparation and lifecycle control.
    */
   wdaManager?: WdaManager;
+  /** Owned usbmux tunnel for managed Route B. */
+  iproxyTunnel?: IProxyTunnel;
   /** The RealAppiumDriver instance (wraps webdriverio). */
   realDriver: RealAppiumDriver;
 }
@@ -127,11 +133,7 @@ export function resolveProductionWdaRoute(
   return {
     mode,
     purpose,
-    ...(config.webDriverAgentUrl
-      ? { webDriverAgentUrl: config.webDriverAgentUrl }
-      : config.targetKind === 'physical' && mode === 'external-url'
-        ? { webDriverAgentUrl: `http://127.0.0.1:${config.wdaLocalPort ?? 8100}` }
-        : {}),
+    ...(config.webDriverAgentUrl ? { webDriverAgentUrl: config.webDriverAgentUrl } : {}),
   };
 }
 
@@ -153,10 +155,22 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
   const resolvedRoute = resolveProductionWdaRoute(config);
   const wdaStartupMode = resolvedRoute.mode;
   const appiumServerUrl = config.appiumServerUrl ?? 'http://127.0.0.1:4723';
+  const installedWdaProject = join(
+    homedir(),
+    '.appium',
+    'node_modules',
+    'appium-xcuitest-driver',
+    'node_modules',
+    'appium-webdriveragent',
+    'WebDriverAgent.xcodeproj',
+  );
+  const wdaProjectPath =
+    config.wdaProjectPath ?? (existsSync(installedWdaProject) ? installedWdaProject : undefined);
 
   const realDriver = new RealAppiumDriver(appiumServerUrl);
 
   let wdaManager: WdaManager | undefined;
+  let iproxyTunnel: IProxyTunnel | undefined;
 
   // Only create WdaManager for physical devices
   if (targetKind === 'physical') {
@@ -167,10 +181,24 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
       wdaOpts.stagingDir = config.wdaStagingDir;
     }
     wdaManager = new WdaManager(wdaOpts);
+    if (wdaStartupMode === 'external-url' && !resolvedRoute.webDriverAgentUrl) {
+      iproxyTunnel = createIProxyTunnel();
+    }
   }
 
   // Validate mode-specific requirements
   const webDriverAgentUrl = resolvedRoute.webDriverAgentUrl;
+
+  if (
+    targetKind === 'physical' &&
+    wdaStartupMode === 'external-url' &&
+    !webDriverAgentUrl &&
+    !wdaProjectPath
+  ) {
+    throw new Error(
+      'Managed Route B requires WebDriverAgent.xcodeproj; install the Appium XCUITest driver or provide wdaProjectPath. Use webDriverAgentUrl only to attach to an already-owned WDA.',
+    );
+  }
 
   if (
     targetKind === 'physical' &&
@@ -197,13 +225,14 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     deviceName: config.deviceName,
     platformVersion: config.platformVersion,
     derivedDataPath: config.derivedDataPath,
-    wdaProjectPath: config.wdaProjectPath,
+    wdaProjectPath,
     xcodeOrgId: config.xcodeOrgId,
     xcodeSigningId: config.xcodeSigningId,
     wdaManager,
+    iproxyTunnel,
   };
 
   const backend = new AppiumDeviceBackend(realDriver, backendOptions);
 
-  return { backend, wdaManager, realDriver };
+  return { backend, wdaManager, iproxyTunnel, realDriver };
 }

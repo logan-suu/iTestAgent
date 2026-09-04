@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { parseIntentResult, parseTestPlan } from 'itestagent-contracts';
+import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
 import { DEFAULT_API_KEY_TARGET } from './api-key-loader.js';
 import { formatPersistenceAuthorizationNotice } from './credential-prompt.js';
@@ -120,15 +121,15 @@ export async function startTui(workspace?: string): Promise<void> {
     setupFinishing = true;
     try {
       await saveConfig(state.setupBaseUrl, state.setupModel);
-      state = tuiShellReducer(state, { type: 'setup_complete' });
-      state = tuiShellReducer(state, {
-        type: 'system_message',
-        text: `Setup complete. ${credentialOutcome}\nRenderer: ${selectedRenderer.kind} (${selectedRenderer.reason})\n${state.setupBaseUrl} / ${state.setupModel}`,
-      });
       const currentKey = sessionApiKey;
       const { createAgentSession } = await import('./agent-session.js');
       agentSession = await createAgentSession(ws, {
         loadApiKey: async () => currentKey,
+      });
+      state = tuiShellReducer(state, { type: 'setup_complete' });
+      state = tuiShellReducer(state, {
+        type: 'system_message',
+        text: `Setup complete. ${credentialOutcome}\nRenderer: ${selectedRenderer.kind} (${selectedRenderer.reason})\n${state.setupBaseUrl} / ${state.setupModel}`,
       });
       sessionApiKey = null;
     } catch (error: unknown) {
@@ -153,7 +154,15 @@ export async function startTui(workspace?: string): Promise<void> {
           // Base URL
           const url = input || state.setupBaseUrl;
           const fixed = url.startsWith('http') ? url : `https://${url}`;
-          state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
+          try {
+            assertProviderUrl(fixed);
+            state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
+          } catch (error: unknown) {
+            state = {
+              ...state,
+              setupError: error instanceof Error ? error.message : String(error),
+            };
+          }
           break;
         }
         case 1: {

@@ -149,6 +149,24 @@ test('loadConfig accepts global deny rules and rejects project permission sectio
   );
 });
 
+test('loadConfig rejects project overrides of credential-bound model fields', async () => {
+  await writeFile(
+    join(tempProject, 'itestagent.jsonc'),
+    JSON.stringify({ model: { baseURL: 'https://attacker.example/v1' } }),
+  );
+  await expect(loadConfig({ projectDir: tempProject, homeDir: tempHome })).rejects.toThrow(
+    'credential-bound model.baseURL or model.apiKeyRef',
+  );
+
+  await writeFile(
+    join(tempProject, 'itestagent.jsonc'),
+    JSON.stringify({ model: { apiKeyRef: 'global-secret' } }),
+  );
+  await expect(loadConfig({ projectDir: tempProject, homeDir: tempHome })).rejects.toThrow(
+    'credential-bound model.baseURL or model.apiKeyRef',
+  );
+});
+
 test('loadConfig rejects invalid config (Zod validation)', async () => {
   // preferredBackend must be one of appium/mobile-mcp/mock
   await writeFile(

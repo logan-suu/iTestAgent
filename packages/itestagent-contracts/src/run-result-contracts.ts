@@ -3,6 +3,12 @@ import { TargetKindSchema } from './device-types.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
 import { RunIdSchema } from './run-id.js';
 
+const CleanupOutcomeSchema = z.object({
+  status: z.enum(['closed', 'already_closed', 'timed_out', 'failed']),
+  reusable: z.boolean(),
+  issues: z.array(z.string()).readonly(),
+});
+
 /**
  * RunResult contracts — RunStatus / PerformanceMetrics / ExecutionSummary /
  * TestCaseResult / FailureExplanation / RunStep / RunResult + migration and
@@ -262,6 +268,8 @@ export const RunResultSchema = z
     }),
     /** Execution summary. */
     execution: ExecutionSummarySchema,
+    /** Optional owner cleanup result; it never replaces execution facts. */
+    cleanupOutcome: CleanupOutcomeSchema.optional(),
     /** Test case results. */
     cases: z.array(TestCaseResultSchema),
     /** Performance metrics. */

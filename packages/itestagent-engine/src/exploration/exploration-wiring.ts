@@ -61,7 +61,7 @@ export interface ExplorationRuntime {
   readonly tunnel: IProxyTunnel | undefined;
   /** LLM suggestion hook — present only when model config is complete. */
   readonly llmSuggest?: {
-    generate: (prompt: string) => Promise<string>;
+    generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
     goal: string;
     featureName?: string;
   };

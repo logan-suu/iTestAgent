@@ -260,6 +260,7 @@ export {
   suggestAssertions,
   createAiSdkGenerateFn,
   createConfiguredGenerateFn,
+  assertProviderUrl,
 } from './exploration/assertion-suggester.js';
 export type { SuggesterModelConfig } from './exploration/assertion-suggester.js';
 export type {

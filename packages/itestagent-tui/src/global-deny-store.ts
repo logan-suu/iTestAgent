@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ItestAgentConfigSchema, type PermissionRule } from 'itestagent-contracts';
@@ -49,6 +49,47 @@ function deniedRulesFrom(raw: Record<string, unknown>): PermissionRule[] {
   return ItestAgentConfigSchema.parse(raw).permissions.deniedRules;
 }
 
+async function withGlobalConfigLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
+  const lockPath = `${path}.permissions.lock`;
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const deadline = Date.now() + 5_000;
+  while (true) {
+    try {
+      const handle = await open(lockPath, 'wx', 0o600);
+      try {
+        await handle.writeFile(`${process.pid}\n`, 'utf8');
+        return await operation();
+      } finally {
+        await handle.close();
+        await unlink(lockPath).catch(() => undefined);
+      }
+    } catch (error: unknown) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? (error as { code?: string }).code
+          : undefined;
+      if (code !== 'EEXIST') throw error;
+      try {
+        const ownerPid = Number.parseInt((await readFile(lockPath, 'utf8')).trim(), 10);
+        if (Number.isInteger(ownerPid) && ownerPid > 0) process.kill(ownerPid, 0);
+      } catch (ownerError: unknown) {
+        const ownerCode =
+          typeof ownerError === 'object' && ownerError !== null && 'code' in ownerError
+            ? (ownerError as { code?: string }).code
+            : undefined;
+        if (ownerCode === 'ESRCH' || ownerCode === 'ENOENT') {
+          await unlink(lockPath).catch(() => undefined);
+          continue;
+        }
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for the global permission config lock: ${lockPath}`);
+      }
+      await Bun.sleep(25);
+    }
+  }
+}
+
 export async function listGlobalDeniedRules(homeDir?: string): Promise<PermissionRule[]> {
   return deniedRulesFrom(await readRaw(globalConfigPath(homeDir)));
 }
@@ -59,12 +100,14 @@ export async function persistGlobalDeniedRule(
 ): Promise<void> {
   if (rule.effect !== 'deny') throw new Error('Only deny rules may be persisted');
   const path = globalConfigPath(homeDir);
-  const raw = await readRaw(path);
-  const rules = deniedRulesFrom(raw).filter(
-    (existing) => existing.action !== rule.action || existing.resource !== rule.resource,
-  );
-  raw.permissions = { deniedRules: [...rules, rule] };
-  await writeRaw(path, raw);
+  await withGlobalConfigLock(path, async () => {
+    const raw = await readRaw(path);
+    const rules = deniedRulesFrom(raw).filter(
+      (existing) => existing.action !== rule.action || existing.resource !== rule.resource,
+    );
+    raw.permissions = { deniedRules: [...rules, rule] };
+    await writeRaw(path, raw);
+  });
 }
 
 export async function revokeGlobalDeniedRule(
@@ -73,11 +116,13 @@ export async function revokeGlobalDeniedRule(
   homeDir?: string,
 ): Promise<boolean> {
   const path = globalConfigPath(homeDir);
-  const raw = await readRaw(path);
-  const before = deniedRulesFrom(raw);
-  const after = before.filter((rule) => rule.action !== action || rule.resource !== resource);
-  if (after.length === before.length) return false;
-  raw.permissions = { deniedRules: after };
-  await writeRaw(path, raw);
-  return true;
+  return withGlobalConfigLock(path, async () => {
+    const raw = await readRaw(path);
+    const before = deniedRulesFrom(raw);
+    const after = before.filter((rule) => rule.action !== action || rule.resource !== resource);
+    if (after.length === before.length) return false;
+    raw.permissions = { deniedRules: after };
+    await writeRaw(path, raw);
+    return true;
+  });
 }

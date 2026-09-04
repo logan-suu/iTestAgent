@@ -38,4 +38,18 @@ describe('global deny store', () => {
       persistGlobalDeniedRule({ action: 'uninstall_app', resource: '*', effect: 'allow' }, home),
     ).rejects.toThrow('Only deny rules');
   });
+
+  test('serializes concurrent read-modify-write updates', async () => {
+    const home = await tempHome();
+    await Promise.all([
+      persistGlobalDeniedRule({ action: 'delete', resource: 'account', effect: 'deny' }, home),
+      persistGlobalDeniedRule({ action: 'pay', resource: 'checkout', effect: 'deny' }, home),
+    ]);
+    expect(await listGlobalDeniedRules(home)).toEqual(
+      expect.arrayContaining([
+        { action: 'delete', resource: 'account', effect: 'deny' },
+        { action: 'pay', resource: 'checkout', effect: 'deny' },
+      ]),
+    );
+  });
 });

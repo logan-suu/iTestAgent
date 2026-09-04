@@ -68,10 +68,10 @@ Rejected = Rezi（当前 npm registry 下不存在为 TUI 框架）
 
 ```
 TuiShellViewModel / TuiShellEvent / reducer: framework-independent ✅
-OpenTUIRenderer: 目标 renderer 已实现；package range 为 ^0.4.3，当前 lock 解析为 0.4.5，T6.10 将复验当前稳定版本
-InkRenderer: 已实现的交互式 fallback（src/renderers/ink-renderer.tsx）
-ANSI renderer: 当前生产交互入口使用，直至 T6.10/DEF-025 解决 OpenTUI 动态更新阻塞
-Renderer selector: 已实现能力与显式配置策略，但尚未接入 entry.ts
+OpenTUIRenderer: 已实现并通过 T6.10 当前依赖版本的真实 PTY 行为门禁
+InkRenderer: 已实现并通过相同真实 PTY 行为门禁
+ANSI renderer: 已实现并通过相同真实 PTY 行为门禁，用于明确配置及安全 masked setup
+Renderer selector: 已接入 entry.ts；显式配置 fail-closed，auto 只选择当前 runtime 验证通过的 renderer
 ```
 
 实施细节：
@@ -83,11 +83,11 @@ Renderer selector: 已实现能力与显式配置策略，但尚未接入 entry.
 
 ### 2026-08-31 实施状态同步
 
-后续真实渲染验证发现 OpenTUI 0.4.3 native render loop 启动后会阻塞 JS event loop，导致计时器、输入回调和服务端流式更新无法继续。该证据已记录在 `DEF-025`，生产交互入口因此暂时直接使用 ANSI renderer。2026-09-04 评审确认旧版本证据不能永久替代当前版本复验，也不能继续把框架名称写成产品 AC；T6.10 按 ADR-036 先运行真实 PTY matrix，再依据行为证据选择生产 renderer。
+历史 OpenTUI 0.4.3 native render loop 曾阻塞 JS event loop，该证据不能替代当前版本复验。2026-09-04 T6.10 已按 ADR-036 运行真实 PTY matrix；OpenTUI、Ink 与 ANSI 均通过首帧、输入、resize 和 clean-exit 门禁，生产选择现由 runtime capability matrix 与显式配置共同决定，DEF-025 已关闭。
 
 ### OpenTUI 交互式 shell 验证状态
 
-- ⚠️ OpenTUI 0.4.3 仅证明首帧；输入回调、计时器与异步更新失败，因此未通过生产交互门禁
+- ✅ 当前锁定 OpenTUI 版本已通过 T6.10 真实 PTY 交互门禁；0.4.3 失败仅保留为历史证据
 - ⏳ 长日志和 scrollback（Phase 3-4 随 agent 交互逐步实现）
 - ⏳ Markdown 渲染（Phase 3 随工具调用卡片实现）
 - ⏳ 工具调用卡片（Phase 3 T3.4c ToolDispatcher 实现）
@@ -95,12 +95,12 @@ Renderer selector: 已实现能力与显式配置策略，但尚未接入 entry.
 
 ### Ink fallback 状态
 
-Ink 16/16 通过 T0.4 横评，且仓库已经实现 `src/renderers/ink-renderer.tsx`。现有测试主要使用 mocked Ink 模块，T6.10 仍需用与 OpenTUI 相同的真实 PTY 门禁验证；通过后才能在 OpenTUI 未通过时作为生产交互 renderer。`TuiRenderer` 接口与 shared reducer 保持 renderer 可替换。
+Ink 16/16 通过 T0.4 横评，且仓库已经实现 `src/renderers/ink-renderer.tsx`。T6.10 已用与 OpenTUI 相同的真实 PTY 门禁完成复验；`TuiRenderer` 接口与 shared reducer 保持 renderer 可替换。
 
 ## 后果
 
 ### 正面
-- OpenTUI+SolidJS renderer 已在 Phase 1 实现（PR #2），但当前生产入口因 DEF-025 暂用 ANSI
+- OpenTUI+SolidJS renderer 已在 Phase 1 实现（PR #2），当前生产入口已接入行为门禁 selector
 - OpenTUI + SolidJS 对齐 OpenCode，长期可复用 TUI 经验
 - framework-independent reducer 设计已在实际实现中验证（TuiShellState/TuiShellEvent/tuiShellReducer 纯函数不依赖任何渲染器）
 - `TuiRenderer` 接口使 renderer 可无痛切换（后续 Ink/其他 renderer 只需实现接口）

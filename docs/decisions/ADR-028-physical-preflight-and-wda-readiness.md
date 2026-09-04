@@ -101,7 +101,7 @@ ready = route-specific launch/session succeeds
 2. 真实 iPhone 必须验证 Route B production composition 的正常路径与 abort 清理；Route C 若执行，只作为独立诊断证据，环境依赖、child ownership 或 abort 缺口必须标记 partial/blocked/inconclusive。
 3. 用可用 WDA 与不可用/过期 WDA 状态证明主动探测不会把“已安装但不可用”判为 ready。
 4. 验证重签/重装后重新探测成功，并保留脱敏证据。
-5. DEF-031 在实现、自动化测试和 G5 全部完成前保持 open。
+5. DEF-031 已在实现、自动化测试和 G5 全部完成后关闭；后续回归必须继续证明 inventory 不会被误判为 readiness。
 
 ## 关联文档
 

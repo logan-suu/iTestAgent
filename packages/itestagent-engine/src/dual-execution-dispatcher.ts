@@ -1,4 +1,4 @@
-import type { BuildDestination, TestPlan } from 'itestagent-contracts';
+import type { BackendCleanupOutcome, BuildDestination, TestPlan } from 'itestagent-contracts';
 import type { XcunitFlowInput, XcunitFlowResult } from './test-flow/run-xcunit-flow.js';
 
 export interface XcuitestReadinessResult {
@@ -24,6 +24,7 @@ export type ConfirmedExecutionDispatchResult =
       path: 'xcuitest';
       result?: XcunitFlowResult;
       error?: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       fallbackHistory: [];
     }
   | {
@@ -31,12 +32,14 @@ export type ConfirmedExecutionDispatchResult =
       path: 'device_backend';
       result?: unknown;
       error?: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       fallbackHistory: [];
     }
   | {
       status: 'blocked';
       path: 'xcuitest' | 'device_backend';
       error: string;
+      cleanupOutcome?: BackendCleanupOutcome;
       fallbackHistory: [];
     };
 
@@ -56,6 +59,7 @@ export class DeviceBackendCleanupError extends Error {
   constructor(
     message: string,
     readonly partialResult: unknown,
+    readonly cleanupOutcome: BackendCleanupOutcome,
   ) {
     super(message);
     this.name = 'DeviceBackendCleanupError';
@@ -172,6 +176,9 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
           status: input.signal?.aborted ? 'cancelled' : 'failed',
           path,
           ...(error instanceof DeviceBackendCleanupError ? { result: error.partialResult } : {}),
+          ...(error instanceof DeviceBackendCleanupError
+            ? { cleanupOutcome: error.cleanupOutcome }
+            : {}),
           error: error instanceof Error ? error.message : String(error),
           fallbackHistory: [],
         };

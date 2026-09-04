@@ -261,7 +261,7 @@ xcrun xctrace list devices 2>&1 | grep "phone"
 
 ## 7. 建议的后续行动
 
-> 以下建议已过时。当前推荐：Route C（managed-xcodebuild + allowProvisioningDeviceRegistration: true）。
+> 以下为 2026-07-25 的历史建议，已被 2026-09-04 的 Route B production default 决策取代；保留仅用于解释旧环境证据。
 
 1. **短期（Phase 3 出口）**：在 `itestagent doctor` 中添加免费账号检测和引导提示（已实现）
 2. **中期（Phase 4）**：在 `iTestAgent TUI` 启动时，如果检测到免费账号 + 真机探索路径，推荐 Route C（已实现）

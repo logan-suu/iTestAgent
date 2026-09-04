@@ -220,8 +220,10 @@ export class PermissionEngine {
 
   /** Add a user-defined permission rule. Duplicates are appended (latest wins on check). */
   addRule(rule: PermissionRule): void {
-    if (rule.effect === 'allow') {
-      throw new Error('Allow permission rules cannot persist across actions or sessions');
+    if (rule.effect !== 'deny') {
+      throw new Error(
+        'Only deny permission rules can persist; allow and ask cannot persist across actions or sessions',
+      );
     }
     this.rules.push({ ...rule });
   }
