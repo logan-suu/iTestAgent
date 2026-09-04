@@ -3,9 +3,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { isDeepStrictEqual } from 'node:util';
 import { Command, InvalidArgumentError } from 'commander';
-import { type RunResult, type TestPlan, isSafeRunId } from 'itestagent-contracts';
+import { isSafeRunId } from 'itestagent-contracts';
 import {
   runConfigDefault,
   runConfigDeleteSecret,
@@ -77,17 +76,6 @@ export function assertSafeRunId(runId: string): void {
   if (!isSafeRunId(runId)) {
     throw new PublicCliError(`Confirmed TestPlan runId is not a safe identifier: ${runId}`);
   }
-}
-
-function rerunPlansAreComparable(child: TestPlan, parent: TestPlan): boolean {
-  const { runId: _childRunId, rerun: _childRerun, ...childSemantics } = child;
-  const { runId: _parentRunId, rerun: _parentRerun, ...parentSemantics } = parent;
-  return isDeepStrictEqual(childSemantics, parentSemantics);
-}
-
-function rerunResultsShareCase(child: RunResult, parent: RunResult): boolean {
-  const childCases = new Set(child.cases.map((testCase) => testCase.caseId));
-  return parent.cases.some((testCase) => childCases.has(testCase.caseId));
 }
 
 export function selectConfirmedPhysicalDevice(input: {
@@ -721,104 +709,9 @@ export function createProgram(): Command {
     .description('explain test failure with evidence-driven attribution (R5: uncertainty labelled)')
     .option('--json', 'output as JSON instead of formatted text')
     .action(async (runId: string, options: { json?: boolean }) => {
-      const { createDefaultRunStore } = await import('itestagent-store');
-      const { FailureExplainer } = await import('itestagent-engine');
-      const { resolveStoreRoot, createStoreCore } = await import('itestagent-store');
-
       try {
-        const storeRoot = resolveStoreRoot();
-        const core = createStoreCore(`${storeRoot}/db/itestagent.db`);
-        await core.driver.migrate();
-        const store = createDefaultRunStore(core.db);
-        const bundle =
-          runId === 'latest'
-            ? await store.findLatestValidBundle()
-            : await store.loadRunBundle(runId);
-        if (!bundle) {
-          console.error(
-            `Error: No runs found${runId === 'latest' ? '' : ` — run "${runId}" not found`}.`,
-          );
-          process.exit(1);
-        }
-        const runResult = bundle.result;
-        const resolvedId = runResult.runId;
-        let previousRuns: Array<{
-          runId: string;
-          status: typeof runResult.status;
-          scenario: string;
-          comparable: boolean;
-        }> = [];
-        if (runResult.parentRunId && bundle.plan.schemaVersion === 'itestagent.test-plan.v3') {
-          try {
-            const parent = await store.loadRunBundle(runResult.parentRunId);
-            const plansComparable =
-              parent.plan.schemaVersion === 'itestagent.test-plan.v3' &&
-              rerunPlansAreComparable(bundle.plan, parent.plan);
-            previousRuns = [
-              {
-                runId: parent.result.runId,
-                status: parent.result.status,
-                scenario: parent.result.cases.map((testCase) => testCase.caseId).join(','),
-                comparable:
-                  plansComparable &&
-                  parent.result.projectProfileRef === runResult.projectProfileRef &&
-                  parent.result.environment.targetKind === runResult.environment.targetKind &&
-                  rerunResultsShareCase(runResult, parent.result),
-              },
-            ];
-          } catch {
-            previousRuns = [];
-          }
-        }
-        const explanation =
-          runResult.explanation ??
-          (await new FailureExplainer().explain({
-            runId: resolvedId,
-            status: runResult.status,
-            projectProfileRef: runResult.projectProfileRef,
-            steps: bundle.steps.steps,
-            evidence: bundle.artifactIndex.artifacts,
-            collectionOutcomes: bundle.artifactIndex.collectionOutcomes,
-            baselineDelta: runResult.baselineDelta,
-            targetKind: runResult.environment.targetKind,
-            previousRuns,
-          }));
-
-        // Output
-        if (options.json) {
-          console.log(
-            JSON.stringify(
-              {
-                runId: resolvedId,
-                status: runResult.status,
-                explanation,
-              },
-              null,
-              2,
-            ),
-          );
-        } else {
-          console.log(`\nRun     : ${resolvedId}`);
-          console.log(`Status  : ${runResult.status}`);
-          console.log(`Target  : ${runResult.environment.targetKind}`);
-          console.log(`${'─'.repeat(50)}`);
-          console.log(`\nFailure Type: ${explanation.explanationType}`);
-          console.log(`Confidence  : ${explanation.confidence ?? 'N/A'}`);
-          console.log(`\n${explanation.summary}`);
-          if (explanation.evidence.length > 0) {
-            console.log('\nEvidence:');
-            for (const e of explanation.evidence) {
-              console.log(`  • ${e}`);
-            }
-          }
-          if (explanation.suggestedActions && explanation.suggestedActions.length > 0) {
-            console.log('\nSuggested Actions:');
-            for (const a of explanation.suggestedActions) {
-              console.log(`  → ${a}`);
-            }
-          }
-          console.log('');
-        }
+        const { formatExplainCommand, runExplainCommand } = await import('./commands/explain.js');
+        console.log(formatExplainCommand(await runExplainCommand(runId), options.json));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`Error: Failed to explain run — ${message}`);
@@ -838,73 +731,9 @@ export function createProgram(): Command {
           failedOnly?: boolean;
         },
       ) => {
-        const { createDefaultRunStore, resolveStoreRoot, createStoreCore } = await import(
-          'itestagent-store'
-        );
-        const {
-          PermissionEngine,
-          createProductionAgentSessionDependencies,
-          createRerunPlan,
-          executeProductionTestPlan,
-          loadProductionPlanContext,
-          selectPlanDevice,
-        } = await import('itestagent-engine');
         try {
-          const storeRoot = resolveStoreRoot();
-          const core = createStoreCore(`${storeRoot}/db/itestagent.db`);
-          await core.driver.migrate();
-          const store = createDefaultRunStore(core.db);
-          const parent = await store.loadRunBundle(runId);
-          if (parent.plan.schemaVersion !== 'itestagent.test-plan.v3') {
-            throw new PublicCliError(
-              'Flow replay bundles cannot be rerun as TestPlans; use `itestagent run flow <flowId>`.',
-            );
-          }
-          const childPlan = createRerunPlan({
-            parentPlan: parent.plan,
-            parentResult: parent.result,
-            mode: options.failedOnly ? 'failed_only' : 'all',
-          });
-          const { workspace, bundleId } = loadProductionPlanContext(
-            childPlan,
-            storeRoot,
-            process.cwd(),
-          );
-          const production = createProductionAgentSessionDependencies();
-          const discovered = await production.deviceDiscovery.discover();
-          const device = selectPlanDevice(childPlan, discovered.devices);
-          const permissionEngine = new PermissionEngine();
-          const authorize = async (action: string, resource: string): Promise<boolean> => {
-            const gate = permissionEngine.check(action, resource);
-            if (gate === 'allow') return true;
-            if (gate === 'deny') return false;
-            const callId = `rerun-${randomUUID()}`;
-            const pending = permissionEngine.requestPermission(callId, action, resource);
-            const answer = await confirmAction({ action, details: resource });
-            permissionEngine.resolve(callId, answer === 'yes' ? 'allow' : 'deny', false);
-            return (await pending).effect === 'allow';
-          };
-
-          const executed = await executeProductionTestPlan({
-            plan: childPlan,
-            parentResult: parent.result,
-            workspace,
-            device,
-            bundleId,
-            store,
-            storeRoot,
-            suggest: async () => {
-              throw new PublicCliError('XCUITest rerun does not use model-driven exploration.');
-            },
-            authorize,
-            production,
-          });
-          const child = await store.loadRunBundle(childPlan.runId);
-          console.log(`\nRerun    : ${childPlan.runId}`);
-          console.log(`Parent   : ${runId}`);
-          console.log(`Cases    : ${childPlan.rerun?.selectedCaseIds.join(', ')}`);
-          console.log(`Status   : ${child.result.status}`);
-          console.log(`Run dir  : ${executed.runDir}`);
+          const { formatRerunCommand, runRerunCommand } = await import('./commands/rerun.js');
+          console.log(formatRerunCommand(await runRerunCommand(runId, options)));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           console.error(`Error: Failed to rerun — ${message}`);

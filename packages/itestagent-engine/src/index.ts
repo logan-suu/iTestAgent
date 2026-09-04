@@ -208,6 +208,7 @@ export type { RerunMode } from './rerun.js';
 export {
   createProductionActionSuggestion,
   executeProductionTestPlan,
+  executeProductionTestPlanToDefaultStore,
   loadProductionPlanContext,
   productionPermissionActions,
   selectPlanDevice,
@@ -236,7 +237,10 @@ export type {
   ConfirmedExecutionDispatchResult,
   DualExecutionDispatcherDeps,
 } from './dual-execution-dispatcher.js';
-export { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
+export {
+  createRealXcunitFlowDeps,
+  type XcunitFlowProcessRunner,
+} from './test-flow/xcunit-flow-wiring.js';
 export { createAppiumExplorationRuntime } from './exploration/exploration-wiring.js';
 export type {
   ExplorationSurfaceConfig,
@@ -277,4 +281,5 @@ export {
 export type {
   ProductionAgentSessionDependencies,
   ProductionAgentSessionOptions,
+  ProductionExecutionTransports,
 } from './production-agent-session.js';

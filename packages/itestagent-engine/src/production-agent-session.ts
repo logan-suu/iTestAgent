@@ -22,7 +22,10 @@ import {
   createDualExecutionDispatcher,
 } from './dual-execution-dispatcher.js';
 import { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
-import { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
+import {
+  type XcunitFlowProcessRunner,
+  createRealXcunitFlowDeps,
+} from './test-flow/xcunit-flow-wiring.js';
 
 export interface ProductionAgentSessionDependencies {
   analyzeWorkspace(workspace: string): Promise<ProjectAnalysisResult>;
@@ -33,6 +36,13 @@ export interface ProductionAgentSessionDependencies {
 
 export interface ProductionAgentSessionOptions {
   appium?: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'deviceName'>;
+}
+
+export interface ProductionExecutionTransports {
+  /** Process boundary only; production xcodebuild/xcresult orchestration remains active. */
+  xcunitProcessRunner?: XcunitFlowProcessRunner;
+  /** Metadata-only project revalidation boundary used by deterministic integration tests. */
+  revalidateXcuitest?: typeof revalidateProductionXcuitest;
 }
 
 /**
@@ -111,11 +121,12 @@ export async function revalidateProductionXcuitest(input: {
 /** Production composition; DeviceBackend action planning remains supplied by its owning lane. */
 export function createProductionDualExecutionDispatcher(
   runDeviceBackend: (input: DeviceBackendDispatchInput) => Promise<unknown>,
+  transports: ProductionExecutionTransports = {},
 ) {
-  const xcunitDeps = createRealXcunitFlowDeps();
+  const xcunitDeps = createRealXcunitFlowDeps(transports.xcunitProcessRunner);
   return createDualExecutionDispatcher({
     runXcuitest: (input) => runXcunitFlow(input, xcunitDeps),
     runDeviceBackend,
-    revalidateXcuitest: revalidateProductionXcuitest,
+    revalidateXcuitest: transports.revalidateXcuitest ?? revalidateProductionXcuitest,
   });
 }

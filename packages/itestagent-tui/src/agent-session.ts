@@ -1,7 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { type LanguageModel, generateText } from 'ai';
 import type {
@@ -19,13 +17,13 @@ import {
   BackendSelector,
   PermissionEngine,
   PlanningSession,
+  type ProductionActionSuggestion,
+  type ProductionAgentSessionDependencies,
+  type ProductionExecutionTransports,
   ToolDispatcher,
   assertProviderUrl,
-  createBackendToolDispatcher,
   createProductionAgentSessionDependencies,
-  createProductionDualExecutionDispatcher,
-  persistConfirmedRunToDefaultStore,
-  runRealDeviceExploration,
+  executeProductionTestPlanToDefaultStore,
   suggestExplorationAction,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
@@ -160,6 +158,10 @@ export interface AgentSessionDependencies {
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
   listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
+  closeDeviceBackend?: ProductionAgentSessionDependencies['closeDeviceBackend'];
+  transports?: ProductionExecutionTransports;
+  /** Model suggestion boundary only; the production exploration loop remains active. */
+  suggestExplorationAction?: ProductionActionSuggestion;
   executeConfirmedPlan?: (input: {
     plan: TestPlan;
     workspace: string;
@@ -300,72 +302,53 @@ export async function createAgentSession(
   const executeConfirmedPlan =
     dependencies.executeConfirmedPlan ??
     (async ({ plan, workspace: executionWorkspace, device, signal }) => {
-      const storeRoot = process.env.ITESTAGENT_HOME ?? join(homedir(), '.itestagent');
-      const resultBundlePath = join(storeRoot, 'runs', plan.runId, 'staging', 'tests.xcresult');
-      if (plan.execution.resolvedPath === 'xcuitest') {
-        mkdirSync(dirname(resultBundlePath), { recursive: true });
+      const analysis = await analyzeOnce();
+      const bundleId = analysis.profile.app.bundleId;
+      if (!bundleId) {
+        throw new Error('execution_blocked: project profile has no confirmed bundleId');
       }
-      const dispatcher = createProductionDualExecutionDispatcher(
-        async ({ plan: routedPlan, signal: routeSignal }) => {
-          const analysis = await analyzeOnce();
-          const bundleId = analysis.profile.app.bundleId;
-          if (!bundleId) {
-            throw new Error('device_backend_blocked: project profile has no confirmed bundleId');
-          }
-          const backend = (dependencies.createDeviceBackend ?? production.createDeviceBackend)(
-            device,
-          );
-          const runDir = join(storeRoot, 'runs', routedPlan.runId, 'staging');
-          return runRealDeviceExploration({
-            backend,
-            toolDispatcher: createBackendToolDispatcher(backend, routeSignal),
-            runDir,
-            runId: routedPlan.runId,
-            bundleId,
-            deviceId: device.udid,
-            targetKind: device.targetKind,
-            dynamicActions: {
-              cases: routedPlan.execution.features,
-              suggest: ({ caseId, uiTree, history, signal: suggestionSignal }) =>
-                suggestExplorationAction({
-                  generate: async (prompt, runSignal) =>
-                    (await generateText({ model, prompt, abortSignal: runSignal })).text,
-                  caseId,
-                  uiTree,
-                  history,
-                  signal: suggestionSignal,
-                }),
-              authorizeSensitiveAction: ({ callId, action, resource }) =>
-                toolDispatcher.authorize(callId, action, resource, routeSignal),
-            },
-            policy: routedPlan.execution.assertion.policy,
-            signal: routeSignal,
-          });
-        },
+      // ToolDispatcher has just authorized these exact one-shot actions for this tool call.
+      const authorizedByExecutionTool = new Set(
+        plan.execution.resolvedPath === 'xcuitest'
+          ? ['execute_project_build', 'replace_device_app']
+          : ['replace_device_app'],
       );
-      const dispatch = await dispatcher.dispatch({
+      const executed = await executeProductionTestPlanToDefaultStore({
         plan,
-        confirmed: true,
         workspace: executionWorkspace,
-        destination:
-          device.targetKind === 'physical'
-            ? { targetKind: 'physical', udid: device.udid }
-            : { targetKind: 'simulator', simulatorId: device.udid },
-        resultBundlePath,
+        device,
+        bundleId,
+        suggest:
+          dependencies.suggestExplorationAction ??
+          (({ caseId, uiTree, history, signal: suggestionSignal }) =>
+            suggestExplorationAction({
+              generate: async (prompt, runSignal) =>
+                (await generateText({ model, prompt, abortSignal: runSignal })).text,
+              caseId,
+              uiTree,
+              history,
+              signal: suggestionSignal,
+            })),
+        authorize: (action, resource) =>
+          authorizedByExecutionTool.has(action)
+            ? Promise.resolve(true)
+            : toolDispatcher.authorize(
+                `execution-${crypto.randomUUID()}`,
+                action,
+                resource,
+                signal,
+              ),
+        production: {
+          analyzeWorkspace,
+          deviceDiscovery: production.deviceDiscovery,
+          createDeviceBackend: dependencies.createDeviceBackend ?? production.createDeviceBackend,
+          closeDeviceBackend: dependencies.closeDeviceBackend ?? production.closeDeviceBackend,
+        },
+        transports: dependencies.transports,
         signal,
       });
-      const committed = await persistConfirmedRunToDefaultStore({
-        plan,
-        device,
-        dispatch,
-        resultBundlePath,
-      });
-      latestCommittedRun = { runId: plan.runId, runDir: committed.runDir };
-      rmSync(join(storeRoot, 'runs', plan.runId, 'staging'), {
-        recursive: true,
-        force: true,
-      });
-      return { ...dispatch, runDir: committed.runDir };
+      latestCommittedRun = { runId: plan.runId, runDir: executed.runDir };
+      return executed;
     });
 
   const toolDispatcher = new ToolDispatcher({
