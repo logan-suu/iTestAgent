@@ -54,7 +54,12 @@ const FAKE_ANALYSIS = {
   profile: {
     schemaVersion: 'itestagent.project-profile.v1',
     projectHash: 'a'.repeat(64),
-    app: { name: 'Demo', workspace: '/workspace/Demo.xcworkspace', scheme: 'Demo' },
+    app: {
+      name: 'Demo',
+      bundleId: 'com.example.Demo',
+      workspace: '/workspace/Demo.xcworkspace',
+      scheme: 'Demo',
+    },
     targets: [{ name: 'Demo', type: 'app' }],
     testAssets: { hasXCUITest: false, hasScheme: true },
     features: [
@@ -298,6 +303,52 @@ describe('AgentSession tools', () => {
       device: PHYSICAL_DEVICE.udid,
     });
     expect(dispatched[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('binds one-shot execution permissions to the exact target and blocks managed WDA on denial', async () => {
+    let executionCalls = 0;
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        preparesWda: () => true,
+        executeConfirmedPlan: async () => {
+          executionCalls += 1;
+          return { status: 'completed', path: 'device_backend' };
+        },
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    session.confirmPlan();
+
+    streamScenario = async function* ({ tools }) {
+      await tools.executeTestPlan?.execute({}, { toolCallId: 'execute-wda' });
+      yield { type: 'tool-result', toolCallId: 'execute-wda' };
+    };
+    const iterator = session.processMessage('execute the confirmed plan')[Symbol.asyncIterator]();
+    expect((await iterator.next()).value?.type).toBe('devices_update');
+
+    const replacePermission = await nextPatchOfType(iterator, 'permission_request');
+    expect(replacePermission.payload).toMatchObject({
+      callId: 'execute-wda',
+      action: 'replace_device_app',
+      resource: 'com.example.Demo@physical-udid',
+    });
+    await session.resolvePermission('execute-wda', 'allow');
+
+    const wdaPermission = await nextPatchOfType(iterator, 'permission_request');
+    expect(wdaPermission.payload).toMatchObject({
+      callId: 'execute-wda',
+      action: 'prepare_wda',
+      resource: 'com.example.Demo@physical-udid',
+    });
+    await session.resolvePermission('execute-wda', 'deny');
+
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+    }
+    expect(executionCalls).toBe(0);
   });
 
   it('returns the real analyzer envelope supplied by the production seam', async () => {

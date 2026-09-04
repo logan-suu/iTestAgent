@@ -5,6 +5,12 @@ import { generateText } from 'ai';
 import type { DeviceInfo, RunResult, TestPlan } from 'itestagent-contracts';
 import { loadProfile } from 'itestagent-project-analyzer';
 import type { RunStore } from 'itestagent-store';
+import {
+  createDefaultRunStore,
+  createStoreCore,
+  initStore,
+  resolveStoreRoot,
+} from 'itestagent-store';
 import { persistConfirmedRun } from './confirmed-run-bundle.js';
 import {
   type ConfirmedExecutionDispatchResult,
@@ -19,6 +25,7 @@ import {
 } from './exploration/index.js';
 import {
   type ProductionAgentSessionDependencies,
+  type ProductionExecutionTransports,
   createProductionAgentSessionDependencies,
   createProductionDualExecutionDispatcher,
 } from './production-agent-session.js';
@@ -65,6 +72,8 @@ export interface ProductionRunExecutorInput {
   preparesWda?: boolean;
   /** Injectable production adapters for deterministic transport tests. */
   production?: ProductionAgentSessionDependencies;
+  /** Injectable external transport boundaries; orchestration and persistence remain production. */
+  transports?: ProductionExecutionTransports;
   signal?: AbortSignal;
 }
 
@@ -79,9 +88,10 @@ export function loadProductionPlanContext(
   storeRoot: string,
   fallbackWorkspace: string,
 ): ProductionPlanContext {
-  const profileMatch = /^projects\/([a-f0-9]{64})\/project-profile\.json$/.exec(
-    plan.projectProfileRef,
-  );
+  const profileMatch =
+    /^(?:~\/\.itestagent\/)?projects\/([a-f0-9]{64})\/project-profile\.json$/.exec(
+      plan.projectProfileRef,
+    );
   if (!profileMatch?.[1]) {
     throw new Error(
       'project_profile_ref_invalid: TestPlan has an invalid Project Profile reference',
@@ -196,7 +206,7 @@ export async function executeProductionTestPlan(
       );
     }
     return result;
-  });
+  }, input.transports);
   try {
     const dispatch = await dispatcher.dispatch({
       plan: input.plan,
@@ -218,6 +228,20 @@ export async function executeProductionTestPlan(
   } finally {
     rmSync(stagingDir, { recursive: true, force: true });
   }
+}
+
+/** Default-store production entry used by the interactive TUI composition root. */
+export async function executeProductionTestPlanToDefaultStore(
+  input: Omit<ProductionRunExecutorInput, 'store' | 'storeRoot'>,
+): Promise<ConfirmedExecutionDispatchResult & { runDir: string }> {
+  const storeRoot = initStore(resolveStoreRoot());
+  const core = createStoreCore(join(storeRoot, 'db', 'itestagent.db'));
+  await core.driver.migrate();
+  return executeProductionTestPlan({
+    ...input,
+    store: createDefaultRunStore(core.db),
+    storeRoot,
+  });
 }
 
 export function selectPlanDevice(plan: TestPlan, devices: readonly DeviceInfo[]): DeviceInfo {

@@ -1,5 +1,6 @@
 import { createXcodeProjAnalyzerBackend } from 'itestagent-backends-analyzer-xcodeproj';
 import {
+  type DeviceDiscoveryRuntime,
   type ProductionAppiumConfig,
   createAppiumDeviceBackend,
   createAppiumDeviceDiscoveryProvider,
@@ -22,17 +23,33 @@ import {
   createDualExecutionDispatcher,
 } from './dual-execution-dispatcher.js';
 import { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
-import { createRealXcunitFlowDeps } from './test-flow/xcunit-flow-wiring.js';
+import {
+  type XcunitFlowProcessRunner,
+  createRealXcunitFlowDeps,
+} from './test-flow/xcunit-flow-wiring.js';
 
 export interface ProductionAgentSessionDependencies {
   analyzeWorkspace(workspace: string): Promise<ProjectAnalysisResult>;
   deviceDiscovery: DeviceDiscoveryProvider;
   createDeviceBackend(device: DeviceInfo): DeviceBackend;
   closeDeviceBackend?(backend: DeviceBackend, signal?: AbortSignal): Promise<BackendCleanupOutcome>;
+  /** Whether this exact backend route will build, sign, or launch a managed WDA. */
+  preparesWda?(device: DeviceInfo): boolean;
 }
 
 export interface ProductionAgentSessionOptions {
   appium?: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'deviceName'>;
+  /** External command/filesystem boundary for deterministic device-discovery tests. */
+  deviceDiscoveryRuntime?: DeviceDiscoveryRuntime;
+  /** Explicit persistence root; production defaults to the canonical user data directory. */
+  dataRoot?: string;
+}
+
+export interface ProductionExecutionTransports {
+  /** Process boundary only; production xcodebuild/xcresult orchestration remains active. */
+  xcunitProcessRunner?: XcunitFlowProcessRunner;
+  /** Metadata-only project revalidation boundary used by deterministic integration tests. */
+  revalidateXcuitest?: typeof revalidateProductionXcuitest;
 }
 
 /**
@@ -45,10 +62,10 @@ export function createProductionAgentSessionDependencies(
   return {
     analyzeWorkspace: async (workspace) => {
       const analysis = await analyzeProject(createXcodeProjAnalyzerBackend(), workspace);
-      saveProfile(analysis.profile);
+      saveProfile(analysis.profile, options.dataRoot ? { dataRoot: options.dataRoot } : undefined);
       return analysis;
     },
-    deviceDiscovery: createAppiumDeviceDiscoveryProvider(),
+    deviceDiscovery: createAppiumDeviceDiscoveryProvider(options.deviceDiscoveryRuntime),
     createDeviceBackend: (device) =>
       createAppiumDeviceBackend({
         ...options.appium,
@@ -64,6 +81,14 @@ export function createProductionAgentSessionDependencies(
     closeDeviceBackend: async (backend, signal) => {
       const outcome = await backend.closeSession?.(signal);
       return outcome ?? { status: 'already_closed', reusable: true, issues: [] };
+    },
+    preparesWda: (device) => {
+      if (device.targetKind !== 'physical') return false;
+      const mode = options.appium?.wdaStartupMode ?? 'external-url';
+      return (
+        mode === 'managed-xcodebuild' ||
+        (mode === 'external-url' && !options.appium?.webDriverAgentUrl)
+      );
     },
   };
 }
@@ -111,11 +136,12 @@ export async function revalidateProductionXcuitest(input: {
 /** Production composition; DeviceBackend action planning remains supplied by its owning lane. */
 export function createProductionDualExecutionDispatcher(
   runDeviceBackend: (input: DeviceBackendDispatchInput) => Promise<unknown>,
+  transports: ProductionExecutionTransports = {},
 ) {
-  const xcunitDeps = createRealXcunitFlowDeps();
+  const xcunitDeps = createRealXcunitFlowDeps(transports.xcunitProcessRunner);
   return createDualExecutionDispatcher({
     runXcuitest: (input) => runXcunitFlow(input, xcunitDeps),
     runDeviceBackend,
-    revalidateXcuitest: revalidateProductionXcuitest,
+    revalidateXcuitest: transports.revalidateXcuitest ?? revalidateProductionXcuitest,
   });
 }

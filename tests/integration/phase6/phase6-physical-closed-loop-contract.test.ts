@@ -1,9 +1,8 @@
 /**
  * Phase 6 physical closed-loop production contract (Task 6.1).
  *
- * This is an intentionally RED contract for work delivered by Tasks 6.2-6.11.
- * It is skipped during the normal gate until the production composition exists;
- * run it explicitly with ITESTAGENT_PHASE6_RED=1 to reproduce the baseline.
+ * Tasks 6.2-6.11 now satisfy this structural contract. It remains enabled as a
+ * normal regression guard for the production composition and data flow.
  *
  * The assertions parse production entry points and require executable calls and
  * data flow. Comments, unused imports, aliases, and formatting cannot satisfy
@@ -14,8 +13,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
 
-const RED_ENABLED = process.env.ITESTAGENT_PHASE6_RED === '1';
-const contract = RED_ENABLED ? it : it.skip;
+const contract = it;
 const repoRoot = resolve(import.meta.dir, '../../..');
 
 interface ParsedSource {
@@ -299,13 +297,15 @@ function loadsParentResultIntoExecution(root: ts.Node): boolean {
 }
 
 const tui = parseSource('packages/itestagent-tui/src/agent-session.ts');
+const productionSession = parseSource('packages/itestagent-engine/src/production-agent-session.ts');
 const cli = parseSource('packages/itestagent-cli/src/cli.ts');
+const rerunHandler = parseSource('packages/itestagent-cli/src/commands/rerun.ts');
 const exploreAction = commandAction(cli.file, 'explore');
 const rerunAction = commandAction(cli.file, 'rerun');
 const runFlowAction = commandAction(cli.file, 'flow');
 const reachableTui = reachableFunctionBodies(tui.file, 'createAgentSession');
 
-describe('Phase 6 production physical closed-loop contract (RED baseline)', () => {
+describe('Phase 6 production physical closed-loop contract', () => {
   contract('US-4.1/17.1: TUI production session has no mock backend dependency', () => {
     expect(moduleLiteralMatches(tui.file, /(?:^|[/\-])device-mock$/)).toBe(false);
   });
@@ -315,8 +315,16 @@ describe('Phase 6 production physical closed-loop contract (RED baseline)', () =
   });
 
   contract('US-4.1/6.1: TUI executes the real project analyzer', () => {
-    const analyzerBindings = moduleBindings(tui.file, 'itestagent-project-analyzer');
-    expect(hasExecutableUse(reachableTui, analyzerBindings)).toBe(true);
+    expect(
+      reachableTui.some((body) => hasCall(body, 'createProductionAgentSessionDependencies')),
+    ).toBe(true);
+    const analyzerBindings = moduleBindings(productionSession.file, 'itestagent-project-analyzer');
+    expect(
+      hasExecutableUse(
+        reachableFunctionBodies(productionSession.file, 'createProductionAgentSessionDependencies'),
+        analyzerBindings,
+      ),
+    ).toBe(true);
   });
 
   contract('US-4.1/17.1: TUI executes real device discovery', () => {
@@ -346,17 +354,14 @@ describe('Phase 6 production physical closed-loop contract (RED baseline)', () =
   });
 
   contract('US-16.1: rerun invokes production execution dispatch', () => {
-    expect(
-      descendants(rerunAction, ts.isCallExpression).some((call) =>
-        /(?:dispatch|execute|replay|runReal|runXcunit)/i.test(calleeName(call) ?? ''),
-      ),
-    ).toBe(true);
+    expect(hasCall(rerunAction, 'runRerunCommand')).toBe(true);
+    expect(hasCall(rerunHandler.file, 'executeProductionTestPlan')).toBe(true);
   });
 
   contract('US-16.1: rerun sends the loaded parent result into canonical execution', () => {
-    expect(loadsParentResultIntoExecution(rerunAction)).toBe(true);
+    expect(loadsParentResultIntoExecution(rerunHandler.file)).toBe(true);
     expect(
-      identifierFlowsIntoCall(rerunAction, 'createRerunPlan', /^executeProductionTestPlan$/),
+      identifierFlowsIntoCall(rerunHandler.file, 'createRerunPlan', /^executeProductionTestPlan$/),
     ).toBe(true);
   });
 });
