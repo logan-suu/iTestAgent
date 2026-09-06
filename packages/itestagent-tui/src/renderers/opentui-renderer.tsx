@@ -61,14 +61,12 @@ const CONFIDENCE_PREFIX: Record<string, string> = {
 function Header(props: { workspace: string; deviceStatus: DeviceStatus }): JSX.Element {
   return (
     <box flexDirection="column" borderStyle="single" padding={1} marginBottom={1}>
-      <text>
-        <span>Workspace: </span>
-        <span>{props.workspace}</span>
-      </text>
-      <text>
-        <span>Device: </span>
-        <span>{DEVICE_LABELS[props.deviceStatus]}</span>
-      </text>
+      <box>
+        <text>{`Workspace: ${props.workspace}`}</text>
+      </box>
+      <box>
+        <text>{`Device: ${DEVICE_LABELS[props.deviceStatus]}`}</text>
+      </box>
     </box>
   );
 }
@@ -163,7 +161,7 @@ function CandidateReviewPanel(props: {
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
-      <box borderStyle="double" padding={1} marginBottom={1}>
+      <box flexDirection="column" borderStyle="double" padding={1} marginBottom={1}>
         <text>Candidate Core Paths — Review & Confirm</text>
         <text opacity={0.5}>{CANDIDATE_REVIEW_FOOTER_HINTS}</text>
       </box>
@@ -212,7 +210,7 @@ function CandidateReviewPanel(props: {
         </box>
       </Show>
 
-      <box borderStyle="rounded" padding={1} marginTop={1}>
+      <box flexDirection="column" borderStyle="rounded" padding={1} marginTop={1}>
         <text opacity={0.5}>
           {candidateFooterStatus(
             candidates().filter((c) => c.confirmed).length,
@@ -222,15 +220,18 @@ function CandidateReviewPanel(props: {
         <Show when={s().candidateEditMode}>
           <text opacity={0.5}>{CANDIDATE_EDITING_HINT}</text>
         </Show>
-        <Show when={!s().candidateEditMode}>
-          <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
-        </Show>
-        <input
-          focused={true}
-          value={cmd()}
-          onInput={handleCmdInput}
-          placeholder="j/k/space/e/A/N/q"
-        />
+        <box>
+          <Show when={!s().candidateEditMode}>
+            <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
+          </Show>
+          <input
+            focused={true}
+            value={cmd()}
+            onInput={handleCmdInput}
+            onSubmit={() => handleCommand('enter')}
+            placeholder="j/k/space/e/A/N/Enter/q"
+          />
+        </box>
       </box>
     </box>
   );
@@ -271,7 +272,7 @@ function PlanReviewPanel(props: {
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
-      <box borderStyle="double" padding={1} marginBottom={1}>
+      <box flexDirection="column" borderStyle="double" padding={1} marginBottom={1}>
         <text>TestPlan Review — Confirm, Modify or Cancel</text>
         <text opacity={0.5}>{PLAN_REVIEW_FOOTER_HINTS}</text>
       </box>
@@ -318,15 +319,23 @@ function PlanReviewPanel(props: {
         </box>
       </Show>
 
-      <box borderStyle="rounded" padding={1} marginTop={1}>
+      <box flexDirection="column" borderStyle="rounded" padding={1} marginTop={1}>
         <text opacity={0.5}>{planFooterStatus(sectionIndex(), sections().length)}</text>
         <Show when={s().planModifyMode}>
           <text opacity={0.5}>{PLAN_MODIFYING_HINT}</text>
         </Show>
-        <Show when={!s().planModifyMode}>
-          <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
-        </Show>
-        <input focused={true} value={cmd()} onInput={handleCmdInput} placeholder="j/k/m/Enter/q" />
+        <box>
+          <Show when={!s().planModifyMode}>
+            <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
+          </Show>
+          <input
+            focused={true}
+            value={cmd()}
+            onInput={handleCmdInput}
+            onSubmit={() => handleCommand('enter')}
+            placeholder="j/k/m/Enter/q"
+          />
+        </box>
       </box>
     </box>
   );

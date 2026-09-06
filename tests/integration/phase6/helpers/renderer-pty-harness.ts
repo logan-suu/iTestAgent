@@ -1,6 +1,10 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
+import { TestPlanSchema } from 'itestagent-contracts';
 import { createConfiguredRenderer } from '../../../../packages/itestagent-tui/src/renderer-factory.js';
-import { createInitialState } from '../../../../packages/itestagent-tui/src/tui-shell.js';
+import {
+  type TuiShellState,
+  createInitialState,
+} from '../../../../packages/itestagent-tui/src/tui-shell.js';
 
 const rendererKind = process.argv[2];
 const eventPath = process.argv[3];
@@ -12,17 +16,66 @@ if (!rendererKind || !eventPath) {
 writeFileSync(eventPath, '');
 const selected = await createConfiguredRenderer(rendererKind);
 process.stdout.write(`PTY_SELECTED:${selected.kind}\n`);
-const initialState =
-  scenario === 'setup-secret'
-    ? {
-        ...createInitialState('/tmp/renderer-pty-workspace'),
-        mode: 'setup' as const,
-        setupStep: 1,
-        setupProvider: 'openai',
-        setupBaseUrl: 'https://api.example.com/v1',
-        setupModel: 'test-model',
-      }
-    : createInitialState('/tmp/renderer-pty-workspace');
+
+function stateForScenario(): TuiShellState {
+  const initial = createInitialState('/tmp/renderer-pty-workspace');
+  if (scenario === 'setup-secret') {
+    return {
+      ...initial,
+      mode: 'setup',
+      setupStep: 1,
+      setupProvider: 'openai',
+      setupBaseUrl: 'https://api.example.com/v1',
+      setupModel: 'test-model',
+    };
+  }
+  if (scenario === 'candidate-review') {
+    return {
+      ...initial,
+      mode: 'candidate_review',
+      deviceStatus: 'healthy',
+      candidates: [
+        {
+          name: 'Validation',
+          evidence: ['source: SpikeApp/SpikeApp.swift'],
+          confidence: 0.5,
+          confirmed: true,
+          displayOrder: 0,
+        },
+      ],
+    };
+  }
+  if (scenario === 'plan-review') {
+    const plan = TestPlanSchema.parse({
+      schemaVersion: 'itestagent.test-plan.v3',
+      runId: 'run-opentui-pty-review',
+      projectProfileRef: `projects/${'a'.repeat(64)}/project-profile.json`,
+      target: { type: 'current_workspace' },
+      device: { kind: 'physical', physical: { selector: 'local_connected' } },
+      appSource: { strategy: 'auto_from_workspace' },
+      backendPreference: {},
+      execution: {
+        prefer: 'device_backend',
+        fallback: 'device_backend',
+        resolvedPath: 'device_backend',
+        selectionReason: 'confirmed_no_xcuitest_candidate',
+        features: ['Validation'],
+        testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
+        assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
+      },
+      artifacts: {
+        collect: ['screenshot'],
+        report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
+      },
+      performance: { baseline: 'skip', baselineDomain: 'physical', thresholdRequired: false },
+      safety: { defaultMode: 'ask', highRiskActions: [] },
+    });
+    return { ...initial, mode: 'plan_review', deviceStatus: 'healthy', plan };
+  }
+  return initial;
+}
+
+const initialState = stateForScenario();
 await selected.renderer.start(initialState, (event) => {
   appendFileSync(eventPath, `${JSON.stringify(event)}\n`);
 });

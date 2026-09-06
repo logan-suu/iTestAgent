@@ -57,6 +57,8 @@ T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定�
 
 2026-09-06 的 T6.12 入口验收进一步确认：首次配置同样必须服从上述 selector，不得以“安全配置”为由把整个进程强制固定到 ANSI。当前 OpenTUI 首次配置路径必须在真实 PTY 中证明 UTF-8 输入/粘贴、API key 不回显和 clean exit；配置完成后继续沿用同一 renderer。安全性由专用掩码输入路径保证，而不是通过降低 renderer 获得；显式选择尚无安全首次配置路径的 renderer 必须 fail-closed。
 
+同次验收还确认，候选链路与 TestPlan 审阅属于生产 renderer 门禁的一部分：多行标题、状态和命令区必须使用显式纵向布局，不能依赖 renderer 的默认方向；Enter 必须分别产生候选确认与计划确认事件，`q` 必须明确表示取消，不能显示为完成。该行为必须通过真实 PTY 覆盖，避免单元级 keymap 正确但输入组件未连接提交事件。
+
 ### 2. 高风险 allow 不持久化
 
 - 高风险操作每次都以明确 `action/resource` 二次确认。
@@ -123,7 +125,7 @@ Route B 的 production composition 必须区分两种输入：未提供外部 en
 
 ## 验证要求
 
-1. 真实 PTY renderer matrix 覆盖输入、流式更新、resize、退出和资源清理；记录 Bun、renderer、平台与终端环境。
+1. 真实 PTY renderer matrix 覆盖输入、流式更新、resize、退出和资源清理；OpenTUI 额外覆盖首次配置 UTF-8/掩码输入，以及候选链路和 TestPlan 审阅的 Enter 确认事件；记录 Bun、renderer、平台与终端环境。
 2. 权限测试证明高风险 allow 不能跨请求或 session 绕过确认，持久化 deny 可加载和撤销。
 3. Keychain 测试证明独立确认、非 argv 传递、成功后才 remembered，以及失败回退 session-only。
 4. XCUITest、DeviceBackend、pending ask、WDA readiness 与 xcresult parser 的取消测试使用同一 AbortSignal，并检查唯一 terminal event、部分证据和 owned-child 清理。

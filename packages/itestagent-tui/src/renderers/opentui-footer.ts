@@ -7,7 +7,8 @@
  */
 
 /** Key hints shown in the candidate review footer. */
-export const CANDIDATE_REVIEW_FOOTER_HINTS = 'j/k:nav space:toggle e:edit A:all N:none q:done';
+export const CANDIDATE_REVIEW_FOOTER_HINTS =
+  'j/k:nav space:toggle e:edit A:all N:none Enter:confirm q:cancel';
 
 /** Key hints shown in the plan review footer. */
 export const PLAN_REVIEW_FOOTER_HINTS = 'j/k:nav m:modify Enter:start q:cancel';
