@@ -98,20 +98,27 @@ export function parsePhysicalDevices(parsed: DevicectlListOutput): DeviceInfo[] 
     .filter((device) => {
       const connection = device.connectionProperties;
       if (!connection) return false;
-      // Xcode 26 reports an available paired device as localNetwork + disconnected
-      // until an operation opens the CoreDevice tunnel. Pairing proves discovery;
-      // the production replay readiness probe separately proves WDA is active.
+      // Pairing proves inventory membership, not current execution readiness.
       if (connection.pairingState === 'paired') return true;
       return connection.tunnelState === 'connected' || connection.tunnelState === 'available';
     })
-    .map((device) => ({
-      udid: String(device.hardwareProperties?.udid ?? ''),
-      name: device.deviceProperties?.name,
-      model: device.hardwareProperties?.productType,
-      osVersion: device.deviceProperties?.osVersionNumber,
-      platform: 'ios' as const,
-      targetKind: 'physical' as const,
-    }))
+    .map((device) => {
+      const connection = device.connectionProperties;
+      const tunnelReady =
+        connection?.tunnelState === 'connected' || connection?.tunnelState === 'available';
+      const wiredReady =
+        connection?.pairingState === 'paired' &&
+        (connection.transportType === 'wired' || connection.transportType === 'usb');
+      return {
+        udid: String(device.hardwareProperties?.udid ?? ''),
+        name: device.deviceProperties?.name,
+        model: device.hardwareProperties?.productType,
+        osVersion: device.deviceProperties?.osVersionNumber,
+        platform: 'ios' as const,
+        targetKind: 'physical' as const,
+        availability: tunnelReady || wiredReady ? ('ready' as const) : ('discovered' as const),
+      };
+    })
     .filter((device) => device.udid !== '');
 }
 
@@ -142,6 +149,7 @@ export function parseSimulatorDevices(raw: string): DeviceInfo[] {
         runtimeIdentifier: runtimeKey,
         deviceTypeIdentifier: String(device.deviceTypeIdentifier ?? ''),
         state: normalizeSimulatorState(device.state),
+        availability: normalizeSimulatorState(device.state) === 'booted' ? 'ready' : 'discovered',
       });
     }
   }

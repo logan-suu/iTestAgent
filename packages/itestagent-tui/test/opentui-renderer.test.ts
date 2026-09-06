@@ -73,6 +73,7 @@ describe('StatefulApp reducer integration', () => {
   it('device status labels cover all DeviceStatus values', () => {
     const statuses: DeviceStatus[] = [
       'no_device',
+      'discovered',
       'checking',
       'healthy',
       'degraded',

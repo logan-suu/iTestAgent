@@ -210,6 +210,23 @@ describe('PlanningSession', () => {
     expect(modified.plan?.projectProfileRef).toBe(planned.plan?.projectProfileRef);
   });
 
+  it('preserves an explicit device selection across plan modifications', () => {
+    const session = new PlanningSession(analysis());
+    const snapshot = session.begin('用本机 iPhone 跑登录和下单 smoke');
+    session.confirmCandidates(
+      snapshot.candidates.map((candidate) => ({ ...candidate, confirmed: true })),
+    );
+    session.selectDevice({
+      kind: 'physical',
+      physical: { selector: 'by_udid', udid: 'selected-device' },
+    });
+    const modified = session.modifyPlan('只跑登录，不要下单');
+    expect(modified.plan?.device).toEqual({
+      kind: 'physical',
+      physical: { selector: 'by_udid', udid: 'selected-device' },
+    });
+  });
+
   it('returns a plan only after explicit confirmation', () => {
     const session = new PlanningSession(analysis());
     const snapshot = session.begin('用本机 iPhone 跑登录 smoke');

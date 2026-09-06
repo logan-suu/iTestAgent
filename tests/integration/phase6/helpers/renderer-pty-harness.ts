@@ -45,6 +45,23 @@ function stateForScenario(): TuiShellState {
       ],
     };
   }
+  if (scenario === 'device-review') {
+    return {
+      ...initial,
+      mode: 'device_review',
+      deviceStatus: 'discovered',
+      deviceSelectionTargetKind: 'physical',
+      devices: [
+        {
+          udid: 'ready-device',
+          name: 'USB iPhone',
+          platform: 'ios',
+          targetKind: 'physical',
+          availability: 'ready',
+        },
+      ],
+    };
+  }
   if (scenario === 'plan-review') {
     const plan = TestPlanSchema.parse({
       schemaVersion: 'itestagent.test-plan.v3',

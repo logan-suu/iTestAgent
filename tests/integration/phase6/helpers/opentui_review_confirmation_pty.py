@@ -105,6 +105,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix='itestagent-external-workspace-') as launch_cwd:
         results = [
             run_scenario(repo, launch_cwd, 'candidate-review', 'candidate_confirm'),
+            run_scenario(repo, launch_cwd, 'device-review', 'device_confirm'),
             run_scenario(repo, launch_cwd, 'plan-review', 'plan_confirm'),
         ]
     print(json.dumps(results, separators=(',', ':')))

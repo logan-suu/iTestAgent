@@ -29,6 +29,31 @@ function createState(): TuiShellState {
       ],
     };
   }
+  if (scenario === 'device-review') {
+    return {
+      ...initial,
+      mode: 'device_review',
+      deviceStatus: 'discovered',
+      deviceSelectionTargetKind: 'physical',
+      deviceSelectionIndex: 1,
+      devices: [
+        {
+          udid: 'offline-device',
+          name: 'Paired iPhone',
+          platform: 'ios',
+          targetKind: 'physical',
+          availability: 'discovered',
+        },
+        {
+          udid: 'ready-device',
+          name: 'USB iPhone',
+          platform: 'ios',
+          targetKind: 'physical',
+          availability: 'ready',
+        },
+      ],
+    };
+  }
   if (scenario === 'plan-review') {
     const plan = TestPlanSchema.parse({
       schemaVersion: 'itestagent.test-plan.v3',

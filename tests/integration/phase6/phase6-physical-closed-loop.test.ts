@@ -117,7 +117,10 @@ function createDiscoveryRuntime(
         const entry = options.physical
           ? [
               {
-                connectionProperties: { pairingState: 'paired' },
+                connectionProperties: {
+                  pairingState: 'paired',
+                  transportType: 'usb',
+                },
                 hardwareProperties: {
                   udid: options.physical.udid,
                   productType: options.physical.model,
@@ -325,6 +328,7 @@ describe('T6.11 production physical MVP closed loop', () => {
       planningPatches.push(patch);
     }
     session.confirmCandidates(confirmedCandidates(planningPatches));
+    session.selectDevice(session.getDevices()[0]?.udid ?? '');
     session.confirmPlan();
     const runId = session.getConfirmedPlan()?.runId;
     expect(runId).toBeTruthy();
@@ -371,7 +375,7 @@ describe('T6.11 production physical MVP closed loop', () => {
       ),
     ).rejects.toThrow('rerun_case_not_reproducible');
     expect(rerunDiscovery).toBe(0);
-    expect(backendCreations).toBe(2);
+    expect(backendCreations).toBe(1);
     session.dispose();
   });
 
@@ -431,6 +435,7 @@ describe('T6.11 production physical MVP closed loop', () => {
       planningPatches.push(patch);
     }
     session.confirmCandidates(confirmedCandidates(planningPatches));
+    session.selectDevice(session.getDevices()[0]?.udid ?? '');
     session.confirmPlan();
     const parentPlan = session.getConfirmedPlan();
     if (!parentPlan) throw new Error('confirmed XCUITest plan was not retained');

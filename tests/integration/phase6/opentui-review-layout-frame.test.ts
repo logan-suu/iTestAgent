@@ -6,7 +6,9 @@ interface CapturedReviewFrame {
   frame: string;
 }
 
-async function captureFrame(scenario: 'candidate-review' | 'plan-review'): Promise<string> {
+async function captureFrame(
+  scenario: 'candidate-review' | 'device-review' | 'plan-review',
+): Promise<string> {
   const processHandle = Bun.spawn(
     ['bun', 'tests/integration/phase6/helpers/opentui_review_frame_harness.tsx', scenario],
     { cwd: process.cwd(), stdout: 'pipe', stderr: 'pipe' },
@@ -49,6 +51,22 @@ describe('OpenTUI review layout character frames', () => {
       'j/k:nav m:modify Enter:start q:cancel',
     );
     expectAdjacentRows(frame, 'Section 1/7', 'Cmd: j/k/m/Enter/q');
+  });
+
+  test('shows readiness without exposing device identifiers on the selection page', async () => {
+    const frame = await captureFrame('device-review');
+    expectAdjacentRows(
+      frame,
+      'Device Selection — physical',
+      'j/k:nav Enter:select r:refresh q:cancel',
+    );
+    expect(frame).toContain('Paired iPhone');
+    expect(frame).toContain('discovered (not connected)');
+    expect(frame).toContain('USB iPhone');
+    expect(frame).toContain('ready');
+    expect(frame).not.toContain('offline-device');
+    expect(frame).not.toContain('ready-device');
+    expectAdjacentRows(frame, '2/2', 'Cmd: j/k/Enter/r/q');
   });
 
   test('resolves the OpenTUI runtime version declared by the TUI package', async () => {

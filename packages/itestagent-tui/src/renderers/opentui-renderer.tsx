@@ -15,6 +15,7 @@ import {
   formatAssertionSuggestions,
 } from '../assertion-review.js';
 import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
+import { devicesForTarget, formatDeviceAvailability, isDeviceReady } from '../device-review.js';
 import { PLAN_SECTIONS, formatPlanSections } from '../plan-review.js';
 import type { TuiRenderer } from '../renderer.js';
 import type { DeviceStatus, Message, TuiShellEvent, TuiShellState } from '../tui-shell.js';
@@ -29,7 +30,11 @@ import {
   candidateFooterStatus,
   planFooterStatus,
 } from './opentui-footer.js';
-import { dispatchCandidateKey, dispatchPlanKey } from './opentui-key-dispatch.js';
+import {
+  dispatchCandidateKey,
+  dispatchDeviceKey,
+  dispatchPlanKey,
+} from './opentui-key-dispatch.js';
 import {
   type OpenTuiStateRef,
   createOpenTuiLifecycle,
@@ -42,6 +47,7 @@ import { RecordingPanel } from './recording-panel.jsx';
 
 const DEVICE_LABELS: Record<DeviceStatus, string> = {
   no_device: '[no device]',
+  discovered: '[target not selected]',
   checking: '[checking…]',
   healthy: '[✓ connected]',
   degraded: '[! discovery degraded]',
@@ -104,6 +110,88 @@ function MessageList(props: { messages: readonly Message[] }): JSX.Element {
           );
         })
       )}
+    </box>
+  );
+}
+
+function DeviceReviewPanel(props: {
+  state: () => TuiShellState;
+  dispatch: (event: TuiShellEvent) => void;
+}): JSX.Element {
+  const s = props.state;
+  const [cmd, setCmd] = createSignal('');
+  const candidates = () => {
+    const targetKind = s().deviceSelectionTargetKind;
+    return targetKind ? devicesForTarget(s().devices, targetKind) : [];
+  };
+
+  const handleCommand = (value: string) => {
+    dispatchDeviceKey(props.dispatch, value);
+  };
+
+  const handleInput = (value: string) => {
+    if (!value) {
+      setCmd('');
+      return;
+    }
+    handleCommand(value);
+    setTimeout(() => setCmd(''), 0);
+  };
+
+  return (
+    <box flexDirection="column" flexGrow={1} padding={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="double" padding={1} marginBottom={1}>
+        <text>{`Device Selection — ${s().deviceSelectionTargetKind ?? 'unknown'}`}</text>
+        <text opacity={0.5}>j/k:nav Enter:select r:refresh q:cancel</text>
+      </box>
+
+      <scrollbox flexGrow={1} padding={1}>
+        <box flexDirection="column">
+          <Show when={s().messages.length > 0}>
+            <text>{s().messages[s().messages.length - 1]?.text ?? ''}</text>
+          </Show>
+          <Show when={candidates().length === 0}>
+            <text>No matching targets discovered. Connect or boot one, then press r.</text>
+          </Show>
+          <For each={candidates()}>
+            {(device, index) => {
+              const selected = () => index() === s().deviceSelectionIndex;
+              return (
+                <box
+                  flexDirection="column"
+                  padding={1}
+                  marginBottom={1}
+                  borderStyle={selected() ? 'single' : undefined}
+                  backgroundColor={selected() ? '#222233' : undefined}
+                >
+                  <text>{`${selected() ? '>' : ' '} ${device.name ?? 'Unnamed device'}`}</text>
+                  <text opacity={isDeviceReady(device) ? 1 : 0.5}>
+                    {`${device.targetKind} · iOS ${device.osVersion ?? 'unknown'} · ${formatDeviceAvailability(device)}`}
+                  </text>
+                </box>
+              );
+            }}
+          </For>
+        </box>
+      </scrollbox>
+
+      <box flexDirection="column" flexShrink={0} borderStyle="rounded" padding={1} marginTop={1}>
+        <text opacity={0.5}>
+          {candidates().length > 0
+            ? `${s().deviceSelectionIndex + 1}/${candidates().length}`
+            : '0/0'}
+        </text>
+        <box flexDirection="row">
+          <text opacity={0.5}>Cmd: </text>
+          <input
+            focused={true}
+            value={cmd()}
+            onInput={handleInput}
+            onSubmit={() => handleCommand('enter')}
+            placeholder="j/k/Enter/r/q"
+          />
+        </box>
+      </box>
     </box>
   );
 }
@@ -458,6 +546,8 @@ export function OpenTuiApp(props: {
           setDraft={setDraft}
           onSubmit={handleSetupSubmit}
         />
+      ) : s().mode === 'device_review' ? (
+        <DeviceReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : s().mode === 'plan_review' ? (
         <PlanReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : s().mode === 'candidate_review' ? (

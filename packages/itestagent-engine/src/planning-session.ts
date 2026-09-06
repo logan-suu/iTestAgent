@@ -1,4 +1,5 @@
-import type { Intent, IntentParseResult, TestPlan } from 'itestagent-contracts';
+import { parseTestPlan } from 'itestagent-contracts';
+import type { DeviceSelector, Intent, IntentParseResult, TestPlan } from 'itestagent-contracts';
 import type {
   CandidateLink,
   ProjectAnalysisResult,
@@ -207,6 +208,7 @@ export class PlanningSession {
     }
 
     const currentIntent = this.intentResult.intent;
+    const selectedDevice = this.plan.device;
     const parsed = parseIntent(input, this.reviewedProfile);
     const requested = parsed.intent.features;
     const confirmedNames = new Set(
@@ -246,10 +248,34 @@ export class PlanningSession {
       sourceText: `${currentIntent.sourceText}\nModification: ${input}`,
     };
     this.intentResult = { status: 'complete', intent };
-    return this.resolvePlan(intent, false, {
+    const resolved = this.resolvePlan(intent, false, {
       runId: this.plan.runId,
       projectProfileRef: this.plan.projectProfileRef,
     });
+    if (
+      resolved.status === 'awaiting_plan_confirmation' &&
+      this.plan &&
+      this.plan.device.kind === selectedDevice.kind
+    ) {
+      this.plan = parseTestPlan({ ...this.plan, device: selectedDevice });
+      return this.snapshot();
+    }
+    return resolved;
+  }
+
+  selectDevice(device: DeviceSelector): PlanningSnapshot {
+    this.requireStatus('awaiting_plan_confirmation', 'select device');
+    if (!this.plan) {
+      throw new PlanningSessionError('plan_unavailable', 'there is no draft plan to update');
+    }
+    if (device.kind !== this.plan.device.kind) {
+      throw new PlanningSessionError(
+        'invalid_transition',
+        `selected ${device.kind} target does not match planned ${this.plan.device.kind} target`,
+      );
+    }
+    this.plan = parseTestPlan({ ...this.plan, device });
+    return this.snapshot();
   }
 
   confirmPlan(): TestPlan {

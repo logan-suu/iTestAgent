@@ -101,3 +101,27 @@ export function dispatchPlanKey(ctx: KeyDispatchContext, value: string): KeyDisp
   ctx.dispatch(event);
   return 'handled';
 }
+
+/** Handle one command value for DeviceReviewPanel. */
+export function dispatchDeviceKey(
+  dispatch: (event: TuiShellEvent) => void,
+  value: string,
+): KeyDispatchResult {
+  const key = normalizeKey(value === '\r' || value === '\n' ? 'enter' : value.toLowerCase());
+  if (!key) return 'ignored';
+  const event: TuiShellEvent | null =
+    key === 'j'
+      ? { type: 'device_navigate', direction: 'down' }
+      : key === 'k'
+        ? { type: 'device_navigate', direction: 'up' }
+        : key === 'r'
+          ? { type: 'device_refresh' }
+          : key === 'q'
+            ? { type: 'device_cancel' }
+            : key === 'enter'
+              ? { type: 'device_confirm' }
+              : null;
+  if (!event) return 'ignored';
+  dispatch(event);
+  return 'handled';
+}

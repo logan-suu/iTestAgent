@@ -2,11 +2,17 @@ import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
-import { parseIntentResult, parseTestPlan } from 'itestagent-contracts';
+import {
+  DeviceInfoSchema,
+  TargetKindSchema,
+  parseIntentResult,
+  parseTestPlan,
+} from 'itestagent-contracts';
 import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
 import { DEFAULT_API_KEY_TARGET } from './api-key-loader.js';
 import { formatPersistenceAuthorizationNotice } from './credential-prompt.js';
+import { devicesForTarget, isDeviceReady } from './device-review.js';
 import {
   PERSISTENCE_CONFIRMATION_TOKEN,
   authorizePersistence,
@@ -246,6 +252,57 @@ export async function startTui(workspace?: string): Promise<void> {
       return;
     }
 
+    if (event.type === 'device_confirm' && agentSession) {
+      const targetKind = state.deviceSelectionTargetKind;
+      const candidates = targetKind ? devicesForTarget(state.devices, targetKind) : [];
+      const selected = candidates[state.deviceSelectionIndex];
+      if (!selected) {
+        state = tuiShellReducer(state, {
+          type: 'system_message',
+          text: 'No matching device is available. Connect or boot one, then press r to refresh.',
+        });
+      } else {
+        try {
+          for (const patch of agentSession.selectDevice(selected.udid)) {
+            state = applyAgentPatch(state, patch);
+          }
+        } catch (error: unknown) {
+          state = tuiShellReducer(state, {
+            type: 'system_message',
+            text: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'device_refresh' && agentSession) {
+      state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
+      renderer.update(state);
+      void agentSession
+        .refreshDevices()
+        .then((patches) => {
+          for (const patch of patches) state = applyAgentPatch(state, patch);
+          renderer.update(state);
+        })
+        .catch((error: unknown) => {
+          state = tuiShellReducer(state, {
+            type: 'system_message',
+            text: error instanceof Error ? error.message : String(error),
+          });
+          renderer.update(state);
+        });
+      return;
+    }
+
+    if (event.type === 'device_cancel' && agentSession) {
+      state = tuiShellReducer(state, event);
+      for (const patch of agentSession.cancelPlan()) state = applyAgentPatch(state, patch);
+      renderer.update(state);
+      return;
+    }
+
     if (event.type === 'plan_modify_submit' && agentSession) {
       state = tuiShellReducer(state, event);
       try {
@@ -401,6 +458,25 @@ export function applyAgentPatch(
         : [];
       return tuiShellReducer(state, { type: 'enter_candidate_review', candidates });
     }
+    case 'device_selection_request': {
+      const devices = DeviceInfoSchema.array().parse(patch.payload.devices ?? []);
+      const targetKind = TargetKindSchema.parse(patch.payload.targetKind);
+      const withDevices = tuiShellReducer(state, {
+        type: 'devices_updated',
+        devices,
+        status: devices.length > 0 ? 'discovered' : 'no_device',
+      });
+      return tuiShellReducer(withDevices, {
+        type: 'enter_device_review',
+        targetKind,
+        devices,
+      });
+    }
+    case 'device_selected':
+      return tuiShellReducer(state, {
+        type: 'device_selected',
+        udid: String(patch.payload.udid ?? ''),
+      });
     case 'plan_update': {
       if (patch.payload.plan === null) {
         return tuiShellReducer(state, { type: 'plan_cancel' });
@@ -429,25 +505,21 @@ export function applyAgentPatch(
       return tuiShellReducer(state, { type: 'system_message', text });
     }
     case 'devices_update': {
-      const devices = Array.isArray(patch.payload.devices) ? patch.payload.devices : [];
+      const devices = DeviceInfoSchema.array().parse(patch.payload.devices ?? []);
       const discoveryStatus = patch.payload.discoveryStatus;
-      const hasReadyDevice = devices.some((device) => {
-        if (!device || typeof device !== 'object') return false;
-        const value = device as Record<string, unknown>;
-        return value.targetKind === 'physical' || value.state === 'booted';
-      });
       const status =
         discoveryStatus === 'failed'
           ? 'unavailable'
           : discoveryStatus === 'partial'
             ? 'degraded'
-            : hasReadyDevice
-              ? 'healthy'
-              : devices.length > 0
-                ? 'unavailable'
-                : 'no_device';
+            : devices.length === 0
+              ? 'no_device'
+              : devices.some(isDeviceReady)
+                ? 'discovered'
+                : 'unavailable';
       return tuiShellReducer(state, {
-        type: 'device_status_updated',
+        type: 'devices_updated',
+        devices,
         status,
       });
     }

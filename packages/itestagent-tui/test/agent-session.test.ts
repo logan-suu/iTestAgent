@@ -39,6 +39,7 @@ const PHYSICAL_DEVICE: DeviceInfo = {
   osVersion: '18.0',
   platform: 'ios',
   targetKind: 'physical',
+  availability: 'ready',
 };
 
 const SIMULATOR_DEVICE: DeviceInfo = {
@@ -48,6 +49,7 @@ const SIMULATOR_DEVICE: DeviceInfo = {
   platform: 'ios',
   targetKind: 'simulator',
   state: 'booted',
+  availability: 'ready',
 };
 
 const FAKE_ANALYSIS = {
@@ -217,7 +219,7 @@ describe('createAgentSession production composition', () => {
     expect(discoveryCalled).toBe(false);
   });
 
-  it('exposes discovered targets and binds the first physical device only', async () => {
+  it('exposes discovered targets without constructing a backend before selection', async () => {
     const bound: DeviceInfo[] = [];
     const session = await createAgentSession(
       '/workspace',
@@ -230,7 +232,7 @@ describe('createAgentSession production composition', () => {
     );
 
     expect(session.getDevices()).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
-    expect(bound).toEqual([PHYSICAL_DEVICE]);
+    expect(bound).toEqual([]);
     expect(typeof session.resolvePermission).toBe('function');
     expect(typeof session.cancelPermission).toBe('function');
   });
@@ -277,6 +279,34 @@ describe('createAgentSession production composition', () => {
 });
 
 describe('AgentSession tools', () => {
+  it('requires explicit selection and rejects a paired but disconnected physical target', async () => {
+    const offline = { ...PHYSICAL_DEVICE, udid: 'offline', availability: 'discovered' as const };
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({ listDevices: async () => [offline, SIMULATOR_DEVICE] }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    const patches = session.confirmCandidates(confirmedFakeCandidates());
+    expect(patches.map((patch) => patch.type)).toContain('device_selection_request');
+    expect(() => session.confirmPlan()).toThrow('device_selection_required');
+    expect(() => session.selectDevice(offline.udid)).toThrow('device_not_ready');
+  });
+
+  it('writes the selected ready target into the draft plan before review', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    const patches = session.selectDevice(PHYSICAL_DEVICE.udid);
+    const planPatch = patches.find((patch) => patch.type === 'plan_update');
+    expect(planPatch?.payload.plan).toMatchObject({
+      device: {
+        kind: 'physical',
+        physical: { selector: 'by_udid', udid: PHYSICAL_DEVICE.udid },
+      },
+    });
+    expect(patches.some((patch) => patch.payload.mode === 'plan_review')).toBe(true);
+  });
+
   it('dispatches the exact confirmed v3 plan instead of returning the task 6.5 placeholder', async () => {
     const dispatched: Array<{ runId: string; device: string; signal?: AbortSignal }> = [];
     const session = await createAgentSession(
@@ -290,6 +320,7 @@ describe('AgentSession tools', () => {
     );
     await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
+    session.selectDevice(PHYSICAL_DEVICE.udid);
     const confirmed = session.confirmPlan();
     expect(confirmed.some((patch) => patch.payload.confirmed === true)).toBe(true);
 
@@ -319,6 +350,7 @@ describe('AgentSession tools', () => {
     );
     await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
+    session.selectDevice(PHYSICAL_DEVICE.udid);
     session.confirmPlan();
 
     streamScenario = async function* ({ tools }) {
@@ -378,7 +410,7 @@ describe('AgentSession tools', () => {
       { toolCallId: 'devices-1' },
     )) as Record<string, unknown>;
     expect(output.connected).toBe(true);
-    expect(output.selectedDevice).toEqual(PHYSICAL_DEVICE);
+    expect(output.selectedDevice).toBeNull();
     expect(output.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
   });
 
@@ -524,6 +556,7 @@ describe('AgentSession planning lifecycle', () => {
     const session = await createAgentSession('/workspace', dependencies());
     await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
+    session.selectDevice(PHYSICAL_DEVICE.udid);
     const confirmPatches = session.confirmPlan();
     expect(confirmPatches.find((patch) => patch.type === 'message_add')?.payload.text).toContain(
       '/plan <test goal>',

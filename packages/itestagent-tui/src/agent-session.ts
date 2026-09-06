@@ -28,6 +28,7 @@ import {
   suggestExplorationAction,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
+import { isDeviceReady } from './device-review.js';
 import { persistGlobalDeniedRule } from './global-deny-store.js';
 import { retainMessages } from './message-retention.js';
 import { loadTuiRuntimeConfig } from './runtime-config.js';
@@ -112,16 +113,12 @@ function normalizeDiscovery(value: AgentDeviceDiscovery | DeviceInfo[]): AgentDe
   return Array.isArray(value) ? { devices: value, status: 'ok', issues: [] } : value;
 }
 
-function isReadyDevice(device: DeviceInfo): boolean {
-  return device.targetKind === 'physical' || device.state === 'booted';
-}
-
 export function selectConfirmedPlanDevice(
   plan: TestPlan,
   devices: readonly DeviceInfo[],
 ): DeviceInfo {
   let candidates = devices.filter(
-    (device) => device.targetKind === plan.device.kind && isReadyDevice(device),
+    (device) => device.targetKind === plan.device.kind && isDeviceReady(device),
   );
   if (plan.device.kind === 'physical') {
     const selector = plan.device.physical;
@@ -179,6 +176,8 @@ export interface TuiAgentSession {
   processMessage(input: string): AsyncIterable<TuiStatePatch>;
   getDevices(): readonly DeviceInfo[];
   confirmCandidates(candidates: readonly CandidateLink[]): readonly TuiStatePatch[];
+  selectDevice(udid: string): readonly TuiStatePatch[];
+  refreshDevices(): Promise<readonly TuiStatePatch[]>;
   modifyPlan(input: string): readonly TuiStatePatch[];
   confirmPlan(): readonly TuiStatePatch[];
   cancelPlan(): readonly TuiStatePatch[];
@@ -209,6 +208,8 @@ export interface TuiStatePatch {
     | 'mode_change'
     | 'intent_update'
     | 'candidates_update'
+    | 'device_selection_request'
+    | 'device_selected'
     | 'plan_update'
     | 'permission_request'
     | 'permission_resolved'
@@ -279,15 +280,18 @@ export async function createAgentSession(
     (dependencies.createDeviceBackend ? () => false : (production.preparesWda ?? (() => false)));
   let discovery = normalizeDiscovery(await listDevices());
   let devices = discovery.devices;
-  const physicalDevice = devices.find((device) => device.targetKind === 'physical');
-
-  const registry = new BackendRegistry();
-  if (physicalDevice) {
-    registry.register(
-      'appium',
-      (dependencies.createDeviceBackend ?? production.createDeviceBackend)(physicalDevice),
-    );
-  }
+  let selectedDeviceUdid: string | null = null;
+  const refreshDiscovery = async () => {
+    discovery = normalizeDiscovery(await listDevices());
+    devices = discovery.devices;
+    if (
+      selectedDeviceUdid &&
+      !devices.some((device) => device.udid === selectedDeviceUdid && isDeviceReady(device))
+    ) {
+      selectedDeviceUdid = null;
+    }
+    return discovery;
+  };
 
   const permissionEngine = new PermissionEngine({
     preloadedRules: runtimeConfig.permissions.deniedRules,
@@ -388,7 +392,7 @@ export async function createAgentSession(
 
   const toolDispatcher = new ToolDispatcher({
     permissionEngine,
-    backendSelector: new BackendSelector(registry),
+    backendSelector: new BackendSelector(new BackendRegistry()),
     targetKind: 'physical',
     customTools: {
       analyzeProject: {
@@ -402,8 +406,7 @@ export async function createAgentSession(
         resource: 'local-apple-devices',
         backendName: 'itestagent-backends-device-appium',
         execute: async () => {
-          discovery = normalizeDiscovery(await listDevices());
-          devices = discovery.devices;
+          await refreshDiscovery();
           activeQueue?.push({
             type: 'devices_update',
             payload: {
@@ -422,8 +425,11 @@ export async function createAgentSession(
             });
           }
           return {
-            connected: devices.some(isReadyDevice),
-            selectedDevice: devices.find((device) => device.targetKind === 'physical') ?? null,
+            connected: devices.some(isDeviceReady),
+            selectedDevice:
+              devices.find(
+                (device) => device.udid === selectedDeviceUdid && isDeviceReady(device),
+              ) ?? null,
             devices,
             discoveryStatus: discovery.status,
             limitations: discovery.issues,
@@ -539,9 +545,10 @@ export async function createAgentSession(
           }
           if (planningSnapshot) {
             if (explicitGoal !== null) {
+              selectedDeviceUdid = null;
               queue.push({ type: 'planning_reset', payload: {} });
             }
-            for (const patch of planningPatches(planningSnapshot)) queue.push(patch);
+            for (const patch of planningPatches(planningSnapshot, devices)) queue.push(patch);
           }
 
           transcript.push({ role: 'user', content: input });
@@ -577,20 +584,81 @@ export async function createAgentSession(
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      return planningPatches(planningSession.confirmCandidates(candidates));
+      return planningPatches(planningSession.confirmCandidates(candidates), devices);
+    },
+
+    selectDevice(udid) {
+      if (!planningSession) {
+        throw new Error('planning_session_unavailable: submit a test goal first');
+      }
+      const plan = planningSession.getSnapshot().plan;
+      if (!plan) throw new Error('plan_unavailable: there is no draft plan to update');
+      const selected = devices.find(
+        (device) => device.udid === udid && device.targetKind === plan.device.kind,
+      );
+      if (!selected) {
+        throw new Error(
+          `device_selection_required: choose a discovered ${plan.device.kind} target`,
+        );
+      }
+      if (!isDeviceReady(selected)) {
+        throw new Error(
+          `device_not_ready: selected ${plan.device.kind} target is discovered but not connected; connect it and press r to refresh`,
+        );
+      }
+      const device =
+        selected.targetKind === 'physical'
+          ? {
+              kind: 'physical' as const,
+              physical: { selector: 'by_udid' as const, udid: selected.udid },
+            }
+          : {
+              kind: 'simulator' as const,
+              simulator: { selector: 'by_udid' as const, udid: selected.udid },
+            };
+      const snapshot = planningSession.selectDevice(device);
+      selectedDeviceUdid = selected.udid;
+      return [
+        { type: 'device_selected', payload: { udid: selected.udid } },
+        ...planningPatches(snapshot, devices),
+      ];
+    },
+
+    async refreshDevices() {
+      await refreshDiscovery();
+      const patches: TuiStatePatch[] = [
+        {
+          type: 'devices_update',
+          payload: {
+            devices,
+            discoveryStatus: discovery.status,
+            issues: discovery.issues,
+          },
+        },
+      ];
+      const snapshot = planningSession?.getSnapshot();
+      if (snapshot?.plan) patches.push(...planningPatches(snapshot, devices));
+      return patches;
     },
 
     modifyPlan(input) {
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      return planningPatches(planningSession.modifyPlan(input));
+      return planningPatches(planningSession.modifyPlan(input), devices);
     },
 
     confirmPlan() {
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
+      const snapshot = planningSession.getSnapshot();
+      if (!snapshot.plan || planNeedsDeviceSelection(snapshot.plan, devices)) {
+        throw new Error(
+          'device_selection_required: select one ready execution target before confirming the plan',
+        );
+      }
+      selectConfirmedPlanDevice(snapshot.plan, devices);
       const plan = planningSession.confirmPlan();
       return [
         { type: 'plan_update', payload: { plan, confirmed: true } },
@@ -608,6 +676,7 @@ export async function createAgentSession(
     cancelPlan() {
       if (!planningSession) return [];
       planningSession.cancel();
+      selectedDeviceUdid = null;
       return [
         { type: 'plan_update', payload: { plan: null, confirmed: false } },
         { type: 'mode_change', payload: { mode: 'chat' } },
@@ -656,7 +725,10 @@ export async function createAgentSession(
   };
 }
 
-function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): TuiStatePatch[] {
+function planningPatches(
+  snapshot: ReturnType<PlanningSession['getSnapshot']>,
+  devices: readonly DeviceInfo[],
+): TuiStatePatch[] {
   const patches: TuiStatePatch[] = [
     { type: 'intent_update', payload: { result: snapshot.intentResult } },
   ];
@@ -721,10 +793,42 @@ function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): 
     });
   }
   if (snapshot.status === 'awaiting_plan_confirmation' && snapshot.plan) {
-    patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });
-    patches.push({ type: 'mode_change', payload: { mode: 'plan_review' } });
+    if (planNeedsDeviceSelection(snapshot.plan, devices)) {
+      patches.push({
+        type: 'device_selection_request',
+        payload: {
+          targetKind: snapshot.plan.device.kind,
+          devices,
+        },
+      });
+      patches.push({ type: 'mode_change', payload: { mode: 'device_review' } });
+    } else {
+      patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });
+      patches.push({ type: 'mode_change', payload: { mode: 'plan_review' } });
+    }
   }
   return patches;
+}
+
+function planNeedsDeviceSelection(plan: TestPlan, devices: readonly DeviceInfo[]): boolean {
+  const selector = plan.device.kind === 'physical' ? plan.device.physical : plan.device.simulator;
+  if (selector?.selector === 'by_udid') {
+    return !devices.some(
+      (device) =>
+        device.targetKind === plan.device.kind &&
+        device.udid === selector.udid &&
+        isDeviceReady(device),
+    );
+  }
+  if (selector?.selector === 'by_name') {
+    return !devices.some(
+      (device) =>
+        device.targetKind === plan.device.kind &&
+        device.name === selector.name &&
+        isDeviceReady(device),
+    );
+  }
+  return true;
 }
 
 function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {

@@ -65,7 +65,15 @@ describe('Phase 6 intent → confirmed TestPlan production session', () => {
       createModel: () =>
         ({ specificationVersion: 'v2', provider: 'test', modelId: 'planning' }) as never,
       analyzeWorkspace: async () => ANALYSIS,
-      listDevices: async () => [],
+      listDevices: async () => [
+        {
+          udid: 'physical-ready',
+          name: 'Test iPhone',
+          platform: 'ios',
+          targetKind: 'physical',
+          availability: 'ready',
+        },
+      ],
       createDeviceBackend: () => ({ name: 'unused' }) as DeviceBackend,
     });
 
@@ -85,6 +93,10 @@ describe('Phase 6 intent → confirmed TestPlan production session', () => {
 
     state = tuiShellReducer(state, { type: 'candidate_confirm_all' });
     for (const patch of session.confirmCandidates(state.candidates)) {
+      state = applyAgentPatch(state, patch);
+    }
+    expect(state.mode).toBe('device_review');
+    for (const patch of session.selectDevice('physical-ready')) {
       state = applyAgentPatch(state, patch);
     }
     expect(state.mode).toBe('plan_review');

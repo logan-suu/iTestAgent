@@ -22,6 +22,7 @@ import {
   YELLOW,
   separatorLine,
 } from '../ansi-layout.js';
+import { devicesForTarget, formatDeviceAvailability } from '../device-review.js';
 import type { TuiShellState } from '../tui-shell.js';
 
 /** Minimal write surface — satisfied by process.stdout and test fakes. */
@@ -113,6 +114,19 @@ export function renderFrame(state: TuiShellState): string[] {
     lines.push(
       `${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`,
     );
+  } else if (mode === 'device_review') {
+    const targetKind = state.deviceSelectionTargetKind;
+    const devices = targetKind ? devicesForTarget(state.devices, targetKind) : [];
+    lines.push(`${YELLOW}[Device Selection — ${targetKind ?? 'unknown'}]${RESET}`);
+    for (const [index, device] of devices.entries()) {
+      lines.push(
+        `${index === state.deviceSelectionIndex ? '>' : ' '} ${device.name ?? 'Unnamed device'} — ${formatDeviceAvailability(device)}`,
+      );
+    }
+    if (devices.length === 0) {
+      lines.push('No matching targets discovered. Connect or boot one, then press r.');
+    }
+    lines.push(`${DIM}j/k to navigate, Enter to select, r to refresh, q to cancel${RESET}`);
   } else if (mode === 'plan_review') {
     lines.push(`${YELLOW}[Plan Review]${RESET} j/k to navigate, Enter to confirm, q to cancel`);
   }

@@ -13,9 +13,19 @@ describe('applyAgentPatch', () => {
     const initial = createInitialState('/workspace');
     const updated = applyAgentPatch(initial, {
       type: 'devices_update',
-      payload: { devices: [{ udid: 'device-1', targetKind: 'physical' }] },
+      payload: {
+        discoveryStatus: 'ok',
+        devices: [
+          {
+            udid: 'device-1',
+            platform: 'ios',
+            targetKind: 'physical',
+            availability: 'ready',
+          },
+        ],
+      },
     });
-    expect(updated.deviceStatus).toBe('healthy');
+    expect(updated.deviceStatus).toBe('discovered');
   });
 
   it('does not mark shutdown-only Simulator inventory healthy', () => {
@@ -23,7 +33,15 @@ describe('applyAgentPatch', () => {
       type: 'devices_update',
       payload: {
         discoveryStatus: 'ok',
-        devices: [{ udid: 'sim-1', targetKind: 'simulator', state: 'shutdown' }],
+        devices: [
+          {
+            udid: 'sim-1',
+            platform: 'ios',
+            targetKind: 'simulator',
+            state: 'shutdown',
+            availability: 'discovered',
+          },
+        ],
       },
     });
     expect(updated.deviceStatus).toBe('unavailable');

@@ -4,7 +4,11 @@ import { RESET } from '../ansi-layout.js';
 import type { TuiRenderer } from '../renderer.js';
 import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { moveCursorToPromptColumn, renderScreen } from './ansi-renderer-frame.js';
-import { dispatchCandidateKey, dispatchPlanKey } from './opentui-key-dispatch.js';
+import {
+  dispatchCandidateKey,
+  dispatchDeviceKey,
+  dispatchPlanKey,
+} from './opentui-key-dispatch.js';
 
 // ── Simple ANSI terminal renderer — zero external dependencies ──
 //
@@ -54,6 +58,11 @@ export function createAnsiRenderer(): TuiRenderer {
             },
             currentState.candidateEditMode || !text ? 'enter' : text,
           );
+          renderScreen(currentState);
+          return;
+        }
+        if (currentState.mode === 'device_review') {
+          dispatchDeviceKey(dispatchFn, text || 'enter');
           renderScreen(currentState);
           return;
         }
@@ -107,6 +116,12 @@ export function createAnsiRenderer(): TuiRenderer {
       process.stdin.setEncoding('utf-8');
 
       const onData = (chunk: string) => {
+        if (dispatchFn && currentState.mode === 'device_review') {
+          for (const char of chunk) {
+            dispatchDeviceKey(dispatchFn, char);
+          }
+          return;
+        }
         if (
           dispatchFn &&
           currentState.mode === 'candidate_review' &&

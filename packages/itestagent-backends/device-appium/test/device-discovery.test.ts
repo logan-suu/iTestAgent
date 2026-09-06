@@ -76,6 +76,7 @@ describe('shared Appium device discovery', () => {
         osVersion: '18.2.1',
         platform: 'ios',
         targetKind: 'physical',
+        availability: 'ready',
       },
       {
         udid: 'PHONE-XCODE-26',
@@ -84,6 +85,7 @@ describe('shared Appium device discovery', () => {
         osVersion: '18.2.1',
         platform: 'ios',
         targetKind: 'physical',
+        availability: 'discovered',
       },
     ]);
   });
@@ -96,7 +98,13 @@ describe('shared Appium device discovery', () => {
       targetKind: 'simulator',
       osVersion: '18.2',
       state: 'booted',
+      availability: 'ready',
     });
+  });
+
+  it('keeps a paired but disconnected local-network device as discovered, not ready', () => {
+    const devices = parsePhysicalDevices(physicalFixture);
+    expect(devices[1]?.availability).toBe('discovered');
   });
 
   it('normalizes transitional and unknown Simulator states to schema values', () => {
