@@ -683,6 +683,15 @@ describe('AgentSession streaming and permission bridge', () => {
     session.confirmPlan();
     const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
 
+    const preparing = await iterator.next();
+    expect(preparing).toMatchObject({
+      done: false,
+      value: {
+        type: 'activity_update',
+        payload: { text: 'Preparing confirmed TestPlan execution…' },
+      },
+    });
+
     const permission = await nextPatchOfType(iterator, 'permission_request');
     const callId = String(permission.payload.callId);
     expect(permission.payload.action).toBe('replace_device_app');

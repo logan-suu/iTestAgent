@@ -609,15 +609,20 @@ export class ToolDispatcher {
       return { denied: true, reason: `Permission denied: ${action} on ${resource}` };
     }
 
-    // gate === 'ask' — emit event and block for user resolution
-    this.emit({
-      type: 'permission.requested',
-      callId,
-      action,
-      resource,
-    });
-
+    // Register the pending ask before publishing it. A synchronous UI/event
+    // consumer may answer as soon as it receives permission.requested.
     const permission = this.permissionEngine.requestPermission(callId, action, resource);
+    try {
+      this.emit({
+        type: 'permission.requested',
+        callId,
+        action,
+        resource,
+      });
+    } catch (error: unknown) {
+      this.permissionEngine.cancel(callId, 'permission request delivery failed');
+      throw error;
+    }
     const cancelPendingAsk = () =>
       this.permissionEngine.cancel(callId, 'run aborted while awaiting permission');
     if (signal?.aborted) cancelPendingAsk();

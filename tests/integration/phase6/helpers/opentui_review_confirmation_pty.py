@@ -3,6 +3,7 @@ import fcntl
 import json
 import os
 import pty
+import re
 import select
 import signal
 import struct
@@ -11,6 +12,11 @@ import tempfile
 import termios
 import time
 from typing import Optional
+
+
+ANSI_ESCAPE = re.compile(
+    rb'(?:\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-_])'
+)
 
 
 def read_available(fd: int, duration: float) -> bytes:
@@ -28,6 +34,10 @@ def read_available(fd: int, duration: float) -> bytes:
             break
         chunks.append(data)
     return b''.join(chunks)
+
+
+def visible_text(data: bytes) -> bytes:
+    return ANSI_ESCAPE.sub(b'', data)
 
 
 def run_scenario(
@@ -110,6 +120,8 @@ def run_scenario(
         if forbidden_event
         else 0
     )
+    visible_followup = visible_text(after_followup)
+    compact_followup = re.sub(rb'\s+', b'', visible_followup)
     return {
         'scenario': scenario,
         'selected': b'PTY_SELECTED:opentui' in initial,
@@ -120,7 +132,11 @@ def run_scenario(
         'followupPlanConfirmCount': sum(
             1 for event in events if event == {'type': 'plan_confirm'}
         ),
-        'followupRendered': b'PTY_PLAN_CONFIRMED_PERMISSION_REQUIRED' in after_followup,
+        'followupRendered': (
+            b'Activity:Awaitingpermission:replace_device_app' in compact_followup
+            and b'ermissionrequired:replace_device_app' in compact_followup
+            and b'physical-device-udid' not in compact_followup
+        ),
         'cleanExit': os.waitstatus_to_exitcode(status) == 0,
         'bytes': {
             'initial': len(initial),

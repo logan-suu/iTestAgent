@@ -577,7 +577,7 @@ async function processAgentMessage(
   }
 }
 
-async function processConfirmedPlan(
+export async function processConfirmedPlan(
   session: {
     executeConfirmedPlan(): AsyncIterable<{
       type: string;
@@ -586,9 +586,30 @@ async function processConfirmedPlan(
   },
   onPatch: (patch: { type: string; payload: Record<string, unknown> }) => void,
 ): Promise<void> {
+  const bootstrapActivityId = `confirmed-plan-${crypto.randomUUID()}`;
+  onPatch({
+    type: 'activity_update',
+    payload: {
+      id: bootstrapActivityId,
+      text: 'Preparing confirmed TestPlan execution…',
+    },
+  });
   try {
+    let receivedTerminalPatch = false;
     for await (const patch of session.executeConfirmedPlan()) {
+      if (
+        patch.type === 'error' ||
+        (patch.type === 'activity_update' && patch.payload.complete === true)
+      ) {
+        receivedTerminalPatch = true;
+      }
       onPatch(patch);
+    }
+    if (!receivedTerminalPatch) {
+      onPatch({
+        type: 'error',
+        payload: { message: 'Confirmed TestPlan execution ended without a lifecycle result.' },
+      });
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -698,17 +719,36 @@ export function applyAgentPatch(
       });
     }
     case 'permission_request': {
+      const callId = String(patch.payload.callId ?? 'permission');
       const action = String(patch.payload.action ?? 'unknown action');
-      const resource = String(patch.payload.resource ?? 'unknown resource');
-      return tuiShellReducer(state, {
+      const resource = formatPermissionResourceForDisplay(
+        action,
+        String(patch.payload.resource ?? 'unknown resource'),
+      );
+      const waiting = tuiShellReducer(state, {
+        type: 'agent_activity_updated',
+        callId,
+        text: `Awaiting permission: ${action}`,
+      });
+      return tuiShellReducer(waiting, {
         type: 'system_message',
         text: `Permission required: ${action} on ${resource}. Reply allow, deny, or always-deny. Allow applies to this action only.`,
       });
     }
     case 'permission_resolved': {
-      return tuiShellReducer(state, {
+      const callId = String(patch.payload.callId ?? 'permission');
+      const effect = String(patch.payload.effect ?? 'resolved');
+      const continuing = tuiShellReducer(state, {
+        type: 'agent_activity_updated',
+        callId,
+        text:
+          effect === 'allow'
+            ? 'Permission granted; preparing execution…'
+            : 'Permission denied; stopping…',
+      });
+      return tuiShellReducer(continuing, {
         type: 'system_message',
-        text: `Permission ${String(patch.payload.effect ?? 'resolved')}.`,
+        text: `Permission ${effect}.`,
       });
     }
     case 'error': {
@@ -727,6 +767,12 @@ export function applyAgentPatch(
     default:
       return state;
   }
+}
+
+function formatPermissionResourceForDisplay(action: string, resource: string): string {
+  if (action !== 'replace_device_app' && action !== 'prepare_wda') return resource;
+  const deviceSeparator = resource.lastIndexOf('@');
+  return deviceSeparator > 0 ? `${resource.slice(0, deviceSeparator)}@selected device` : resource;
 }
 
 /** B29: maps a thrown agent-session error to a readable message. */

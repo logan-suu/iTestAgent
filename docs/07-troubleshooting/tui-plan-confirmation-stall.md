@@ -29,3 +29,5 @@
 真机复测继续暴露了两个交互层问题：设备页遗留的 `device_not_ready` 会在后续聊天页继续显示，而 OpenTUI 会在入口与会话确认动作前先本地执行 `plan_confirm`，造成页面先切回聊天、但权威确认结果和权限提示尚未提交的假象。此外，`r` 刷新与设备 Enter 的异步结果缺少版本约束，较早请求可能在较新操作后回写。
 
 修复后，候选、设备与 TestPlan 的确认、取消及提交动作只由入口/会话层提交权威状态；设备刷新和选择使用单调操作版本，迟到结果被丢弃。真实 PTY 回归必须连续验证“设备 Enter → TestPlan Enter → 权威确认/权限提示”，同时保留第一次 Enter 不得穿透到下一面板的断言。
+
+再次真机复测发现，TestPlan 确认消息可见后，权限请求、权限超时和执行结果虽然已进入 TUI state，却可能不再出现在 OpenTUI 消息区。根因是聊天页在挂载时把 `messages` 属性固化为旧数组，后续状态更新只刷新了 header，消息列表没有响应新数组；用户因此只能看到“Starting execution”，无法判断是在等待权限还是执行已经失败。修复后，消息区通过显式 memo 跟踪 state 中的数组替换并增量更新；确认动作还会同步发布 `Preparing confirmed TestPlan execution…` activity，权限阶段切换为 `Awaiting permission`，执行队列以 operation owner 清理，防止旧异步清理覆盖新执行。`PermissionEngine` 必须先注册 pending ask 再发布请求事件，确保事件消费者即时答复不会丢失。真实 PTY 回归必须同时观察 activity、权限正文，并证明设备 UDID 不进入聊天 transcript。

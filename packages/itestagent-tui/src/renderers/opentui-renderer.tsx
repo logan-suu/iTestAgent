@@ -86,39 +86,43 @@ function Header(props: {
   );
 }
 
-function MessageList(props: { messages: readonly Message[] }): JSX.Element {
-  const msgs = props.messages;
+function MessageList(props: { state: () => TuiShellState }): JSX.Element {
+  const messages = createMemo(() => props.state().messages);
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
-      {msgs.length === 0 ? (
-        <text opacity={0.5}>Type a message and press Enter to send. Ctrl+C to quit.</text>
-      ) : (
-        msgs.map((msg) => {
-          let prefix: string;
-          switch (msg.type) {
-            case 'user':
-              prefix = 'You';
-              break;
-            case 'assistant':
-              prefix = 'AI';
-              break;
-            case 'error':
-              prefix = 'ERR';
-              break;
-            default:
-              prefix = 'Sys';
-              break;
-          }
-          return (
-            // biome-ignore lint/correctness/useJsxKeyInIterable: OpenTUI uses id as element key
-            <text id={msg.id}>
-              <span>{`[${prefix}] `}</span>
-              <span>{msg.text}</span>
-            </text>
-          );
-        })
-      )}
+      <Show
+        when={messages().length > 0}
+        fallback={
+          <text opacity={0.5}>Type a message and press Enter to send. Ctrl+C to quit.</text>
+        }
+      >
+        <For each={messages() as Message[]}>
+          {(msg) => {
+            let prefix: string;
+            switch (msg.type) {
+              case 'user':
+                prefix = 'You';
+                break;
+              case 'assistant':
+                prefix = 'AI';
+                break;
+              case 'error':
+                prefix = 'ERR';
+                break;
+              default:
+                prefix = 'Sys';
+                break;
+            }
+            return (
+              <text id={msg.id}>
+                <span>{`[${prefix}] `}</span>
+                <span>{msg.text}</span>
+              </text>
+            );
+          }}
+        </For>
+      </Show>
     </box>
   );
 }
@@ -573,7 +577,7 @@ export function OpenTuiApp(props: {
         <CredentialPromptPanel state={state} dispatch={wrappedDispatch} />
       ) : (
         <>
-          <MessageList messages={s().messages} />
+          <MessageList state={state} />
           <InputBar draft={draft()} setDraft={setDraft} onSubmit={handleSubmit} />
         </>
       )}

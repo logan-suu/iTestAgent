@@ -3,6 +3,7 @@ import {
   agentSessionErrorMessage,
   applyAgentPatch,
   createLatestOperationGate,
+  processConfirmedPlan,
   requiresProviderSetup,
 } from '../src/entry.js';
 import { createInitialState } from '../src/tui-shell.js';
@@ -40,6 +41,55 @@ describe('createLatestOperationGate', () => {
     gate.invalidate();
 
     expect(gate.isCurrent(pending)).toBe(false);
+  });
+});
+
+describe('processConfirmedPlan', () => {
+  it('publishes visible execution activity before waiting for the first session patch', async () => {
+    let releaseFirstPatch: (() => void) | undefined;
+    const firstPatchReady = new Promise<void>((resolve) => {
+      releaseFirstPatch = resolve;
+    });
+    const patches: Array<{ type: string; payload: Record<string, unknown> }> = [];
+    const processing = processConfirmedPlan(
+      {
+        executeConfirmedPlan: async function* () {
+          await firstPatchReady;
+          yield {
+            type: 'permission_request',
+            payload: {
+              callId: 'execute-1',
+              action: 'replace_device_app',
+              resource: 'com.example.App@device-udid',
+            },
+          };
+        },
+      },
+      (patch) => patches.push(patch),
+    );
+
+    expect(patches[0]).toMatchObject({
+      type: 'activity_update',
+      payload: { text: 'Preparing confirmed TestPlan execution…' },
+    });
+    releaseFirstPatch?.();
+    await processing;
+    expect(patches.some((patch) => patch.type === 'permission_request')).toBe(true);
+  });
+
+  it('reports a direct execution stream that ends without a terminal lifecycle patch', async () => {
+    const patches: Array<{ type: string; payload: Record<string, unknown> }> = [];
+    await processConfirmedPlan(
+      {
+        executeConfirmedPlan: async function* () {},
+      },
+      (patch) => patches.push(patch),
+    );
+
+    expect(patches.at(-1)).toEqual({
+      type: 'error',
+      payload: { message: 'Confirmed TestPlan execution ended without a lifecycle result.' },
+    });
   });
 });
 
@@ -149,6 +199,25 @@ describe('applyAgentPatch', () => {
     expect(updated.messages.at(-1)?.text).toContain('allow, deny, or always-deny');
     expect(updated.messages.at(-1)?.text).toContain('Allow applies to this action only');
     expect(updated.messages.at(-1)?.text).toContain('generate_draft_test');
+    expect(updated.agentActivity?.text).toBe('Awaiting permission: generate_draft_test');
+  });
+
+  it('does not place a selected device UDID in the permission transcript', () => {
+    const updated = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'permission_request',
+      payload: {
+        callId: 'call-device',
+        action: 'replace_device_app',
+        resource: 'com.example.App@00008110-0012690901C1401E',
+      },
+    });
+
+    expect(updated.messages.at(-1)?.text).toContain('com.example.App@selected device');
+    expect(updated.messages.at(-1)?.text).not.toContain('00008110-0012690901C1401E');
+    expect(updated.agentActivity).toEqual({
+      callId: 'call-device',
+      text: 'Awaiting permission: replace_device_app',
+    });
   });
 
   it('preserves workspace and existing messages while streaming', () => {

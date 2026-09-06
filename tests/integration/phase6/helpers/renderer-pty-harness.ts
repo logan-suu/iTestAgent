@@ -1,5 +1,9 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { TestPlanSchema } from 'itestagent-contracts';
+import {
+  applyAgentPatch,
+  processConfirmedPlan,
+} from '../../../../packages/itestagent-tui/src/entry.js';
 import { createConfiguredRenderer } from '../../../../packages/itestagent-tui/src/renderer-factory.js';
 import {
   type TuiShellState,
@@ -109,12 +113,31 @@ await selected.renderer.start(initialState, (event) => {
         {
           id: 'pty-plan-confirmed',
           type: 'system',
-          text: 'PTY_PLAN_CONFIRMED_PERMISSION_REQUIRED',
+          text: 'Plan confirmed. Starting execution of the confirmed TestPlan.',
           timestamp: Date.now(),
         },
       ],
     };
     selected.renderer.update(currentState);
+    void processConfirmedPlan(
+      {
+        executeConfirmedPlan: async function* () {
+          yield {
+            type: 'permission_request',
+            payload: {
+              callId: 'pty-execute-plan',
+              action: 'replace_device_app',
+              resource: 'com.example.SpikeApp@physical-device-udid',
+            },
+          };
+          await new Promise<void>(() => {});
+        },
+      },
+      (patch) => {
+        currentState = applyAgentPatch(currentState, patch);
+        selected.renderer.update(currentState);
+      },
+    );
   }
 });
 

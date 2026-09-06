@@ -258,6 +258,11 @@ class PatchQueue implements AsyncIterable<TuiStatePatch> {
   }
 }
 
+interface ActivePatchQueue {
+  readonly owner: symbol;
+  readonly queue: PatchQueue;
+}
+
 export async function createAgentSession(
   workspace: string,
   dependencies: AgentSessionDependencies = {},
@@ -344,7 +349,7 @@ export async function createAgentSession(
   });
   const pendingPermissionIds = new Set<string>();
   const pendingPermissions = new Map<string, { action: string; resource: string }>();
-  let activeQueue: PatchQueue | null = null;
+  let activeQueue: ActivePatchQueue | null = null;
   let activeTurn = false;
   let activeDirectExecutionAbort: AbortController | null = null;
   let discoveryNoticeEmitted = false;
@@ -454,7 +459,7 @@ export async function createAgentSession(
         backendName: 'itestagent-backends-device-appium',
         execute: async () => {
           await refreshDiscovery();
-          activeQueue?.push({
+          activeQueue?.queue.push({
             type: 'devices_update',
             payload: {
               devices,
@@ -464,7 +469,7 @@ export async function createAgentSession(
             },
           });
           if (discovery.issues.length > 0) {
-            activeQueue?.push({
+            activeQueue?.queue.push({
               type: 'message_add',
               payload: {
                 role: 'system',
@@ -542,7 +547,7 @@ export async function createAgentSession(
         event.type === 'tool.progress'
       ) {
         const patch = mapEventToPatch(event);
-        if (patch) activeQueue?.push(patch);
+        if (patch) activeQueue?.queue.push(patch);
       }
     },
   });
@@ -561,7 +566,8 @@ export async function createAgentSession(
       if (activeTurn) throw new Error('An agent turn is already in progress');
       activeTurn = true;
       const queue = new PatchQueue();
-      activeQueue = queue;
+      const queueOwner = Symbol('agent-message');
+      activeQueue = { owner: queueOwner, queue };
       queue.push({
         type: 'devices_update',
         payload: {
@@ -625,7 +631,7 @@ export async function createAgentSession(
           });
         } finally {
           activeTurn = false;
-          activeQueue = null;
+          if (activeQueue?.owner === queueOwner) activeQueue = null;
           queue.close();
         }
       })();
@@ -745,10 +751,15 @@ export async function createAgentSession(
       }
       activeTurn = true;
       const queue = new PatchQueue();
-      activeQueue = queue;
+      const queueOwner = Symbol('confirmed-plan-execution');
+      activeQueue = { owner: queueOwner, queue };
       const controller = new AbortController();
       activeDirectExecutionAbort = controller;
       const callId = `execute-${crypto.randomUUID()}`;
+      queue.push({
+        type: 'activity_update',
+        payload: { id: callId, text: 'Preparing confirmed TestPlan execution…' },
+      });
 
       void (async () => {
         try {
@@ -788,7 +799,7 @@ export async function createAgentSession(
         } finally {
           activeTurn = false;
           activeDirectExecutionAbort = null;
-          activeQueue = null;
+          if (activeQueue?.owner === queueOwner) activeQueue = null;
           queue.close();
         }
       })();

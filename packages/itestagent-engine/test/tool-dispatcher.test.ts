@@ -773,6 +773,23 @@ describe('AgentEvent emission', () => {
     await dispatchPromise;
   });
 
+  test('a permission event consumer can resolve the registered ask immediately', async () => {
+    const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 100 });
+    const { dispatcher, backend } = createDispatcher({
+      permissionEngine: pe,
+      onEvent: (event) => {
+        if (event.type === 'permission.requested') {
+          pe.resolve(event.callId, 'allow', false);
+        }
+      },
+    });
+
+    const result = await dispatcher.dispatch(makeToolCall({ id: 'tc_immediate_permission' }));
+
+    expect(result.status).toBe('ok');
+    expect(backend.tapCalls).toHaveLength(1);
+  });
+
   test('permission.resolved event is emitted after ask is resolved', async () => {
     const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 5000 });
     const { dispatcher, events } = createDispatcher({ permissionEngine: pe });

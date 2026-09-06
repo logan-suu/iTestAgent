@@ -63,6 +63,8 @@ T6.12 的 USB 接入复测进一步确认：Agent 自动设备探测与用户按
 
 后续同轮复测确认，人机检查点与模型工具循环必须互斥：候选确认、设备选择、执行路线选择或 TestPlan 确认等待期间不得继续启动 AI SDK turn。设备确认必须刷新后针对具体 UDID 原子重验，失败时留在选择页；TestPlan 确认后必须直接续接 `executeTestPlan`，而不是返回聊天等待模型猜测下一步。内存内 TestPlan 编译不映射到 US-20 的 `generate_draft_test` 权限；执行阶段既有逐动作 R7 权限边界保持不变。真实 PTY 门禁还必须证明一次 Enter 只产生一次当前面板事件，面板切换后不能复用该按键确认下一页。
 
+TestPlan 确认后的执行生命周期也属于生产门禁：确认后必须立即显示可见 activity，权限等待、执行、成功、失败和超时事件必须持续驱动消息区与状态区刷新，不能因聊天视图缓存旧消息数组而只留下“Starting execution”。pending ask 必须先注册再发布权限事件；异步消息与直接执行各自持有 operation-scoped event queue owner，迟到 cleanup 不得清除当前执行事件。权限正文可显示明确 action 与脱敏后的目标，但不得把设备 UDID 写入聊天 transcript。真实 PTY 回归必须覆盖“计划确认 → activity → 权限提示”的连续帧。
+
 ### 2. 高风险 allow 不持久化
 
 - 高风险操作每次都以明确 `action/resource` 二次确认。
