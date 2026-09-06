@@ -3,8 +3,8 @@
  *
  * Contract: a secret must never be transmitted through argv, environment,
  * URL, process title, stdout/stderr, or reports. The Keychain transport is
- * stdin-only: `/usr/bin/security add-generic-password ... -w` (bare flag)
- * with the secret written to the child's stdin.
+ * stdin-only: `/usr/bin/security -i`, with one
+ * `add-generic-password ... -X <hex>` command written to the child's stdin.
  *
  * Strategy: selectively mock node:child_process.spawn (same pattern as
  * agent-session.test.ts — non-security commands delegate to the real spawn
@@ -175,7 +175,7 @@ async function authorized() {
 // ─── argv exposure ──────────────────────────────────────────
 
 describe('secret never appears in argv', () => {
-  it('saveCredential: argv carries no secret and uses a bare -w flag', async () => {
+  it('saveCredential: argv carries only the interactive-mode flag', async () => {
     primeDumpScript();
     const result = await persistence.saveCredential(
       persistence.createSecurityRunner(),
@@ -188,10 +188,8 @@ describe('secret never appears in argv', () => {
     expect(addCall).toBeDefined();
     const joined = addCall ? addCall.args.join(' ') : '';
     expect(joined).not.toContain(SECRET);
-    // Bare -w (password read from stdin), never -w<value> / -w <value>.
-    expect(addCall?.args.includes('-w')).toBe(true);
-    const wIndex = addCall?.args.indexOf('-w') ?? -1;
-    expect(wIndex).toBe((addCall?.args.length ?? 0) - 1);
+    expect(addCall?.args).toEqual(['-i']);
+    expect(joined).not.toContain(Buffer.from(SECRET, 'utf-8').toString('hex'));
   });
 
   it('loadCredential: argv contains only lookup flags', async () => {
@@ -263,8 +261,8 @@ describe('secret never appears in the environment', () => {
 
 // ─── stdin / stdout / stderr transport ──────────────────────
 
-describe('secret travels through stdin only', () => {
-  it('saveCredential writes the secret to child stdin exactly once', async () => {
+describe('credential material travels through stdin only', () => {
+  it('saveCredential writes one hex-encoded interactive command to child stdin', async () => {
     primeDumpScript();
     await persistence.saveCredential(
       persistence.createSecurityRunner(),
@@ -273,7 +271,12 @@ describe('secret travels through stdin only', () => {
       await authorized(),
     );
     const addCall = captured[0];
-    expect(addCall?.stdinWrites).toEqual([SECRET]);
+    expect(addCall?.stdinWrites).toHaveLength(1);
+    const command = addCall?.stdinWrites[0] ?? '';
+    expect(command).toContain('add-generic-password -U');
+    expect(command).toContain(`-X ${Buffer.from(SECRET, 'utf-8').toString('hex')}`);
+    expect(command).not.toContain(SECRET);
+    expect(command.endsWith('\n')).toBe(true);
   });
 
   it('the module never writes into the child stdout/stderr channels', async () => {
@@ -340,6 +343,9 @@ describe('process title and structured outputs stay clean', () => {
     expect(saveResult.ok).toBe(false);
     if (!saveResult.ok) {
       expect(JSON.stringify(saveResult.error)).not.toContain(SECRET);
+      expect(JSON.stringify(saveResult.error)).not.toContain(
+        Buffer.from(SECRET, 'utf-8').toString('hex'),
+      );
     }
   });
 
@@ -366,6 +372,26 @@ describe('process title and structured outputs stay clean', () => {
       expect(result.error.code).toBe('timeout');
       expect(JSON.stringify(result.error)).not.toContain(SECRET);
     }
+    expect(captured[0]?.killed).toBe(true);
+  });
+
+  it('save timeout kills interactive security without exposing credential material', async () => {
+    script = { exitCode: 0, stdout: '', stderr: '', hang: true };
+    const result = await persistence.saveCredential(
+      persistence.createSecurityRunner({ defaultTimeoutMs: 40 }),
+      TARGET,
+      SECRET,
+      await authorized(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('timeout');
+      expect(JSON.stringify(result.error)).not.toContain(SECRET);
+      expect(JSON.stringify(result.error)).not.toContain(
+        Buffer.from(SECRET, 'utf-8').toString('hex'),
+      );
+    }
+    expect(captured[0]?.args).toEqual(['-i']);
     expect(captured[0]?.killed).toBe(true);
   });
 });

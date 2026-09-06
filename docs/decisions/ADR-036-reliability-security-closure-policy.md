@@ -73,6 +73,8 @@ T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定�
 
 T6.12 首次配置验收还发现，仅检查 API key 字符长度会让无效 credential 显示“配置完成”，直到第一条自然语言请求才暴露 provider 401。配置完成或 Keychain 写入前必须以当前 endpoint、credential 和 model 执行有界的最小 OpenAI-compatible 验证；401 清除 session credential 并返回掩码输入，其他错误按 model、余额、限流、provider 与网络分类。已有配置缺少对应 Keychain credential 时也进入同一恢复流程。provider 错误展示前必须移除其返回的明文或掩码 credential 片段。DeepSeek 新配置默认值更新为当前官方 `https://api.deepseek.com` 与 `deepseek-v4-flash`；已有显式 provider 配置仍按凭证绑定边界保留，不静默迁移。
 
+同次永久保存复测证明，`security add-generic-password ... -w` 的裸 `-w` 会等待交互 prompt，并不从 pipe stdin 读取 password；把 secret 直接写入该子进程 stdin 会等待至超时。Keychain 写入因此改用 macOS `security -i` 的官方 stdin 批处理模式：argv 只有 `-i`，stdin 中只有一条 `add-generic-password ... -X <UTF-8 hex>` 命令，service/account 先限制为单命令安全标识。credential 原文和编码形式均不得进入可见输出、日志或结构化错误。独立写后属性验证仍是 remembered 的必要条件，任何命令失败、超时或验证失败均保持 session-only。
+
 ### 4. Abort 是端到端协议
 
 ```
