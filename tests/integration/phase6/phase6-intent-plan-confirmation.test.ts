@@ -89,6 +89,8 @@ describe('Phase 6 intent → confirmed TestPlan production session', () => {
     }
     expect(state.mode).toBe('plan_review');
     expect(state.plan?.execution.features).toEqual(['Login', 'Checkout']);
+    expect(state.plan?.backendPreference.device).toEqual(['appium']);
+    expect(state.plan?.backendPreference.device).not.toContain('mock');
     expect(session.getConfirmedPlan()).toBeNull();
 
     const originalRunId = state.plan?.runId;

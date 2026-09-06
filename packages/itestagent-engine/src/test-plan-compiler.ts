@@ -242,7 +242,7 @@ function resolveAssertionPolicy(intent: Intent): AssertionPolicy {
 /** Resolve backend preference from Profile test assets */
 function resolveBackendPreference(profile: ProjectProfile) {
   const pref: Record<string, string[]> = {
-    device: ['appium', 'mock'],
+    device: ['appium'],
     performance: ['xctrace-analyzer-core', 'raw-xcrun'],
     build: ['xcodebuild', 'fastlane'],
     analyzer: ['xcodeproj'],

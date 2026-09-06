@@ -353,9 +353,10 @@ describe('compileTestPlan', () => {
   // ── Backend preference resolution ──────────────────────────
 
   describe('backendPreference resolution', () => {
-    it('includes both device and performance backends', () => {
+    it('includes production device and performance backends without a mock fallback', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.backendPreference.device).toBeDefined();
+      expect(plan.backendPreference.device).toEqual(['appium']);
+      expect(plan.backendPreference.device).not.toContain('mock');
       expect(plan.backendPreference.performance).toBeDefined();
     });
 
