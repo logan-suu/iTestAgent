@@ -29,20 +29,24 @@ def read_available(fd: int, duration: float) -> bytes:
     return b''.join(chunks)
 
 
-def run_scenario(repo: str, scenario: str, expected_event: str) -> dict:
+def run_scenario(repo: str, launch_cwd: str, scenario: str, expected_event: str) -> dict:
     event_fd, event_path = tempfile.mkstemp(prefix=f'itestagent-opentui-{scenario}-', suffix='.jsonl')
     os.close(event_fd)
     pid, master = pty.fork()
     if pid == 0:
-        os.chdir(repo)
+        os.chdir(launch_cwd)
         env = dict(os.environ)
         env['TERM'] = 'xterm-256color'
         env.pop('CI', None)
+        harness = os.path.join(
+            repo,
+            'tests/integration/phase6/helpers/renderer-pty-harness.ts',
+        )
         os.execvpe(
             'bun',
             [
                 'bun',
-                'tests/integration/phase6/helpers/renderer-pty-harness.ts',
+                harness,
                 'opentui',
                 event_path,
                 scenario,
@@ -98,10 +102,11 @@ def run_scenario(repo: str, scenario: str, expected_event: str) -> dict:
 
 def main() -> int:
     repo = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.')
-    results = [
-        run_scenario(repo, 'candidate-review', 'candidate_confirm'),
-        run_scenario(repo, 'plan-review', 'plan_confirm'),
-    ]
+    with tempfile.TemporaryDirectory(prefix='itestagent-external-workspace-') as launch_cwd:
+        results = [
+            run_scenario(repo, launch_cwd, 'candidate-review', 'candidate_confirm'),
+            run_scenario(repo, launch_cwd, 'plan-review', 'plan_confirm'),
+        ]
     print(json.dumps(results, separators=(',', ':')))
     required = ('selected', 'firstFrame', 'enterEvent', 'cleanExit')
     return 0 if all(all(result[key] for key in required) for result in results) else 1

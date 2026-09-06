@@ -58,6 +58,7 @@ T6.12 的人工验收发现，工作区锁文件与 `packages/itestagent-tui/pac
 - Ink renderer 改用显式 `React.createElement`，避免 Solid transform 处理 React JSX；
 - 新增从 `packages/itestagent-tui` 工作目录读取实际 runtime 版本的自动断言；
 - 对固定 header/footer 设置不可压缩布局，并使用 OpenTUI character-frame 捕获断言 Workspace、Device、审阅标题、提示、状态与命令位于独立行。
+- 将候选/TestPlan 的真实 PTY 确认回归从仓库外临时 workspace 启动，并通过绝对路径加载测试入口，验证生产 renderer factory 不依赖仓库当前工作目录的 `bunfig.toml` 才能注册 Solid transform。
 
 复验命令：
 
@@ -65,4 +66,4 @@ T6.12 的人工验收发现，工作区锁文件与 `packages/itestagent-tui/pac
 bun test tests/integration/phase6/phase6-physical-reliability-security.test.ts tests/integration/phase6/opentui-review-layout-frame.test.ts tests/integration/phase6/opentui-review-confirmation-pty.test.ts tests/integration/phase6/opentui-first-run-setup-pty.test.ts
 ```
 
-复验结果：OpenTUI、Ink、ANSI 的 PTY matrix 全部通过；OpenTUI 候选/TestPlan 的 Enter 事件、首次配置 UTF-8/掩码路径以及两种审阅页的字符帧行分离全部通过。修正后的直接 matrix 字节观察值为 OpenTUI `6837/455/2313/152`、Ink `171/1273/240/12`、ANSI `625/311/313/7`（initial/input/resize/exit）。由此恢复“OpenTUI 0.5.10 通过当前生产行为门禁”的结论。
+复验结果：OpenTUI、Ink、ANSI 的 PTY matrix 全部通过；OpenTUI 候选/TestPlan 的 Enter 事件（包括仓库外 workspace 启动）、首次配置 UTF-8/掩码路径以及两种审阅页的字符帧行分离全部通过。修正后的直接 matrix 字节观察值为 OpenTUI `6837/455/2313/152`、Ink `171/1273/240/12`、ANSI `625/311/313/7`（initial/input/resize/exit）。由此恢复“OpenTUI 0.5.10 通过当前生产行为门禁”的结论。
