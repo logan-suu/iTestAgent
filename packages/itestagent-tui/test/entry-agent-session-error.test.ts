@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'bun:test';
-import { agentSessionErrorMessage, applyAgentPatch } from '../src/entry.js';
+import { agentSessionErrorMessage, applyAgentPatch, requiresProviderSetup } from '../src/entry.js';
 import { createInitialState } from '../src/tui-shell.js';
 
 describe('agentSessionErrorMessage', () => {
   it('maps an error to a readable message', () => {
     expect(agentSessionErrorMessage(new Error('boom'))).toContain('boom');
+  });
+});
+
+describe('requiresProviderSetup', () => {
+  it('enters setup when config is missing or its Keychain credential is unavailable', () => {
+    expect(requiresProviderSetup(true, false)).toBe(true);
+    expect(requiresProviderSetup(false, false)).toBe(true);
+  });
+
+  it('starts the configured session only when config and credential are both available', () => {
+    expect(requiresProviderSetup(false, true)).toBe(false);
   });
 });
 

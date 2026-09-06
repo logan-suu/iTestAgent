@@ -31,6 +31,11 @@ import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-an
 import { isDeviceReady } from './device-review.js';
 import { persistGlobalDeniedRule } from './global-deny-store.js';
 import { retainMessages } from './message-retention.js';
+import {
+  DEFAULT_PROVIDER_BASE_URL,
+  DEFAULT_PROVIDER_MODEL,
+  sanitizeProviderErrorMessage,
+} from './provider-validation.js';
 import { loadTuiRuntimeConfig } from './runtime-config.js';
 
 interface SessionConfig {
@@ -255,10 +260,10 @@ export async function createAgentSession(
   const production = dependencies.production ?? createProductionAgentSessionDependencies();
   const runtimeConfig = loadTuiRuntimeConfig({ workspace });
   const config: SessionConfig = {
-    baseURL: runtimeConfig.model.baseURL ?? 'https://api.deepseek.com/v1',
-    model: runtimeConfig.model.model ?? 'deepseek-chat',
+    baseURL: runtimeConfig.model.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
+    model: runtimeConfig.model.model ?? DEFAULT_PROVIDER_MODEL,
   };
-  assertProviderUrl(config.baseURL ?? 'https://api.deepseek.com/v1');
+  assertProviderUrl(config.baseURL ?? DEFAULT_PROVIDER_BASE_URL);
   const apiKey = await (dependencies.loadApiKey ?? loadApiKey)();
   if (!apiKey) {
     throw new Error(
@@ -269,9 +274,9 @@ export async function createAgentSession(
   const model = dependencies.createModel
     ? dependencies.createModel(config, apiKey)
     : createOpenAI({
-        baseURL: config.baseURL ?? 'https://api.deepseek.com/v1',
+        baseURL: config.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
         apiKey,
-      }).chat(config.model ?? 'deepseek-chat');
+      }).chat(config.model ?? DEFAULT_PROVIDER_MODEL);
 
   const analyzeWorkspace = dependencies.analyzeWorkspace ?? production.analyzeWorkspace;
   const listDevices = dependencies.listDevices ?? (() => production.deviceDiscovery.discover());
@@ -872,7 +877,10 @@ function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
         payload: { callId: event.callId, effect: event.effect },
       };
     case 'session.error':
-      return { type: 'error', payload: { message: event.error.message } };
+      return {
+        type: 'error',
+        payload: { message: sanitizeProviderErrorMessage(event.error.message) },
+      };
     default:
       return null;
   }

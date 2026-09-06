@@ -109,7 +109,7 @@ export const SETUP_PANEL = {
     {
       field: `${BOLD}Model Name${RESET}`,
       defaultLine: (value: string): string => `${DIM}Default: ${value}${RESET}`,
-      hint: 'Press Enter to accept default, or type a custom model name.',
+      hint: 'Press Enter to validate the endpoint, API key, and model.',
     },
   ],
   /** setupError is rendered raw inside RED on the current step. */

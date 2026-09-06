@@ -95,7 +95,7 @@ export function renderFrame(state: TuiShellState): string[] {
     } else if (step === 2) {
       lines.push(`${BOLD}Model Name${RESET}`);
       lines.push(`${DIM}Default: ${state.setupModel}${RESET}`);
-      lines.push('Press Enter to accept default, or type a custom model name.');
+      lines.push('Press Enter to validate the endpoint, API key, and model.');
       if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
     } else if (step === 3) {
       lines.push(`${BOLD}Credential Storage${RESET}`);

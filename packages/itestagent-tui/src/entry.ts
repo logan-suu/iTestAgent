@@ -10,7 +10,7 @@ import {
 } from 'itestagent-contracts';
 import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
-import { DEFAULT_API_KEY_TARGET } from './api-key-loader.js';
+import { DEFAULT_API_KEY_TARGET, loadApiKey as loadStoredApiKey } from './api-key-loader.js';
 import { formatPersistenceAuthorizationNotice } from './credential-prompt.js';
 import { devicesForTarget, isDeviceReady } from './device-review.js';
 import {
@@ -19,6 +19,12 @@ import {
   createSecurityRunner,
   saveCredential,
 } from './keychain-persistence.js';
+import {
+  DEFAULT_PROVIDER_BASE_URL,
+  DEFAULT_PROVIDER_MODEL,
+  resolveProviderValidationTransition,
+  validateProviderAccess,
+} from './provider-validation.js';
 import { createConfiguredRenderer } from './renderer-factory.js';
 import type { RendererKind } from './renderer-selection.js';
 import { loadTuiRuntimeConfig } from './runtime-config.js';
@@ -33,6 +39,13 @@ import {
 
 function isFirstRun(): boolean {
   return !existsSync(resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc'));
+}
+
+export function requiresProviderSetup(
+  configMissing: boolean,
+  storedCredentialAvailable: boolean,
+): boolean {
+  return configMissing || !storedCredentialAvailable;
 }
 
 async function saveConfig(baseUrl: string, model: string): Promise<void> {
@@ -73,8 +86,10 @@ export async function startTui(workspace?: string): Promise<void> {
   }
 
   const ws = workspace ?? process.cwd();
-  const needsSetup = isFirstRun();
+  const configMissing = isFirstRun();
   const runtimeConfig = loadTuiRuntimeConfig({ workspace: ws });
+  const storedCredential = configMissing ? null : await loadStoredApiKey();
+  const needsSetup = requiresProviderSetup(configMissing, storedCredential?.ok === true);
   const selectedRenderer = await createConfiguredRenderer(runtimeConfig.tui.framework);
   if (needsSetup) assertSecureFirstRunRenderer(selectedRenderer.kind);
   const renderer = selectedRenderer.renderer;
@@ -85,11 +100,21 @@ export async function startTui(workspace?: string): Promise<void> {
   let sessionApiKey: string | null = null;
   let setupPersistencePending = false;
   let setupFinishing = false;
+  let setupValidationPending = false;
+  let providerValidated = false;
 
   // Detect first-run → enter setup wizard
   if (needsSetup) {
     state = tuiShellReducer(state, { type: 'setup_start' });
-    state = { ...state, setupBaseUrl: 'https://api.deepseek.com/v1', setupModel: 'deepseek-chat' };
+    state = {
+      ...state,
+      setupBaseUrl: runtimeConfig.model.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
+      setupModel: runtimeConfig.model.model ?? DEFAULT_PROVIDER_MODEL,
+      setupError:
+        !configMissing && storedCredential && !storedCredential.ok
+          ? 'No usable Keychain API key was found. Enter a provider credential for this session.'
+          : '',
+    };
   }
 
   // Try to create the agent session (skip if in setup)
@@ -116,6 +141,14 @@ export async function startTui(workspace?: string): Promise<void> {
 
   const finishSetup = async (credentialOutcome: string): Promise<void> => {
     if (setupFinishing) return;
+    if (!providerValidated) {
+      state = {
+        ...state,
+        setupError: 'Provider validation is required before setup can complete.',
+      };
+      renderer.update(state);
+      return;
+    }
     setupFinishing = true;
     try {
       await saveConfig(state.setupBaseUrl, state.setupModel);
@@ -144,6 +177,11 @@ export async function startTui(workspace?: string): Promise<void> {
   await renderer.start(state, (event: TuiShellEvent) => {
     // ── Setup mode handling ──────────────────────────────
     if (state.mode === 'setup' && event.type === 'submit') {
+      if (setupValidationPending) {
+        state = { ...state, setupError: 'Provider validation is still running.' };
+        renderer.update(state);
+        return;
+      }
       const input = pendingUserText.trim();
       pendingUserText = '';
 
@@ -154,6 +192,7 @@ export async function startTui(workspace?: string): Promise<void> {
           const fixed = url.startsWith('http') ? url : `https://${url}`;
           try {
             assertProviderUrl(fixed);
+            providerValidated = false;
             state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
           } catch (error: unknown) {
             state = {
@@ -169,6 +208,7 @@ export async function startTui(workspace?: string): Promise<void> {
             state = { ...state, setupError: 'API key too short. Paste the full key.' };
           } else {
             sessionApiKey = input;
+            providerValidated = false;
             state = { ...state, setupStep: 2, setupError: '' };
           }
           break;
@@ -176,7 +216,39 @@ export async function startTui(workspace?: string): Promise<void> {
         case 2: {
           // Model name
           const model = input || state.setupModel;
-          state = { ...state, setupModel: model, setupStep: 3, setupError: '' };
+          const currentKey = sessionApiKey;
+          if (!currentKey) {
+            state = {
+              ...state,
+              setupStep: 1,
+              setupError: 'API key is required before provider validation.',
+            };
+            break;
+          }
+          setupValidationPending = true;
+          providerValidated = false;
+          state = {
+            ...state,
+            setupModel: model,
+            setupError: 'Validating provider endpoint, API key, and model…',
+          };
+          void (async () => {
+            const result = await validateProviderAccess({
+              baseURL: state.setupBaseUrl,
+              model,
+              apiKey: currentKey,
+            });
+            setupValidationPending = false;
+            const transition = resolveProviderValidationTransition(result);
+            providerValidated = transition.providerValidated;
+            if (transition.clearSessionApiKey) sessionApiKey = null;
+            state = {
+              ...state,
+              setupStep: transition.setupStep,
+              setupError: transition.error,
+            };
+            renderer.update(state);
+          })();
           break;
         }
         case 3: {

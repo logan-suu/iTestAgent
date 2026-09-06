@@ -48,7 +48,7 @@ function SetupStepCopy(props: { state: () => TuiShellState }): JSX.Element {
       <Show when={state().setupStep === 2}>
         <text>Model Name</text>
         <text opacity={0.5}>{`Default: ${state().setupModel}`}</text>
-        <text>Press Enter to accept the default, or type a custom model name.</text>
+        <text>Press Enter to validate the endpoint, API key, and model.</text>
       </Show>
       <Show when={state().setupStep === 3}>
         <text>Credential Storage</text>

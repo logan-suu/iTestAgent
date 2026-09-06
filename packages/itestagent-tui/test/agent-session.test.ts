@@ -276,6 +276,23 @@ describe('createAgentSession production composition', () => {
     });
     expect(patches[1]?.payload.text).toContain('devicectl unavailable');
   });
+
+  it('sanitizes provider authentication errors before emitting a TUI patch', async () => {
+    streamScenario = async function* () {
+      yield {
+        type: 'error',
+        error: new Error('Authentication Fails, Your api key: ****1234 is invalid'),
+      };
+    };
+    const session = await createAgentSession('/workspace', dependencies());
+
+    const patches = await collectMessagePatches(session, 'inspect the workspace');
+    const error = patches.find((patch) => patch.type === 'error');
+    expect(error?.payload.message).toBe(
+      'Provider authentication failed. Re-enter an API key issued for the configured endpoint.',
+    );
+    expect(error?.payload.message).not.toContain('1234');
+  });
 });
 
 describe('AgentSession tools', () => {
