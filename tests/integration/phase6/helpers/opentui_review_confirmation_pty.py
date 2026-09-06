@@ -10,6 +10,7 @@ import sys
 import tempfile
 import termios
 import time
+from typing import Optional
 
 
 def read_available(fd: int, duration: float) -> bytes:
@@ -29,7 +30,13 @@ def read_available(fd: int, duration: float) -> bytes:
     return b''.join(chunks)
 
 
-def run_scenario(repo: str, launch_cwd: str, scenario: str, expected_event: str) -> dict:
+def run_scenario(
+    repo: str,
+    launch_cwd: str,
+    scenario: str,
+    expected_event: str,
+    forbidden_event: Optional[str] = None,
+) -> dict:
     event_fd, event_path = tempfile.mkstemp(prefix=f'itestagent-opentui-{scenario}-', suffix='.jsonl')
     os.close(event_fd)
     pid, master = pty.fork()
@@ -86,11 +93,19 @@ def run_scenario(repo: str, launch_cwd: str, scenario: str, expected_event: str)
         os.unlink(event_path)
         os.close(master)
 
+    expected_count = sum(1 for event in events if event == {'type': expected_event})
+    forbidden_count = (
+        sum(1 for event in events if event == {'type': forbidden_event})
+        if forbidden_event
+        else 0
+    )
     return {
         'scenario': scenario,
         'selected': b'PTY_SELECTED:opentui' in initial,
         'firstFrame': len(initial) > 1000,
-        'enterEvent': {'type': expected_event} in events,
+        'enterEvent': expected_count == 1,
+        'enterEventCount': expected_count,
+        'forbiddenEventCount': forbidden_count,
         'cleanExit': os.waitstatus_to_exitcode(status) == 0,
         'bytes': {
             'initial': len(initial),
@@ -107,10 +122,20 @@ def main() -> int:
             run_scenario(repo, launch_cwd, 'candidate-review', 'candidate_confirm'),
             run_scenario(repo, launch_cwd, 'device-review', 'device_confirm'),
             run_scenario(repo, launch_cwd, 'plan-review', 'plan_confirm'),
+            run_scenario(
+                repo,
+                launch_cwd,
+                'device-to-plan',
+                'device_confirm',
+                'plan_confirm',
+            ),
         ]
     print(json.dumps(results, separators=(',', ':')))
     required = ('selected', 'firstFrame', 'enterEvent', 'cleanExit')
-    return 0 if all(all(result[key] for key in required) for result in results) else 1
+    return 0 if all(
+        all(result[key] for key in required) and result['forbiddenEventCount'] == 0
+        for result in results
+    ) else 1
 
 
 if __name__ == '__main__':

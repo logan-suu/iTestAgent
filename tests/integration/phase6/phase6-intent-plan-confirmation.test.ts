@@ -96,7 +96,7 @@ describe('Phase 6 intent → confirmed TestPlan production session', () => {
       state = applyAgentPatch(state, patch);
     }
     expect(state.mode).toBe('device_review');
-    for (const patch of session.selectDevice('physical-ready')) {
+    for (const patch of await session.selectDevice('physical-ready')) {
       state = applyAgentPatch(state, patch);
     }
     expect(state.mode).toBe('plan_review');

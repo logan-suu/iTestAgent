@@ -363,12 +363,12 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
     case 'devices_updated': {
       const selected = event.devices.find((device) => device.udid === state.selectedDeviceUdid);
       const discoveryProblem = event.status === 'degraded' || event.status === 'unavailable';
+      const selectedReady = Boolean(selected && isDeviceReady(selected) && !discoveryProblem);
       return {
         ...state,
         devices: event.devices,
-        deviceStatus:
-          selected && isDeviceReady(selected) && !discoveryProblem ? 'healthy' : event.status,
-        ...(selected ? {} : { selectedDeviceUdid: null }),
+        deviceStatus: selectedReady ? 'healthy' : event.status,
+        ...(selectedReady ? {} : { selectedDeviceUdid: null }),
       };
     }
 
@@ -438,7 +438,12 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       return {
         ...state,
         mode: 'chat',
-        deviceStatus: state.devices.length > 0 ? 'discovered' : 'no_device',
+        deviceStatus:
+          state.devices.length === 0
+            ? 'no_device'
+            : state.devices.some(isDeviceReady)
+              ? 'discovered'
+              : 'unavailable',
         currentIntent: null,
         deviceSelectionTargetKind: null,
         deviceSelectionIndex: 0,

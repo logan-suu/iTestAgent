@@ -184,10 +184,11 @@ export interface TuiAgentSession {
   processMessage(input: string): AsyncIterable<TuiStatePatch>;
   getDevices(): readonly DeviceInfo[];
   confirmCandidates(candidates: readonly CandidateLink[]): readonly TuiStatePatch[];
-  selectDevice(udid: string): readonly TuiStatePatch[];
+  selectDevice(udid: string): Promise<readonly TuiStatePatch[]>;
   refreshDevices(): Promise<readonly TuiStatePatch[]>;
   modifyPlan(input: string): readonly TuiStatePatch[];
   confirmPlan(): readonly TuiStatePatch[];
+  executeConfirmedPlan(): AsyncIterable<TuiStatePatch>;
   cancelPlan(): readonly TuiStatePatch[];
   getConfirmedPlan(): TestPlan | null;
   resolvePermission(callId: string, effect: 'allow' | 'deny', remember?: boolean): Promise<void>;
@@ -318,12 +319,19 @@ export async function createAgentSession(
   const targetKindForCurrentPlan = (): TargetKind | null =>
     planningSession?.getSnapshot().plan?.device.kind ?? null;
 
-  const refreshUntilTargetSettles = async () => {
+  const refreshUntilTargetSettles = async (selectedUdid?: string) => {
     await refreshDiscovery();
     const targetKind = targetKindForCurrentPlan();
     if (!targetKind) return;
-    for (const delayMs of [250, 750]) {
-      if (devices.some((device) => device.targetKind === targetKind && isDeviceReady(device))) {
+    for (const delayMs of [250, 750, 1_500]) {
+      if (
+        devices.some(
+          (device) =>
+            device.targetKind === targetKind &&
+            (!selectedUdid || device.udid === selectedUdid) &&
+            isDeviceReady(device),
+        )
+      ) {
         return;
       }
       await waitForDeviceRefresh(delayMs);
@@ -338,6 +346,7 @@ export async function createAgentSession(
   const pendingPermissions = new Map<string, { action: string; resource: string }>();
   let activeQueue: PatchQueue | null = null;
   let activeTurn = false;
+  let activeDirectExecutionAbort: AbortController | null = null;
   let discoveryNoticeEmitted = false;
   let planningSession: PlanningSession | null = null;
   let cachedAnalysis: ProjectAnalysisResult | null = null;
@@ -481,7 +490,8 @@ export async function createAgentSession(
         },
       },
       compileTestPlan: {
-        action: 'generate_draft_test',
+        // Compiling the in-memory TestPlan is not US-20 test-code generation.
+        action: 'compile_test_plan',
         resource: `workspace:${workspace}`,
         backendName: 'itestagent-engine',
         execute: async () => {
@@ -596,6 +606,9 @@ export async function createAgentSession(
           }
 
           transcript.push({ role: 'user', content: input });
+          if (planningSnapshot && planningSnapshotNeedsUserInput(planningSnapshot.status)) {
+            return;
+          }
           let assistantText = '';
           for await (const event of agentRuntime.streamTurn({
             messages: retainSessionTranscript(transcript, 40),
@@ -631,24 +644,29 @@ export async function createAgentSession(
       return planningPatches(planningSession.confirmCandidates(candidates), devices);
     },
 
-    selectDevice(udid) {
+    async selectDevice(udid) {
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
       const plan = planningSession.getSnapshot().plan;
       if (!plan) throw new Error('plan_unavailable: there is no draft plan to update');
+      await refreshUntilTargetSettles(udid);
       const selected = devices.find(
-        (device) => device.udid === udid && device.targetKind === plan.device.kind,
+        (device) =>
+          device.udid === udid && device.targetKind === plan.device.kind && isDeviceReady(device),
       );
       if (!selected) {
-        throw new Error(
-          `device_selection_required: choose a discovered ${plan.device.kind} target`,
-        );
-      }
-      if (!isDeviceReady(selected)) {
-        throw new Error(
-          `device_not_ready: selected ${plan.device.kind} target is discovered but not connected; connect it and press r to refresh`,
-        );
+        const snapshot = planningSession.getSnapshot();
+        return [
+          deviceUpdatePatch(plan.device.kind, devices, discovery),
+          ...planningPatches(snapshot, devices),
+          {
+            type: 'error',
+            payload: {
+              message: `device_not_ready: selected ${plan.device.kind} target is not ready after refresh; keep it connected and press r to retry`,
+            },
+          },
+        ];
       }
       const device =
         selected.targetKind === 'physical'
@@ -663,6 +681,7 @@ export async function createAgentSession(
       const snapshot = planningSession.selectDevice(device);
       selectedDeviceUdid = selected.udid;
       return [
+        deviceUpdatePatch(plan.device.kind, devices, discovery),
         { type: 'device_selected', payload: { udid: selected.udid } },
         ...planningPatches(snapshot, devices),
       ];
@@ -713,10 +732,68 @@ export async function createAgentSession(
           type: 'message_add',
           payload: {
             role: 'system',
-            text: 'Plan confirmed. Use /plan <test goal> to start a new planning cycle.',
+            text: 'Plan confirmed. Starting execution of the confirmed TestPlan.',
           },
         },
       ];
+    },
+
+    executeConfirmedPlan() {
+      if (activeTurn) throw new Error('An agent operation is already in progress');
+      if (!planningSession?.getConfirmedPlan()) {
+        throw new Error('plan_confirmation_required: confirm the displayed TestPlan first');
+      }
+      activeTurn = true;
+      const queue = new PatchQueue();
+      activeQueue = queue;
+      const controller = new AbortController();
+      activeDirectExecutionAbort = controller;
+      const callId = `execute-${crypto.randomUUID()}`;
+
+      void (async () => {
+        try {
+          const result = await toolDispatcher.dispatch(
+            { id: callId, name: 'executeTestPlan', arguments: {} },
+            controller.signal,
+          );
+          queue.push({ type: 'activity_update', payload: { complete: true, id: callId } });
+          if (result.status === 'error') {
+            const output = result.output as { error?: unknown } | undefined;
+            queue.push({
+              type: 'error',
+              payload: {
+                message: String(output?.error ?? 'Confirmed TestPlan execution failed'),
+                id: callId,
+              },
+            });
+            return;
+          }
+          queue.push({
+            type: 'message_add',
+            payload: {
+              role: 'system',
+              text: latestCommittedRun
+                ? `Execution completed. Run ${latestCommittedRun.runId} committed.`
+                : 'Execution completed.',
+            },
+          });
+        } catch (error: unknown) {
+          queue.push({
+            type: 'error',
+            payload: {
+              message: error instanceof Error ? error.message : String(error),
+              id: callId,
+            },
+          });
+        } finally {
+          activeTurn = false;
+          activeDirectExecutionAbort = null;
+          activeQueue = null;
+          queue.close();
+        }
+      })();
+
+      return queue;
     },
 
     cancelPlan() {
@@ -766,6 +843,7 @@ export async function createAgentSession(
       }
       pendingPermissionIds.clear();
       pendingPermissions.clear();
+      activeDirectExecutionAbort?.abort('session closed');
       void agentRuntime.abort('session closed');
     },
   };
@@ -854,6 +932,34 @@ function planningPatches(
     }
   }
   return patches;
+}
+
+function planningSnapshotNeedsUserInput(
+  status: ReturnType<PlanningSession['getSnapshot']>['status'],
+): boolean {
+  return (
+    status === 'awaiting_clarification' ||
+    status === 'awaiting_candidate_confirmation' ||
+    status === 'awaiting_execution_route_selection' ||
+    status === 'execution_route_blocked' ||
+    status === 'awaiting_plan_confirmation'
+  );
+}
+
+function deviceUpdatePatch(
+  targetKind: TargetKind | null,
+  devices: readonly DeviceInfo[],
+  discovery: AgentDeviceDiscovery,
+): TuiStatePatch {
+  return {
+    type: 'devices_update',
+    payload: {
+      devices,
+      discoveryStatus: discovery.status,
+      issues: discovery.issues,
+      targetKind,
+    },
+  };
 }
 
 function planNeedsDeviceSelection(plan: TestPlan, devices: readonly DeviceInfo[]): boolean {

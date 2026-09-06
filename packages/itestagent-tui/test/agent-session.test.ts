@@ -132,6 +132,14 @@ async function collectMessagePatches(
   return patches;
 }
 
+async function enterModelTurn(
+  session: TuiAgentSession,
+  input = 'inspect the current session',
+): Promise<TuiStatePatch[]> {
+  await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+  return collectMessagePatches(session, input);
+}
+
 function sdkTool(name: string): SdkTool {
   const tool = capturedStreamArgs?.tools[name];
   if (!tool) throw new Error(`SDK tool was not registered: ${name}`);
@@ -287,7 +295,7 @@ describe('createAgentSession production composition', () => {
     };
     const session = await createAgentSession('/workspace', dependencies());
 
-    const patches = await collectMessagePatches(session, 'inspect the workspace');
+    const patches = await enterModelTurn(session);
     const error = patches.find((patch) => patch.type === 'error');
     expect(error?.payload.message).toBe(
       'Provider authentication failed. Re-enter an API key issued for the configured endpoint.',
@@ -307,14 +315,18 @@ describe('AgentSession tools', () => {
     const patches = session.confirmCandidates(confirmedFakeCandidates());
     expect(patches.map((patch) => patch.type)).toContain('device_selection_request');
     expect(() => session.confirmPlan()).toThrow('device_selection_required');
-    expect(() => session.selectDevice(offline.udid)).toThrow('device_not_ready');
+    const rejected = await session.selectDevice(offline.udid);
+    expect(rejected.find((patch) => patch.type === 'error')?.payload.message).toContain(
+      'device_not_ready',
+    );
+    expect(rejected.some((patch) => patch.type === 'device_selection_request')).toBe(true);
   });
 
   it('writes the selected ready target into the draft plan before review', async () => {
     const session = await createAgentSession('/workspace', dependencies());
     await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
-    const patches = session.selectDevice(PHYSICAL_DEVICE.udid);
+    const patches = await session.selectDevice(PHYSICAL_DEVICE.udid);
     const planPatch = patches.find((patch) => patch.type === 'plan_update');
     expect(planPatch?.payload.plan).toMatchObject({
       device: {
@@ -338,15 +350,25 @@ describe('AgentSession tools', () => {
     );
     await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
-    session.selectDevice(PHYSICAL_DEVICE.udid);
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
     const confirmed = session.confirmPlan();
     expect(confirmed.some((patch) => patch.payload.confirmed === true)).toBe(true);
 
-    const outputPromise = sdkTool('executeTestPlan').execute({}, { toolCallId: 'execute-1' });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    session.resolvePermission('execute-1', 'allow');
-    const output = await outputPromise;
-    expect(output).toEqual({ status: 'completed', path: 'device_backend' });
+    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    expect(permission.payload.action).toBe('replace_device_app');
+    await session.resolvePermission(String(permission.payload.callId), 'allow');
+    const executionPatches: TuiStatePatch[] = [];
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+      executionPatches.push(next.value);
+    }
+    expect(
+      executionPatches.some(
+        (patch) => patch.type === 'message_add' && patch.payload.text === 'Execution completed.',
+      ),
+    ).toBe(true);
     expect(dispatched[0]).toMatchObject({
       runId: session.getConfirmedPlan()?.runId as string,
       device: PHYSICAL_DEVICE.udid,
@@ -368,31 +390,26 @@ describe('AgentSession tools', () => {
     );
     await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
-    session.selectDevice(PHYSICAL_DEVICE.udid);
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
     session.confirmPlan();
 
-    streamScenario = async function* ({ tools }) {
-      await tools.executeTestPlan?.execute({}, { toolCallId: 'execute-wda' });
-      yield { type: 'tool-result', toolCallId: 'execute-wda' };
-    };
-    const iterator = session.processMessage('execute the confirmed plan')[Symbol.asyncIterator]();
-    expect((await iterator.next()).value?.type).toBe('devices_update');
+    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
 
     const replacePermission = await nextPatchOfType(iterator, 'permission_request');
     expect(replacePermission.payload).toMatchObject({
-      callId: 'execute-wda',
       action: 'replace_device_app',
       resource: 'com.example.Demo@physical-udid',
     });
-    await session.resolvePermission('execute-wda', 'allow');
+    const callId = String(replacePermission.payload.callId);
+    await session.resolvePermission(callId, 'allow');
 
     const wdaPermission = await nextPatchOfType(iterator, 'permission_request');
     expect(wdaPermission.payload).toMatchObject({
-      callId: 'execute-wda',
+      callId,
       action: 'prepare_wda',
       resource: 'com.example.Demo@physical-udid',
     });
-    await session.resolvePermission('execute-wda', 'deny');
+    await session.resolvePermission(callId, 'deny');
 
     for (;;) {
       const next = await iterator.next();
@@ -412,7 +429,7 @@ describe('AgentSession tools', () => {
         },
       }),
     );
-    await collectPatches(session);
+    await enterModelTurn(session);
 
     const output = await sdkTool('analyzeProject').execute({}, { toolCallId: 'analyze-1' });
     expect(analyzedRoot).toBe('/workspace');
@@ -423,6 +440,7 @@ describe('AgentSession tools', () => {
     const session = await createAgentSession('/workspace', dependencies());
     await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
+    await collectMessagePatches(session, 'inspect devices');
 
     const output = (await sdkTool('getDeviceInfo').execute(
       {},
@@ -474,7 +492,77 @@ describe('AgentSession tools', () => {
       targetKind: 'physical',
       devices: [PHYSICAL_DEVICE, SIMULATOR_DEVICE],
     });
-    expect(() => session.selectDevice(PHYSICAL_DEVICE.udid)).not.toThrow();
+    expect(Array.isArray(await session.selectDevice(PHYSICAL_DEVICE.udid))).toBe(true);
+  });
+
+  it('continues from disconnected refresh through plan confirmation into execution', async () => {
+    const offline = { ...PHYSICAL_DEVICE, availability: 'discovered' as const };
+    let discoveryCount = 0;
+    let modelTurns = 0;
+    let executionCalls = 0;
+    streamScenario = async function* () {
+      modelTurns += 1;
+      yield { type: 'finish' };
+    };
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        listDevices: async () => {
+          discoveryCount += 1;
+          return discoveryCount === 1
+            ? [offline, SIMULATOR_DEVICE]
+            : [PHYSICAL_DEVICE, SIMULATOR_DEVICE];
+        },
+        executeConfirmedPlan: async () => {
+          executionCalls += 1;
+          return { status: 'completed', path: 'device_backend' };
+        },
+      }),
+    );
+
+    const planning = await collectMessagePatches(
+      session,
+      '用这台真机测试应用：启动后确认标题可见，点击按钮并采集截图。',
+    );
+    expect(modelTurns).toBe(0);
+    expect(planning.some((patch) => patch.type === 'permission_request')).toBe(false);
+    const deviceReview = session.confirmCandidates(confirmedFakeCandidates());
+    expect(deviceReview.some((patch) => patch.type === 'device_selection_request')).toBe(true);
+
+    const refreshed = await session.refreshDevices();
+    expect(
+      refreshed.some(
+        (patch) =>
+          patch.type === 'device_selection_request' &&
+          (patch.payload.devices as DeviceInfo[]).some(
+            (device) => device.udid === PHYSICAL_DEVICE.udid && device.availability === 'ready',
+          ),
+      ),
+    ).toBe(true);
+    const selected = await session.selectDevice(PHYSICAL_DEVICE.udid);
+    expect(selected.some((patch) => patch.type === 'plan_update')).toBe(true);
+    expect(
+      session
+        .confirmPlan()
+        .some(
+          (patch) =>
+            patch.type === 'message_add' && String(patch.payload.text).includes('Starting'),
+        ),
+    ).toBe(true);
+
+    const permissionActions: string[] = [];
+    const executionPatches: TuiStatePatch[] = [];
+    for await (const patch of session.executeConfirmedPlan()) {
+      executionPatches.push(patch);
+      if (patch.type === 'permission_request') {
+        permissionActions.push(String(patch.payload.action));
+        await session.resolvePermission(String(patch.payload.callId), 'allow');
+      }
+    }
+    expect(permissionActions).toEqual(['replace_device_app']);
+    expect(permissionActions).not.toContain('generate_draft_test');
+    expect(executionCalls).toBe(1);
+    expect(executionPatches.some((patch) => patch.type === 'error')).toBe(false);
   });
 
   it('serializes competing refreshes so an older result cannot overwrite a newer result', async () => {
@@ -509,33 +597,20 @@ describe('AgentSession tools', () => {
     expect(session.getDevices()).toEqual([PHYSICAL_DEVICE]);
   });
 
-  it('blocks TestPlan compilation until candidate confirmation', async () => {
+  it('pauses the model tool loop at deterministic planning checkpoints', async () => {
+    let modelTurns = 0;
     streamScenario = async function* (args) {
-      try {
-        await args.tools.compileTestPlan?.execute({}, { toolCallId: 'compile-1' });
-      } catch (error: unknown) {
-        yield { type: 'tool-error', toolCallId: 'compile-1', error };
-      }
+      modelTurns += 1;
+      await args.tools.compileTestPlan?.execute({}, { toolCallId: 'compile-1' });
+      yield { type: 'finish' };
     };
     const session = await createAgentSession('/workspace', dependencies());
-    const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
+    const patches = await collectMessagePatches(session, 'compile a plan');
 
-    expect((await iterator.next()).value?.type).toBe('devices_update');
-    const permission = await nextPatchOfType(iterator, 'permission_request');
-    expect(permission).toMatchObject({
-      type: 'permission_request',
-      payload: { callId: 'compile-1' },
-    });
-    session.resolvePermission('compile-1', 'allow');
-
-    const remaining: TuiStatePatch[] = [];
-    for (;;) {
-      const next = await iterator.next();
-      if (next.done) break;
-      remaining.push(next.value);
-    }
-    const errorPatch = remaining.find((patch) => patch.type === 'error');
-    expect(errorPatch?.payload.message).toContain('candidate_confirmation_required');
+    expect(modelTurns).toBe(0);
+    expect(patches.some((patch) => patch.type === 'candidates_update')).toBe(true);
+    expect(patches.some((patch) => patch.type === 'permission_request')).toBe(false);
+    expect(capturedStreamArgs).toBeNull();
   });
 });
 
@@ -545,15 +620,9 @@ describe('AgentSession streaming and permission bridge', () => {
       yield { type: 'text-delta', text: 'Observed result' };
     };
     const session = await createAgentSession('/workspace', dependencies());
-
-    const patches = await collectPatches(session);
-    expect(patches.map((patch) => patch.type)).toEqual([
-      'devices_update',
-      'intent_update',
-      'candidates_update',
-      'mode_change',
-      'message_update',
-    ]);
+    await collectPatches(session);
+    const patches = await collectMessagePatches(session, 'inspect the current session');
+    expect(patches.map((patch) => patch.type)).toEqual(['devices_update', 'message_update']);
     expect(patches.at(-1)?.payload.text).toBe('Observed result');
   });
 
@@ -573,7 +642,8 @@ describe('AgentSession streaming and permission bridge', () => {
       }),
     );
 
-    const patches = await collectPatches(session);
+    await collectPatches(session);
+    const patches = await collectMessagePatches(session, 'inspect devices');
     const updates = patches.filter((patch) => patch.type === 'devices_update');
     expect(updates).toHaveLength(2);
     expect(updates[1]?.payload.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
@@ -590,8 +660,8 @@ describe('AgentSession streaming and permission bridge', () => {
       };
     };
     const session = await createAgentSession('/workspace', dependencies());
-
-    const patches = await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    const patches = await collectMessagePatches(session, 'inspect devices');
     const renderedText = patches
       .filter((patch) => patch.type === 'message_add')
       .map((patch) => String(patch.payload.text ?? ''))
@@ -605,22 +675,19 @@ describe('AgentSession streaming and permission bridge', () => {
     });
   });
 
-  it('delivers permission requests while the tool call is blocked', async () => {
-    streamScenario = async function* (args) {
-      try {
-        await args.tools.compileTestPlan?.execute({}, { toolCallId: 'permission-1' });
-      } catch (error: unknown) {
-        yield { type: 'tool-error', toolCallId: 'permission-1', error };
-      }
-    };
+  it('delivers direct-execution permission requests while the tool call is blocked', async () => {
     const session = await createAgentSession('/workspace', dependencies());
-    const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
+    session.confirmPlan();
+    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
 
-    expect((await iterator.next()).value?.type).toBe('devices_update');
     const permission = await nextPatchOfType(iterator, 'permission_request');
-    expect(permission.payload.callId).toBe('permission-1');
+    const callId = String(permission.payload.callId);
+    expect(permission.payload.action).toBe('replace_device_app');
 
-    session.resolvePermission('permission-1', 'deny');
+    await session.resolvePermission(callId, 'deny');
     const remaining: TuiStatePatch[] = [];
     for (;;) {
       const next = await iterator.next();
@@ -631,17 +698,13 @@ describe('AgentSession streaming and permission bridge', () => {
     expect(remaining.some((patch) => patch.type === 'error')).toBe(true);
   });
 
-  it('session disposal aborts the runtime signal and cancels a pending permission ask', async () => {
-    streamScenario = async function* (args) {
-      try {
-        await args.tools.compileTestPlan?.execute({}, { toolCallId: 'dispose-permission' });
-      } catch (error: unknown) {
-        yield { type: 'tool-error', toolCallId: 'dispose-permission', error };
-      }
-    };
+  it('session disposal aborts direct execution and cancels a pending permission ask', async () => {
     const session = await createAgentSession('/workspace', dependencies());
-    const iterator = session.processMessage('compile a plan')[Symbol.asyncIterator]();
-    expect((await iterator.next()).value?.type).toBe('devices_update');
+    await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
+    session.confirmPlan();
+    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
     await nextPatchOfType(iterator, 'permission_request');
 
     session.dispose();
@@ -663,7 +726,8 @@ describe('AgentSession streaming and permission bridge', () => {
       });
     };
     const session = await createAgentSession('/workspace', dependencies());
-    const first = session.processMessage('first')[Symbol.asyncIterator]();
+    await collectMessagePatches(session, 'first');
+    const first = session.processMessage('second')[Symbol.asyncIterator]();
     await first.next();
 
     expect(() => session.processMessage('second')).toThrow('already in progress');
@@ -677,10 +741,10 @@ describe('AgentSession planning lifecycle', () => {
     const session = await createAgentSession('/workspace', dependencies());
     await collectMessagePatches(session, '用本机 iPhone 跑登录 smoke');
     session.confirmCandidates(confirmedFakeCandidates());
-    session.selectDevice(PHYSICAL_DEVICE.udid);
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
     const confirmPatches = session.confirmPlan();
     expect(confirmPatches.find((patch) => patch.type === 'message_add')?.payload.text).toContain(
-      '/plan <test goal>',
+      'Starting execution',
     );
     const runId = session.getConfirmedPlan()?.runId;
 

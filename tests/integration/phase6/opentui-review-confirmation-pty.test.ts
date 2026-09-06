@@ -15,11 +15,13 @@ describe('OpenTUI review confirmation in a real PTY', () => {
 
     expect(exitCode, stderr || stdout).toBe(0);
     const results = JSON.parse(stdout) as Array<Record<string, unknown>>;
-    expect(results).toHaveLength(3);
+    expect(results).toHaveLength(4);
     for (const result of results) {
       expect(result.selected).toBe(true);
       expect(result.firstFrame).toBe(true);
       expect(result.enterEvent).toBe(true);
+      expect(result.enterEventCount).toBe(1);
+      expect(result.forbiddenEventCount).toBe(0);
       expect(result.cleanExit).toBe(true);
     }
   }, 15_000);

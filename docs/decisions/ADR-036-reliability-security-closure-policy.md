@@ -61,6 +61,8 @@ T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定�
 
 T6.12 的 USB 接入复测进一步确认：Agent 自动设备探测与用户按 `r` 触发的探测必须串行提交，显式刷新在目标尚未 ready 时执行有界稳定性复查，避免 CoreDevice 的瞬态旧状态或较早请求覆盖较新结果。header 只绑定已选择且 ready 的当前 `targetKind`，新规划周期清除选择时必须撤销 connected。tool lifecycle 只允许以独立、短生命周期的 allowlist activity 展示；原始 tool result、ProjectProfile、设备 JSON 和 UDID 不得进入聊天 transcript，模型侧设备事实也必须使用目标范围内的脱敏摘要。
 
+后续同轮复测确认，人机检查点与模型工具循环必须互斥：候选确认、设备选择、执行路线选择或 TestPlan 确认等待期间不得继续启动 AI SDK turn。设备确认必须刷新后针对具体 UDID 原子重验，失败时留在选择页；TestPlan 确认后必须直接续接 `executeTestPlan`，而不是返回聊天等待模型猜测下一步。内存内 TestPlan 编译不映射到 US-20 的 `generate_draft_test` 权限；执行阶段既有逐动作 R7 权限边界保持不变。真实 PTY 门禁还必须证明一次 Enter 只产生一次当前面板事件，面板切换后不能复用该按键确认下一页。
+
 ### 2. 高风险 allow 不持久化
 
 - 高风险操作每次都以明确 `action/resource` 二次确认。

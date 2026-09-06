@@ -97,6 +97,7 @@ export async function startTui(workspace?: string): Promise<void> {
   let pendingUserText = '';
   let pendingPermissionId: string | null = null;
   let agentTurnActive = false;
+  let deviceSelectionPending = false;
   let sessionApiKey: string | null = null;
   let setupPersistencePending = false;
   let setupFinishing = false;
@@ -325,6 +326,7 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'device_confirm' && agentSession) {
+      if (deviceSelectionPending) return;
       const targetKind = state.deviceSelectionTargetKind;
       const candidates = targetKind ? devicesForTarget(state.devices, targetKind) : [];
       const selected = candidates[state.deviceSelectionIndex];
@@ -334,16 +336,23 @@ export async function startTui(workspace?: string): Promise<void> {
           text: 'No matching device is available. Connect or boot one, then press r to refresh.',
         });
       } else {
-        try {
-          for (const patch of agentSession.selectDevice(selected.udid)) {
-            state = applyAgentPatch(state, patch);
-          }
-        } catch (error: unknown) {
-          state = tuiShellReducer(state, {
-            type: 'system_message',
-            text: error instanceof Error ? error.message : String(error),
+        deviceSelectionPending = true;
+        state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
+        void agentSession
+          .selectDevice(selected.udid)
+          .then((patches) => {
+            for (const patch of patches) state = applyAgentPatch(state, patch);
+          })
+          .catch((error: unknown) => {
+            state = tuiShellReducer(state, {
+              type: 'system_message',
+              text: error instanceof Error ? error.message : String(error),
+            });
+          })
+          .finally(() => {
+            deviceSelectionPending = false;
+            renderer.update(state);
           });
-        }
       }
       renderer.update(state);
       return;
@@ -392,9 +401,10 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'plan_confirm' && agentSession) {
-      state = tuiShellReducer(state, event);
+      let confirmed = false;
       try {
         for (const patch of agentSession.confirmPlan()) state = applyAgentPatch(state, patch);
+        confirmed = true;
       } catch (error: unknown) {
         state = tuiShellReducer(state, {
           type: 'system_message',
@@ -402,6 +412,25 @@ export async function startTui(workspace?: string): Promise<void> {
         });
       }
       renderer.update(state);
+      if (confirmed) {
+        agentTurnActive = true;
+        void processConfirmedPlan(agentSession, (patch) => {
+          state = applyAgentPatch(state, patch);
+          if (patch.type === 'permission_request') {
+            pendingPermissionId =
+              typeof patch.payload.callId === 'string' ? patch.payload.callId : null;
+          } else if (
+            patch.type === 'permission_resolved' &&
+            patch.payload.callId === pendingPermissionId
+          ) {
+            pendingPermissionId = null;
+          }
+          renderer.update(state);
+        }).finally(() => {
+          agentTurnActive = false;
+          pendingPermissionId = null;
+        });
+      }
       return;
     }
 
@@ -502,6 +531,25 @@ async function processAgentMessage(
 ): Promise<void> {
   try {
     for await (const patch of session.processMessage(text)) {
+      onPatch(patch);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    onPatch({ type: 'error', payload: { message: msg } });
+  }
+}
+
+async function processConfirmedPlan(
+  session: {
+    executeConfirmedPlan(): AsyncIterable<{
+      type: string;
+      payload: Record<string, unknown>;
+    }>;
+  },
+  onPatch: (patch: { type: string; payload: Record<string, unknown> }) => void,
+): Promise<void> {
+  try {
+    for await (const patch of session.executeConfirmedPlan()) {
       onPatch(patch);
     }
   } catch (err: unknown) {

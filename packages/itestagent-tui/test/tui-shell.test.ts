@@ -206,6 +206,45 @@ describe('tuiShellReducer', () => {
     expect(refreshed.selectedDeviceUdid).toBeNull();
   });
 
+  it('clears the selected target when the same inventory record is no longer ready', () => {
+    const selected = {
+      ...base,
+      selectedDeviceUdid: 'ready',
+      deviceStatus: 'healthy' as const,
+    };
+    const refreshed = tuiShellReducer(selected, {
+      type: 'devices_updated',
+      devices: [
+        {
+          udid: 'ready',
+          platform: 'ios',
+          targetKind: 'physical',
+          availability: 'discovered',
+        },
+      ],
+      status: 'unavailable',
+    });
+    expect(refreshed.deviceStatus).toBe('unavailable');
+    expect(refreshed.selectedDeviceUdid).toBeNull();
+  });
+
+  it('keeps a planning reset unavailable when inventory has no ready target', () => {
+    const discoveredOnly = {
+      ...base,
+      devices: [
+        {
+          udid: 'paired-only',
+          platform: 'ios' as const,
+          targetKind: 'physical' as const,
+          availability: 'discovered' as const,
+        },
+      ],
+      deviceStatus: 'unavailable' as const,
+    };
+    const reset = tuiShellReducer(discoveredOnly, { type: 'planning_reset' });
+    expect(reset.deviceStatus).toBe('unavailable');
+  });
+
   it('fails closed when a physical inventory record omits readiness', () => {
     const inventory = tuiShellReducer(base, {
       type: 'enter_device_review',

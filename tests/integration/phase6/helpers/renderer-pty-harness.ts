@@ -45,7 +45,7 @@ function stateForScenario(): TuiShellState {
       ],
     };
   }
-  if (scenario === 'device-review') {
+  if (scenario === 'device-review' || scenario === 'device-to-plan') {
     return {
       ...initial,
       mode: 'device_review',
@@ -95,4 +95,36 @@ function stateForScenario(): TuiShellState {
 const initialState = stateForScenario();
 await selected.renderer.start(initialState, (event) => {
   appendFileSync(eventPath, `${JSON.stringify(event)}\n`);
+  if (scenario === 'device-to-plan' && event.type === 'device_confirm') {
+    const planState = stateForScenarioForPlanTransition(initialState);
+    selected.renderer.update(planState);
+  }
 });
+
+function stateForScenarioForPlanTransition(initial: TuiShellState): TuiShellState {
+  const plan = TestPlanSchema.parse({
+    schemaVersion: 'itestagent.test-plan.v3',
+    runId: 'run-opentui-pty-transition',
+    projectProfileRef: `projects/${'a'.repeat(64)}/project-profile.json`,
+    target: { type: 'current_workspace' },
+    device: { kind: 'physical', physical: { selector: 'by_udid', udid: 'ready-device' } },
+    appSource: { strategy: 'auto_from_workspace' },
+    backendPreference: {},
+    execution: {
+      prefer: 'device_backend',
+      fallback: 'device_backend',
+      resolvedPath: 'device_backend',
+      selectionReason: 'confirmed_no_xcuitest_candidate',
+      features: ['Validation'],
+      testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
+      assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
+    },
+    artifacts: {
+      collect: ['screenshot'],
+      report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
+    },
+    performance: { baseline: 'skip', baselineDomain: 'physical', thresholdRequired: false },
+    safety: { defaultMode: 'ask', highRiskActions: [] },
+  });
+  return { ...initial, mode: 'plan_review', deviceStatus: 'healthy', plan };
+}

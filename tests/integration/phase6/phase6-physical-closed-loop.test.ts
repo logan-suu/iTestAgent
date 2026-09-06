@@ -21,13 +21,28 @@ interface SdkTool {
   execute(args: unknown, options: { toolCallId: string }): Promise<unknown>;
 }
 
-let capturedTools: Record<string, SdkTool> = {};
+async function executeConfirmedSession(session: {
+  executeConfirmedPlan(): AsyncIterable<{
+    type: string;
+    payload: Record<string, unknown>;
+  }>;
+  resolvePermission(callId: string, effect: 'allow' | 'deny'): Promise<void>;
+}) {
+  const patches: Array<{ type: string; payload: Record<string, unknown> }> = [];
+  for await (const patch of session.executeConfirmedPlan()) {
+    patches.push(patch);
+    if (patch.type === 'permission_request') {
+      await session.resolvePermission(String(patch.payload.callId), 'allow');
+    }
+  }
+  return patches;
+}
+
 mock.module('ai', () => ({
   ...aiReal,
-  streamText: (input: { tools: Record<string, SdkTool> }) => {
-    capturedTools = input.tools;
-    return { fullStream: (async function* () {})() };
-  },
+  streamText: (_input: { tools: Record<string, SdkTool> }) => ({
+    fullStream: (async function* () {})(),
+  }),
   stepCountIs: (count: number) => ({ count }),
   tool: (definition: Record<string, unknown>) => definition,
 }));
@@ -36,7 +51,6 @@ const roots: string[] = [];
 const originalHome = process.env.ITESTAGENT_HOME;
 
 afterEach(async () => {
-  capturedTools = {};
   overrideSpawnSync(undefined);
   // biome-ignore lint/performance/noDelete: deleting restores the actual absence of an environment variable.
   if (originalHome === undefined) delete process.env.ITESTAGENT_HOME;
@@ -328,21 +342,14 @@ describe('T6.11 production physical MVP closed loop', () => {
       planningPatches.push(patch);
     }
     session.confirmCandidates(confirmedCandidates(planningPatches));
-    session.selectDevice(session.getDevices()[0]?.udid ?? '');
+    await session.selectDevice(session.getDevices()[0]?.udid ?? '');
     session.confirmPlan();
     const runId = session.getConfirmedPlan()?.runId;
     expect(runId).toBeTruthy();
     plannedRunId = runId as string;
 
-    const execution = capturedTools.executeTestPlan?.execute({}, { toolCallId: 'device-run' });
-    expect(execution).toBeTruthy();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await session.resolvePermission('device-run', 'allow');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(backendCloses).toBe(0);
-    await session.resolvePermission('device-run', 'allow');
-    const output = (await execution) as { status: string; path: string; runDir: string };
-    expect(output).toMatchObject({ status: 'completed', path: 'device_backend' });
+    const executionPatches = await executeConfirmedSession(session);
+    expect(executionPatches.some((patch) => patch.type === 'error')).toBe(false);
     expect(backendCloses).toBe(1);
 
     const bundle = await store.loadRunBundle(runId as string);
@@ -435,7 +442,7 @@ describe('T6.11 production physical MVP closed loop', () => {
       planningPatches.push(patch);
     }
     session.confirmCandidates(confirmedCandidates(planningPatches));
-    session.selectDevice(session.getDevices()[0]?.udid ?? '');
+    await session.selectDevice(session.getDevices()[0]?.udid ?? '');
     session.confirmPlan();
     const parentPlan = session.getConfirmedPlan();
     if (!parentPlan) throw new Error('confirmed XCUITest plan was not retained');
@@ -443,14 +450,8 @@ describe('T6.11 production physical MVP closed loop', () => {
       resolvedPath: 'xcuitest',
       selectionReason: 'evidence_backed_xcuitest',
     });
-    const parentPending = capturedTools.executeTestPlan?.execute({}, { toolCallId: 'xui-parent' });
-    expect(parentPending).toBeTruthy();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await session.resolvePermission('xui-parent', 'allow');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await session.resolvePermission('xui-parent', 'allow');
-    const parentExecution = (await parentPending) as { status: string; path: string };
-    expect(parentExecution).toMatchObject({ status: 'failed', path: 'xcuitest' });
+    const parentExecutionPatches = await executeConfirmedSession(session);
+    expect(parentExecutionPatches.some((patch) => patch.type === 'error')).toBe(false);
     const parent = await store.loadRunBundle(parentPlan.runId);
     expect(parent.result).toMatchObject({ status: 'failed' });
     expect(parent.steps.steps.map((step) => step.action)).toEqual([
