@@ -104,6 +104,7 @@ function dependencies(overrides: Partial<AgentSessionDependencies> = {}): AgentS
     createModel: () => FAKE_MODEL as never,
     analyzeWorkspace: async () => FAKE_ANALYSIS as never,
     listDevices: async () => [PHYSICAL_DEVICE, SIMULATOR_DEVICE],
+    waitForDeviceRefresh: async () => {},
     createDeviceBackend: () => ({ name: 'appium' }) as DeviceBackend,
     ...overrides,
   };
@@ -418,17 +419,94 @@ describe('AgentSession tools', () => {
     expect(output).toEqual(FAKE_ANALYSIS);
   });
 
-  it('reports observed device state without a canned connected result', async () => {
+  it('reports target-scoped device state without exposing device identifiers', async () => {
     const session = await createAgentSession('/workspace', dependencies());
-    await collectPatches(session);
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
 
     const output = (await sdkTool('getDeviceInfo').execute(
       {},
       { toolCallId: 'devices-1' },
     )) as Record<string, unknown>;
-    expect(output.connected).toBe(true);
+    expect(output.targetKind).toBe('physical');
+    expect(output.ready).toBe(true);
+    expect(output).not.toHaveProperty('connected');
     expect(output.selectedDevice).toBeNull();
-    expect(output.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
+    expect(output.devices).toEqual([
+      {
+        name: PHYSICAL_DEVICE.name,
+        targetKind: 'physical',
+        osVersion: PHYSICAL_DEVICE.osVersion,
+        state: undefined,
+        availability: 'ready',
+      },
+    ]);
+    expect(JSON.stringify(output)).not.toContain(PHYSICAL_DEVICE.udid);
+    expect(JSON.stringify(output)).not.toContain(SIMULATOR_DEVICE.udid);
+  });
+
+  it('settles an explicit refresh until a newly connected target becomes ready', async () => {
+    const offline = { ...PHYSICAL_DEVICE, availability: 'discovered' as const };
+    let discoveryCount = 0;
+    const delays: number[] = [];
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        listDevices: async () => {
+          discoveryCount += 1;
+          return discoveryCount < 3
+            ? [offline, SIMULATOR_DEVICE]
+            : [PHYSICAL_DEVICE, SIMULATOR_DEVICE];
+        },
+        waitForDeviceRefresh: async (delayMs) => {
+          delays.push(delayMs);
+        },
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+
+    const patches = await session.refreshDevices();
+
+    expect(delays).toEqual([250]);
+    expect(discoveryCount).toBe(3);
+    expect(patches.find((patch) => patch.type === 'devices_update')?.payload).toMatchObject({
+      targetKind: 'physical',
+      devices: [PHYSICAL_DEVICE, SIMULATOR_DEVICE],
+    });
+    expect(() => session.selectDevice(PHYSICAL_DEVICE.udid)).not.toThrow();
+  });
+
+  it('serializes competing refreshes so an older result cannot overwrite a newer result', async () => {
+    let discoveryCount = 0;
+    let releaseFirstRefresh!: () => void;
+    const firstRefreshGate = new Promise<void>((resolve) => {
+      releaseFirstRefresh = resolve;
+    });
+    const offline = { ...PHYSICAL_DEVICE, availability: 'discovered' as const };
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        listDevices: async () => {
+          discoveryCount += 1;
+          if (discoveryCount === 2) {
+            await firstRefreshGate;
+            return [offline];
+          }
+          return [PHYSICAL_DEVICE];
+        },
+      }),
+    );
+
+    const older = session.refreshDevices();
+    const newer = session.refreshDevices();
+    await Promise.resolve();
+    expect(discoveryCount).toBe(2);
+    releaseFirstRefresh();
+    await Promise.all([older, newer]);
+
+    expect(discoveryCount).toBe(3);
+    expect(session.getDevices()).toEqual([PHYSICAL_DEVICE]);
   });
 
   it('blocks TestPlan compilation until candidate confirmation', async () => {
@@ -499,6 +577,32 @@ describe('AgentSession streaming and permission bridge', () => {
     const updates = patches.filter((patch) => patch.type === 'devices_update');
     expect(updates).toHaveLength(2);
     expect(updates[1]?.payload.devices).toEqual([PHYSICAL_DEVICE, SIMULATOR_DEVICE]);
+  });
+
+  it('uses transient activity patches and never emits raw tool results as messages', async () => {
+    streamScenario = async function* (args) {
+      await args.tools.getDeviceInfo?.execute({}, { toolCallId: 'safe-device-output' });
+      yield {
+        type: 'tool-result',
+        toolCallId: 'safe-device-output',
+        toolName: 'getDeviceInfo',
+        output: { devices: [{ udid: 'must-not-render' }], profile: { secret: 'raw-json' } },
+      };
+    };
+    const session = await createAgentSession('/workspace', dependencies());
+
+    const patches = await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    const renderedText = patches
+      .filter((patch) => patch.type === 'message_add')
+      .map((patch) => String(patch.payload.text ?? ''))
+      .join('\n');
+
+    expect(renderedText).not.toContain('must-not-render');
+    expect(renderedText).not.toContain('raw-json');
+    expect(patches).toContainEqual({
+      type: 'activity_update',
+      payload: { complete: true, id: 'safe-device-output' },
+    });
   });
 
   it('delivers permission requests while the tool call is blocked', async () => {

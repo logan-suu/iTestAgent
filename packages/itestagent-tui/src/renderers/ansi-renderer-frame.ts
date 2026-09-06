@@ -53,6 +53,9 @@ export function renderFrame(state: TuiShellState): string[] {
   // Header
   lines.push(`${BOLD}iTestAgent v0.0.1${RESET}`);
   lines.push(`${DIM}${state.workspace}${RESET}`);
+  if (state.agentActivity) {
+    lines.push(`${DIM}Activity: ${state.agentActivity.text}${RESET}`);
+  }
   lines.push(separatorLine(cols));
 
   // Messages

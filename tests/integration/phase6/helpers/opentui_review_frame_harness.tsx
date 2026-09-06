@@ -29,6 +29,22 @@ function createState(): TuiShellState {
       ],
     };
   }
+  if (scenario === 'chat-activity') {
+    return {
+      ...initial,
+      mode: 'chat',
+      deviceStatus: 'discovered',
+      agentActivity: { callId: 'device-tool', text: 'Refreshing devices…' },
+      messages: [
+        {
+          id: 'assistant-safe-summary',
+          type: 'assistant',
+          text: '正在检查已连接的真机。',
+          timestamp: 0,
+        },
+      ],
+    };
+  }
   if (scenario === 'device-review') {
     return {
       ...initial,

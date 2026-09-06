@@ -7,6 +7,7 @@ import type {
   DeviceBackend,
   DeviceDiscoverySnapshot,
   DeviceInfo,
+  TargetKind,
   TestPlan,
   ToolCall,
   ToolResult,
@@ -160,6 +161,8 @@ export interface AgentSessionDependencies {
   createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
   listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
+  /** Injectable delay used by the explicit device-refresh settling probe. */
+  waitForDeviceRefresh?: (delayMs: number) => Promise<void>;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
   closeDeviceBackend?: ProductionAgentSessionDependencies['closeDeviceBackend'];
   /** Full production composition; tests should replace only its external transport boundaries. */
@@ -219,6 +222,7 @@ export interface TuiStatePatch {
     | 'permission_request'
     | 'permission_resolved'
     | 'devices_update'
+    | 'activity_update'
     | 'error';
   payload: Record<string, unknown>;
 }
@@ -286,16 +290,45 @@ export async function createAgentSession(
   let discovery = normalizeDiscovery(await listDevices());
   let devices = discovery.devices;
   let selectedDeviceUdid: string | null = null;
-  const refreshDiscovery = async () => {
-    discovery = normalizeDiscovery(await listDevices());
-    devices = discovery.devices;
-    if (
-      selectedDeviceUdid &&
-      !devices.some((device) => device.udid === selectedDeviceUdid && isDeviceReady(device))
-    ) {
-      selectedDeviceUdid = null;
+  const waitForDeviceRefresh =
+    dependencies.waitForDeviceRefresh ??
+    ((delayMs: number) => new Promise<void>((resolve) => setTimeout(resolve, delayMs)));
+  let refreshTail: Promise<void> = Promise.resolve();
+  const refreshDiscovery = () => {
+    const refresh = refreshTail.then(async () => {
+      const nextDiscovery = normalizeDiscovery(await listDevices());
+      discovery = nextDiscovery;
+      devices = nextDiscovery.devices;
+      if (
+        selectedDeviceUdid &&
+        !devices.some((device) => device.udid === selectedDeviceUdid && isDeviceReady(device))
+      ) {
+        selectedDeviceUdid = null;
+      }
+      return nextDiscovery;
+    });
+    // A failed probe must not poison later user-requested refreshes.
+    refreshTail = refresh.then(
+      () => undefined,
+      () => undefined,
+    );
+    return refresh;
+  };
+
+  const targetKindForCurrentPlan = (): TargetKind | null =>
+    planningSession?.getSnapshot().plan?.device.kind ?? null;
+
+  const refreshUntilTargetSettles = async () => {
+    await refreshDiscovery();
+    const targetKind = targetKindForCurrentPlan();
+    if (!targetKind) return;
+    for (const delayMs of [250, 750]) {
+      if (devices.some((device) => device.targetKind === targetKind && isDeviceReady(device))) {
+        return;
+      }
+      await waitForDeviceRefresh(delayMs);
+      await refreshDiscovery();
     }
-    return discovery;
   };
 
   const permissionEngine = new PermissionEngine({
@@ -418,6 +451,7 @@ export async function createAgentSession(
               devices,
               discoveryStatus: discovery.status,
               issues: discovery.issues,
+              targetKind: targetKindForCurrentPlan(),
             },
           });
           if (discovery.issues.length > 0) {
@@ -429,13 +463,18 @@ export async function createAgentSession(
               },
             });
           }
+          const targetKind = targetKindForCurrentPlan();
+          const targetDevices = targetKind
+            ? devices.filter((device) => device.targetKind === targetKind)
+            : devices;
+          const selectedDevice =
+            devices.find((device) => device.udid === selectedDeviceUdid && isDeviceReady(device)) ??
+            null;
           return {
-            connected: devices.some(isDeviceReady),
-            selectedDevice:
-              devices.find(
-                (device) => device.udid === selectedDeviceUdid && isDeviceReady(device),
-              ) ?? null,
-            devices,
+            targetKind,
+            ready: targetDevices.some(isDeviceReady),
+            selectedDevice: selectedDevice ? summarizeDeviceForModel(selectedDevice) : null,
+            devices: targetDevices.map(summarizeDeviceForModel),
             discoveryStatus: discovery.status,
             limitations: discovery.issues,
           };
@@ -630,7 +669,8 @@ export async function createAgentSession(
     },
 
     async refreshDevices() {
-      await refreshDiscovery();
+      await refreshUntilTargetSettles();
+      const targetKind = targetKindForCurrentPlan();
       const patches: TuiStatePatch[] = [
         {
           type: 'devices_update',
@@ -638,6 +678,7 @@ export async function createAgentSession(
             devices,
             discoveryStatus: discovery.status,
             issues: discovery.issues,
+            targetKind,
           },
         },
       ];
@@ -842,27 +883,18 @@ function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
       return { type: 'message_update', payload: { text: event.delta, id: event.turnId } };
     case 'tool.started':
       return {
-        type: 'message_add',
+        type: 'activity_update',
         payload: {
-          role: 'system',
-          text: `Tool ${event.name} on ${event.backend}...`,
+          text: formatToolActivity(event.name),
           id: event.callId,
         },
       };
     case 'tool.progress':
-      return {
-        type: 'message_add',
-        payload: {
-          role: 'system',
-          text:
-            event.percent === undefined ? event.message : `${event.message} (${event.percent}%)`,
-          id: event.callId,
-        },
-      };
+      return null;
     case 'tool.completed':
       return {
-        type: 'message_add',
-        payload: { role: 'system', text: formatToolOutput(event.result), id: event.callId },
+        type: 'activity_update',
+        payload: { complete: true, id: event.callId },
       };
     case 'tool.failed':
       return { type: 'error', payload: { message: event.error.message, id: event.callId } };
@@ -886,13 +918,25 @@ function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
   }
 }
 
-function formatToolOutput(result: ToolResult): string {
-  if (typeof result.output === 'string') return result.output;
-  try {
-    return JSON.stringify(result.output, null, 2);
-  } catch {
-    return String(result.output);
-  }
+function formatToolActivity(toolName: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    analyzeProject: 'Analyzing project…',
+    getDeviceInfo: 'Refreshing devices…',
+    compileTestPlan: 'Compiling TestPlan…',
+    executeTestPlan: 'Executing confirmed TestPlan…',
+    generateReport: 'Generating report…',
+  };
+  return labels[toolName] ?? 'Working…';
+}
+
+function summarizeDeviceForModel(device: DeviceInfo) {
+  return {
+    name: device.name ?? 'Unnamed device',
+    targetKind: device.targetKind,
+    osVersion: device.osVersion,
+    state: device.state,
+    availability: isDeviceReady(device) ? ('ready' as const) : ('discovered' as const),
+  };
 }
 
 /** B29: caps a session transcript to the retention window. */

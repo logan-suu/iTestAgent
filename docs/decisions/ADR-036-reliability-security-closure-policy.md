@@ -59,6 +59,8 @@ T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定�
 
 同次验收还确认，候选链路与 TestPlan 审阅属于生产 renderer 门禁的一部分：多行标题、状态和命令区必须使用显式纵向布局，并禁止固定 header/footer 被滚动内容压缩，不能依赖 renderer 的默认方向与默认 shrink；Enter 必须分别产生候选确认与计划确认事件，`q` 必须明确表示取消，不能显示为完成。该行为必须通过真实 PTY 与字符帧覆盖，避免单元级 keymap 正确但输入组件未连接提交事件，也避免“有首帧字节”掩盖同一行覆盖。
 
+T6.12 的 USB 接入复测进一步确认：Agent 自动设备探测与用户按 `r` 触发的探测必须串行提交，显式刷新在目标尚未 ready 时执行有界稳定性复查，避免 CoreDevice 的瞬态旧状态或较早请求覆盖较新结果。header 只绑定已选择且 ready 的当前 `targetKind`，新规划周期清除选择时必须撤销 connected。tool lifecycle 只允许以独立、短生命周期的 allowlist activity 展示；原始 tool result、ProjectProfile、设备 JSON 和 UDID 不得进入聊天 transcript，模型侧设备事实也必须使用目标范围内的脱敏摘要。
+
 ### 2. 高风险 allow 不持久化
 
 - 高风险操作每次都以明确 `action/resource` 二次确认。

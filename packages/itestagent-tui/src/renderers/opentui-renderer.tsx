@@ -64,7 +64,11 @@ const CONFIDENCE_PREFIX: Record<string, string> = {
 
 // ─── 子组件 ────────────────────────────────────────────────────────────
 
-function Header(props: { workspace: string; deviceStatus: DeviceStatus }): JSX.Element {
+function Header(props: {
+  workspace: string;
+  deviceStatus: DeviceStatus;
+  activity: string | null;
+}): JSX.Element {
   return (
     <box flexDirection="column" flexShrink={0} borderStyle="single" padding={1} marginBottom={1}>
       <box>
@@ -73,6 +77,11 @@ function Header(props: { workspace: string; deviceStatus: DeviceStatus }): JSX.E
       <box>
         <text>{`Device: ${DEVICE_LABELS[props.deviceStatus]}`}</text>
       </box>
+      <Show when={props.activity}>
+        <box>
+          <text opacity={0.6}>{`Activity: ${props.activity ?? ''}`}</text>
+        </box>
+      </Show>
     </box>
   );
 }
@@ -537,7 +546,11 @@ export function OpenTuiApp(props: {
 
   return (
     <box flexDirection="column" padding={1}>
-      <Header workspace={s().workspace} deviceStatus={s().deviceStatus} />
+      <Header
+        workspace={s().workspace}
+        deviceStatus={s().deviceStatus}
+        activity={s().agentActivity?.text ?? null}
+      />
 
       {s().mode === 'setup' ? (
         <FirstRunSetupPanel

@@ -7,7 +7,7 @@ interface CapturedReviewFrame {
 }
 
 async function captureFrame(
-  scenario: 'candidate-review' | 'device-review' | 'plan-review',
+  scenario: 'candidate-review' | 'device-review' | 'plan-review' | 'chat-activity',
 ): Promise<string> {
   const processHandle = Bun.spawn(
     ['bun', 'tests/integration/phase6/helpers/opentui_review_frame_harness.tsx', scenario],
@@ -67,6 +67,15 @@ describe('OpenTUI review layout character frames', () => {
     expect(frame).not.toContain('offline-device');
     expect(frame).not.toContain('ready-device');
     expectAdjacentRows(frame, '2/2', 'Cmd: j/k/Enter/r/q');
+  });
+
+  test('renders one safe activity row without raw tool payloads or identifiers', async () => {
+    const frame = await captureFrame('chat-activity');
+    expectAdjacentRows(frame, 'Device: [target not selected]', 'Activity: Refreshing devices…');
+    expect(frame).toContain('正在检查已连接的真机。');
+    expect(frame).not.toContain('tool-output');
+    expect(frame).not.toContain('device-tool');
+    expect(frame).not.toContain('udid');
   });
 
   test('resolves the OpenTUI runtime version declared by the TUI package', async () => {

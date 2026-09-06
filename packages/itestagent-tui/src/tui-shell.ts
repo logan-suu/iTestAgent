@@ -80,6 +80,8 @@ export interface TuiShellState {
   readonly deviceSelectionTargetKind: TargetKind | null;
   readonly deviceSelectionIndex: number;
   readonly selectedDeviceUdid: string | null;
+  /** Transient, redacted tool activity. Raw tool payloads never enter messages. */
+  readonly agentActivity: { readonly callId: string; readonly text: string } | null;
   /** Candidate review state (only meaningful when mode === 'candidate_review'). */
   readonly candidates: readonly CandidateLink[];
   readonly candidateIndex: number;
@@ -148,6 +150,12 @@ export type TuiShellEvent =
   | { readonly type: 'device_refresh' }
   | { readonly type: 'device_cancel' }
   | { readonly type: 'device_selected'; readonly udid: string }
+  | {
+      readonly type: 'agent_activity_updated';
+      readonly callId: string;
+      readonly text: string;
+    }
+  | { readonly type: 'agent_activity_cleared'; readonly callId: string }
   // Candidate review events (US-3.3 AC2)
   | { readonly type: 'enter_candidate_review'; readonly candidates: readonly CandidateLink[] }
   | { readonly type: 'exit_candidate_review' }
@@ -229,6 +237,7 @@ export function createInitialState(workspace?: string): TuiShellState {
     deviceSelectionTargetKind: null,
     deviceSelectionIndex: 0,
     selectedDeviceUdid: null,
+    agentActivity: null,
     candidates: [],
     candidateIndex: 0,
     candidateEditMode: false,
@@ -411,6 +420,17 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         deviceStatus: 'healthy',
       };
 
+    case 'agent_activity_updated':
+      return {
+        ...state,
+        agentActivity: { callId: event.callId, text: event.text },
+      };
+
+    case 'agent_activity_cleared':
+      return state.agentActivity?.callId === event.callId
+        ? { ...state, agentActivity: null }
+        : state;
+
     case 'quit':
       return { ...state, running: false };
 
@@ -418,10 +438,12 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       return {
         ...state,
         mode: 'chat',
+        deviceStatus: state.devices.length > 0 ? 'discovered' : 'no_device',
         currentIntent: null,
         deviceSelectionTargetKind: null,
         deviceSelectionIndex: 0,
         selectedDeviceUdid: null,
+        agentActivity: null,
         candidates: [],
         candidateIndex: 0,
         candidateEditMode: false,

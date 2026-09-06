@@ -85,14 +85,12 @@ function App(props: {
     { flexDirection: 'column', paddingX: 1, paddingY: 1 },
     React.createElement(
       Box,
-      { marginBottom: 1 },
-      React.createElement(
-        Text,
-        { dimColor: true },
-        `iTestAgent v0.0.1 — ${state.workspace}${
-          state.deviceStatus !== 'no_device' ? `  |  Device: ${state.deviceStatus}` : ''
-        }`,
-      ),
+      { marginBottom: 1, flexDirection: 'column' },
+      React.createElement(Text, { dimColor: true }, `iTestAgent v0.0.1 — ${state.workspace}`),
+      React.createElement(Text, { dimColor: true }, `Device: ${state.deviceStatus}`),
+      state.agentActivity
+        ? React.createElement(Text, { dimColor: true }, `Activity: ${state.agentActivity.text}`)
+        : null,
     ),
     React.createElement(Box, { flexDirection: 'column', marginBottom: 1 }, messages),
     React.createElement(

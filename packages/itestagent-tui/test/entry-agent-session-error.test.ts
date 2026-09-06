@@ -58,6 +58,51 @@ describe('applyAgentPatch', () => {
     expect(updated.deviceStatus).toBe('unavailable');
   });
 
+  it('scopes readiness to the requested physical target when a Simulator is ready', () => {
+    const updated = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'devices_update',
+      payload: {
+        discoveryStatus: 'ok',
+        targetKind: 'physical',
+        devices: [
+          {
+            udid: 'phone-offline',
+            platform: 'ios',
+            targetKind: 'physical',
+            availability: 'discovered',
+          },
+          {
+            udid: 'sim-ready',
+            platform: 'ios',
+            targetKind: 'simulator',
+            state: 'booted',
+            availability: 'ready',
+          },
+        ],
+      },
+    });
+    expect(updated.deviceStatus).toBe('unavailable');
+  });
+
+  it('does not preserve connected status when a new planning cycle clears selection', () => {
+    const selected = {
+      ...createInitialState('/workspace'),
+      deviceStatus: 'healthy' as const,
+      selectedDeviceUdid: 'phone-ready',
+      devices: [
+        {
+          udid: 'phone-ready',
+          platform: 'ios' as const,
+          targetKind: 'physical' as const,
+          availability: 'ready' as const,
+        },
+      ],
+    };
+    const reset = applyAgentPatch(selected, { type: 'planning_reset', payload: {} });
+    expect(reset.selectedDeviceUdid).toBeNull();
+    expect(reset.deviceStatus).toBe('discovered');
+  });
+
   it('shows partial and failed discovery explicitly', () => {
     const partial = applyAgentPatch(createInitialState('/workspace'), {
       type: 'devices_update',
@@ -96,5 +141,24 @@ describe('applyAgentPatch', () => {
       'Existing state',
       'Assistant output',
     ]);
+  });
+
+  it('keeps tool activity transient and outside the chat transcript', () => {
+    const active = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'activity_update',
+      payload: { id: 'tool-1', text: 'Refreshing devices…' },
+    });
+    expect(active.agentActivity).toEqual({
+      callId: 'tool-1',
+      text: 'Refreshing devices…',
+    });
+    expect(active.messages).toEqual([]);
+
+    const completed = applyAgentPatch(active, {
+      type: 'activity_update',
+      payload: { id: 'tool-1', complete: true },
+    });
+    expect(completed.agentActivity).toBeNull();
+    expect(completed.messages).toEqual([]);
   });
 });

@@ -576,17 +576,33 @@ export function applyAgentPatch(
           : String(patch.payload.text ?? '');
       return tuiShellReducer(state, { type: 'system_message', text });
     }
+    case 'activity_update': {
+      const callId = typeof patch.payload.id === 'string' ? patch.payload.id : '';
+      if (!callId) return state;
+      if (patch.payload.complete === true) {
+        return tuiShellReducer(state, { type: 'agent_activity_cleared', callId });
+      }
+      const text = typeof patch.payload.text === 'string' ? patch.payload.text : 'Working…';
+      return tuiShellReducer(state, { type: 'agent_activity_updated', callId, text });
+    }
     case 'devices_update': {
       const devices = DeviceInfoSchema.array().parse(patch.payload.devices ?? []);
       const discoveryStatus = patch.payload.discoveryStatus;
+      const parsedTargetKind = TargetKindSchema.safeParse(patch.payload.targetKind);
+      const targetKind = parsedTargetKind.success
+        ? parsedTargetKind.data
+        : (state.deviceSelectionTargetKind ?? state.plan?.device.kind ?? null);
+      const relevantDevices = targetKind
+        ? devices.filter((device) => device.targetKind === targetKind)
+        : devices;
       const status =
         discoveryStatus === 'failed'
           ? 'unavailable'
           : discoveryStatus === 'partial'
             ? 'degraded'
-            : devices.length === 0
+            : relevantDevices.length === 0
               ? 'no_device'
-              : devices.some(isDeviceReady)
+              : relevantDevices.some(isDeviceReady)
                 ? 'discovered'
                 : 'unavailable';
       return tuiShellReducer(state, {
@@ -614,7 +630,13 @@ export function applyAgentPatch(
         typeof patch.payload.message === 'string'
           ? patch.payload.message
           : String(patch.payload.message ?? '');
-      return tuiShellReducer(state, { type: 'system_message', text: `❌ ${message}` });
+      const cleared = state.agentActivity
+        ? tuiShellReducer(state, {
+            type: 'agent_activity_cleared',
+            callId: state.agentActivity.callId,
+          })
+        : state;
+      return tuiShellReducer(cleared, { type: 'system_message', text: `❌ ${message}` });
     }
     default:
       return state;
