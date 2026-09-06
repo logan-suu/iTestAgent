@@ -14,6 +14,7 @@ import {
   saveCredential,
 } from './keychain-persistence.js';
 import { createConfiguredRenderer } from './renderer-factory.js';
+import type { RendererKind } from './renderer-selection.js';
 import { loadTuiRuntimeConfig } from './runtime-config.js';
 import {
   type TuiShellEvent,
@@ -48,6 +49,14 @@ async function saveConfig(baseUrl: string, model: string): Promise<void> {
   );
 }
 
+export function assertSecureFirstRunRenderer(kind: RendererKind): void {
+  if (kind === 'ink') {
+    throw new Error(
+      'renderer_unavailable: ink: secure masked first-run setup is not implemented; use tui.framework=opentui or ansi',
+    );
+  }
+}
+
 // ── TUI entry ───────────────────────────────────────────────
 
 export async function startTui(workspace?: string): Promise<void> {
@@ -60,25 +69,8 @@ export async function startTui(workspace?: string): Promise<void> {
   const ws = workspace ?? process.cwd();
   const needsSetup = isFirstRun();
   const runtimeConfig = loadTuiRuntimeConfig({ workspace: ws });
-  if (needsSetup && !['auto', 'ansi'].includes(runtimeConfig.tui.framework)) {
-    throw new Error(
-      `renderer_unavailable: ${runtimeConfig.tui.framework}: secure masked first-run setup requires tui.framework=auto or ansi`,
-    );
-  }
-  const createdRenderer = await createConfiguredRenderer(
-    needsSetup ? 'ansi' : runtimeConfig.tui.framework,
-  );
-  const selectedRenderer = needsSetup
-    ? {
-        ...createdRenderer,
-        preference: runtimeConfig.tui.framework,
-        explicit: runtimeConfig.tui.framework === 'ansi',
-        reason:
-          runtimeConfig.tui.framework === 'ansi'
-            ? 'explicit tui.framework=ansi'
-            : 'auto: secure masked first-run credential setup',
-      }
-    : createdRenderer;
+  const selectedRenderer = await createConfiguredRenderer(runtimeConfig.tui.framework);
+  if (needsSetup) assertSecureFirstRunRenderer(selectedRenderer.kind);
   const renderer = selectedRenderer.renderer;
   let state: TuiShellState = createInitialState(ws);
   let pendingUserText = '';

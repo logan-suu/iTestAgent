@@ -55,6 +55,8 @@ T6.10 启动评审发现现有文档存在四组不一致：
 
 T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定其是否满足生产门禁。失败时 Ink 作为生产交互 renderer，ANSI 只用于 dumb terminal、非交互输出或明确配置；OpenTUI 保留为实验候选，等待后续版本复验。该结果写回 ADR-008 与验证报告，不能用 mocked renderer 测试替代真实 PTY 证据。
 
+2026-09-06 的 T6.12 入口验收进一步确认：首次配置同样必须服从上述 selector，不得以“安全配置”为由把整个进程强制固定到 ANSI。当前 OpenTUI 首次配置路径必须在真实 PTY 中证明 UTF-8 输入/粘贴、API key 不回显和 clean exit；配置完成后继续沿用同一 renderer。安全性由专用掩码输入路径保证，而不是通过降低 renderer 获得；显式选择尚无安全首次配置路径的 renderer 必须 fail-closed。
+
 ### 2. 高风险 allow 不持久化
 
 - 高风险操作每次都以明确 `action/resource` 二次确认。

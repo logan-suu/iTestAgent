@@ -19,6 +19,7 @@ import {
   createOpenTuiLifecycle,
   createOpenTuiStateRef,
   draftForEvent,
+  reduceOpenTuiLocalState,
 } from '../src/renderers/opentui-renderer-lifecycle.js';
 import { createInitialState } from '../src/tui-shell.js';
 
@@ -73,6 +74,30 @@ describe('draftForEvent', () => {
     expect(draftForEvent({ type: 'quit' })).toBeNull();
     expect(draftForEvent({ type: 'system_message', text: 'x' })).toBeNull();
     expect(draftForEvent({ type: 'candidate_toggle' })).toBeNull();
+  });
+});
+
+describe('reduceOpenTuiLocalState', () => {
+  it('does not turn first-run API key input into a rendered chat message', () => {
+    const setupState = {
+      ...createInitialState('/workspace'),
+      mode: 'setup' as const,
+      setupStep: 1,
+    };
+    const secret = 'itestagent-fake-secret-local-state';
+    const withInput = reduceOpenTuiLocalState(setupState, { type: 'input', text: secret });
+    const withSubmit = reduceOpenTuiLocalState(withInput, { type: 'submit' });
+
+    expect(withInput).toBe(setupState);
+    expect(withSubmit).toBe(setupState);
+    expect(JSON.stringify(withSubmit)).not.toContain(secret);
+  });
+
+  it('continues to reduce ordinary chat input', () => {
+    const chatState = createInitialState('/workspace');
+    expect(reduceOpenTuiLocalState(chatState, { type: 'input', text: '你好' }).inputDraft).toBe(
+      '你好',
+    );
   });
 });
 

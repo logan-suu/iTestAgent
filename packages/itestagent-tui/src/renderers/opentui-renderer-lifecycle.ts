@@ -13,7 +13,7 @@
  * the re-render (and therefore the new column layout) actually happen.
  */
 
-import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
+import { type TuiShellEvent, type TuiShellState, tuiShellReducer } from '../tui-shell.js';
 
 /** Ref cell the Solid App assigns its state setter to. */
 export type OpenTuiStateRef = { current: ((state: TuiShellState) => void) | null };
@@ -36,6 +36,19 @@ export function draftForEvent(event: TuiShellEvent): string | null {
   if (event.type === 'input') return event.text;
   if (event.type === 'submit') return '';
   return null;
+}
+
+/**
+ * Apply an event to OpenTUI's local mirror without treating setup input as
+ * chat. The entry owns setup transitions and pushes the authoritative state
+ * back through update(); locally reducing submit would briefly create a user
+ * message containing the API key.
+ */
+export function reduceOpenTuiLocalState(state: TuiShellState, event: TuiShellEvent): TuiShellState {
+  if (state.mode === 'setup' && (event.type === 'input' || event.type === 'submit')) {
+    return state;
+  }
+  return tuiShellReducer(state, event);
 }
 
 /** Listen for stream resize events; returns a detach function. */

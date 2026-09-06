@@ -1,11 +1,13 @@
 # ADR-008: TuiShell 选型——OpenTUI+SolidJS 目标候选 + Ink fallback
 
 **状态**: 已接受，生产门禁由 ADR-036/T6.10 复核
-**日期**: 2026-07-15（决策）/ 2026-07-16（初始实施）/ 2026-08-31（实施状态同步）/ 2026-09-04（规格复审）
+**日期**: 2026-07-15（决策）/ 2026-07-16（初始实施）/ 2026-08-31（实施状态同步）/ 2026-09-04（规格复审）/ 2026-09-06（首次配置修复）
 **决策人**: AI Agent（基于 T0.4 横评实测）
 **关联**: ADR-005、T0.4 横评文档、Phase 1 T1.2
 
 > **2026-09-04 supersession update**：ADR-036 将产品验收从框架名称改为真实 PTY 行为门禁。OpenTUI 继续作为目标候选，但只有当前稳定版本同时通过首帧、输入、流式更新、resize、退出与资源清理才能成为生产默认。显式 renderer 不可用时 fail-closed，不得静默切换。Route 的最终选择以 T6.10 的 renderer matrix 证据为准。
+
+> **2026-09-06 implementation correction**：首次配置不再强制 ANSI，而是与后续会话共用 renderer selector 的选择结果。在当前通过门禁的交互终端中，`auto` 因此从首次配置起使用 OpenTUI；API key 由 OpenTUI 专用安全输入路径接收，只渲染掩码。ANSI 仍仅用于 dumb terminal、非交互输出或用户明确配置，不作为首次配置特例。若显式选择尚无安全首次配置路径的 Ink，则按 ADR-036 fail-closed，不得以明文输入继续。
 
 ## 背景
 
@@ -70,8 +72,9 @@ Rejected = Rezi（当前 npm registry 下不存在为 TUI 框架）
 TuiShellViewModel / TuiShellEvent / reducer: framework-independent ✅
 OpenTUIRenderer: 已实现并通过 T6.10 当前依赖版本的真实 PTY 行为门禁
 InkRenderer: 已实现并通过相同真实 PTY 行为门禁
-ANSI renderer: 已实现并通过相同真实 PTY 行为门禁，用于明确配置及安全 masked setup
+ANSI renderer: 已实现并通过相同真实 PTY 行为门禁，仅用于 dumb terminal、非交互输出或明确配置
 Renderer selector: 已接入 entry.ts；显式配置 fail-closed，auto 只选择当前 runtime 验证通过的 renderer
+First-run setup: 复用同一 renderer selector；OpenTUI 安全输入路径支持 UTF-8 粘贴且不把 API key 放入可见 JSX/聊天状态
 ```
 
 实施细节：
@@ -92,6 +95,7 @@ Renderer selector: 已接入 entry.ts；显式配置 fail-closed，auto 只选�
 - ⏳ Markdown 渲染（Phase 3 随工具调用卡片实现）
 - ⏳ 工具调用卡片（Phase 3 T3.4c ToolDispatcher 实现）
 - ✅ 输入行（Input 组件已验证）
+- ✅ 首次配置安全输入（T6.12 修复；真实 PTY 验证 UTF-8 粘贴、密钥不回显与 clean exit）
 
 ### Ink fallback 状态
 

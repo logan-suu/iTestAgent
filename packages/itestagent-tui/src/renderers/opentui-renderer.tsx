@@ -17,14 +17,9 @@ import {
 import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
 import { PLAN_SECTIONS, formatPlanSections } from '../plan-review.js';
 import type { TuiRenderer } from '../renderer.js';
-import {
-  type DeviceStatus,
-  type Message,
-  type TuiShellEvent,
-  type TuiShellState,
-  tuiShellReducer,
-} from '../tui-shell.js';
+import type { DeviceStatus, Message, TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { CredentialPromptPanel } from './credential-prompt-panel.jsx';
+import { FirstRunSetupPanel } from './first-run-setup-panel.jsx';
 import {
   CANDIDATE_EDITING_HINT,
   CANDIDATE_REVIEW_FOOTER_HINTS,
@@ -39,6 +34,7 @@ import {
   type OpenTuiStateRef,
   createOpenTuiLifecycle,
   draftForEvent,
+  reduceOpenTuiLocalState,
 } from './opentui-renderer-lifecycle.js';
 import { RecordingPanel } from './recording-panel.jsx';
 
@@ -421,7 +417,7 @@ function App(props: {
   const s = (): TuiShellState => state();
 
   const wrappedDispatch = (event: TuiShellEvent) => {
-    setState((prev) => tuiShellReducer(prev, event));
+    setState((prev) => reduceOpenTuiLocalState(prev, event));
     const nextDraft = draftForEvent(event);
     if (nextDraft !== null) {
       setDraft(nextDraft);
@@ -437,11 +433,23 @@ function App(props: {
     }
   };
 
+  const handleSetupSubmit = () => {
+    wrappedDispatch({ type: 'input', text: draft() });
+    wrappedDispatch({ type: 'submit' });
+  };
+
   return (
     <box flexDirection="column" padding={1}>
       <Header workspace={s().workspace} deviceStatus={s().deviceStatus} />
 
-      {s().mode === 'plan_review' ? (
+      {s().mode === 'setup' ? (
+        <FirstRunSetupPanel
+          state={state}
+          draft={draft}
+          setDraft={setDraft}
+          onSubmit={handleSetupSubmit}
+        />
+      ) : s().mode === 'plan_review' ? (
         <PlanReviewPanel state={state} dispatch={wrappedDispatch} />
       ) : s().mode === 'candidate_review' ? (
         <CandidateReviewPanel state={state} dispatch={wrappedDispatch} />
