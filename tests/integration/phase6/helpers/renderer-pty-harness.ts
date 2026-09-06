@@ -93,11 +93,28 @@ function stateForScenario(): TuiShellState {
 }
 
 const initialState = stateForScenario();
+let currentState = initialState;
 await selected.renderer.start(initialState, (event) => {
   appendFileSync(eventPath, `${JSON.stringify(event)}\n`);
   if (scenario === 'device-to-plan' && event.type === 'device_confirm') {
-    const planState = stateForScenarioForPlanTransition(initialState);
-    selected.renderer.update(planState);
+    currentState = stateForScenarioForPlanTransition(initialState);
+    selected.renderer.update(currentState);
+  } else if (scenario === 'device-to-plan' && event.type === 'plan_confirm') {
+    currentState = {
+      ...currentState,
+      mode: 'chat',
+      planConfirmed: true,
+      messages: [
+        ...currentState.messages,
+        {
+          id: 'pty-plan-confirmed',
+          type: 'system',
+          text: 'PTY_PLAN_CONFIRMED_PERMISSION_REQUIRED',
+          timestamp: Date.now(),
+        },
+      ],
+    };
+    selected.renderer.update(currentState);
   }
 });
 

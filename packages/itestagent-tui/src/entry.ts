@@ -76,6 +76,29 @@ export function assertSecureFirstRunRenderer(kind: RendererKind): void {
   }
 }
 
+export interface LatestOperationGate {
+  begin(): number;
+  isCurrent(token: number): boolean;
+  invalidate(): void;
+}
+
+/** Prevents late async UI operations from committing state after a newer user action. */
+export function createLatestOperationGate(): LatestOperationGate {
+  let revision = 0;
+  return {
+    begin() {
+      revision += 1;
+      return revision;
+    },
+    isCurrent(token) {
+      return token === revision;
+    },
+    invalidate() {
+      revision += 1;
+    },
+  };
+}
+
 // ── TUI entry ───────────────────────────────────────────────
 
 export async function startTui(workspace?: string): Promise<void> {
@@ -98,6 +121,7 @@ export async function startTui(workspace?: string): Promise<void> {
   let pendingPermissionId: string | null = null;
   let agentTurnActive = false;
   let deviceSelectionPending = false;
+  const deviceOperationGate = createLatestOperationGate();
   let sessionApiKey: string | null = null;
   let setupPersistencePending = false;
   let setupFinishing = false;
@@ -336,20 +360,24 @@ export async function startTui(workspace?: string): Promise<void> {
           text: 'No matching device is available. Connect or boot one, then press r to refresh.',
         });
       } else {
+        const operationToken = deviceOperationGate.begin();
         deviceSelectionPending = true;
         state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
         void agentSession
           .selectDevice(selected.udid)
           .then((patches) => {
+            if (!deviceOperationGate.isCurrent(operationToken)) return;
             for (const patch of patches) state = applyAgentPatch(state, patch);
           })
           .catch((error: unknown) => {
+            if (!deviceOperationGate.isCurrent(operationToken)) return;
             state = tuiShellReducer(state, {
               type: 'system_message',
               text: error instanceof Error ? error.message : String(error),
             });
           })
           .finally(() => {
+            if (!deviceOperationGate.isCurrent(operationToken)) return;
             deviceSelectionPending = false;
             renderer.update(state);
           });
@@ -359,15 +387,19 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'device_refresh' && agentSession) {
+      const operationToken = deviceOperationGate.begin();
+      deviceSelectionPending = false;
       state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
       renderer.update(state);
       void agentSession
         .refreshDevices()
         .then((patches) => {
+          if (!deviceOperationGate.isCurrent(operationToken)) return;
           for (const patch of patches) state = applyAgentPatch(state, patch);
           renderer.update(state);
         })
         .catch((error: unknown) => {
+          if (!deviceOperationGate.isCurrent(operationToken)) return;
           state = tuiShellReducer(state, {
             type: 'system_message',
             text: error instanceof Error ? error.message : String(error),
@@ -378,6 +410,8 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'device_cancel' && agentSession) {
+      deviceOperationGate.invalidate();
+      deviceSelectionPending = false;
       state = tuiShellReducer(state, event);
       for (const patch of agentSession.cancelPlan()) state = applyAgentPatch(state, patch);
       renderer.update(state);
@@ -401,6 +435,8 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'plan_confirm' && agentSession) {
+      deviceOperationGate.invalidate();
+      deviceSelectionPending = false;
       let confirmed = false;
       try {
         for (const patch of agentSession.confirmPlan()) state = applyAgentPatch(state, patch);
@@ -435,6 +471,8 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'plan_cancel' && agentSession) {
+      deviceOperationGate.invalidate();
+      deviceSelectionPending = false;
       state = tuiShellReducer(state, event);
       for (const patch of agentSession.cancelPlan()) state = applyAgentPatch(state, patch);
       renderer.update(state);

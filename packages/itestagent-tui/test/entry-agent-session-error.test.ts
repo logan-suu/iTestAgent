@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test';
-import { agentSessionErrorMessage, applyAgentPatch, requiresProviderSetup } from '../src/entry.js';
+import {
+  agentSessionErrorMessage,
+  applyAgentPatch,
+  createLatestOperationGate,
+  requiresProviderSetup,
+} from '../src/entry.js';
 import { createInitialState } from '../src/tui-shell.js';
 
 describe('agentSessionErrorMessage', () => {
@@ -16,6 +21,25 @@ describe('requiresProviderSetup', () => {
 
   it('starts the configured session only when config and credential are both available', () => {
     expect(requiresProviderSetup(false, true)).toBe(false);
+  });
+});
+
+describe('createLatestOperationGate', () => {
+  it('accepts only the newest async operation result', () => {
+    const gate = createLatestOperationGate();
+    const stale = gate.begin();
+    const current = gate.begin();
+
+    expect(gate.isCurrent(stale)).toBe(false);
+    expect(gate.isCurrent(current)).toBe(true);
+  });
+
+  it('invalidates an in-flight result when the user leaves the review flow', () => {
+    const gate = createLatestOperationGate();
+    const pending = gate.begin();
+    gate.invalidate();
+
+    expect(gate.isCurrent(pending)).toBe(false);
   });
 });
 

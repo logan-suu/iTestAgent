@@ -99,6 +99,28 @@ describe('reduceOpenTuiLocalState', () => {
       '你好',
     );
   });
+
+  it('waits for the authoritative session result before leaving plan review', () => {
+    const planState = {
+      ...createInitialState('/workspace'),
+      mode: 'plan_review' as const,
+    };
+
+    expect(reduceOpenTuiLocalState(planState, { type: 'plan_confirm' })).toBe(planState);
+    expect(reduceOpenTuiLocalState(planState, { type: 'plan_cancel' })).toBe(planState);
+    expect(reduceOpenTuiLocalState(planState, { type: 'plan_modify_submit' })).toBe(planState);
+  });
+
+  it('waits for authoritative async device operations before changing review state', () => {
+    const deviceState = {
+      ...createInitialState('/workspace'),
+      mode: 'device_review' as const,
+    };
+
+    expect(reduceOpenTuiLocalState(deviceState, { type: 'device_confirm' })).toBe(deviceState);
+    expect(reduceOpenTuiLocalState(deviceState, { type: 'device_refresh' })).toBe(deviceState);
+    expect(reduceOpenTuiLocalState(deviceState, { type: 'device_cancel' })).toBe(deviceState);
+  });
 });
 
 // ── lifecycle update/notify contract ─────────────────────────────────

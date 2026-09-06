@@ -68,6 +68,17 @@ def run_scenario(
     except OSError:
         pass
     after_enter = read_available(master, 0.8)
+    first_events = []
+    if scenario == 'device-to-plan':
+        with open(event_path, encoding='utf-8') as stream:
+            first_events = [json.loads(line) for line in stream if line.strip()]
+        try:
+            os.write(master, b'\r')
+        except OSError:
+            pass
+        after_followup = read_available(master, 0.8)
+    else:
+        after_followup = b''
     try:
         os.write(master, b'\x03')
     except OSError:
@@ -95,7 +106,7 @@ def run_scenario(
 
     expected_count = sum(1 for event in events if event == {'type': expected_event})
     forbidden_count = (
-        sum(1 for event in events if event == {'type': forbidden_event})
+        sum(1 for event in first_events if event == {'type': forbidden_event})
         if forbidden_event
         else 0
     )
@@ -106,6 +117,10 @@ def run_scenario(
         'enterEvent': expected_count == 1,
         'enterEventCount': expected_count,
         'forbiddenEventCount': forbidden_count,
+        'followupPlanConfirmCount': sum(
+            1 for event in events if event == {'type': 'plan_confirm'}
+        ),
+        'followupRendered': b'PTY_PLAN_CONFIRMED_PERMISSION_REQUIRED' in after_followup,
         'cleanExit': os.waitstatus_to_exitcode(status) == 0,
         'bytes': {
             'initial': len(initial),
@@ -133,7 +148,15 @@ def main() -> int:
     print(json.dumps(results, separators=(',', ':')))
     required = ('selected', 'firstFrame', 'enterEvent', 'cleanExit')
     return 0 if all(
-        all(result[key] for key in required) and result['forbiddenEventCount'] == 0
+        all(result[key] for key in required)
+        and result['forbiddenEventCount'] == 0
+        and (
+            result['scenario'] != 'device-to-plan'
+            or (
+                result['followupPlanConfirmCount'] == 1
+                and result['followupRendered']
+            )
+        )
         for result in results
     ) else 1
 

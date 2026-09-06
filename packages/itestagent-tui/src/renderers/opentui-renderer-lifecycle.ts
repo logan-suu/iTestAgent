@@ -48,6 +48,19 @@ export function reduceOpenTuiLocalState(state: TuiShellState, event: TuiShellEve
   if (state.mode === 'setup' && (event.type === 'input' || event.type === 'submit')) {
     return state;
   }
+  // Review confirmations and cancellations have session-side effects. The renderer must not
+  // switch panels optimistically before the entry/session layer has accepted the action.
+  if (
+    event.type === 'candidate_confirm' ||
+    event.type === 'device_confirm' ||
+    event.type === 'device_refresh' ||
+    event.type === 'device_cancel' ||
+    event.type === 'plan_confirm' ||
+    event.type === 'plan_cancel' ||
+    event.type === 'plan_modify_submit'
+  ) {
+    return state;
+  }
   return tuiShellReducer(state, event);
 }
 
