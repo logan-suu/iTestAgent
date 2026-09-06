@@ -18,9 +18,20 @@ mock.module('@opentui/solid', () => ({
     options?.onDestroy?.();
     return Promise.resolve();
   },
+  effect: () => {},
+  _render: () => () => {},
+  insert: () => ({}),
+  insertNode: () => {},
+  memo: (fn: () => unknown) => fn,
+  createTextNode: () => ({}),
   createElement: () => ({}),
   createComponent: (Comp: unknown, props: unknown) => ({}),
+  mergeProps: (...sources: unknown[]) => Object.assign({}, ...sources),
+  setProp: (_node: unknown, _name: string, value: unknown) => value,
   spread: () => ({}),
+  use: () => {},
+  useKeyboard: () => {},
+  usePaste: () => {},
 }));
 
 // biome-ignore format: typeof import() doesn't support multi-line format

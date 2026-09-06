@@ -60,7 +60,7 @@ const CONFIDENCE_PREFIX: Record<string, string> = {
 
 function Header(props: { workspace: string; deviceStatus: DeviceStatus }): JSX.Element {
   return (
-    <box flexDirection="column" borderStyle="single" padding={1} marginBottom={1}>
+    <box flexDirection="column" flexShrink={0} borderStyle="single" padding={1} marginBottom={1}>
       <box>
         <text>{`Workspace: ${props.workspace}`}</text>
       </box>
@@ -114,7 +114,7 @@ function InputBar(props: {
   onSubmit: () => void;
 }): JSX.Element {
   return (
-    <box borderStyle="rounded" padding={1}>
+    <box flexDirection="row" flexShrink={0} borderStyle="rounded" padding={1}>
       <text>{'> '}</text>
       <input
         focused={true}
@@ -161,7 +161,7 @@ function CandidateReviewPanel(props: {
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
-      <box flexDirection="column" borderStyle="double" padding={1} marginBottom={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="double" padding={1} marginBottom={1}>
         <text>Candidate Core Paths — Review & Confirm</text>
         <text opacity={0.5}>{CANDIDATE_REVIEW_FOOTER_HINTS}</text>
       </box>
@@ -204,13 +204,13 @@ function CandidateReviewPanel(props: {
       </scrollbox>
 
       <Show when={s().candidateEditMode}>
-        <box borderStyle="rounded" padding={1} marginTop={1}>
+        <box flexDirection="row" flexShrink={0} borderStyle="rounded" padding={1} marginTop={1}>
           <text>{`Edit: "${candidates()[idx()]?.name ?? ''}" → `}</text>
           <text>{s().candidateEditDraft}</text>
         </box>
       </Show>
 
-      <box flexDirection="column" borderStyle="rounded" padding={1} marginTop={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="rounded" padding={1} marginTop={1}>
         <text opacity={0.5}>
           {candidateFooterStatus(
             candidates().filter((c) => c.confirmed).length,
@@ -220,7 +220,7 @@ function CandidateReviewPanel(props: {
         <Show when={s().candidateEditMode}>
           <text opacity={0.5}>{CANDIDATE_EDITING_HINT}</text>
         </Show>
-        <box>
+        <box flexDirection="row">
           <Show when={!s().candidateEditMode}>
             <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
           </Show>
@@ -272,7 +272,7 @@ function PlanReviewPanel(props: {
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
-      <box flexDirection="column" borderStyle="double" padding={1} marginBottom={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="double" padding={1} marginBottom={1}>
         <text>TestPlan Review — Confirm, Modify or Cancel</text>
         <text opacity={0.5}>{PLAN_REVIEW_FOOTER_HINTS}</text>
       </box>
@@ -313,18 +313,18 @@ function PlanReviewPanel(props: {
       </scrollbox>
 
       <Show when={s().planModifyMode}>
-        <box borderStyle="rounded" padding={1} marginTop={1}>
+        <box flexDirection="row" flexShrink={0} borderStyle="rounded" padding={1} marginTop={1}>
           <text opacity={0.5}>Modify (natural language): </text>
           <text>{s().planModifyDraft}</text>
         </box>
       </Show>
 
-      <box flexDirection="column" borderStyle="rounded" padding={1} marginTop={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="rounded" padding={1} marginTop={1}>
         <text opacity={0.5}>{planFooterStatus(sectionIndex(), sections().length)}</text>
         <Show when={s().planModifyMode}>
           <text opacity={0.5}>{PLAN_MODIFYING_HINT}</text>
         </Show>
-        <box>
+        <box flexDirection="row">
           <Show when={!s().planModifyMode}>
             <text opacity={0.5}>{FOOTER_CMD_LABEL}</text>
           </Show>
@@ -412,7 +412,7 @@ function AssertionReviewPanel(props: {
 
 // ─── App 根组件 ────────────────────────────────────────────────────────
 
-function App(props: {
+export function OpenTuiApp(props: {
   initialState: TuiShellState;
   dispatch: (event: TuiShellEvent) => void;
   setStateRef: OpenTuiStateRef;
@@ -492,7 +492,13 @@ export function createOpenTuiRenderer(): TuiRenderer {
       });
       try {
         await otRender(
-          () => <App initialState={initialState} dispatch={dispatch} setStateRef={lifecycle.ref} />,
+          () => (
+            <OpenTuiApp
+              initialState={initialState}
+              dispatch={dispatch}
+              setStateRef={lifecycle.ref}
+            />
+          ),
           {
             stdout: process.stdout,
             stdin: process.stdin,

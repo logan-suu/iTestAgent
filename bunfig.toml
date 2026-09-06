@@ -3,6 +3,9 @@
 # Ensures reproducible installs and proper JSX runtime resolution
 # for @opentui/solid in Bun's test runner and runtime.
 
+# OpenTUI 0.5.x requires its Solid transform for runtime TSX execution.
+preload = ["@opentui/solid/preload"]
+
 [install]
 # Use exact versions for reproducible installs across machines
 exact = true
@@ -16,8 +19,8 @@ registry = "https://registry.npmjs.org"
 linker = "hoisted"
 
 [test]
-# Preload OpenTUI Solid JSX runtime for test files that transitively
-# import renderer code (solves "Cannot find module 'react/jsx-dev-runtime'").
+# Renderer component tests use their own JSX mocks; the runtime transform is
+# exercised in isolated real-PTY and character-frame subprocesses instead.
 preload = ["./node_modules/@opentui/solid/jsx-runtime.js"]
 
 # Bun test runner policy: timeout guard for CI lanes.

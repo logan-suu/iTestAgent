@@ -1,5 +1,3 @@
-/** @jsxImportSource react */
-
 import { Box, Text, render, useApp, useInput } from 'ink';
 import React, { useEffect, useRef, useState } from 'react';
 import type { TuiRenderer } from '../renderer.js';
@@ -62,33 +60,47 @@ function App(props: {
     },
   );
 
-  return (
-    <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Box marginBottom={1}>
-        <Text dimColor>
-          iTestAgent v0.0.1 — {state.workspace}
-          {state.deviceStatus !== 'no_device' ? `  |  Device: ${state.deviceStatus}` : ''}
-        </Text>
-      </Box>
-      <Box flexDirection="column" marginBottom={1}>
-        {state.messages.length === 0 ? (
-          <Text dimColor>Type a message and press Enter to get started.</Text>
-        ) : (
-          state.messages.map((msg) => (
-            <Box key={msg.id} flexDirection="row">
-              <Text dimColor>
-                [{msg.type === 'user' ? 'YOU' : msg.type === 'assistant' ? ' AI' : 'SYS'}]
-              </Text>
-              <Text> {msg.text}</Text>
-            </Box>
-          ))
-        )}
-      </Box>
-      <Box>
-        <Text>{'> '}</Text>
-        <Text>{draft}</Text>
-      </Box>
-    </Box>
+  const messages =
+    state.messages.length === 0
+      ? React.createElement(
+          Text,
+          { dimColor: true },
+          'Type a message and press Enter to get started.',
+        )
+      : state.messages.map((msg) =>
+          React.createElement(
+            Box,
+            { key: msg.id, flexDirection: 'row' },
+            React.createElement(
+              Text,
+              { dimColor: true },
+              `[${msg.type === 'user' ? 'YOU' : msg.type === 'assistant' ? ' AI' : 'SYS'}]`,
+            ),
+            React.createElement(Text, null, ` ${msg.text}`),
+          ),
+        );
+
+  return React.createElement(
+    Box,
+    { flexDirection: 'column', paddingX: 1, paddingY: 1 },
+    React.createElement(
+      Box,
+      { marginBottom: 1 },
+      React.createElement(
+        Text,
+        { dimColor: true },
+        `iTestAgent v0.0.1 — ${state.workspace}${
+          state.deviceStatus !== 'no_device' ? `  |  Device: ${state.deviceStatus}` : ''
+        }`,
+      ),
+    ),
+    React.createElement(Box, { flexDirection: 'column', marginBottom: 1 }, messages),
+    React.createElement(
+      Box,
+      null,
+      React.createElement(Text, null, '> '),
+      React.createElement(Text, null, draft),
+    ),
   );
 }
 

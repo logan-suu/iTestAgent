@@ -86,7 +86,7 @@ First-run setup: 复用同一 renderer selector；OpenTUI 安全输入路径支�
 
 ### 2026-08-31 实施状态同步
 
-历史 OpenTUI 0.4.3 native render loop 曾阻塞 JS event loop，该证据不能替代当前版本复验。2026-09-04 T6.10 已按 ADR-036 运行真实 PTY matrix；OpenTUI、Ink 与 ANSI 均通过首帧、输入、resize 和 clean-exit 门禁，生产选择现由 runtime capability matrix 与显式配置共同决定，DEF-025 已关闭。
+历史 OpenTUI 0.4.3 native render loop 曾阻塞 JS event loop，该证据不能替代当前版本复验。2026-09-04 T6.10 已按 ADR-036 运行真实 PTY matrix；2026-09-06 T6.12 发现当时包目录残留的 0.4.5 可能遮蔽锁定的 0.5.10，因此补充了实际 runtime 版本断言、Bun 生产 Solid transform、Ink React JSX 隔离和字符帧布局门禁，并在真实解析 0.5.10 后重新运行 matrix。OpenTUI、Ink 与 ANSI 均通过首帧、输入、resize 和 clean-exit 门禁，生产选择现由 runtime capability matrix 与显式配置共同决定，DEF-025 保持关闭。
 
 ### OpenTUI 交互式 shell 验证状态
 
@@ -96,6 +96,7 @@ First-run setup: 复用同一 renderer selector；OpenTUI 安全输入路径支�
 - ⏳ 工具调用卡片（Phase 3 T3.4c ToolDispatcher 实现）
 - ✅ 输入行（Input 组件已验证）
 - ✅ 首次配置安全输入（T6.12 修复；真实 PTY 验证 UTF-8 粘贴、密钥不回显与 clean exit）
+- ✅ 候选/TestPlan 审阅布局与确认（T6.12 修复；0.5.10 character frame 行分离 + 真实 PTY Enter 事件）
 
 ### Ink fallback 状态
 
