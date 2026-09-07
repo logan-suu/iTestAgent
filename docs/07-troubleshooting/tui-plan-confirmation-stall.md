@@ -59,3 +59,23 @@
 验证采用命令参数驱动的 process fixture：build 在本次 staging 中生成测试 bundle，settings 根据收到的 `-derivedDataPath` 返回路径。跨包回归保留真实 `createProductionPhysicalPreflight`、AppSource、build、归一化、coordinator 和 devicectl 编排，仅替换外部进程与设备 backend；断言本次产物依次进入 install、launch、WDA probe。另一分支故意不生成产物，必须在任何设备操作前阻断；另有构建失败不查询 settings、settings 失败不返回路径、含空格目录及默认参数回归。修复前对应路径用例失败，修复后通过。
 
 这些是参数传递与生产组合的自动化证据，不是真机安装或点击的 G5 证据。用户需要重启使用修复代码的 TUI，再开始新计划并逐项授权；本轮不修改 API key、不清理 Xcode 默认 DerivedData，也不自动操作设备。
+
+## 后续修复：WDA 已提前退出，却只报告一分钟后的 socket timeout
+
+2026-09-07 16:45 的复测中，用户已看到 AUT 安装并打开，随后出现 `physical_preflight_wda_status`，正文为 WDA `/status` 等待约 60 秒后 socket connection closed。对应 run 为 `infra_failed`，没有测试步骤或设备证据；AUT 启动成功不代表 WDA 自动化通道已就绪。
+
+只读检查对应 Xcode test result 的脱敏错误摘要后，确认 WDA 测试启动约 3.7 秒便因安装失败结束；底层错误明确包含 `This provisioning profile has expired.`。因此本例有直接的 Xcode 错误证据支持 WDA profile 过期，而不是根据安装清单、超时或账号类型推断；没有读取或声称精确过期日期。
+
+代码根因是 `WdaManager.launch()` 创建了 stdout/stderr pipe 却没有消费，也没有把 owned child 的退出接入 `waitForReady()`。即使启动进程已经失败，readiness 仍继续轮询，最后用网络层错误覆盖用户真正需要处理的签名问题。
+
+修复保持 Route B 默认及原有 R7 边界：
+
+1. launch 时立即并行消费两个 pipe，仅保留各自最多 4096 字符的识别窗口及 allowlist 诊断事实；错误不包含原始 Xcode 日志尾部、路径、Team ID、UDID 或任意 token。未识别的失败只报告 exit code、launch 阶段和查看本地 Xcode test result 的建议。
+2. 子进程退出后最多等待 250ms 收取缓冲区诊断，防止 descendants 持有 pipe 导致永久等待；退出会中断 pending `/status` 请求或轮询间隔。已退出的 owned launch 不能因其他服务返回 `ready` 而被判成功；HTTP 非成功响应也不能通过 readiness。
+3. 使用 typed failure code/stage 区分 signing/configuration、launch 与 `/status`，不再由恢复提示中的 “signing” 等词改变错误分类。run abort 和 deadline 贯穿状态请求；正常轮询会移除 abort listener。
+4. session 创建失败时，即使 launch leader 已退出，也调用其 owner 的 stop 回收进程组与 pipe，并停止 owned tunnel；不会扫描或终止其他 Appium/Xcode 进程。
+5. 明确过期时提示使用有效 profile 重新构建/签名 WDA，再替换安装 Runner；重签和替换安装各自需要明确确认，不能复用上一轮 allow，也不自动卸载其他 App。恢复后必须重新验证 WDA `/status`、目标身份和 Appium session。
+
+自动化验证使用无设备副作用的真实 Bun 子进程注入观察到的 Xcode 错误文本，覆盖提前退出、stdout/stderr 大量及跨 chunk 输出、过期与非过期区分、HTTP/status deadline、run abort、旧 launch 隔离、持有 pipe 的 descendants 清理；跨包验证贯穿 WdaManager → AppiumDeviceBackend → physical preflight，证明签名错误与恢复提示保留、Appium session 未启动、没有自动修复。修复前两个关键用例分别退化为 timeout 和错误的 ready，修复后通过。
+
+本轮只修复错误报告与生命周期等待逻辑，未重签、覆盖安装或实际启动设备上的 WDA；当前环境恢复及修复后 G5 仍需单独授权与真机验证。DEF-034 所述 AUT build/validation 的独立取消链缺口仍保持 open，不以这里的 WDA 取消测试替代。

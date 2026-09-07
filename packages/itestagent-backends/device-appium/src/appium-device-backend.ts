@@ -63,6 +63,7 @@ import { AppiumDriverError } from './appium-driver.js';
 import { discoverPhysicalDevices, discoverSimulatorDevices } from './device-discovery.js';
 import type { IProxyTunnel } from './iproxy-tunnel.js';
 import { type RedactingLogger, createRedactingLogger, redactError } from './redactor.js';
+import { WdaReadinessError } from './wda-launch-monitor.js';
 import type { WdaManager } from './wda-manager.js';
 
 // ─── Subprocess helper ─────────────────────────────────────────
@@ -400,7 +401,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }
       // Clean up WDA if it was started during this attempt (external-url mode)
       if (this.wdaManager && this.targetKind === 'physical') {
-        if (this.wdaStartupMode === 'external-url' && this.wdaManager.isRunning()) {
+        if (this.wdaStartupMode === 'external-url') {
+          // An exited launch leader may still own descendants and pipe readers.
           try {
             await this.wdaManager.stop(undefined, signal);
           } catch {
@@ -850,27 +852,32 @@ export class AppiumDeviceBackend implements DeviceBackend {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const managedFailure = error instanceof WdaReadinessError ? error : undefined;
       const signingFailure = /sign|provision|development team|xcodeorgid/iu.test(message);
       const tunnelFailure = /iproxy|tunnel|usbmux/iu.test(message);
       const launchFailure = /launch|xcodebuild/iu.test(message);
-      const failureCode = signingFailure
-        ? 'wda_signing_or_configuration_failed'
-        : tunnelFailure
-          ? 'wda_tunnel_failed'
-          : this.wdaStartupMode === 'managed-xcodebuild'
-            ? 'appium_session_failed'
-            : launchFailure
-              ? 'wda_launch_failed'
-              : 'wda_status_failed';
-      const stage = signingFailure
-        ? 'wda_launch'
-        : tunnelFailure
-          ? 'wda_tunnel'
-          : this.wdaStartupMode === 'managed-xcodebuild'
-            ? 'appium_session'
-            : launchFailure
-              ? 'wda_launch'
-              : 'wda_status';
+      const failureCode =
+        managedFailure?.failureCode ??
+        (signingFailure
+          ? 'wda_signing_or_configuration_failed'
+          : tunnelFailure
+            ? 'wda_tunnel_failed'
+            : this.wdaStartupMode === 'managed-xcodebuild'
+              ? 'appium_session_failed'
+              : launchFailure
+                ? 'wda_launch_failed'
+                : 'wda_status_failed');
+      const stage =
+        managedFailure?.stage ??
+        (signingFailure
+          ? 'wda_launch'
+          : tunnelFailure
+            ? 'wda_tunnel'
+            : this.wdaStartupMode === 'managed-xcodebuild'
+              ? 'appium_session'
+              : launchFailure
+                ? 'wda_launch'
+                : 'wda_status');
       return {
         route,
         stage,

@@ -9,6 +9,12 @@ import {
 } from 'itestagent-backends-build-xcodebuild';
 import type { XcodebuildProcessRunner } from 'itestagent-backends-build-xcodebuild';
 import {
+  AppiumDeviceBackend,
+  type AppiumDriver,
+  type IProxyTunnel,
+  WdaManager,
+} from 'itestagent-backends-device-appium';
+import {
   type DeviceBackend,
   type PhysicalRoute,
   TestPlanSchema,
@@ -57,6 +63,108 @@ afterEach(() => {
 });
 
 describe('Phase 6 physical app/WDA preflight', () => {
+  test('preserves the actual WDA signing failure through Route B and preflight without automatic repair', async () => {
+    const { root, appPath } = createPhysicalApp();
+    const artifact = await normalizePhysicalAppArtifact({
+      sourcePath: appPath,
+      normalizationRoot: join(root, 'normalized'),
+      run: validateRunner,
+    });
+    const calls: string[] = [];
+    const manager = new WdaManager({
+      spawnLaunch: (command, options) => {
+        expect(command.slice(0, 3)).toEqual(['xcrun', 'xcodebuild', 'test-without-building']);
+        calls.push('wda-launch');
+        // A real piped child supplies the observed diagnostic; no device side effects.
+        return Bun.spawn(
+          [
+            process.execPath,
+            '-e',
+            'console.error("Failed to install embedded profile: This provisioning profile has expired."); process.exit(65);',
+          ],
+          options,
+        );
+      },
+      fetchStatus: async () => {
+        throw new Error('fixture socket closed');
+      },
+    });
+    const backend = new AppiumDeviceBackend(
+      {
+        createSession: async () => {
+          calls.push('appium-session');
+          throw new Error('An Appium session must not be created after launch failure.');
+        },
+      } as unknown as AppiumDriver,
+      {
+        udid: 'physical-device-1',
+        targetKind: 'physical',
+        wdaStartupMode: 'external-url',
+        wdaManager: manager,
+        wdaProjectPath: '/fixture/WebDriverAgent.xcodeproj',
+        iproxyTunnel: {
+          ensure: () => {
+            calls.push('tunnel-start');
+          },
+          stop: () => {
+            calls.push('tunnel-stop');
+          },
+        } as unknown as IProxyTunnel,
+      },
+    );
+    const coordinator = createPhysicalPreflightCoordinator({
+      healthcheck: async () => ({ healthy: true }),
+      isAppInstalled: async () => false,
+      installApp: async () => {
+        calls.push('app-install');
+        return { success: true };
+      },
+      launchApp: async () => {
+        calls.push('app-launch');
+        return { success: true };
+      },
+      probeWda: async (_route, signal) => backend.probePhysicalReadiness(signal),
+      prepareWda: async () => {
+        calls.push('repair');
+        return { success: true };
+      },
+      requestPermission: async () => {
+        throw new Error('Unexpected repair permission.');
+      },
+      createCallId: () => 'phase6-wda-launch-failure',
+    });
+    try {
+      const start = Date.now();
+      const result = await coordinator.run({
+        artifact,
+        deviceUdid: 'physical-device-1',
+        route: 'route_b_wda_manager_managed',
+        confirmedTestPlan: true,
+        repairWdaWhenBlocked: false,
+      });
+      expect(Date.now() - start).toBeLessThan(2000);
+      expect(result).toMatchObject({
+        status: 'blocked',
+        stage: 'wda_launch',
+        failure: { code: 'wda_signing_or_configuration_failed' },
+        wda: { ready: false, route: 'route_b_wda_manager_managed' },
+      });
+      if (result.status !== 'blocked') throw new Error('Expected WDA preflight to block.');
+      expect(result.failure.message).toContain('provisioning profile has expired');
+      expect(result.failure.message).toContain('explicit confirmation');
+      expect(calls).toEqual([
+        'app-install',
+        'app-launch',
+        'tunnel-start',
+        'wda-launch',
+        'tunnel-stop',
+      ]);
+      expect(manager.isRunning()).toBe(false);
+    } finally {
+      await backend.closeSession();
+    }
+  });
+
   for (const createBuiltApp of [true, false]) {
     test(`production build passes its run-scoped artifact to validation/install (artifact exists: ${createBuiltApp})`, async () => {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'itestagent-build-context-')));
