@@ -144,6 +144,47 @@ describe('model-safe exploration boundary', () => {
     expect(received).toBe(controller.signal);
   });
 
+  it('normalizes targetless observation actions while keeping element actions strict', async () => {
+    const screenshot = await suggestExplorationAction({
+      caseId: 'validation',
+      uiTree: '<App/>',
+      history: [],
+      generate: async () => '{"action":"screenshot"}',
+    });
+    const swipe = await suggestExplorationAction({
+      caseId: 'validation',
+      uiTree: '<App/>',
+      history: [],
+      generate: async () => '{"action":"swipe","direction":"up"}',
+    });
+    const wait = await suggestExplorationAction({
+      caseId: 'validation',
+      uiTree: '<App/>',
+      history: [],
+      generate: async () => '{"action":"wait","waitMs":250}',
+    });
+
+    expect(screenshot).toEqual({ action: 'screenshot', target: 'screenshot' });
+    expect(swipe).toEqual({ action: 'swipe', target: 'swipe_up', direction: 'up' });
+    expect(wait).toEqual({ action: 'wait', target: 'wait_250ms', waitMs: 250 });
+    await expect(
+      suggestExplorationAction({
+        caseId: 'validation',
+        uiTree: '<App/>',
+        history: [],
+        generate: async () => '{"action":"tap"}',
+      }),
+    ).rejects.toThrow('target is required');
+    await expect(
+      suggestExplorationAction({
+        caseId: 'validation',
+        uiTree: '<App/>',
+        history: [],
+        generate: async () => '{"action":"input","text":"hello"}',
+      }),
+    ).rejects.toThrow('target is required');
+  });
+
   it('classifies sensitive UI semantics independently of the verb', () => {
     expect(isSensitiveUiAction({ action: 'tap', target: 'Delete account' })).toBe(true);
     expect(isSensitiveUiAction({ action: 'tap', target: 'Open settings' })).toBe(false);
@@ -151,6 +192,40 @@ describe('model-safe exploration boundary', () => {
 });
 
 describe('runRealDeviceExploration', () => {
+  it('reports truthful execution stages without exposing UI-tree content', async () => {
+    const progress: string[] = [];
+    const backend = makeBackend([]);
+    const runDir = mkdtempSync(join(tmpdir(), 'real-run-progress-'));
+    try {
+      await runRealDeviceExploration({
+        backend,
+        toolDispatcher: makeDispatcher(backend),
+        runDir,
+        runId: 'run_progress_1',
+        bundleId: 'com.example.app',
+        deviceId: 'UDID-1',
+        targetKind: 'physical',
+        dynamicActions: {
+          cases: ['validation'],
+          suggest: async () => 'done',
+        },
+        onProgress: ({ message }) => progress.push(message),
+      });
+
+      expect(progress).toEqual([
+        'Launching the app and preparing the first observation…',
+        'Reading the interface for validation (step 1)…',
+        'Waiting for the next safe action for validation…',
+        'Evaluating the confirmed assertions…',
+        'Indexing the collected local evidence…',
+      ]);
+      expect(progress.join('\n')).not.toContain(TREE);
+      expect(progress.join('\n')).not.toContain('UDID-1');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
   it('explodes actions, evaluates a satisfied user assertion to passed, and persists artifact-index', async () => {
     const calls: { tool: string }[] = [];
     const backend = makeBackend(calls);

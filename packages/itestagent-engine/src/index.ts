@@ -217,6 +217,7 @@ export type {
   ProductionActionSuggestion,
   ProductionPlanContext,
   ProductionRunExecutorInput,
+  ProductionRunProgress,
 } from './production-run-executor.js';
 export {
   persistConfirmedRun,
@@ -258,6 +259,7 @@ export {
 } from './exploration/real-run.js';
 export type {
   RealDeviceRunOptions,
+  RealDeviceRunProgress,
   RealDeviceRunResult,
 } from './exploration/real-run.js';
 export {

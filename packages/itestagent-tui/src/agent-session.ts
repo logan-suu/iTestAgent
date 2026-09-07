@@ -177,6 +177,7 @@ export interface AgentSessionDependencies {
     workspace: string;
     device: DeviceInfo;
     signal?: AbortSignal;
+    onProgress?: (message: string) => void;
   }) => Promise<unknown>;
 }
 
@@ -362,6 +363,8 @@ export async function createAgentSession(
     return cachedAnalysis;
   };
   let latestCommittedRun: { runId: string; runDir: string } | null = null;
+  const getLatestCommittedRun = (): { runId: string; runDir: string } | null => latestCommittedRun;
+  let activeExecutionActivityId: string | null = null;
 
   const confirmedExecutionContext = () => {
     const plan = planningSession?.getConfirmedPlan();
@@ -385,7 +388,7 @@ export async function createAgentSession(
 
   const executeConfirmedPlan =
     dependencies.executeConfirmedPlan ??
-    (async ({ plan, workspace: executionWorkspace, device, signal }) => {
+    (async ({ plan, workspace: executionWorkspace, device, signal, onProgress }) => {
       const analysis = await analyzeOnce();
       const bundleId = analysis.profile.app.bundleId;
       if (!bundleId) {
@@ -437,6 +440,7 @@ export async function createAgentSession(
         },
         transports: dependencies.transports,
         signal,
+        onProgress: ({ message }) => onProgress?.(message),
       });
       latestCommittedRun = { runId: plan.runId, runDir: executed.runDir };
       return executed;
@@ -516,7 +520,28 @@ export async function createAgentSession(
         backendName: 'itestagent-engine',
         execute: async (_args, signal) => {
           const { plan, device } = confirmedExecutionContext();
-          return executeConfirmedPlan({ plan, workspace, device, signal });
+          const result = await executeConfirmedPlan({
+            plan,
+            workspace,
+            device,
+            signal,
+            onProgress: (message) => {
+              if (!activeExecutionActivityId) return;
+              activeQueue?.queue.push({
+                type: 'activity_update',
+                payload: { id: activeExecutionActivityId, text: message },
+              });
+            },
+          });
+          if (
+            result &&
+            typeof result === 'object' &&
+            'runDir' in result &&
+            typeof result.runDir === 'string'
+          ) {
+            latestCommittedRun = { runId: plan.runId, runDir: result.runDir };
+          }
+          return result;
         },
       },
       generateReport: {
@@ -532,6 +557,15 @@ export async function createAgentSession(
       },
     },
     onEvent: (event) => {
+      if (event.type === 'tool.started' && event.name === 'executeTestPlan') {
+        activeExecutionActivityId = event.callId;
+      }
+      if (
+        (event.type === 'tool.completed' || event.type === 'tool.failed') &&
+        event.callId === activeExecutionActivityId
+      ) {
+        activeExecutionActivityId = null;
+      }
       if (event.type === 'permission.requested') {
         pendingPermissionIds.add(event.callId);
         pendingPermissions.set(event.callId, { action: event.action, resource: event.resource });
@@ -749,6 +783,7 @@ export async function createAgentSession(
       if (!planningSession?.getConfirmedPlan()) {
         throw new Error('plan_confirmation_required: confirm the displayed TestPlan first');
       }
+      latestCommittedRun = null;
       activeTurn = true;
       const queue = new PatchQueue();
       const queueOwner = Symbol('confirmed-plan-execution');
@@ -767,13 +802,16 @@ export async function createAgentSession(
             { id: callId, name: 'executeTestPlan', arguments: {} },
             controller.signal,
           );
+          const committedRun = getLatestCommittedRun();
           queue.push({ type: 'activity_update', payload: { complete: true, id: callId } });
           if (result.status === 'error') {
             const output = result.output as { error?: unknown } | undefined;
             queue.push({
               type: 'error',
               payload: {
-                message: String(output?.error ?? 'Confirmed TestPlan execution failed'),
+                message: committedRun
+                  ? `${String(output?.error ?? 'Confirmed TestPlan execution failed')}. Run ${committedRun.runId} was committed with the failure result.`
+                  : String(output?.error ?? 'Confirmed TestPlan execution failed'),
                 id: callId,
               },
             });
@@ -783,8 +821,8 @@ export async function createAgentSession(
             type: 'message_add',
             payload: {
               role: 'system',
-              text: latestCommittedRun
-                ? `Execution completed. Run ${latestCommittedRun.runId} committed.`
+              text: committedRun
+                ? `Execution completed. Run ${committedRun.runId} committed.`
                 : 'Execution completed.',
             },
           });
@@ -799,6 +837,7 @@ export async function createAgentSession(
         } finally {
           activeTurn = false;
           activeDirectExecutionAbort = null;
+          activeExecutionActivityId = null;
           if (activeQueue?.owner === queueOwner) activeQueue = null;
           queue.close();
         }
@@ -1007,7 +1046,10 @@ function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
         },
       };
     case 'tool.progress':
-      return null;
+      return {
+        type: 'activity_update',
+        payload: { text: event.message, id: event.callId },
+      };
     case 'tool.completed':
       return {
         type: 'activity_update',

@@ -219,6 +219,7 @@ function InputBar(props: {
       <text>{'> '}</text>
       <input
         focused={true}
+        flexGrow={1}
         value={props.draft}
         onInput={props.setDraft}
         onSubmit={props.onSubmit}

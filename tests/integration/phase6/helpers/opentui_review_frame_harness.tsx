@@ -3,6 +3,7 @@ import { jsx } from '@opentui/solid/jsx-runtime';
 import { TestPlanSchema } from 'itestagent-contracts';
 import { OpenTuiApp } from '../../../../packages/itestagent-tui/src/renderers/opentui-renderer.js';
 import {
+  type TuiShellEvent,
   type TuiShellState,
   createInitialState,
 } from '../../../../packages/itestagent-tui/src/tui-shell.js';
@@ -44,6 +45,9 @@ function createState(): TuiShellState {
         },
       ],
     };
+  }
+  if (scenario === 'chat-input-lifecycle') {
+    return initial;
   }
   if (scenario === 'device-review') {
     return {
@@ -101,15 +105,30 @@ function createState(): TuiShellState {
 }
 
 const state = createState();
+const events: TuiShellEvent[] = [];
 const setup = await testRender(
   () =>
     jsx(OpenTuiApp, {
       initialState: state,
-      dispatch: () => {},
+      dispatch: (event: TuiShellEvent) => events.push(event),
       setStateRef: () => {},
     }),
   { width: 100, height: 36 },
 );
 await setup.flush();
-process.stdout.write(JSON.stringify({ scenario, frame: setup.captureCharFrame() }));
+if (scenario === 'chat-input-lifecycle') {
+  await setup.mockInput.typeText(
+    '用这台真机测试应用：启动后确认“T6.12 Device Lane”可见，点击“Tap Me”，确认“Taps: 1”可见，并采集截图。',
+  );
+  setup.mockInput.pressEnter();
+  await setup.flush();
+  await setup.mockInput.typeText('allow');
+  await setup.flush();
+}
+const frame = setup.captureCharFrame();
+if (scenario === 'chat-input-lifecycle') {
+  setup.mockInput.pressEnter();
+  await setup.flush();
+}
+process.stdout.write(JSON.stringify({ scenario, frame, events }));
 setup.renderer.destroy();

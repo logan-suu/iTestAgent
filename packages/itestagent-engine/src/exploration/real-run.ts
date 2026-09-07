@@ -147,6 +147,19 @@ export interface RealDeviceRunOptions {
   readonly publishLegacyArtifactIndex?: boolean;
   /** One cancellation signal shared with dispatcher, backend, and caller-owned cleanup. */
   readonly signal?: AbortSignal;
+  /** Non-sensitive lifecycle updates for interactive execution surfaces. */
+  readonly onProgress?: (progress: RealDeviceRunProgress) => void;
+}
+
+export interface RealDeviceRunProgress {
+  readonly stage:
+    | 'launching_app'
+    | 'reading_interface'
+    | 'waiting_for_action'
+    | 'executing_action'
+    | 'evaluating_assertions'
+    | 'indexing_evidence';
+  readonly message: string;
 }
 
 export interface RealDeviceRunResult {
@@ -203,22 +216,38 @@ export async function suggestExplorationAction(input: {
       `exploration_suggestion_blocked: unsupported or high-risk action "${String(parsed.action)}"`,
     );
   }
-  if (typeof parsed.target !== 'string' || parsed.target.length === 0) {
+  const action = parsed.action as ExplorationAction['action'];
+  const explicitTarget =
+    typeof parsed.target === 'string' && parsed.target.trim().length > 0
+      ? parsed.target.trim()
+      : null;
+  if ((action === 'tap' || action === 'input') && !explicitTarget) {
     throw new Error(`exploration_suggestion_invalid: target is required for ${input.caseId}`);
   }
-  return {
-    action: parsed.action as ExplorationAction['action'],
-    target: parsed.target,
-    ...(typeof parsed.text === 'string' ? { text: parsed.text } : {}),
-    ...(parsed.direction === 'up' ||
+  const direction =
+    parsed.direction === 'up' ||
     parsed.direction === 'down' ||
     parsed.direction === 'left' ||
     parsed.direction === 'right'
-      ? { direction: parsed.direction }
-      : {}),
-    ...(typeof parsed.waitMs === 'number' && Number.isFinite(parsed.waitMs)
-      ? { waitMs: Math.max(1, Math.trunc(parsed.waitMs)) }
-      : {}),
+      ? parsed.direction
+      : undefined;
+  const waitMs =
+    typeof parsed.waitMs === 'number' && Number.isFinite(parsed.waitMs)
+      ? Math.max(1, Math.trunc(parsed.waitMs))
+      : undefined;
+  const target =
+    explicitTarget ??
+    (action === 'screenshot'
+      ? 'screenshot'
+      : action === 'swipe'
+        ? `swipe_${direction ?? 'down'}`
+        : `wait_${waitMs ?? 1000}ms`);
+  return {
+    action,
+    target,
+    ...(typeof parsed.text === 'string' ? { text: parsed.text } : {}),
+    ...(direction ? { direction } : {}),
+    ...(waitMs ? { waitMs } : {}),
   };
 }
 
@@ -381,15 +410,27 @@ export async function runRealDeviceExploration(
 
   if (options.dynamicActions) {
     // The first model observation must describe the confirmed AUT, not whichever app was active.
+    options.onProgress?.({
+      stage: 'launching_app',
+      message: 'Launching the app and preparing the first observation…',
+    });
     await explorer.explore([]);
     const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
     for (const caseId of options.dynamicActions.cases) {
       for (let index = 0; index < maxSteps; index += 1) {
         options.signal?.throwIfAborted();
+        options.onProgress?.({
+          stage: 'reading_interface',
+          message: `Reading the interface for ${caseId} (step ${index + 1})…`,
+        });
         const tree = await options.backend.getUiTree(
           { deviceId: options.deviceId },
           options.signal,
         );
+        options.onProgress?.({
+          stage: 'waiting_for_action',
+          message: `Waiting for the next safe action for ${caseId}…`,
+        });
         const suggestion = await options.dynamicActions.suggest({
           caseId,
           uiTree: redactUiTreeForModel(tree.raw),
@@ -397,7 +438,9 @@ export async function runRealDeviceExploration(
           signal: options.signal,
         });
         options.signal?.throwIfAborted();
-        if (suggestion === 'done') break;
+        if (suggestion === 'done') {
+          break;
+        }
         if (isSensitiveUiAction(suggestion)) {
           const authorize = options.dynamicActions.authorizeSensitiveAction;
           if (!authorize) {
@@ -416,10 +459,18 @@ export async function runRealDeviceExploration(
             );
           }
         }
+        options.onProgress?.({
+          stage: 'executing_action',
+          message: `Executing ${suggestion.action} for ${caseId}…`,
+        });
         await explorer.explore([{ ...suggestion, caseId }]);
       }
     }
   } else {
+    options.onProgress?.({
+      stage: 'launching_app',
+      message: 'Launching the app and starting the confirmed actions…',
+    });
     await explorer.explore([...(options.actions ?? [])]);
   }
   const steps = explorer.getSteps();
@@ -440,6 +491,10 @@ export async function runRealDeviceExploration(
     uiTrees.push({ caseId: 'exploration', raw: tree.raw });
   }
 
+  options.onProgress?.({
+    stage: 'evaluating_assertions',
+    message: 'Evaluating the confirmed assertions…',
+  });
   const observations = observationsFromUiTrees(assertions, uiTrees);
 
   let llmSuggestions: readonly UserAssertion[] = [];
@@ -470,6 +525,10 @@ export async function runRealDeviceExploration(
     observations,
   });
 
+  options.onProgress?.({
+    stage: 'indexing_evidence',
+    message: 'Indexing the collected local evidence…',
+  });
   // Persist artifact-index.json from the refs collected by the dispatcher.
   let artifactIndexPath: string | null = null;
   let artifactCount = 0;

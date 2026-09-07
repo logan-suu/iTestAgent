@@ -4,11 +4,17 @@ import { readFile } from 'node:fs/promises';
 interface CapturedReviewFrame {
   scenario: string;
   frame: string;
+  events?: Array<{ type: string; text?: string }>;
 }
 
-async function captureFrame(
-  scenario: 'candidate-review' | 'device-review' | 'plan-review' | 'chat-activity',
-): Promise<string> {
+type FrameScenario =
+  | 'candidate-review'
+  | 'device-review'
+  | 'plan-review'
+  | 'chat-activity'
+  | 'chat-input-lifecycle';
+
+async function captureScenario(scenario: FrameScenario): Promise<CapturedReviewFrame> {
   const processHandle = Bun.spawn(
     ['bun', 'tests/integration/phase6/helpers/opentui_review_frame_harness.tsx', scenario],
     { cwd: process.cwd(), stdout: 'pipe', stderr: 'pipe' },
@@ -19,7 +25,11 @@ async function captureFrame(
     new Response(processHandle.stderr).text(),
   ]);
   expect(exitCode, stderr || stdout).toBe(0);
-  return (JSON.parse(stdout) as CapturedReviewFrame).frame;
+  return JSON.parse(stdout) as CapturedReviewFrame;
+}
+
+async function captureFrame(scenario: FrameScenario): Promise<string> {
+  return (await captureScenario(scenario)).frame;
 }
 
 function expectAdjacentRows(frame: string, first: string, second: string): void {
@@ -76,6 +86,13 @@ describe('OpenTUI review layout character frames', () => {
     expect(frame).not.toContain('tool-output');
     expect(frame).not.toContain('device-tool');
     expect(frame).not.toContain('udid');
+  });
+
+  test('keeps the entire next value visible after submitting a long message', async () => {
+    const captured = await captureScenario('chat-input-lifecycle');
+    expect(captured.frame).toContain('> allow');
+    expect(captured.events).toContainEqual({ type: 'input', text: 'allow' });
+    expect(captured.events?.filter((event) => event.type === 'submit')).toHaveLength(2);
   });
 
   test('resolves the OpenTUI runtime version declared by the TUI package', async () => {

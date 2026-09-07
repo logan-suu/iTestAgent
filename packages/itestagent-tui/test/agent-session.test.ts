@@ -376,6 +376,59 @@ describe('AgentSession tools', () => {
     expect(dispatched[0]?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it('streams confirmed execution stages and commits an explicit failure terminal message', async () => {
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        executeConfirmedPlan: async ({ plan, onProgress }) => {
+          onProgress?.('Connecting to the selected device…');
+          onProgress?.('Waiting for the next safe action for Validation…');
+          return {
+            status: 'failed',
+            path: 'device_backend',
+            error: 'exploration_suggestion_invalid: invalid action',
+            fallbackHistory: [],
+            runDir: `/runs/${plan.runId}`,
+          };
+        },
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
+    session.confirmPlan();
+
+    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    await session.resolvePermission(String(permission.payload.callId), 'allow');
+    const patches: TuiStatePatch[] = [];
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+      patches.push(next.value);
+    }
+
+    expect(patches).toContainEqual({
+      type: 'activity_update',
+      payload: {
+        id: String(permission.payload.callId),
+        text: 'Connecting to the selected device…',
+      },
+    });
+    expect(patches).toContainEqual({
+      type: 'activity_update',
+      payload: {
+        id: String(permission.payload.callId),
+        text: 'Waiting for the next safe action for Validation…',
+      },
+    });
+    const terminal = patches.find((patch) => patch.type === 'error');
+    expect(String(terminal?.payload.message)).toContain('exploration_suggestion_invalid');
+    expect(String(terminal?.payload.message)).toContain(
+      `Run ${session.getConfirmedPlan()?.runId as string} was committed with the failure result.`,
+    );
+  });
+
   it('binds one-shot execution permissions to the exact target and blocks managed WDA on denial', async () => {
     let executionCalls = 0;
     const session = await createAgentSession(

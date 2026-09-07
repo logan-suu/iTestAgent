@@ -19,6 +19,7 @@ import {
 import { assertProviderUrl } from './exploration/assertion-suggester.js';
 import {
   type ExplorationAction,
+  type RealDeviceRunProgress,
   createBackendToolDispatcher,
   runRealDeviceExploration,
   suggestExplorationAction,
@@ -75,6 +76,20 @@ export interface ProductionRunExecutorInput {
   /** Injectable external transport boundaries; orchestration and persistence remain production. */
   transports?: ProductionExecutionTransports;
   signal?: AbortSignal;
+  /** Non-sensitive lifecycle updates for the TUI or another interactive caller. */
+  onProgress?: (progress: ProductionRunProgress) => void;
+}
+
+export interface ProductionRunProgress {
+  readonly stage:
+    | RealDeviceRunProgress['stage']
+    | 'preparing_store'
+    | 'preparing_route'
+    | 'running_xcuitest'
+    | 'connecting_device'
+    | 'cleaning_up'
+    | 'saving_result';
+  readonly message: string;
 }
 
 export interface ProductionPlanContext {
@@ -162,11 +177,19 @@ export async function executeProductionTestPlan(
 
   const stagingDir = join(input.storeRoot, 'runs', input.plan.runId, 'staging');
   const resultBundlePath = join(stagingDir, 'tests.xcresult');
+  input.onProgress?.({
+    stage: 'preparing_route',
+    message: `Preparing the confirmed ${input.plan.execution.resolvedPath} route…`,
+  });
   if (input.plan.execution.resolvedPath === 'xcuitest') {
     mkdirSync(dirname(resultBundlePath), { recursive: true });
   }
   const production = input.production ?? createProductionAgentSessionDependencies();
   const dispatcher = createProductionDualExecutionDispatcher(async ({ plan }) => {
+    input.onProgress?.({
+      stage: 'connecting_device',
+      message: 'Connecting to the selected device…',
+    });
     const backend = production.createDeviceBackend(input.device);
     let result: Awaited<ReturnType<typeof runRealDeviceExploration>>;
     try {
@@ -185,8 +208,13 @@ export async function executeProductionTestPlan(
         },
         policy: plan.execution.assertion.policy,
         signal: input.signal,
+        onProgress: input.onProgress,
       });
     } catch (executionError) {
+      input.onProgress?.({
+        stage: 'cleaning_up',
+        message: 'Execution stopped; cleaning up the device session…',
+      });
       const cleanup = await production.closeDeviceBackend?.(backend, input.signal);
       if (cleanup && !cleanup.reusable) {
         throw new DeviceBackendCleanupError(
@@ -197,6 +225,10 @@ export async function executeProductionTestPlan(
       }
       throw executionError;
     }
+    input.onProgress?.({
+      stage: 'cleaning_up',
+      message: 'Cleaning up the device session…',
+    });
     const cleanup = await production.closeDeviceBackend?.(backend, input.signal);
     if (cleanup && !cleanup.reusable) {
       throw new DeviceBackendCleanupError(
@@ -208,6 +240,12 @@ export async function executeProductionTestPlan(
     return result;
   }, input.transports);
   try {
+    if (input.plan.execution.resolvedPath === 'xcuitest') {
+      input.onProgress?.({
+        stage: 'running_xcuitest',
+        message: 'Running the confirmed XCUITest selection…',
+      });
+    }
     const dispatch = await dispatcher.dispatch({
       plan: input.plan,
       confirmed: true,
@@ -215,6 +253,10 @@ export async function executeProductionTestPlan(
       destination: destinationFor(input.device),
       resultBundlePath,
       signal: input.signal,
+    });
+    input.onProgress?.({
+      stage: 'saving_result',
+      message: `Saving the ${dispatch.status} run result and evidence index…`,
     });
     const committed = await persistConfirmedRun({
       store: input.store,
@@ -234,6 +276,10 @@ export async function executeProductionTestPlan(
 export async function executeProductionTestPlanToDefaultStore(
   input: Omit<ProductionRunExecutorInput, 'store' | 'storeRoot'>,
 ): Promise<ConfirmedExecutionDispatchResult & { runDir: string }> {
+  input.onProgress?.({
+    stage: 'preparing_store',
+    message: 'Preparing local run storage…',
+  });
   const storeRoot = initStore(resolveStoreRoot());
   const core = createStoreCore(join(storeRoot, 'db', 'itestagent.db'));
   await core.driver.migrate();

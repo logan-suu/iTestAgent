@@ -1,4 +1,6 @@
 import { describe, expect, it, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import {
@@ -202,10 +204,17 @@ test('explain with non-existent run exits with error', () => {
 });
 
 test('explain latest with no runs exits with error', () => {
-  const result = Bun.spawnSync({
-    cmd: ['bun', cliPath, 'explain', 'latest'],
-  });
-  expect(result.exitCode).toBe(1);
+  const isolatedStoreRoot = mkdtempSync(join(tmpdir(), 'itestagent-cli-empty-store-'));
+  mkdirSync(join(isolatedStoreRoot, 'db'), { recursive: true });
+  try {
+    const result = Bun.spawnSync({
+      cmd: ['bun', cliPath, 'explain', 'latest'],
+      env: { ...process.env, ITESTAGENT_HOME: isolatedStoreRoot },
+    });
+    expect(result.exitCode).toBe(1);
+  } finally {
+    rmSync(isolatedStoreRoot, { recursive: true, force: true });
+  }
 });
 
 test('rerun with non-existent run exits with error', () => {

@@ -146,6 +146,75 @@ def run_scenario(
     }
 
 
+def run_chat_input_scenario(repo: str, launch_cwd: str) -> dict:
+    scenario = 'chat-input'
+    event_fd, event_path = tempfile.mkstemp(prefix='itestagent-opentui-chat-input-', suffix='.jsonl')
+    os.close(event_fd)
+    pid, master = pty.fork()
+    if pid == 0:
+        os.chdir(launch_cwd)
+        env = dict(os.environ)
+        env['TERM'] = 'xterm-256color'
+        env.pop('CI', None)
+        harness = os.path.join(repo, 'tests/integration/phase6/helpers/renderer-pty-harness.ts')
+        os.execvpe('bun', ['bun', harness, 'opentui', event_path, scenario], env)
+
+    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 36, 100, 0, 0))
+    initial = read_available(master, 1.5)
+    prompt = (
+        '用这台真机测试应用：启动后确认“T6.12 Device Lane”可见，点击“Tap Me”，'
+        '确认“Taps: 1”可见，并采集截图。'
+    )
+    os.write(master, prompt.encode('utf-8'))
+    read_available(master, 0.5)
+    os.write(master, b'\r')
+    read_available(master, 0.5)
+    os.write(master, b'allow')
+    after_allow = read_available(master, 0.5)
+    os.write(master, b'\r')
+    read_available(master, 0.5)
+    os.write(master, b'\x03')
+    exit_output = read_available(master, 1.5)
+
+    deadline = time.monotonic() + 2.0
+    status = None
+    while time.monotonic() < deadline:
+        waited, current = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            status = current
+            break
+        time.sleep(0.05)
+    if status is None:
+        os.kill(pid, signal.SIGKILL)
+        _, status = os.waitpid(pid, 0)
+
+    try:
+        with open(event_path, encoding='utf-8') as stream:
+            events = [json.loads(line) for line in stream if line.strip()]
+    finally:
+        os.unlink(event_path)
+        os.close(master)
+
+    inputs = [event.get('text') for event in events if event.get('type') == 'input']
+    submit_count = sum(1 for event in events if event == {'type': 'submit'})
+    return {
+        'scenario': scenario,
+        'selected': b'PTY_SELECTED:opentui' in initial,
+        'firstFrame': len(initial) > 1000,
+        'enterEvent': inputs == [prompt, 'allow'] and submit_count == 2,
+        'enterEventCount': submit_count,
+        'forbiddenEventCount': 0,
+        'followupPlanConfirmCount': 0,
+        'followupRendered': b'allow' in visible_text(after_allow),
+        'cleanExit': os.waitstatus_to_exitcode(status) == 0,
+        'bytes': {
+            'initial': len(initial),
+            'afterEnter': len(after_allow),
+            'exit': len(exit_output),
+        },
+    }
+
+
 def main() -> int:
     repo = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.')
     with tempfile.TemporaryDirectory(prefix='itestagent-external-workspace-') as launch_cwd:
@@ -160,6 +229,7 @@ def main() -> int:
                 'device_confirm',
                 'plan_confirm',
             ),
+            run_chat_input_scenario(repo, launch_cwd),
         ]
     print(json.dumps(results, separators=(',', ':')))
     required = ('selected', 'firstFrame', 'enterEvent', 'cleanExit')
@@ -167,9 +237,15 @@ def main() -> int:
         all(result[key] for key in required)
         and result['forbiddenEventCount'] == 0
         and (
-            result['scenario'] != 'device-to-plan'
+            result['scenario'] not in ('device-to-plan', 'chat-input')
             or (
-                result['followupPlanConfirmCount'] == 1
+                result['scenario'] == 'device-to-plan'
+                and result['followupPlanConfirmCount'] == 1
+                and result['followupRendered']
+            )
+            or (
+                result['scenario'] == 'chat-input'
+                and result['enterEventCount'] == 2
                 and result['followupRendered']
             )
         )
