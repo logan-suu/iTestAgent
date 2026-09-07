@@ -354,16 +354,16 @@ describe('AgentSession tools', () => {
     const confirmed = session.confirmPlan();
     expect(confirmed.some((patch) => patch.payload.confirmed === true)).toBe(true);
 
-    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
-    const permission = await nextPatchOfType(iterator, 'permission_request');
-    expect(permission.payload.action).toBe('replace_device_app');
-    await session.resolvePermission(String(permission.payload.callId), 'allow');
     const executionPatches: TuiStatePatch[] = [];
-    for (;;) {
-      const next = await iterator.next();
-      if (next.done) break;
-      executionPatches.push(next.value);
+    const permissionActions: string[] = [];
+    for await (const patch of session.executeConfirmedPlan()) {
+      executionPatches.push(patch);
+      if (patch.type === 'permission_request') {
+        permissionActions.push(String(patch.payload.action));
+        await session.resolvePermission(String(patch.payload.callId), 'allow');
+      }
     }
+    expect(permissionActions).toEqual(['execute_project_build', 'replace_device_app']);
     expect(
       executionPatches.some(
         (patch) => patch.type === 'message_add' && patch.payload.text === 'Execution completed.',
@@ -398,27 +398,27 @@ describe('AgentSession tools', () => {
     await session.selectDevice(PHYSICAL_DEVICE.udid);
     session.confirmPlan();
 
-    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
-    const permission = await nextPatchOfType(iterator, 'permission_request');
-    await session.resolvePermission(String(permission.payload.callId), 'allow');
     const patches: TuiStatePatch[] = [];
-    for (;;) {
-      const next = await iterator.next();
-      if (next.done) break;
-      patches.push(next.value);
+    let activityId = '';
+    for await (const patch of session.executeConfirmedPlan()) {
+      patches.push(patch);
+      if (patch.type === 'permission_request') {
+        activityId = String(patch.payload.callId);
+        await session.resolvePermission(activityId, 'allow');
+      }
     }
 
     expect(patches).toContainEqual({
       type: 'activity_update',
       payload: {
-        id: String(permission.payload.callId),
+        id: activityId,
         text: 'Connecting to the selected device…',
       },
     });
     expect(patches).toContainEqual({
       type: 'activity_update',
       payload: {
-        id: String(permission.payload.callId),
+        id: activityId,
         text: 'Waiting for the next safe action for Validation…',
       },
     });
@@ -453,14 +453,12 @@ describe('AgentSession tools', () => {
     await session.selectDevice(PHYSICAL_DEVICE.udid);
     session.confirmPlan();
 
-    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
-    const permission = await nextPatchOfType(iterator, 'permission_request');
-    await session.resolvePermission(String(permission.payload.callId), 'allow');
     const patches: TuiStatePatch[] = [];
-    for (;;) {
-      const next = await iterator.next();
-      if (next.done) break;
-      patches.push(next.value);
+    for await (const patch of session.executeConfirmedPlan()) {
+      patches.push(patch);
+      if (patch.type === 'permission_request') {
+        await session.resolvePermission(String(patch.payload.callId), 'allow');
+      }
     }
 
     const terminal = patches.find((patch) => patch.type === 'message_add');
@@ -487,12 +485,20 @@ describe('AgentSession tools', () => {
 
     const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
 
+    const buildPermission = await nextPatchOfType(iterator, 'permission_request');
+    expect(buildPermission.payload).toMatchObject({
+      action: 'execute_project_build',
+      resource: 'com.example.Demo@physical-udid',
+    });
+    const callId = String(buildPermission.payload.callId);
+    await session.resolvePermission(callId, 'allow');
+
     const replacePermission = await nextPatchOfType(iterator, 'permission_request');
     expect(replacePermission.payload).toMatchObject({
+      callId,
       action: 'replace_device_app',
       resource: 'com.example.Demo@physical-udid',
     });
-    const callId = String(replacePermission.payload.callId);
     await session.resolvePermission(callId, 'allow');
 
     const wdaPermission = await nextPatchOfType(iterator, 'permission_request');
@@ -651,7 +657,7 @@ describe('AgentSession tools', () => {
         await session.resolvePermission(String(patch.payload.callId), 'allow');
       }
     }
-    expect(permissionActions).toEqual(['replace_device_app']);
+    expect(permissionActions).toEqual(['execute_project_build', 'replace_device_app']);
     expect(permissionActions).not.toContain('generate_draft_test');
     expect(executionCalls).toBe(1);
     expect(executionPatches.some((patch) => patch.type === 'error')).toBe(false);
@@ -786,7 +792,7 @@ describe('AgentSession streaming and permission bridge', () => {
 
     const permission = await nextPatchOfType(iterator, 'permission_request');
     const callId = String(permission.payload.callId);
-    expect(permission.payload.action).toBe('replace_device_app');
+    expect(permission.payload.action).toBe('execute_project_build');
 
     await session.resolvePermission(callId, 'deny');
     const remaining: TuiStatePatch[] = [];

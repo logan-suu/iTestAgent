@@ -181,10 +181,24 @@ describe('model-safe exploration boundary', () => {
       history: [],
       generate: async () => '{"action":"wait","waitMs":250}',
     });
+    const aliasedTap = await suggestExplorationAction({
+      caseId: 'validation',
+      uiTree: '<App/>',
+      history: [],
+      generate: async () => '{"action":"tap","accessibilityId":"Tap Me"}',
+    });
+    const labelledInput = await suggestExplorationAction({
+      caseId: 'validation',
+      uiTree: '<App/>',
+      history: [],
+      generate: async () => '{"action":"input","label":"Name","text":"Logan"}',
+    });
 
     expect(screenshot).toEqual({ action: 'screenshot', target: 'screenshot' });
     expect(swipe).toEqual({ action: 'swipe', target: 'swipe_up', direction: 'up' });
     expect(wait).toEqual({ action: 'wait', target: 'wait_250ms', waitMs: 250 });
+    expect(aliasedTap).toEqual({ action: 'tap', target: 'Tap Me' });
+    expect(labelledInput).toEqual({ action: 'input', target: 'Name', text: 'Logan' });
     await expect(
       suggestExplorationAction({
         caseId: 'validation',
@@ -192,7 +206,7 @@ describe('model-safe exploration boundary', () => {
         history: [],
         generate: async () => '{"action":"tap"}',
       }),
-    ).rejects.toThrow('target is required');
+    ).rejects.toThrow('target, accessibilityId, or label is required');
     await expect(
       suggestExplorationAction({
         caseId: 'validation',
@@ -200,7 +214,7 @@ describe('model-safe exploration boundary', () => {
         history: [],
         generate: async () => '{"action":"input","text":"hello"}',
       }),
-    ).rejects.toThrow('target is required');
+    ).rejects.toThrow('target, accessibilityId, or label is required');
   });
 
   it('classifies sensitive UI semantics independently of the verb', () => {
@@ -210,6 +224,40 @@ describe('model-safe exploration boundary', () => {
 });
 
 describe('runRealDeviceExploration', () => {
+  it('fails before reading the interface when the application launch fails', async () => {
+    let uiReads = 0;
+    const backend = {
+      async launchApp() {
+        return { success: false, error: 'application is not installed' };
+      },
+      async getUiTree() {
+        uiReads += 1;
+        return { raw: '<App/>', format: 'xml', capturedAt: new Date().toISOString() };
+      },
+      async screenshot() {
+        return { id: 'unused', type: 'screenshot', path: '/tmp/unused.png' };
+      },
+    };
+    const runDir = mkdtempSync(join(tmpdir(), 'real-run-launch-failure-'));
+    try {
+      await expect(
+        runRealDeviceExploration({
+          backend,
+          toolDispatcher: createBackendToolDispatcher(backend),
+          runDir,
+          runId: 'run_launch_failure',
+          bundleId: 'com.example.app',
+          deviceId: 'UDID-1',
+          targetKind: 'physical',
+          dynamicActions: { cases: ['validation'], suggest: async () => 'done' },
+        }),
+      ).rejects.toThrow('app_launch_failed');
+      expect(uiReads).toBe(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
   it('reports truthful execution stages without exposing UI-tree content', async () => {
     const progress: string[] = [];
     const backend = makeBackend([]);

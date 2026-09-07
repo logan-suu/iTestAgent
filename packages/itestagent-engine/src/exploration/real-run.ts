@@ -231,12 +231,14 @@ export async function suggestExplorationAction(input: {
     );
   }
   const action = parsed.action as ExplorationAction['action'];
-  const explicitTarget =
-    typeof parsed.target === 'string' && parsed.target.trim().length > 0
-      ? parsed.target.trim()
-      : null;
+  const targetCandidate = [parsed.target, parsed.accessibilityId, parsed.label].find(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  );
+  const explicitTarget = typeof targetCandidate === 'string' ? targetCandidate.trim() : null;
   if ((action === 'tap' || action === 'input') && !explicitTarget) {
-    throw new Error(`exploration_suggestion_invalid: target is required for ${input.caseId}`);
+    throw new Error(
+      `exploration_suggestion_invalid: target, accessibilityId, or label is required for ${input.caseId}`,
+    );
   }
   const direction =
     parsed.direction === 'up' ||
@@ -429,7 +431,13 @@ export async function runRealDeviceExploration(
       stage: 'launching_app',
       message: 'Launching the app and preparing the first observation…',
     });
-    await explorer.explore([]);
+    const launchSteps = await explorer.explore([]);
+    const launchStep = launchSteps.find((step) => step.action === 'launch');
+    if (!launchStep || launchStep.status !== 'completed') {
+      throw new Error(
+        `app_launch_failed: ${JSON.stringify(launchStep?.result ?? { error: 'no launch result' })}`,
+      );
+    }
     const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
     for (const caseId of options.dynamicActions.cases) {
       let previousObservation = '';

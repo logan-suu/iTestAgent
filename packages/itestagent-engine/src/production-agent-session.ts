@@ -22,16 +22,26 @@ import {
   type DeviceBackendDispatchInput,
   createDualExecutionDispatcher,
 } from './dual-execution-dispatcher.js';
+import {
+  type ProductionPhysicalPreflight,
+  createProductionPhysicalPreflight,
+} from './production-physical-preflight.js';
 import { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
 import {
   type XcunitFlowProcessRunner,
   createRealXcunitFlowDeps,
 } from './test-flow/xcunit-flow-wiring.js';
 
+export interface ProductionDeviceBackendContext {
+  readonly bundleId?: string;
+  readonly artifactDirectory?: string;
+}
+
 export interface ProductionAgentSessionDependencies {
   analyzeWorkspace(workspace: string): Promise<ProjectAnalysisResult>;
   deviceDiscovery: DeviceDiscoveryProvider;
-  createDeviceBackend(device: DeviceInfo): DeviceBackend;
+  createDeviceBackend(device: DeviceInfo, context?: ProductionDeviceBackendContext): DeviceBackend;
+  physicalPreflight?: ProductionPhysicalPreflight;
   closeDeviceBackend?(backend: DeviceBackend, signal?: AbortSignal): Promise<BackendCleanupOutcome>;
   /** Whether this exact backend route will build, sign, or launch a managed WDA. */
   preparesWda?(device: DeviceInfo): boolean;
@@ -59,6 +69,10 @@ export interface ProductionExecutionTransports {
 export function createProductionAgentSessionDependencies(
   options: ProductionAgentSessionOptions = {},
 ): ProductionAgentSessionDependencies {
+  const physicalRoute =
+    options.appium?.wdaStartupMode === 'managed-xcodebuild'
+      ? 'route_c_appium_managed'
+      : 'route_b_wda_manager_managed';
   return {
     analyzeWorkspace: async (workspace) => {
       const analysis = await analyzeProject(createXcodeProjAnalyzerBackend(), workspace);
@@ -66,11 +80,13 @@ export function createProductionAgentSessionDependencies(
       return analysis;
     },
     deviceDiscovery: createAppiumDeviceDiscoveryProvider(options.deviceDiscoveryRuntime),
-    createDeviceBackend: (device) =>
+    createDeviceBackend: (device, context) =>
       createAppiumDeviceBackend({
         ...options.appium,
         udid: device.udid,
         targetKind: device.targetKind,
+        ...(context?.bundleId ? { bundleId: context.bundleId } : {}),
+        ...(context?.artifactDirectory ? { artifactDirectory: context.artifactDirectory } : {}),
         ...(device.name ? { deviceName: device.name } : {}),
         ...(options.appium?.platformVersion
           ? { platformVersion: options.appium.platformVersion }
@@ -78,6 +94,7 @@ export function createProductionAgentSessionDependencies(
             ? { platformVersion: device.osVersion }
             : {}),
       }).backend,
+    physicalPreflight: createProductionPhysicalPreflight({}, physicalRoute),
     closeDeviceBackend: async (backend, signal) => {
       const outcome = await backend.closeSession?.(signal);
       return outcome ?? { status: 'already_closed', reusable: true, issues: [] };

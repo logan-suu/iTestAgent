@@ -213,6 +213,16 @@ export {
   productionPermissionActions,
   selectPlanDevice,
 } from './production-run-executor.js';
+export {
+  createProductionPhysicalPreflight,
+  runProductionPhysicalPreflight,
+} from './production-physical-preflight.js';
+export type {
+  ProductionPhysicalPreflightDeps,
+  ProductionPhysicalPreflight,
+  ProductionPhysicalPreflightInput,
+  ProductionPhysicalPreflightProgress,
+} from './production-physical-preflight.js';
 export type {
   ProductionActionSuggestion,
   ProductionPlanContext,
@@ -282,6 +292,7 @@ export {
 } from './production-agent-session.js';
 export type {
   ProductionAgentSessionDependencies,
+  ProductionDeviceBackendContext,
   ProductionAgentSessionOptions,
   ProductionExecutionTransports,
 } from './production-agent-session.js';

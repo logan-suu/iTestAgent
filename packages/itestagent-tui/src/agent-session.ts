@@ -379,10 +379,7 @@ export async function createAgentSession(
       throw new Error('execution_blocked: project profile has no confirmed bundleId');
     }
     const resource = `${bundleId}@${device.udid}`;
-    const actions =
-      plan.execution.resolvedPath === 'xcuitest'
-        ? [...productionPermissionActions(plan)]
-        : ['replace_device_app', ...productionPermissionActions(plan, preparesWda(device))];
+    const actions = [...productionPermissionActions(plan, preparesWda(device))];
     return { plan, device, bundleId, resource, actions };
   };
 
@@ -411,6 +408,7 @@ export async function createAgentSession(
         workspace: executionWorkspace,
         device,
         bundleId,
+        ...(analysis.profile.app.scheme ? { scheme: analysis.profile.app.scheme } : {}),
         preparesWda: preparesWda(device),
         suggest:
           dependencies.suggestExplorationAction ??
@@ -438,6 +436,7 @@ export async function createAgentSession(
           analyzeWorkspace,
           deviceDiscovery: production.deviceDiscovery,
           createDeviceBackend: dependencies.createDeviceBackend ?? production.createDeviceBackend,
+          physicalPreflight: production.physicalPreflight,
           closeDeviceBackend: dependencies.closeDeviceBackend ?? production.closeDeviceBackend,
         },
         transports: dependencies.transports,

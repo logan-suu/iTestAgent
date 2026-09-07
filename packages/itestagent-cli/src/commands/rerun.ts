@@ -76,6 +76,7 @@ export async function runRerunCommand(
     workspace: context.workspace,
     device,
     bundleId: context.bundleId,
+    ...(context.scheme ? { scheme: context.scheme } : {}),
     store,
     storeRoot,
     suggest: async () => {

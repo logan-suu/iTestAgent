@@ -24,6 +24,9 @@ T6.12 真机验收发现，自然语言中的具体操作和“确认某文本�
 4. DeviceBackend 动作模型必须同时接收已确认 goal、当前 case 的成功条件、模型安全 UI tree 与历史步骤；原始设备证据仍遵循 ADR-032，不进入模型上下文。
 5. 动态探索检测“UI 投影不变且同一建议动作重复”。连续两次无进展后在下一次动作前停止，产生 `no_progress`；达到步数上限产生 `step_limit`。无可判定断言时结果为 `inconclusive`，并在 TUI 与报告中显式说明，禁止静默循环。
 6. OpenTUI 在存在 activity 时显示持续更新的单列宽 spinner；activity 完成、失败、取消或 renderer 销毁时必须清理 timer。spinner 只表达前台事件循环活性，不得被描述为底层设备动作成功。
+7. 物理真机的 DeviceBackend 生产入口不得从权限确认直接跳到探索循环。进入第一次 UI tree 读取前，必须按 S5 顺序完成 AppSource 解析、目标显式的 `xcodebuild build`、真机 `.app` 的 bundleId/platform/arm64/签名校验、`devicectl` 安装与启动，以及 Appium/WDA 活跃会话探测。
+8. `execute_project_build`、`replace_device_app` 与 `prepare_wda` 的一次性授权必须绑定同一份已确认 TestPlan、bundleId 与 UDID，并在相应副作用之前取得；生产组合缺少 physical preflight 时必须失败关闭，不能把测试替身或空实现当作成功。
+9. AUT 首次 `launchApp` 失败是执行终止条件。失败步骤可以进入本地审计结果，但执行器不得继续读取界面或向动作模型请求建议；模型动作中的 `target`、`accessibilityId`、`label` 可作为等价的安全定位别名，三者均缺失的 tap/input 仍失败关闭。
 
 `itestagent.test-plan.v3` 不升版本：新增字段为可选，已有 v3 文件仍可读取；只有 DeviceBackend 的生产执行入口对缺少 goal 的旧计划失败关闭。该策略保留读取兼容性，同时阻止旧计划继续盲目探索。
 
@@ -32,6 +35,7 @@ T6.12 真机验收发现，自然语言中的具体操作和“确认某文本�
 - Plan Review 能在执行前暴露真正的目标和成功条件，执行模型与断言评估使用同一确认事实。
 - 重复无进展不再消耗完整步数预算，用户得到明确终止原因。
 - OpenTUI 在后台等待模型、设备或证据处理时有持续可见反馈。
+- 真机上可观察到构建、安装、启动和操作的实际顺序；某一步失败时，Activity 与终态停留在真实失败阶段，不再显示虚假的界面读取进度。
 - 当前结构化解析只覆盖明确的可见性表达；其他自然语言断言仍需后续 parser 扩展或人工确认，不能静默推断。
 
 ## 验证要求
@@ -41,6 +45,7 @@ T6.12 真机验收发现，自然语言中的具体操作和“确认某文本�
 3. 固定 UI tree 与重复动作验证 `no_progress`、`inconclusive` 和用户可见终止消息。
 4. OpenTUI 字符帧在 activity 存续期间至少捕获两个不同 spinner 帧，activity 文本与设备标识脱敏边界保持不变。
 5. 通过 typecheck、lint、全量测试；真机最终结果仍需 G5 人工验收，不以 mock 代替。
+6. 生产组合测试验证 `build/resolve -> validate -> install -> launch -> WDA ready -> UI tree -> tap -> screenshot` 顺序，并验证 build、preflight 或 AUT launch 失败后不会触发 UI tree 读取。
 
 ## 关联文档
 

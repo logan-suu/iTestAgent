@@ -1856,6 +1856,28 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
     await backend.closeSession();
   });
 
+  it('uses an observed active Route B identity when no WDA override was configured', async () => {
+    const backend = new AppiumDeviceBackend(new MockAppiumDriver(), {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      bundleId: TEST_BUNDLE_ID,
+      wdaStartupMode: 'external-url',
+      webDriverAgentUrl: 'http://127.0.0.1:8100',
+      wdaStatusFetch: async () =>
+        Response.json({
+          value: { build: { productBundleIdentifier: 'OBSERVED.WebDriverAgentRunner' } },
+        }),
+    });
+
+    await expect(backend.probePhysicalReadiness()).resolves.toMatchObject({
+      ready: true,
+      targetDeviceUdid: TEST_UDID,
+      targetWdaBundleId: 'OBSERVED.WebDriverAgentRunner.xctrunner',
+      details: 'WDA identity was observed from the active route session.',
+    });
+    await backend.closeSession();
+  });
+
   it('fails closed when the session reports a different device or WDA identity', async () => {
     const backend = new AppiumDeviceBackend(
       new MockAppiumDriver({

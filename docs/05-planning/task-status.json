@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "iTestAgent MVP",
-  "last_updated": "2026-09-06T22:27:02Z",
+  "last_updated": "2026-09-07T20:25:21Z",
   "current_phase": 6,
   "phases": [
     {
@@ -1399,7 +1399,7 @@
           "title": "M6-PHY 真机出口验收：生产入口两条路径 G5 与全闭环证据留档",
           "story": "MVP-1~19",
           "status": "in_progress",
-          "last_updated": "2026-09-07T19:42:34Z",
+          "last_updated": "2026-09-07T20:25:21Z",
           "documents_required": [
             "AGENTS.md",
             "docs/01-spec/全量用户故事与验收标准规格书.md",

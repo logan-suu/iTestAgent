@@ -30,6 +30,7 @@ import {
   createProductionAgentSessionDependencies,
   createProductionDualExecutionDispatcher,
 } from './production-agent-session.js';
+import type { ProductionPhysicalPreflightProgress } from './production-physical-preflight.js';
 
 export type ProductionActionSuggestion = (input: {
   caseId: string;
@@ -69,6 +70,8 @@ export interface ProductionRunExecutorInput {
   workspace: string;
   device: DeviceInfo;
   bundleId: string;
+  /** Confirmed application scheme from the Project Profile. */
+  scheme?: string;
   store: RunStore;
   storeRoot: string;
   suggest: ProductionActionSuggestion;
@@ -91,6 +94,7 @@ export interface ProductionRunProgress {
     | 'preparing_route'
     | 'running_xcuitest'
     | 'connecting_device'
+    | ProductionPhysicalPreflightProgress['stage']
     | 'cleaning_up'
     | 'saving_result';
   readonly message: string;
@@ -99,6 +103,7 @@ export interface ProductionRunProgress {
 export interface ProductionPlanContext {
   workspace: string;
   bundleId: string;
+  scheme?: string;
 }
 
 /** Resolve the canonical Project Profile reference behind a confirmed plan. */
@@ -124,6 +129,7 @@ export function loadProductionPlanContext(
   return {
     bundleId: profile.app.bundleId,
     workspace: projectContainer ? dirname(projectContainer) : fallbackWorkspace,
+    ...(profile.app.scheme ? { scheme: profile.app.scheme } : {}),
   };
 }
 
@@ -140,7 +146,12 @@ export function productionPermissionActions(
   if (plan.execution.resolvedPath === 'xcuitest') {
     return ['execute_project_build', 'replace_device_app'];
   }
-  return preparesWda ? ['prepare_wda'] : [];
+  if (plan.device.kind !== 'physical') return [];
+  return [
+    ...(plan.appSource.strategy === 'auto_from_workspace' ? ['execute_project_build'] : []),
+    'replace_device_app',
+    ...(preparesWda ? ['prepare_wda'] : []),
+  ];
 }
 
 /** Shared production execution used by standalone rerun and interactive sessions. */
@@ -199,9 +210,35 @@ export async function executeProductionTestPlan(
       stage: 'connecting_device',
       message: 'Connecting to the selected device…',
     });
-    const backend = production.createDeviceBackend(input.device);
+    const backend = production.createDeviceBackend(input.device, {
+      bundleId: input.bundleId,
+      artifactDirectory: join(stagingDir, 'artifacts'),
+    });
     let result: Awaited<ReturnType<typeof runRealDeviceExploration>>;
     try {
+      if (input.device.targetKind === 'physical') {
+        const physicalPreflight = production.physicalPreflight;
+        if (!physicalPreflight) {
+          throw new Error(
+            'physical_preflight_unavailable: production composition has no physical preflight',
+          );
+        }
+        const preflight = await physicalPreflight({
+          plan,
+          workspace: input.workspace,
+          scheme: input.scheme,
+          device: input.device,
+          bundleId: input.bundleId,
+          stagingDir,
+          backend,
+          authorize: input.authorize,
+          signal: input.signal,
+          onProgress: input.onProgress,
+        });
+        if (preflight.status !== 'ready') {
+          throw new Error(`physical_preflight_${preflight.stage}: ${preflight.failure.message}`);
+        }
+      }
       result = await runRealDeviceExploration({
         backend,
         toolDispatcher: createBackendToolDispatcher(backend, input.signal),

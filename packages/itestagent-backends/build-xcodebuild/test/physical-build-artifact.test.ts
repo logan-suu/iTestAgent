@@ -96,4 +96,50 @@ describe('buildForPhysical', () => {
     const destIndex = buildCall.args.indexOf('-destination');
     expect(buildCall.args[destIndex + 1]).toBe('generic/platform=iOS');
   });
+
+  it('uses the discovered Xcode container and configuration for build and settings', async () => {
+    const { runner, calls } = makeScriptedRunner((call) =>
+      call.args[0] === 'build'
+        ? { exitCode: 0, stdout: '', stderr: '' }
+        : { exitCode: 0, stdout: SETTINGS_STDOUT, stderr: '' },
+    );
+
+    await buildForPhysical(
+      {
+        projectRoot: '/fixture/project',
+        projectContainer: {
+          path: '/fixture/project/Fixture.xcworkspace',
+          type: 'xcode_workspace',
+        },
+        scheme: 'FixtureScheme',
+        configuration: 'Debug',
+        udid: 'UDID-FIXTURE-X',
+      },
+      runner,
+    );
+
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.args).toContain('-workspace');
+      expect(call.args).toContain('/fixture/project/Fixture.xcworkspace');
+      expect(call.args).toContain('-configuration');
+      expect(call.args).toContain('Debug');
+      expect(call.args).toContain('-destination');
+    }
+  });
+
+  it('fails explicitly when build settings cannot resolve the artifact', async () => {
+    const { runner } = makeScriptedRunner((call) =>
+      call.args[0] === 'build'
+        ? { exitCode: 0, stdout: '', stderr: '' }
+        : { exitCode: 74, stdout: '', stderr: 'settings failed' },
+    );
+
+    const result = await buildForPhysical(
+      { projectRoot: '/fixture/project', scheme: 'FixtureScheme' },
+      runner,
+    );
+    expect(result.exitCode).toBe(74);
+    expect(result.appPath).toBeUndefined();
+  });
 });

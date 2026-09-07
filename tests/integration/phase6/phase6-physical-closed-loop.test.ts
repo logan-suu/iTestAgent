@@ -6,9 +6,15 @@ import { join, resolve } from 'node:path';
 import * as aiReal from 'ai';
 import { overrideSpawnSync } from 'itestagent-backends-analyzer-xcodeproj';
 import type { DeviceDiscoveryRuntime } from 'itestagent-backends-device-appium';
-import type { DeviceBackend, DeviceInfo, TestPlan } from 'itestagent-contracts';
+import type {
+  DeviceBackend,
+  DeviceInfo,
+  PhysicalPreflightResult,
+  TestPlan,
+} from 'itestagent-contracts';
 import { TestPlanSchema } from 'itestagent-contracts';
 import {
+  type ProductionAgentSessionDependencies,
   createProductionAgentSessionDependencies,
   executeProductionTestPlan,
 } from 'itestagent-engine';
@@ -213,6 +219,31 @@ const simulator: DeviceInfo = {
 
 const projectHash = 'a'.repeat(64);
 
+function readyPhysicalPreflight(): PhysicalPreflightResult {
+  return {
+    status: 'ready',
+    stage: 'ready',
+    artifact: {
+      sourceKind: 'build',
+      sourcePath: '/tmp/Demo.app',
+      appPath: '/tmp/Demo.app',
+      bundleId: 'com.example.Demo',
+      executable: 'Demo',
+      supportedPlatforms: ['iPhoneOS'],
+      architectures: ['arm64'],
+      signingValid: true,
+    },
+    wda: {
+      route: 'route_b_wda_manager_managed',
+      stage: 'ready',
+      ready: true,
+      targetDeviceUdid: physical.udid,
+      targetWdaBundleId: 'TEAM.WebDriverAgentRunner.xctrunner',
+      waitedMs: 1,
+    },
+  };
+}
+
 function xcuitestPlan(runId: string): TestPlan {
   return TestPlanSchema.parse({
     schemaVersion: 'itestagent.test-plan.v3',
@@ -289,37 +320,60 @@ describe('T6.11 production physical MVP closed loop', () => {
     let backendCreations = 0;
     let backendCloses = 0;
     let suggestionCount = 0;
+    let screenshotCount = 0;
+    const lifecycle: string[] = [];
+    let backendBundleId: string | undefined;
     const backend = {
       name: 'appium',
       async launchApp() {
+        lifecycle.push('backend_launch');
         return { success: true as const };
       },
       async getUiTree() {
+        lifecycle.push('ui_tree');
         return {
-          raw: '<XCUIElementTypeApplication><XCUIElementTypeButton name="login"/></XCUIElementTypeApplication>',
+          raw: '<XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Demo" enabled="true" visible="true" x="0" y="0" width="390" height="844"><XCUIElementTypeButton type="XCUIElementTypeButton" name="login" label="Login" enabled="true" visible="true" x="20" y="280" width="350" height="50"/></XCUIElementTypeApplication>',
           format: 'xml',
           capturedAt: new Date().toISOString(),
         };
       },
       async screenshot() {
-        const rawEvidence = join(root, 'runs', plannedRunId, 'staging', 'transport-screenshot.png');
+        lifecycle.push('screenshot');
+        screenshotCount += 1;
+        const rawEvidence = join(
+          root,
+          'runs',
+          plannedRunId,
+          'staging',
+          `transport-screenshot-${screenshotCount}.png`,
+        );
         mkdirSync(join(root, 'runs', plannedRunId, 'staging'), { recursive: true });
         writeFileSync(rawEvidence, 'RAW_SCREENSHOT_SECRET');
-        return { id: 'device-shot', type: 'screenshot', path: rawEvidence };
+        return { id: `device-shot-${screenshotCount}`, type: 'screenshot', path: rawEvidence };
+      },
+      async tap() {
+        lifecycle.push('tap');
+        return { success: true as const };
       },
     } as unknown as DeviceBackend;
-    const production = {
+    const production: ProductionAgentSessionDependencies = {
       ...createProductionAgentSessionDependencies({
         dataRoot: root,
         deviceDiscoveryRuntime: createDiscoveryRuntime(root, { physical }),
       }),
-      createDeviceBackend: () => {
+      createDeviceBackend: (_device, context) => {
         backendCreations += 1;
+        backendBundleId = context?.bundleId;
         return backend;
       },
       closeDeviceBackend: async () => {
         backendCloses += 1;
         return { status: 'closed' as const, reusable: true, issues: [] };
+      },
+      physicalPreflight: async ({ onProgress }) => {
+        lifecycle.push('physical_preflight');
+        onProgress?.({ stage: 'building_app', message: 'Building test fixture…' });
+        return readyPhysicalPreflight();
       },
       preparesWda: () => true,
     };
@@ -334,8 +388,10 @@ describe('T6.11 production physical MVP closed loop', () => {
       suggestExplorationAction: async () => {
         suggestionCount += 1;
         return suggestionCount === 1
-          ? { action: 'screenshot', target: 'capture login evidence' }
-          : 'done';
+          ? { action: 'tap', target: 'login' }
+          : suggestionCount === 2
+            ? { action: 'screenshot', target: 'capture login evidence' }
+            : 'done';
       },
     });
     const planningPatches = [];
@@ -350,15 +406,27 @@ describe('T6.11 production physical MVP closed loop', () => {
     plannedRunId = runId as string;
 
     const executionPatches = await executeConfirmedSession(session);
+    const executionError = executionPatches.find((patch) => patch.type === 'error');
+    if (executionError) throw new Error(JSON.stringify(executionError.payload));
     expect(executionPatches.some((patch) => patch.type === 'error')).toBe(false);
     expect(backendCloses).toBe(1);
+    expect(backendBundleId).toBe('com.example.Demo');
+    expect(lifecycle.indexOf('physical_preflight')).toBeLessThan(
+      lifecycle.indexOf('backend_launch'),
+    );
+    expect(lifecycle.indexOf('backend_launch')).toBeLessThan(lifecycle.indexOf('ui_tree'));
+    expect(lifecycle.indexOf('ui_tree')).toBeLessThan(lifecycle.indexOf('tap'));
+    expect(lifecycle.indexOf('tap')).toBeLessThan(lifecycle.indexOf('screenshot'));
 
     const bundle = await store.loadRunBundle(runId as string);
     expect(bundle.result).toMatchObject({ runId, status: 'explored' });
     expect(bundle.steps.steps.some((step) => step.action === 'screenshot')).toBe(true);
-    expect(bundle.artifactIndex.artifacts).toEqual([
-      expect.objectContaining({ type: 'screenshot', redactionStatus: 'raw-local-only' }),
-    ]);
+    expect(bundle.artifactIndex.artifacts.length).toBeGreaterThanOrEqual(1);
+    expect(bundle.artifactIndex.artifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'screenshot', redactionStatus: 'raw-local-only' }),
+      ]),
+    );
     expect(JSON.stringify(bundle.result)).not.toContain('RAW_SCREENSHOT_SECRET');
     expect(await runExplainCommand(runId as string, { store })).toMatchObject({ runId });
 
@@ -548,6 +616,7 @@ describe('T6.11 production physical MVP closed loop', () => {
         },
         deviceDiscovery: {} as never,
         createDeviceBackend: () => backend,
+        physicalPreflight: async () => readyPhysicalPreflight(),
         closeDeviceBackend: async (_backend, signal) => {
           cleanupSignal = signal;
           return { status: 'closed', reusable: true, issues: [] };

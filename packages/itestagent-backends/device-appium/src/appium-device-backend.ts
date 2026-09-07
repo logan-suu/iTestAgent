@@ -796,10 +796,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
     if (this.targetKind !== 'physical') {
       throw new Error('Physical WDA readiness cannot be probed for a simulator backend.');
     }
-    if (!this.opts.wdaBundleId) {
-      throw new Error('Physical WDA readiness requires an explicit WDA bundle ID.');
-    }
-
     const route =
       this.wdaStartupMode === 'external-url'
         ? 'route_b_wda_manager_managed'
@@ -811,9 +807,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
         await this.closeSession();
         signal.throwIfAborted();
       }
-      const expectedWdaBundleId = this.opts.wdaBundleId.endsWith('.xctrunner')
-        ? this.opts.wdaBundleId
-        : `${this.opts.wdaBundleId}.xctrunner`;
+      const expectedWdaBundleId = this.opts.wdaBundleId
+        ? this.opts.wdaBundleId.endsWith('.xctrunner')
+          ? this.opts.wdaBundleId
+          : `${this.opts.wdaBundleId}.xctrunner`
+        : undefined;
       const observedWdaBaseBundleId =
         this.wdaStartupMode === 'external-url'
           ? await this.observeExternalWdaBundleId(signal)
@@ -825,7 +823,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
           : undefined;
       if (
         this.activeSession?.deviceUdid !== this.opts.udid ||
-        observedWdaBundleId !== expectedWdaBundleId
+        !observedWdaBundleId ||
+        (expectedWdaBundleId !== undefined && observedWdaBundleId !== expectedWdaBundleId)
       ) {
         return {
           route,
@@ -845,6 +844,9 @@ export class AppiumDeviceBackend implements DeviceBackend {
         targetDeviceUdid: this.activeSession.deviceUdid,
         targetWdaBundleId: observedWdaBundleId,
         waitedMs: Date.now() - startedAt,
+        ...(!expectedWdaBundleId
+          ? { details: 'WDA identity was observed from the active route session.' }
+          : {}),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -874,9 +876,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
         stage,
         ready: false,
         targetDeviceUdid: this.opts.udid,
-        targetWdaBundleId: this.opts.wdaBundleId.endsWith('.xctrunner')
-          ? this.opts.wdaBundleId
-          : `${this.opts.wdaBundleId}.xctrunner`,
+        targetWdaBundleId: this.opts.wdaBundleId
+          ? this.opts.wdaBundleId.endsWith('.xctrunner')
+            ? this.opts.wdaBundleId
+            : `${this.opts.wdaBundleId}.xctrunner`
+          : 'unobserved',
         waitedMs: Date.now() - startedAt,
         failureCode,
         details: message,
