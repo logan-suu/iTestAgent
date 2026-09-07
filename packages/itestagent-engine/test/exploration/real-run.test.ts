@@ -128,6 +128,24 @@ describe('model-safe exploration boundary', () => {
     expect(prompt).toContain('[REDACTED]');
   });
 
+  it('includes the confirmed goal and success criteria in the action prompt', async () => {
+    let prompt = '';
+    await suggestExplorationAction({
+      caseId: 'Validation',
+      goal: 'Tap the button and confirm the count.',
+      assertions: [userAssertion()],
+      uiTree: '<App/>',
+      history: [],
+      generate: async (value) => {
+        prompt = value;
+        return '{"action":"done"}';
+      },
+    });
+    expect(prompt).toContain('GOAL: Tap the button and confirm the count.');
+    expect(prompt).toContain('SUCCESS CRITERIA:');
+    expect(prompt).toContain('login button visible');
+  });
+
   it('forwards the run AbortSignal to model generation', async () => {
     const controller = new AbortController();
     let received: AbortSignal | undefined;
@@ -337,6 +355,35 @@ describe('runRealDeviceExploration', () => {
         },
       }),
     ).rejects.toThrow('exploration_permission_required');
+  });
+
+  it('stops repeated unchanged actions and reports an inconclusive no-progress outcome', async () => {
+    const progress: string[] = [];
+    const backend = makeBackend([]);
+    const runDir = mkdtempSync(join(tmpdir(), 'real-run-stalled-'));
+    try {
+      const result = await runRealDeviceExploration({
+        backend,
+        toolDispatcher: makeDispatcher(backend),
+        runDir,
+        runId: 'run_stalled',
+        bundleId: 'com.example.app',
+        deviceId: 'UDID-1',
+        targetKind: 'physical',
+        dynamicActions: {
+          cases: ['validation'],
+          suggest: async () => ({ action: 'wait', target: 'wait_1ms', waitMs: 1 }),
+        },
+        onProgress: ({ message }) => progress.push(message),
+      });
+
+      expect(result.steps.filter((step) => step.caseId === 'validation')).toHaveLength(2);
+      expect(result.explorationTermination?.reason).toBe('no_progress');
+      expect(result.assertion.status).toBe('inconclusive');
+      expect(progress.some((message) => message.includes('stalled'))).toBe(true);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -8,7 +8,7 @@
 
 import { render as otRender } from '@opentui/solid';
 import type { JSX } from '@opentui/solid';
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import {
   ASSERTION_REVIEW_FOOTER_HINTS,
   assertionFooterStatus,
@@ -69,6 +69,16 @@ function Header(props: {
   deviceStatus: DeviceStatus;
   activity: string | null;
 }): JSX.Element {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
+  const [frame, setFrame] = createSignal(0);
+  createEffect(() => {
+    if (!props.activity) {
+      setFrame(0);
+      return;
+    }
+    const timer = setInterval(() => setFrame((value) => (value + 1) % frames.length), 80);
+    onCleanup(() => clearInterval(timer));
+  });
   return (
     <box flexDirection="column" flexShrink={0} borderStyle="single" padding={1} marginBottom={1}>
       <box>
@@ -79,7 +89,7 @@ function Header(props: {
       </box>
       <Show when={props.activity}>
         <box>
-          <text opacity={0.6}>{`Activity: ${props.activity ?? ''}`}</text>
+          <text opacity={0.6}>{`Activity: ${frames[frame()]} ${props.activity ?? ''}`}</text>
         </box>
       </Show>
     </box>

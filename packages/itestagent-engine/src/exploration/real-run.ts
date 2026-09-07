@@ -169,6 +169,11 @@ export interface RealDeviceRunResult {
   readonly artifactIndexPath: string | null;
   readonly artifactCount: number;
   readonly artifacts: readonly ArtifactIndex['artifacts'][number][];
+  /** Explicit reason why dynamic exploration stopped. */
+  readonly explorationTermination?: {
+    readonly reason: 'goal_reached' | 'no_progress' | 'step_limit';
+    readonly message: string;
+  };
   /** LLM-proposed tier-3 suggestions when llmSuggest was used (AC4). */
   readonly llmSuggestions?: readonly UserAssertion[];
   readonly llmReason?: string;
@@ -189,6 +194,8 @@ export function isSensitiveUiAction(action: ExplorationAction): boolean {
 export async function suggestExplorationAction(input: {
   generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
   caseId: string;
+  goal?: string;
+  assertions?: readonly UserAssertion[];
   uiTree: string;
   history: readonly RunStep[];
   signal?: AbortSignal;
@@ -197,6 +204,13 @@ export async function suggestExplorationAction(input: {
     [
       'You are exploring an iOS app inside a confirmed TestPlan case.',
       `CASE: ${input.caseId}`,
+      `GOAL: ${input.goal ?? `(legacy plan: complete the confirmed ${input.caseId} case safely)`}`,
+      `SUCCESS CRITERIA: ${
+        (input.assertions ?? [])
+          .flatMap((assertion) => assertion.conditions)
+          .map((condition) => condition.description)
+          .join('; ') || '(none confirmed)'
+      }`,
       `COMPLETED ACTIONS: ${input.history.map((step) => `${step.action}:${step.target ?? ''}:${step.status}`).join(', ') || '(none)'}`,
       'CURRENT UI TREE:',
       redactUiTreeForModel(input.uiTree).slice(0, 12000),
@@ -408,6 +422,7 @@ export async function runRealDeviceExploration(
     options.artifactStore,
   );
 
+  let explorationTermination: RealDeviceRunResult['explorationTermination'];
   if (options.dynamicActions) {
     // The first model observation must describe the confirmed AUT, not whichever app was active.
     options.onProgress?.({
@@ -417,6 +432,10 @@ export async function runRealDeviceExploration(
     await explorer.explore([]);
     const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
     for (const caseId of options.dynamicActions.cases) {
+      let previousObservation = '';
+      let previousAction = '';
+      let repeatedNoProgress = 0;
+      let caseFinished = false;
       for (let index = 0; index < maxSteps; index += 1) {
         options.signal?.throwIfAborted();
         options.onProgress?.({
@@ -439,6 +458,32 @@ export async function runRealDeviceExploration(
         });
         options.signal?.throwIfAborted();
         if (suggestion === 'done') {
+          explorationTermination ??= {
+            reason: 'goal_reached',
+            message: `The action agent reported that ${caseId} reached its confirmed goal.`,
+          };
+          caseFinished = true;
+          break;
+        }
+        const observation = redactUiTreeForModel(tree.raw);
+        const actionSignature = JSON.stringify(suggestion);
+        if (observation === previousObservation && actionSignature === previousAction) {
+          repeatedNoProgress += 1;
+        } else {
+          repeatedNoProgress = 0;
+        }
+        previousObservation = observation;
+        previousAction = actionSignature;
+        if (repeatedNoProgress >= 2) {
+          explorationTermination = {
+            reason: 'no_progress',
+            message: `Execution stalled for ${caseId}: the interface and suggested action repeated without progress.`,
+          };
+          options.onProgress?.({
+            stage: 'evaluating_assertions',
+            message: `${explorationTermination.message} Evaluating available evidence…`,
+          });
+          caseFinished = true;
           break;
         }
         if (isSensitiveUiAction(suggestion)) {
@@ -464,6 +509,16 @@ export async function runRealDeviceExploration(
           message: `Executing ${suggestion.action} for ${caseId}…`,
         });
         await explorer.explore([{ ...suggestion, caseId }]);
+      }
+      if (!caseFinished) {
+        explorationTermination = {
+          reason: 'step_limit',
+          message: `Execution reached the ${maxSteps}-step safety limit for ${caseId}.`,
+        };
+        options.onProgress?.({
+          stage: 'evaluating_assertions',
+          message: `${explorationTermination.message} Evaluating available evidence…`,
+        });
       }
     }
   } else {
@@ -517,13 +572,29 @@ export async function runRealDeviceExploration(
   }
 
   const evaluator = new AssertionEvaluator();
-  const assertion = evaluator.evaluate({
+  let assertion = evaluator.evaluate({
     policy: options.policy ?? 'user_goal_then_profile_then_agent_confirmed',
     userAssertions: assertions.filter((a) => a.source === 'user'),
     profileAssertions: assertions.filter((a) => a.source === 'profile'),
     agentSuggestions: [...assertions.filter((a) => a.source === 'agent'), ...llmSuggestions],
     observations,
   });
+  if (
+    explorationTermination &&
+    explorationTermination.reason !== 'goal_reached' &&
+    assertion.status === 'explored'
+  ) {
+    assertion = {
+      status: 'inconclusive',
+      cases:
+        options.dynamicActions?.cases.map((caseId) => ({
+          caseId,
+          status: 'inconclusive' as const,
+          resolvedBy: 'explore_only' as const,
+        })) ?? [],
+      summary: explorationTermination.message,
+    };
+  }
 
   options.onProgress?.({
     stage: 'indexing_evidence',
@@ -573,6 +644,7 @@ export async function runRealDeviceExploration(
     artifactIndexPath,
     artifactCount,
     artifacts,
+    ...(explorationTermination ? { explorationTermination } : {}),
     ...(options.llmSuggest ? { llmSuggestions, llmReason } : {}),
   };
 }

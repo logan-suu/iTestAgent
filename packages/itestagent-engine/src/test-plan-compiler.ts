@@ -3,7 +3,7 @@
  * mvp-test-plan-fields and plan.yaml persistence in durable-test-plan; this
  * module stays the Intent+Profile→TestPlan compiler plus YAML helpers.
  */
-import type { Intent } from 'itestagent-contracts';
+import type { Intent, UserAssertion } from 'itestagent-contracts';
 import {
   type AssertionPolicy,
   type DeviceSelector,
@@ -16,6 +16,7 @@ import {
 import { migrateTestPlanToV3 } from 'itestagent-contracts/migrations';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
 import YAML from 'yaml';
+import { redactSensitiveText } from './context-builder.js';
 import type { ExecutionRouteResolution } from './execution-route-resolver.js';
 
 // Re-export schema types for convenience
@@ -158,6 +159,7 @@ function buildExecutionPlan(
 
   // Metrics selection
   const metrics = resolveMetrics(intent);
+  const assertions = extractExplicitUserAssertions(intent.sourceText, features[0] ?? 'exploration');
 
   return {
     prefer,
@@ -165,11 +167,13 @@ function buildExecutionPlan(
     resolvedPath: route.resolvedPath,
     selectionReason: route.selectionReason,
     features,
+    goal: redactSensitiveText(intent.sourceText.trim() || intent.goal).slice(0, 2000),
+    assertions,
     testData: {
       allowAgentGeneratedData: options?.testData?.allowAgentGeneratedData ?? true,
       askUserInTuiWhenRequired: options?.testData?.askUserInTuiWhenRequired ?? true,
     },
-    assertion: resolveAssertionPolicy(intent),
+    assertion: resolveAssertionPolicy(intent, assertions),
     metrics,
     ...(route.xcuitest ? { xcuitest: route.xcuitest } : {}),
   };
@@ -231,12 +235,48 @@ function resolveMetrics(intent: Intent): ExecutionPlan['metrics'] {
 }
 
 /** Resolve assertion policy from Intent scope */
-function resolveAssertionPolicy(intent: Intent): AssertionPolicy {
+function resolveAssertionPolicy(
+  intent: Intent,
+  assertions: readonly UserAssertion[],
+): AssertionPolicy {
+  if (assertions.length > 0) {
+    return { policy: 'user_goal_then_profile_then_agent_confirmed' };
+  }
   // explore scope → explore_only; all others → tiered policy
   if (intent.scope === 'explore') {
     return { policy: 'explore_only' };
   }
   return { policy: 'user_goal_then_profile_then_agent_confirmed' };
+}
+
+/** Compile quoted "confirm … visible" clauses into deterministic tier-1 assertions. */
+export function extractExplicitUserAssertions(sourceText: string, caseId: string): UserAssertion[] {
+  const targets: string[] = [];
+  const patterns = [
+    /(?:确认|验证|检查)\s*[“"]([^”"]+)[”"]\s*(?:可见|已显示|显示)/gu,
+    /(?:confirm|verify|check)(?:\s+that)?\s*[“"]([^”"]+)[”"]\s+(?:is\s+)?visible/giu,
+  ];
+  for (const pattern of patterns) {
+    for (const match of sourceText.matchAll(pattern)) {
+      const target = match[1]?.trim();
+      if (target && !targets.includes(target)) targets.push(target);
+    }
+  }
+  if (targets.length === 0) return [];
+  return [
+    {
+      id: `user-${caseId.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'case'}-visible`,
+      caseId,
+      label: 'User-confirmed visible elements',
+      source: 'user',
+      conditions: targets.map((target) => ({
+        type: 'element_visible' as const,
+        description: `Confirm "${target}" is visible.`,
+        target,
+        expected: true,
+      })),
+    },
+  ];
 }
 
 /** Resolve backend preference from Profile test assets */

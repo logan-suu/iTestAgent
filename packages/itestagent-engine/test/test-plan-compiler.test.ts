@@ -318,6 +318,51 @@ describe('compileTestPlan', () => {
       const plan = compileTestPlan(makeIntent({ scope: 'smoke' }), makeProfile());
       expect(plan.execution.assertion.policy).toBe('user_goal_then_profile_then_agent_confirmed');
     });
+
+    it('preserves the exact confirmed goal and compiles quoted visible conditions for exploration', () => {
+      const sourceText =
+        '用这台真机测试应用：启动后确认“T6.12 Device Lane”可见，点击“Tap Me”，确认“Taps: 1”可见，并采集截图。';
+      const profile = makeProfile({
+        features: [
+          {
+            name: 'Validation',
+            entry: 'ValidationView',
+            keywords: ['validation'],
+            testability: 'device_backend',
+            evidence: ['Source: ValidationView.swift'],
+            confidence: 0.8,
+            confirmed: true,
+            displayOrder: 0,
+          },
+        ],
+      });
+      const plan = compileTestPlan(
+        makeIntent({
+          goal: 'exploration',
+          scope: 'explore',
+          features: ['Validation'],
+          sourceText,
+          metricsRequested: false,
+        }),
+        profile,
+      );
+
+      expect(plan.execution.goal).toBe(sourceText);
+      expect(plan.execution.assertion.policy).toBe('user_goal_then_profile_then_agent_confirmed');
+      expect(plan.execution.assertions?.[0]?.source).toBe('user');
+      expect(
+        plan.execution.assertions?.[0]?.conditions.map((condition) => condition.target),
+      ).toEqual(['T6.12 Device Lane', 'Taps: 1']);
+    });
+
+    it('redacts sensitive text before persisting the confirmed goal', () => {
+      const plan = compileTestPlan(
+        makeIntent({ sourceText: '测试登录，OTP 123456，确认“Login”可见' }),
+        makeProfile(),
+      );
+      expect(plan.execution.goal).not.toContain('123456');
+      expect(plan.execution.goal).toContain('[REDACTED]');
+    });
   });
 
   // ── confirmedOnly filter ───────────────────────────────────

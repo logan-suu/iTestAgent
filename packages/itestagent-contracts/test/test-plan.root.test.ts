@@ -167,6 +167,18 @@ describe('published schemas/test-plan.schema.json parity (B04)', () => {
     expect(required).toContain('selectionReason');
   });
 
+  it('publishes the optional confirmed goal and structured assertion fields', () => {
+    const published = loadPublished();
+    const defs = published.$defs as JsonRecord;
+    const executionPlan = defs.ExecutionPlan as JsonRecord;
+    const props = executionPlan.properties as JsonRecord;
+    expect(props.goal).toBeDefined();
+    expect(props.assertions).toBeDefined();
+    expect(executionPlan.required as string[]).not.toContain('goal');
+    expect(executionPlan.required as string[]).not.toContain('assertions');
+    expect(defs.UserAssertion).toBeDefined();
+  });
+
   it('publishes the same schemaVersion literal as the runtime constant', () => {
     const published = loadPublished();
     const properties = published.properties as JsonRecord;

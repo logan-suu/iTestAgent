@@ -429,6 +429,45 @@ describe('AgentSession tools', () => {
     );
   });
 
+  it('surfaces a no-progress termination instead of reporting generic completion', async () => {
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        executeConfirmedPlan: async ({ plan }) => ({
+          status: 'completed',
+          path: 'device_backend',
+          fallbackHistory: [],
+          runDir: `/runs/${plan.runId}`,
+          result: {
+            explorationTermination: {
+              reason: 'no_progress',
+              message: 'Execution stalled for Validation: repeated action.',
+            },
+            assertion: { status: 'inconclusive' },
+          },
+        }),
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
+    session.confirmPlan();
+
+    const iterator = session.executeConfirmedPlan()[Symbol.asyncIterator]();
+    const permission = await nextPatchOfType(iterator, 'permission_request');
+    await session.resolvePermission(String(permission.payload.callId), 'allow');
+    const patches: TuiStatePatch[] = [];
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) break;
+      patches.push(next.value);
+    }
+
+    const terminal = patches.find((patch) => patch.type === 'message_add');
+    expect(String(terminal?.payload.text)).toContain('Execution stalled for Validation');
+    expect(String(terminal?.payload.text)).toContain('committed with status inconclusive');
+  });
+
   it('binds one-shot execution permissions to the exact target and blocks managed WDA on denial', async () => {
     let executionCalls = 0;
     const session = await createAgentSession(

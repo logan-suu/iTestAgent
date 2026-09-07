@@ -481,11 +481,17 @@ export function createProgram(): Command {
                 suggestExplorationAction({
                   generate: explorationGenerator,
                   caseId,
+                  goal: confirmedPlan.execution.goal,
+                  assertions: (confirmedPlan.execution.assertions ?? []).filter(
+                    (assertion) => assertion.caseId === caseId,
+                  ),
                   uiTree,
                   history,
                   signal,
                 }),
             },
+            assertions: confirmedPlan.execution.assertions,
+            policy: confirmedPlan.execution.assertion.policy,
             ...(runtime.llmSuggest ? { llmSuggest: runtime.llmSuggest } : {}),
           });
 

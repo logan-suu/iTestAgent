@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 interface CapturedReviewFrame {
   scenario: string;
   frame: string;
+  frames?: string[];
   events?: Array<{ type: string; text?: string }>;
 }
 
@@ -80,12 +81,24 @@ describe('OpenTUI review layout character frames', () => {
   });
 
   test('renders one safe activity row without raw tool payloads or identifiers', async () => {
-    const frame = await captureFrame('chat-activity');
-    expectAdjacentRows(frame, 'Device: [target not selected]', 'Activity: Refreshing devices…');
+    const captured = await captureScenario('chat-activity');
+    const frame = captured.frame;
+    expectAdjacentRows(frame, 'Device: [target not selected]', 'Activity:');
+    expect(frame).toContain('Refreshing devices…');
     expect(frame).toContain('正在检查已连接的真机。');
     expect(frame).not.toContain('tool-output');
     expect(frame).not.toContain('device-tool');
     expect(frame).not.toContain('udid');
+    expect(captured.frames).toHaveLength(2);
+    const activityRows = captured.frames?.map(
+      (capturedFrame) =>
+        capturedFrame
+          .split('\n')
+          .find((line) => line.includes('Activity:'))
+          ?.trim() ?? '',
+    );
+    expect(activityRows?.[0]).not.toBe(activityRows?.[1]);
+    expect(activityRows?.[1]).toContain('Refreshing devices…');
   });
 
   test('keeps the entire next value visible after submitting a long message', async () => {

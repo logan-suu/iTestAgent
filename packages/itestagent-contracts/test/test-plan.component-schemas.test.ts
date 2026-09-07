@@ -149,6 +149,32 @@ describe('ExecutionPlanSchema.xcuitest (B04 target-explicit override)', () => {
   });
 });
 
+describe('ExecutionPlanSchema confirmed execution semantics', () => {
+  it('accepts an optional confirmed goal and tier-1 assertions', () => {
+    const parsed = ExecutionPlanSchema.parse({
+      ...makeMinimalExecution(),
+      goal: 'Confirm the title is visible.',
+      assertions: [
+        {
+          id: 'user-validation-visible',
+          caseId: 'validation',
+          source: 'user',
+          conditions: [
+            {
+              type: 'element_visible',
+              description: 'Confirm "Title" is visible.',
+              target: 'Title',
+              expected: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(parsed.goal).toContain('Confirm');
+    expect(parsed.assertions?.[0]?.source).toBe('user');
+  });
+});
+
 // ─── BackendPreferenceSchema ─────────────────────────────────
 
 describe('BackendPreferenceSchema (enum boundaries)', () => {

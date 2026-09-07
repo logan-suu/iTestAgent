@@ -414,11 +414,13 @@ export async function createAgentSession(
         preparesWda: preparesWda(device),
         suggest:
           dependencies.suggestExplorationAction ??
-          (({ caseId, uiTree, history, signal: suggestionSignal }) =>
+          (({ caseId, goal, assertions, uiTree, history, signal: suggestionSignal }) =>
             suggestExplorationAction({
               generate: async (prompt, runSignal) =>
                 (await generateText({ model, prompt, abortSignal: runSignal })).text,
               caseId,
+              goal,
+              assertions,
               uiTree,
               history,
               signal: suggestionSignal,
@@ -817,13 +819,43 @@ export async function createAgentSession(
             });
             return;
           }
+          const executionOutput =
+            typeof result.output === 'object' && result.output !== null
+              ? (result.output as Record<string, unknown>)
+              : null;
+          const deviceResult =
+            executionOutput &&
+            typeof executionOutput.result === 'object' &&
+            executionOutput.result !== null
+              ? (executionOutput.result as Record<string, unknown>)
+              : null;
+          const termination =
+            deviceResult &&
+            typeof deviceResult.explorationTermination === 'object' &&
+            deviceResult.explorationTermination !== null
+              ? (deviceResult.explorationTermination as Record<string, unknown>)
+              : null;
+          const terminationReason = termination?.reason;
+          const terminationMessage = termination?.message;
+          const assertion =
+            deviceResult &&
+            typeof deviceResult.assertion === 'object' &&
+            deviceResult.assertion !== null
+              ? (deviceResult.assertion as Record<string, unknown>)
+              : null;
+          const assertionStatus =
+            typeof assertion?.status === 'string' ? assertion.status : 'inconclusive';
           queue.push({
             type: 'message_add',
             payload: {
               role: 'system',
-              text: committedRun
-                ? `Execution completed. Run ${committedRun.runId} committed.`
-                : 'Execution completed.',
+              text:
+                (terminationReason === 'no_progress' || terminationReason === 'step_limit') &&
+                typeof terminationMessage === 'string'
+                  ? `${terminationMessage} Run ${committedRun?.runId ?? 'result'} committed with status ${assertionStatus}.`
+                  : committedRun
+                    ? `Execution completed. Run ${committedRun.runId} committed.`
+                    : 'Execution completed.',
             },
           });
         } catch (error: unknown) {

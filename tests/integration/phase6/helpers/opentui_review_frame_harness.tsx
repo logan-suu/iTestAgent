@@ -126,9 +126,15 @@ if (scenario === 'chat-input-lifecycle') {
   await setup.flush();
 }
 const frame = setup.captureCharFrame();
+const frames = [frame];
+if (scenario === 'chat-activity') {
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  await setup.flush();
+  frames.push(setup.captureCharFrame());
+}
 if (scenario === 'chat-input-lifecycle') {
   setup.mockInput.pressEnter();
   await setup.flush();
 }
-process.stdout.write(JSON.stringify({ scenario, frame, events }));
+process.stdout.write(JSON.stringify({ scenario, frame, frames, events }));
 setup.renderer.destroy();

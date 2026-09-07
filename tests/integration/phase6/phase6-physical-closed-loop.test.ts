@@ -253,6 +253,7 @@ function devicePlan(runId: string): TestPlan {
       resolvedPath: 'device_backend',
       selectionReason: 'confirmed_no_xcuitest_candidate',
       features: ['Login'],
+      goal: 'Explore the confirmed Login feature.',
       xcuitest: undefined,
     },
     artifacts: {

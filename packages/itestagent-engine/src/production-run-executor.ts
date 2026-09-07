@@ -2,7 +2,7 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
-import type { DeviceInfo, RunResult, TestPlan } from 'itestagent-contracts';
+import type { DeviceInfo, RunResult, TestPlan, UserAssertion } from 'itestagent-contracts';
 import { loadProfile } from 'itestagent-project-analyzer';
 import type { RunStore } from 'itestagent-store';
 import {
@@ -33,6 +33,8 @@ import {
 
 export type ProductionActionSuggestion = (input: {
   caseId: string;
+  goal: string;
+  assertions: readonly UserAssertion[];
   uiTree: string;
   history: readonly import('itestagent-contracts').RunStep[];
   signal?: AbortSignal;
@@ -48,11 +50,13 @@ export function createProductionActionSuggestion(input: {
   const model = createOpenAI({ apiKey: input.apiKey, baseURL: input.baseURL }).chat(
     input.model ?? 'gpt-4o',
   );
-  return ({ caseId, uiTree, history, signal }) =>
+  return ({ caseId, goal, assertions, uiTree, history, signal }) =>
     suggestExplorationAction({
       generate: async (prompt, runSignal) =>
         (await generateText({ model, prompt, abortSignal: runSignal })).text,
       caseId,
+      goal,
+      assertions,
       uiTree,
       history,
       signal,
@@ -148,6 +152,11 @@ export async function executeProductionTestPlan(
       'rerun_case_not_reproducible: DeviceBackend exploration cases are not replayable; save a confirmed Flow and use `itestagent run flow <flowId>`',
     );
   }
+  if (input.plan.execution.resolvedPath === 'device_backend' && !input.plan.execution.goal) {
+    throw new Error(
+      'execution_goal_missing: this legacy TestPlan has no confirmed execution goal; create and confirm a new plan',
+    );
+  }
   const highRiskActions = productionPermissionActions(input.plan, input.preparesWda);
   for (const action of highRiskActions) {
     if (!(await input.authorize(action, `${input.bundleId}@${input.device.udid}`))) {
@@ -203,10 +212,21 @@ export async function executeProductionTestPlan(
         targetKind: input.device.targetKind,
         dynamicActions: {
           cases: plan.rerun?.selectedCaseIds ?? plan.execution.features,
-          suggest: input.suggest,
+          suggest: ({ caseId, uiTree, history, signal }) =>
+            input.suggest({
+              caseId,
+              goal: plan.execution.goal ?? '',
+              assertions: (plan.execution.assertions ?? []).filter(
+                (assertion) => assertion.caseId === caseId,
+              ),
+              uiTree,
+              history,
+              signal,
+            }),
           authorizeSensitiveAction: ({ action, resource }) => input.authorize(action, resource),
         },
         policy: plan.execution.assertion.policy,
+        assertions: plan.execution.assertions,
         signal: input.signal,
         onProgress: input.onProgress,
       });

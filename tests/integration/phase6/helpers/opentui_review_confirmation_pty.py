@@ -133,7 +133,8 @@ def run_scenario(
             1 for event in events if event == {'type': 'plan_confirm'}
         ),
         'followupRendered': (
-            b'Activity:Awaitingpermission:replace_device_app' in compact_followup
+            b'Activity:' in compact_followup
+            and b'Awaitingpermission:replace_device_app' in compact_followup
             and b'ermissionrequired:replace_device_app' in compact_followup
             and b'physical-device-udid' not in compact_followup
         ),
