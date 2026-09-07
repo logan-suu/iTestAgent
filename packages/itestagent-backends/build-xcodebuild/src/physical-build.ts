@@ -6,7 +6,8 @@
  * provisioning (the Route C core breakthrough) requires the explicit
  * `-allowProvisioningUpdates` flag, passed only when the caller opts in.
  * The built .app artifact is resolved through a follow-up
- * `-showBuildSettings` query; a failed build never triggers that query.
+ * `-showBuildSettings` query using the same build context, including its
+ * DerivedData directory; a failed build never triggers that query.
  */
 import { join } from 'node:path';
 import { destinationArgs } from './xcodebuild-driver-support.js';
@@ -58,36 +59,25 @@ export async function buildForPhysical(
       ]
     : [];
   const configurationArgs = input.configuration ? ['-configuration', input.configuration] : [];
-  const buildArgs = [
-    'build',
+  const contextArgs = [
     ...containerArgs,
     '-scheme',
     input.scheme,
     ...configurationArgs,
     ...dest,
+    ...(input.derivedDataPath ? ['-derivedDataPath', input.derivedDataPath] : []),
   ];
+  const buildArgs = ['build', ...contextArgs];
   if (input.allowProvisioningUpdates) buildArgs.push('-allowProvisioningUpdates');
-  if (input.derivedDataPath) buildArgs.push('-derivedDataPath', input.derivedDataPath);
 
   const build = await runner('xcodebuild', buildArgs, { cwd: input.projectRoot });
   if (build.exitCode !== 0) {
     return { exitCode: build.exitCode, log: `${build.stdout}\n${build.stderr}` };
   }
 
-  const settings = await runner(
-    'xcodebuild',
-    [
-      '-showBuildSettings',
-      ...containerArgs,
-      '-scheme',
-      input.scheme,
-      ...configurationArgs,
-      ...dest,
-    ],
-    {
-      cwd: input.projectRoot,
-    },
-  );
+  const settings = await runner('xcodebuild', ['-showBuildSettings', ...contextArgs], {
+    cwd: input.projectRoot,
+  });
   if (settings.exitCode !== 0) {
     return {
       exitCode: settings.exitCode,

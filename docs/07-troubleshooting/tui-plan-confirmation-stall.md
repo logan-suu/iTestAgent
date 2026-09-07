@@ -47,3 +47,15 @@
 修复保留 R7 的逐项授权和 120 秒默认时限：请求事件携带真实 `timeoutMs`，非用户决策的失败事件携带 `reason`，TUI 分别展示并清除等待 activity。构建、安装和 WDA 权限正文只显示脱敏后的目标，权限失败输出只包含 action，不泄漏 UDID。直接执行的超时终态给出 `/plan <test goal>` 恢复方法；该入口重新规划、确认目标并逐项询问，不自动执行，也不复用此前的 allow。
 
 回归覆盖完整的“前两项 allow → 第三项超时 → 不调用执行器 → 迟到 allow 无效 → `/plan` 重试 → 三项全新 allow 后只调用一次”链路，并单独检查主动拒绝、取消、内部错误和 OpenTUI 等待/终态字符帧。这里的执行器替身只验证编排与权限边界，不构成真机安装、启动或点击的 G5 证据。
+
+## 后续修复：构建完成后查询了错误的 DerivedData
+
+2026-09-07 16:17 的复测截图显示，构建、安装和 WDA 三项授权均已通过，但随后以 `physical_preflight_artifact_validation: Application source does not exist` 结束。失败路径位于 Xcode 默认 DerivedData；本次运行记录为 `infra_failed`，没有测试步骤或设备证据。因此不能把授权成功视为已经安装或操作应用，也不能把这次错误归因于 WDA。
+
+根因是 `buildForPhysical()` 在 `xcodebuild build` 中传入了 run staging 下的 `-derivedDataPath`，后续 `-showBuildSettings` 却漏传同一参数。后者返回默认构建目录，`TARGET_BUILD_DIR + FULL_PRODUCT_NAME` 因而指向另一个位置；原有测试直接返回固定 settings 路径，未反映命令参数差异。生产执行器在结束后清理 staging，失败后的目录不存在也不能用来反推构建阶段没有生成产物。
+
+修复让两次命令复用同一组 container、scheme、configuration、destination、DerivedData 参数。`-allowProvisioningUpdates` 仍只由显式开关控制并用于 build；构建或 settings 查询失败不返回可安装路径，产物仍经过结构、平台/架构、bundleId 和签名验证，禁止用其他目录的旧 `.app` 绕过校验。
+
+验证采用命令参数驱动的 process fixture：build 在本次 staging 中生成测试 bundle，settings 根据收到的 `-derivedDataPath` 返回路径。跨包回归保留真实 `createProductionPhysicalPreflight`、AppSource、build、归一化、coordinator 和 devicectl 编排，仅替换外部进程与设备 backend；断言本次产物依次进入 install、launch、WDA probe。另一分支故意不生成产物，必须在任何设备操作前阻断；另有构建失败不查询 settings、settings 失败不返回路径、含空格目录及默认参数回归。修复前对应路径用例失败，修复后通过。
+
+这些是参数传递与生产组合的自动化证据，不是真机安装或点击的 G5 证据。用户需要重启使用修复代码的 TUI，再开始新计划并逐项授权；本轮不修改 API key、不清理 Xcode 默认 DerivedData，也不自动操作设备。

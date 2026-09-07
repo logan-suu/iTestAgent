@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-04T15:57:08Z",
+  "last_updated": "2026-09-07T21:32:25Z",
   "items": [
     {
       "id": "DEF-001",
@@ -612,6 +612,21 @@
       "notes": "2026-09-01 T6.5 self-check extends the same T6.10 cancellation audit to the confirmed XCUITest production route. ADR-030 removed analyzer xcodebuild execution from pre-confirmation discovery and reduced candidate revalidation to metadata-only reads, but runXcunitFlow still does not pass the accepted signal into confirmed xcodebuild test or xcresult parsing subprocesses. Fixing the remaining gap requires changing shared build/parser subprocess contracts and verifying child cleanup, so it remains in DEF-033/T6.10 rather than being hidden or duplicated. T6.5 G5/G5-SIM must not claim cancellation coverage. 2026-09-04 specification review: also cover pending permission asks, DeviceBackend exploration, XCUITest xcodebuild and xcresult parsing with one AbortSignal, unique terminal classification, partial evidence commit, and owner-scoped cleanup. 2026-09-04 T6.10 closure: one AbortSignal now propagates through production dispatch, permission asks, DeviceBackend exploration, confirmed xcodebuild, and xcresult parsing. A real child-process abort test passes. Physical Route B verified cancelled teardown becomes terminal, a fresh backend recovers, and owner-scoped iproxy/WDA process cleanup leaves no residue. Route C is explicit diagnostic-only and cannot be selected as the production default or as a silent fallback. Evidence: docs/06-verification/g5-sim-spike-report-6.10.md. Final self-review added the missing AiSdkAgentRuntime-to-ToolDispatcher signal bridge; tests directly prove runtime signal identity, cancellation of a pending permission ask, and delivery to the TUI confirmed-execution seam.",
       "last_updated": "2026-09-04T15:57:08Z",
       "resolved_at": "2026-09-04T15:57:08Z"
+    },
+    {
+      "id": "DEF-034",
+      "source": "Codex (self-review)",
+      "pr": 81,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/81",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.12",
+      "severity": "major",
+      "item": "Production physical AUT build and artifact validation do not bind the run AbortSignal",
+      "detail": "Verified while tracing the DerivedData artifact failure: production-run-executor.ts passes the run signal into createProductionPhysicalPreflight, but the preflight only checks it on entry before passing the unbound deps.runCommand to buildForPhysical and normalizePhysicalAppArtifact. buildForPhysical supplies cwd without a signal, and artifact validation also does not bind that signal; runProductionPhysicalCommand forwards only options.signal to Bun.spawn. Cancellation during an already-running AUT build, build-settings query, or validation command therefore cannot cancel that owned process through the run signal. The later coordinator does receive the signal, so this finding is about the newly composed AUT preparation stages, not a reversal of the historical DEF-033 device/WDA teardown evidence. Deferral rationale: the approved repair is limited to consistent build/settings arguments and artifact validation; completing this independent lifecycle fix also requires cancellation classification and owner-cleanup checks, plus a separately authorized physical build/cancellation revalidation. Keep it open in T6.12 and PR #81 before physical acceptance, rather than claiming the path regression tests prove cancellation. Next step: obtain approval for the scoped lifecycle repair, bind the same signal through build/settings and normalization, preserve an aborted terminal outcome, prove no later install/launch/WDA work occurs after abort, and verify child termination and staging cleanup with process-seam tests and authorized physical G5 evidence.",
+      "target_phase": 6,
+      "status": "open",
+      "created_at": "2026-09-07T21:32:25Z"
     }
   ]
 }
