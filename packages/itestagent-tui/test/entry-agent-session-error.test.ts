@@ -199,25 +199,58 @@ describe('applyAgentPatch', () => {
     expect(updated.messages.at(-1)?.text).toContain('allow, deny, or always-deny');
     expect(updated.messages.at(-1)?.text).toContain('Allow applies to this action only');
     expect(updated.messages.at(-1)?.text).toContain('generate_draft_test');
-    expect(updated.agentActivity?.text).toBe('Awaiting permission: generate_draft_test');
+    expect(updated.agentActivity?.text).toContain('Awaiting permission: generate_draft_test');
+    expect(updated.agentActivity?.text).toContain('type allow + Enter');
   });
 
-  it('does not place a selected device UDID in the permission transcript', () => {
-    const updated = applyAgentPatch(createInitialState('/workspace'), {
-      type: 'permission_request',
-      payload: {
-        callId: 'call-device',
-        action: 'replace_device_app',
-        resource: 'com.example.App@00008110-0012690901C1401E',
-      },
-    });
+  it.each(['execute_project_build', 'replace_device_app', 'prepare_wda'])(
+    'does not place a selected device UDID in the %s permission transcript',
+    (action) => {
+      const updated = applyAgentPatch(createInitialState('/workspace'), {
+        type: 'permission_request',
+        payload: {
+          callId: 'call-device',
+          action,
+          resource: 'com.example.App@device-fixture',
+          timeoutMs: 120_000,
+        },
+      });
 
-    expect(updated.messages.at(-1)?.text).toContain('com.example.App@selected device');
-    expect(updated.messages.at(-1)?.text).not.toContain('00008110-0012690901C1401E');
-    expect(updated.agentActivity).toEqual({
-      callId: 'call-device',
-      text: 'Awaiting permission: replace_device_app',
+      expect(updated.messages.at(-1)?.text).toContain('com.example.App@selected device');
+      expect(updated.messages.at(-1)?.text).not.toContain('device-fixture');
+      expect(updated.messages.at(-1)?.text).toContain('Execution is paused');
+      expect(updated.messages.at(-1)?.text).toContain('press Enter');
+      expect(updated.messages.at(-1)?.text).toContain('120s');
+      expect(updated.agentActivity?.text).toContain(`Awaiting permission: ${action}`);
+    },
+  );
+
+  it.each(['timeout', 'cancelled', 'error'])(
+    'does not describe a %s resolution as an explicit user denial',
+    (reason) => {
+      const waiting = applyAgentPatch(createInitialState('/workspace'), {
+        type: 'permission_request',
+        payload: { callId: 'ask-1', action: 'prepare_wda', resource: 'com.example.App' },
+      });
+      const stopped = applyAgentPatch(waiting, {
+        type: 'permission_resolved',
+        payload: { callId: 'ask-1', effect: 'deny', reason },
+      });
+      expect(stopped.agentActivity).toBeNull();
+      expect(stopped.messages.at(-1)?.text).toContain('execution stopped');
+      expect(stopped.messages.at(-1)?.text).not.toContain('Permission deny.');
+      if (reason === 'timeout') {
+        expect(stopped.messages.at(-1)?.text).toContain('without a response');
+      }
+    },
+  );
+
+  it('preserves the explicit user denial message', () => {
+    const denied = applyAgentPatch(createInitialState('/workspace'), {
+      type: 'permission_resolved',
+      payload: { callId: 'ask-1', effect: 'deny' },
     });
+    expect(denied.messages.at(-1)?.text).toBe('Permission deny.');
   });
 
   it('preserves workspace and existing messages while streaming', () => {

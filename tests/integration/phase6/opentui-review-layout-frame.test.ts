@@ -13,6 +13,7 @@ type FrameScenario =
   | 'device-review'
   | 'plan-review'
   | 'chat-activity'
+  | 'permission-timeout'
   | 'chat-input-lifecycle';
 
 async function captureScenario(scenario: FrameScenario): Promise<CapturedReviewFrame> {
@@ -106,6 +107,20 @@ describe('OpenTUI review layout character frames', () => {
     expect(captured.frame).toContain('> allow');
     expect(captured.events).toContainEqual({ type: 'input', text: 'allow' });
     expect(captured.events?.filter((event) => event.type === 'submit')).toHaveLength(2);
+  });
+
+  test('renders the permission deadline and timeout without a false denial or stale activity', async () => {
+    const captured = await captureScenario('permission-timeout');
+    const waiting = captured.frames?.[0] ?? '';
+    const stopped = captured.frames?.[1] ?? '';
+    expect(waiting).toContain('Awaiting permission: prepare_wda');
+    expect(waiting).toContain('press Enter');
+    expect(waiting).toContain('120s');
+    expect(waiting).toContain('WebDriverAgent');
+    expect(waiting).not.toContain('private-device-fixture');
+    expect(stopped).toContain('timed out without a response');
+    expect(stopped).not.toContain('Permission deny.');
+    expect(stopped).not.toContain('Activity:');
   });
 
   test('resolves the OpenTUI runtime version declared by the TUI package', async () => {

@@ -1,6 +1,7 @@
 import { testRender } from '@opentui/solid';
 import { jsx } from '@opentui/solid/jsx-runtime';
 import { TestPlanSchema } from 'itestagent-contracts';
+import { applyAgentPatch } from '../../../../packages/itestagent-tui/src/entry.js';
 import { OpenTuiApp } from '../../../../packages/itestagent-tui/src/renderers/opentui-renderer.js';
 import {
   type TuiShellEvent,
@@ -48,6 +49,17 @@ function createState(): TuiShellState {
   }
   if (scenario === 'chat-input-lifecycle') {
     return initial;
+  }
+  if (scenario === 'permission-timeout') {
+    return applyAgentPatch(initial, {
+      type: 'permission_request',
+      payload: {
+        callId: 'ask-wda',
+        action: 'prepare_wda',
+        resource: 'com.example.App@private-device-fixture',
+        timeoutMs: 120_000,
+      },
+    });
   }
   if (scenario === 'device-review') {
     return {
@@ -106,12 +118,13 @@ function createState(): TuiShellState {
 
 const state = createState();
 const events: TuiShellEvent[] = [];
+const stateRef: { current: ((state: TuiShellState) => void) | null } = { current: null };
 const setup = await testRender(
   () =>
     jsx(OpenTuiApp, {
       initialState: state,
       dispatch: (event: TuiShellEvent) => events.push(event),
-      setStateRef: () => {},
+      setStateRef: stateRef,
     }),
   { width: 100, height: 36 },
 );
@@ -129,6 +142,16 @@ const frame = setup.captureCharFrame();
 const frames = [frame];
 if (scenario === 'chat-activity') {
   await new Promise((resolve) => setTimeout(resolve, 120));
+  await setup.flush();
+  frames.push(setup.captureCharFrame());
+}
+if (scenario === 'permission-timeout') {
+  stateRef.current?.(
+    applyAgentPatch(state, {
+      type: 'permission_resolved',
+      payload: { callId: 'ask-wda', effect: 'deny', reason: 'timeout' },
+    }),
+  );
   await setup.flush();
   frames.push(setup.captureCharFrame());
 }

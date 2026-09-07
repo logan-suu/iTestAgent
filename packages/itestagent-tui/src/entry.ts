@@ -725,19 +725,39 @@ export function applyAgentPatch(
         action,
         String(patch.payload.resource ?? 'unknown resource'),
       );
+      const timeoutMs = patch.payload.timeoutMs;
+      const deadline =
+        typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0
+          ? ` Respond within ${Math.ceil(timeoutMs / 1000)}s or execution will stop.`
+          : '';
+      const explanation =
+        action === 'prepare_wda'
+          ? ' Prepare WebDriverAgent (WDA) to automate the selected device.'
+          : '';
       const waiting = tuiShellReducer(state, {
         type: 'agent_activity_updated',
         callId,
-        text: `Awaiting permission: ${action}`,
+        text: `Awaiting permission: ${action} — type allow + Enter to continue`,
       });
       return tuiShellReducer(waiting, {
         type: 'system_message',
-        text: `Permission required: ${action} on ${resource}. Reply allow, deny, or always-deny. Allow applies to this action only.`,
+        text: `Permission required: ${action} on ${resource}.${explanation} Execution is paused. Type allow, deny, or always-deny and press Enter.${deadline} Allow applies to this action only.`,
       });
     }
     case 'permission_resolved': {
       const callId = String(patch.payload.callId ?? 'permission');
       const effect = String(patch.payload.effect ?? 'resolved');
+      const reason = patch.payload.reason;
+      if (reason === 'timeout' || reason === 'cancelled' || reason === 'error') {
+        const cleared = tuiShellReducer(state, { type: 'agent_activity_cleared', callId });
+        const message =
+          reason === 'timeout'
+            ? 'Permission wait timed out without a response; execution stopped. This was not a user denial.'
+            : reason === 'cancelled'
+              ? 'Permission request cancelled; execution stopped.'
+              : 'Permission request failed; execution stopped.';
+        return tuiShellReducer(cleared, { type: 'system_message', text: message });
+      }
       const continuing = tuiShellReducer(state, {
         type: 'agent_activity_updated',
         callId,
@@ -770,7 +790,13 @@ export function applyAgentPatch(
 }
 
 function formatPermissionResourceForDisplay(action: string, resource: string): string {
-  if (action !== 'replace_device_app' && action !== 'prepare_wda') return resource;
+  if (
+    action !== 'replace_device_app' &&
+    action !== 'prepare_wda' &&
+    action !== 'execute_project_build'
+  ) {
+    return resource;
+  }
   const deviceSeparator = resource.lastIndexOf('@');
   return deviceSeparator > 0 ? `${resource.slice(0, deviceSeparator)}@selected device` : resource;
 }

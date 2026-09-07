@@ -163,6 +163,8 @@ export interface AgentSessionDependencies {
   listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
   /** Injectable delay used by the explicit device-refresh settling probe. */
   waitForDeviceRefresh?: (delayMs: number) => Promise<void>;
+  /** Injectable ask deadline; production uses the PermissionEngine default. */
+  permissionAskTimeoutMs?: number;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
   closeDeviceBackend?: ProductionAgentSessionDependencies['closeDeviceBackend'];
   /** Full production composition; tests should replace only its external transport boundaries. */
@@ -347,6 +349,7 @@ export async function createAgentSession(
 
   const permissionEngine = new PermissionEngine({
     preloadedRules: runtimeConfig.permissions.deniedRules,
+    askTimeoutMs: dependencies.permissionAskTimeoutMs,
   });
   const pendingPermissionIds = new Set<string>();
   const pendingPermissions = new Map<string, { action: string; resource: string }>();
@@ -806,13 +809,18 @@ export async function createAgentSession(
           const committedRun = getLatestCommittedRun();
           queue.push({ type: 'activity_update', payload: { complete: true, id: callId } });
           if (result.status === 'error') {
-            const output = result.output as { error?: unknown } | undefined;
+            const output = result.output as { error?: unknown; code?: unknown } | undefined;
+            const retryHint =
+              output?.code === 'permission_timeout'
+                ? ' To retry, submit /plan <your test goal>, confirm the plan, and answer each permission prompt separately.'
+                : '';
             queue.push({
               type: 'error',
               payload: {
-                message: committedRun
-                  ? `${String(output?.error ?? 'Confirmed TestPlan execution failed')}. Run ${committedRun.runId} was committed with the failure result.`
-                  : String(output?.error ?? 'Confirmed TestPlan execution failed'),
+                message:
+                  (committedRun
+                    ? `${String(output?.error ?? 'Confirmed TestPlan execution failed')}. Run ${committedRun.runId} was committed with the failure result.`
+                    : String(output?.error ?? 'Confirmed TestPlan execution failed')) + retryHint,
                 id: callId,
               },
             });
@@ -1091,12 +1099,17 @@ function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
     case 'permission.requested':
       return {
         type: 'permission_request',
-        payload: { callId: event.callId, action: event.action, resource: event.resource },
+        payload: {
+          callId: event.callId,
+          action: event.action,
+          resource: event.resource,
+          timeoutMs: event.timeoutMs,
+        },
       };
     case 'permission.resolved':
       return {
         type: 'permission_resolved',
-        payload: { callId: event.callId, effect: event.effect },
+        payload: { callId: event.callId, effect: event.effect, reason: event.reason },
       };
     case 'session.error':
       return {

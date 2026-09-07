@@ -24,7 +24,11 @@ import {
 import { parseToolCall } from 'itestagent-contracts';
 import type { BackendSelector } from './backend-selector.js';
 import { redactValue } from './context-builder.js';
-import type { PermissionEngine, ResolveResult } from './permission-engine.js';
+import {
+  type PermissionEngine,
+  PermissionRequestError,
+  type ResolveResult,
+} from './permission-engine.js';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -389,8 +393,8 @@ export class ToolDispatcher {
       }
       return this.errorResult(
         callId,
-        permissionResult.reason ?? `Permission denied: ${mapping.action} on ${resource}`,
-        'permission_denied',
+        permissionResult.reason ?? `Permission denied: ${resolvedAction}`,
+        permissionResult.code ?? 'permission_denied',
       );
     }
     const additionalActions =
@@ -410,8 +414,8 @@ export class ToolDispatcher {
         }
         return this.errorResult(
           callId,
-          additionalPermission.reason ?? `Permission denied: ${action} on ${resource}`,
-          'permission_denied',
+          additionalPermission.reason ?? `Permission denied: ${action}`,
+          additionalPermission.code ?? 'permission_denied',
         );
       }
     }
@@ -598,7 +602,7 @@ export class ToolDispatcher {
     action: string,
     resource: string,
     signal?: AbortSignal,
-  ): Promise<{ denied: boolean; reason?: string }> {
+  ): Promise<{ denied: boolean; reason?: string; code?: string }> {
     const gate = this.permissionEngine.check(action, resource);
 
     if (gate === 'allow') {
@@ -606,7 +610,7 @@ export class ToolDispatcher {
     }
 
     if (gate === 'deny') {
-      return { denied: true, reason: `Permission denied: ${action} on ${resource}` };
+      return { denied: true, reason: `Permission denied: ${action}` };
     }
 
     // Register the pending ask before publishing it. A synchronous UI/event
@@ -618,6 +622,7 @@ export class ToolDispatcher {
         callId,
         action,
         resource,
+        timeoutMs: this.permissionEngine.getAskTimeoutMs(),
       });
     } catch (error: unknown) {
       this.permissionEngine.cancel(callId, 'permission request delivery failed');
@@ -638,21 +643,33 @@ export class ToolDispatcher {
       });
 
       if (result.effect === 'deny') {
-        return { denied: true, reason: `Permission denied by user: ${action} on ${resource}` };
+        return { denied: true, reason: `Permission denied by user: ${action}` };
       }
       return { denied: false };
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
+      const reason =
+        err instanceof PermissionRequestError
+          ? err.reason
+          : signal?.aborted
+            ? 'cancelled'
+            : 'error';
 
       this.emit({
         type: 'permission.resolved',
         callId,
         effect: 'deny',
+        reason,
       });
 
       return {
         denied: true,
-        reason: `${signal?.aborted ? 'Permission cancelled' : 'Permission timeout'}: ${message}`,
+        code: `permission_${reason}`,
+        reason:
+          reason === 'timeout'
+            ? `Permission timeout: no response received within ${this.permissionEngine.getAskTimeoutMs()}ms for ${action}. Execution stopped.`
+            : reason === 'cancelled'
+              ? `Permission cancelled: ${action}. Execution stopped.`
+              : `Permission failed: ${action}. Execution stopped.`,
       };
     } finally {
       signal?.removeEventListener('abort', cancelPendingAsk);

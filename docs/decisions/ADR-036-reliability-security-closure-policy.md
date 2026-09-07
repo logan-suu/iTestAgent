@@ -72,6 +72,7 @@ TestPlan 确认后的执行生命周期也属于生产门禁：确认后必须�
 - 用户可以明确持久化 `deny`；规则只写入全局 `~/.itestagent/config/itestagent.jsonc` 的 `permissions.deniedRules`，项目级配置不得声明 allow/deny 权限规则，TUI/CLI 必须提供查看和撤销入口。
 - 已确认 TestPlan 内普通导航与非敏感输入继续允许，不因底层动词逐项询问。
 - PermissionEngine 的 `remembered` 只有在持久化写入实际成功后才能为 true；纯内存规则不得描述为跨 session 持久化。
+- 权限等待必须显示输入并回车的操作方式和实际等待时限；等待期间明确执行已暂停。`permission.requested.timeoutMs` 与 `permission.resolved.reason` 为向后兼容的可选事件字段。超时、取消与内部错误继续以 `effect=deny` 失败关闭，但不得展示为用户主动拒绝；这些终态必须清除等待 activity。权限失败的工具结果不携带原始 resource，避免 UDID 流入聊天或模型上下文；内部授权仍绑定精确 action/resource。直接执行因权限超时结束后，TUI 引导用户以 `/plan <test goal>` 重新规划并逐项授权，不自动重试或复用旧 allow。
 
 ### 3. Keychain 保存必须真实且可撤销
 

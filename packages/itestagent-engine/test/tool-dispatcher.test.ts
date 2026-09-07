@@ -454,7 +454,7 @@ describe('Permission gate — allow/deny/ask flow', () => {
 
   test('ask gate timeout → returns permission timeout error', async () => {
     const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 100 });
-    const { dispatcher, backend } = createDispatcher({ permissionEngine: pe });
+    const { dispatcher, backend, events } = createDispatcher({ permissionEngine: pe });
     const call = makeToolCall({ id: 'tc_timeout' });
 
     const result = await dispatcher.dispatch(call);
@@ -462,6 +462,54 @@ describe('Permission gate — allow/deny/ask flow', () => {
     expect(result.status).toBe('error');
     const output = result.output as Record<string, unknown>;
     expect(output.error).toMatch(/timeout|Timeout/i);
+    expect(output.code).toBe('permission_timeout');
+    expect(output.error).not.toContain('device-1');
+    expect(events).toContainEqual({
+      type: 'permission.requested',
+      callId: 'tc_timeout',
+      action: 'tap',
+      resource: 'deviceId:device-1',
+      timeoutMs: 100,
+    });
+    expect(events).toContainEqual({
+      type: 'permission.resolved',
+      callId: 'tc_timeout',
+      effect: 'deny',
+      reason: 'timeout',
+    });
+    expect(backend.tapCalls).toHaveLength(0);
+  });
+
+  test('manual ask cancellation is not reported as a timeout or user denial', async () => {
+    const pe = new PermissionEngine({ highRiskActions: ['tap'] });
+    const { dispatcher, backend, events } = createDispatcher({ permissionEngine: pe });
+    const pending = dispatcher.dispatch(makeToolCall({ id: 'tc_cancelled' }));
+    pe.cancel('tc_cancelled', 'session closed');
+
+    const result = await pending;
+    expect(result.output).toMatchObject({ code: 'permission_cancelled' });
+    expect(events).toContainEqual({
+      type: 'permission.resolved',
+      callId: 'tc_cancelled',
+      effect: 'deny',
+      reason: 'cancelled',
+    });
+    expect(backend.tapCalls).toHaveLength(0);
+  });
+
+  test('unexpected ask failure is not mislabeled as a timeout', async () => {
+    const pe = new PermissionEngine({ highRiskActions: ['tap'] });
+    const { dispatcher, backend, events } = createDispatcher({ permissionEngine: pe });
+    const pending = dispatcher.dispatch(makeToolCall({ id: 'tc_invalid' }));
+    pe.resolve('tc_invalid', 'ask', false);
+
+    expect((await pending).output).toMatchObject({ code: 'permission_error' });
+    expect(events).toContainEqual({
+      type: 'permission.resolved',
+      callId: 'tc_invalid',
+      effect: 'deny',
+      reason: 'error',
+    });
     expect(backend.tapCalls).toHaveLength(0);
   });
 

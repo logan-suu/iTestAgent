@@ -516,6 +516,76 @@ describe('AgentSession tools', () => {
     expect(executionCalls).toBe(0);
   });
 
+  it('stops on an unanswered third permission and retries only with three fresh approvals', async () => {
+    const { applyAgentPatch } = await import('../src/entry.js');
+    const { createInitialState } = await import('../src/tui-shell.js');
+    let executionCalls = 0;
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        permissionAskTimeoutMs: 200,
+        preparesWda: () => true,
+        executeConfirmedPlan: async () => {
+          executionCalls += 1;
+          return { status: 'completed', path: 'device_backend' };
+        },
+      }),
+    );
+    const preparePlan = async () => {
+      await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(PHYSICAL_DEVICE.udid);
+      session.confirmPlan();
+    };
+    try {
+      await preparePlan();
+      let state = createInitialState('/workspace');
+      const patches: TuiStatePatch[] = [];
+      let expiredCallId = '';
+      for await (const patch of session.executeConfirmedPlan()) {
+        patches.push(patch);
+        state = applyAgentPatch(state, patch);
+        if (patch.type === 'permission_request') {
+          expect(patch.payload.timeoutMs).toBe(200);
+          if (patch.payload.action !== 'prepare_wda') {
+            await session.resolvePermission(String(patch.payload.callId), 'allow');
+          } else {
+            expiredCallId = String(patch.payload.callId);
+          }
+        }
+      }
+      expect(executionCalls).toBe(0);
+      expect(patches.filter((patch) => patch.type === 'permission_request')).toHaveLength(3);
+      expect(patches).toContainEqual({
+        type: 'permission_resolved',
+        payload: { callId: expiredCallId, effect: 'deny', reason: 'timeout' },
+      });
+      expect(state.agentActivity).toBeNull();
+      expect(state.messages.at(-1)?.text).toContain('/plan <your test goal>');
+      const transcript = state.messages.map((message) => message.text).join('\n');
+      expect(transcript).toContain('timed out without a response');
+      expect(transcript).not.toContain('Permission deny.');
+      expect(transcript).not.toContain(PHYSICAL_DEVICE.udid);
+      await session.resolvePermission(expiredCallId, 'allow');
+      expect(executionCalls).toBe(0);
+
+      await preparePlan();
+      const retryActions: unknown[] = [];
+      for await (const patch of session.executeConfirmedPlan()) {
+        if (patch.type === 'permission_request') {
+          retryActions.push(patch.payload.action);
+          expect(patch.payload.callId).not.toBe(expiredCallId);
+          expect(executionCalls).toBe(0);
+          await session.resolvePermission(String(patch.payload.callId), 'allow');
+        }
+      }
+      expect(retryActions).toEqual(['execute_project_build', 'replace_device_app', 'prepare_wda']);
+      expect(executionCalls).toBe(1);
+    } finally {
+      session.dispose();
+    }
+  });
+
   it('returns the real analyzer envelope supplied by the production seam', async () => {
     let analyzedRoot = '';
     const session = await createAgentSession(
@@ -793,6 +863,7 @@ describe('AgentSession streaming and permission bridge', () => {
     const permission = await nextPatchOfType(iterator, 'permission_request');
     const callId = String(permission.payload.callId);
     expect(permission.payload.action).toBe('execute_project_build');
+    expect(permission.payload.timeoutMs).toBe(120_000);
 
     await session.resolvePermission(callId, 'deny');
     const remaining: TuiStatePatch[] = [];
@@ -822,7 +893,11 @@ describe('AgentSession streaming and permission bridge', () => {
       if (next.done) break;
       remaining.push(next.value);
     }
-    expect(remaining.some((patch) => patch.type === 'permission_resolved')).toBe(true);
+    expect(
+      remaining.some(
+        (patch) => patch.type === 'permission_resolved' && patch.payload.reason === 'cancelled',
+      ),
+    ).toBe(true);
   });
 
   it('rejects concurrent turns instead of interleaving session state', async () => {

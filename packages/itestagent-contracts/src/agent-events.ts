@@ -92,6 +92,7 @@ export const PermissionRequestedEventSchema = z.object({
   callId: z.string(),
   action: z.string(),
   resource: z.string(),
+  timeoutMs: z.number().int().positive().optional(),
 });
 
 export type PermissionRequestedEvent = z.infer<typeof PermissionRequestedEventSchema>;
@@ -102,6 +103,8 @@ export const PermissionResolvedEventSchema = z.object({
   type: z.literal('permission.resolved'),
   callId: z.string(),
   effect: PermissionEffectSchema,
+  /** A fail-closed resolution without a user decision. */
+  reason: z.enum(['timeout', 'cancelled', 'error']).optional(),
 });
 
 export type PermissionResolvedEvent = z.infer<typeof PermissionResolvedEventSchema>;
