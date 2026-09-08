@@ -2,11 +2,13 @@ import { spawn } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { type LanguageModel, generateText } from 'ai';
+import { createProductionPerformanceCapture } from 'itestagent-backends-performance-xctrace-analyzer';
 import type {
   AgentEvent,
   DeviceBackend,
   DeviceDiscoverySnapshot,
   DeviceInfo,
+  PerformanceCaptureFactory,
   RunStatus,
   TargetKind,
   TestPlan,
@@ -186,6 +188,7 @@ export interface AgentSessionDependencies {
   closeDeviceBackend?: ProductionAgentSessionDependencies['closeDeviceBackend'];
   /** Full production composition; tests should replace only its external transport boundaries. */
   production?: ProductionAgentSessionDependencies;
+  createPerformanceCapture?: PerformanceCaptureFactory;
   /** Route-derived WDA lifecycle fact for an explicitly supplied DeviceBackend. */
   preparesWda?: (device: DeviceInfo) => boolean;
   transports?: ProductionExecutionTransports;
@@ -473,6 +476,11 @@ export async function createAgentSession(
           closeDeviceBackend: dependencies.closeDeviceBackend ?? production.closeDeviceBackend,
         },
         transports: dependencies.transports,
+        createPerformanceCapture:
+          dependencies.createPerformanceCapture ??
+          (dependencies.production || dependencies.createDeviceBackend
+            ? undefined
+            : createProductionPerformanceCapture()),
         signal,
         onProgress: ({ message }) => onProgress?.(message),
       });

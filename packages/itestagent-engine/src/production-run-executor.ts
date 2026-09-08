@@ -6,6 +6,9 @@ import type {
   BackendCleanupOutcome,
   DeviceBackend,
   DeviceInfo,
+  PerformanceCapture,
+  PerformanceCaptureFactory,
+  PerformanceCaptureResult,
   RunResult,
   RunStatus,
   TestPlan,
@@ -93,6 +96,7 @@ export interface ProductionRunExecutorInput {
   production?: ProductionAgentSessionDependencies;
   /** Injectable external transport boundaries; orchestration and persistence remain production. */
   transports?: ProductionExecutionTransports;
+  createPerformanceCapture?: PerformanceCaptureFactory;
   signal?: AbortSignal;
   /** Non-sensitive lifecycle updates for the TUI or another interactive caller. */
   onProgress?: (progress: ProductionRunProgress) => void;
@@ -105,6 +109,7 @@ export interface ProductionRunProgress {
     | 'preparing_route'
     | 'running_xcuitest'
     | 'connecting_device'
+    | 'collecting_performance'
     | ProductionPhysicalPreflightProgress['stage']
     | 'cleaning_up'
     | 'saving_result';
@@ -219,6 +224,27 @@ export async function executeProductionTestPlan(
     mkdirSync(dirname(resultBundlePath), { recursive: true });
   }
   const production = input.production ?? createProductionAgentSessionDependencies();
+  let capture: PerformanceCapture | undefined;
+  let performance: PerformanceCaptureResult | undefined;
+  const requestedMetrics = input.plan.execution.metrics ?? [];
+  const finishPerformance = async () => {
+    if (!capture) return;
+    try {
+      performance = await capture.finish();
+    } catch {
+      performance = {
+        artifacts: [],
+        metrics: {
+          collection: requestedMetrics.map((metric) => ({
+            metric,
+            status: input.signal?.aborted ? 'cancelled' : 'failed',
+            reasonCode: 'performance.finalization_failed',
+          })),
+        },
+      };
+    }
+    capture = undefined;
+  };
   const closeBackend = async (
     backend: DeviceBackend,
   ): Promise<BackendCleanupOutcome | undefined> => {
@@ -265,6 +291,41 @@ export async function executeProductionTestPlan(
         if (preflight.status !== 'ready') {
           throw new Error(`physical_preflight_${preflight.stage}: ${preflight.failure.message}`);
         }
+        if (
+          requestedMetrics.some((metric) => metric !== 'test_duration') &&
+          input.createPerformanceCapture
+        ) {
+          try {
+            capture = await input.createPerformanceCapture({
+              runId: plan.runId,
+              deviceId: input.device.udid,
+              targetKind: input.device.targetKind,
+              executable: preflight.artifact.executable,
+              stagingDir,
+              metrics: requestedMetrics,
+              signal: input.signal,
+              onProgress: (message) =>
+                input.onProgress?.({ stage: 'collecting_performance', message }),
+            });
+          } catch {
+            performance = {
+              artifacts: [],
+              metrics: {
+                collection: requestedMetrics.map((metric) => ({
+                  metric,
+                  status: input.signal?.aborted ? 'cancelled' : 'failed',
+                  reasonCode: 'performance.recording_not_ready',
+                })),
+              },
+            };
+            input.onProgress?.({
+              stage: 'collecting_performance',
+              message:
+                'Performance recording unavailable; requested metrics will be reported explicitly.',
+            });
+            input.signal?.throwIfAborted();
+          }
+        }
       }
       result = await runRealDeviceExploration({
         backend,
@@ -296,6 +357,7 @@ export async function executeProductionTestPlan(
         onProgress: input.onProgress,
       });
     } catch (executionError) {
+      await finishPerformance();
       input.onProgress?.({
         stage: 'cleaning_up',
         message: 'Execution stopped; cleaning up the device session…',
@@ -312,6 +374,7 @@ export async function executeProductionTestPlan(
       }
       throw executionError;
     }
+    await finishPerformance();
     input.onProgress?.({
       stage: 'cleaning_up',
       message: 'Cleaning up the device session…',
@@ -322,6 +385,12 @@ export async function executeProductionTestPlan(
         `backend_cleanup_incomplete: ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
         result,
         cleanup,
+      );
+    }
+    if (input.signal?.aborted) {
+      throw new DeviceBackendExecutionError(
+        'performance.cancelled: execution was cancelled during finalization',
+        result,
       );
     }
     return result;
@@ -352,9 +421,11 @@ export async function executeProductionTestPlan(
       device: input.device,
       dispatch,
       resultBundlePath,
+      performance,
     });
     return { ...dispatch, ...committed };
   } finally {
+    await finishPerformance();
     rmSync(stagingDir, { recursive: true, force: true });
   }
 }

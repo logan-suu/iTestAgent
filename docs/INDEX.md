@@ -54,6 +54,9 @@
 | T6.12 动作纠正、失败证据保留、TUI 报告入口、启动/成功标识与设备类型切换验证（不替代 G5/G5-SIM） | `06-verification/exploration-action-recovery-report-6.12.md` |
 | PR #81 断言/权限契约、AUT 取消传播、密钥导航键与 PTY 资源修复验证 | `06-verification/pr81-review-remediation-6.12.md` |
 | DEF-034 物理目标 AUT build/settings/codesign 取消、进程树与 staging 清理验证及关闭证据 | `06-verification/g5-def034-physical-cancellation-6.12.md` |
+| T6.12 用户确认、既有真机成功 run 完整性复核、历史证据边界与收尾事项 | `06-verification/g5-physical-closed-loop-report-6.12.md` |
+| 性能采集生命周期、逐指标证据状态与 UI 成功不等于性能通过 | `decisions/ADR-039-performance-capture-lifecycle-and-evidence-status.md` |
+| T6.12 性能生产接线第一单元自动化验证、真实采集与增长/泄漏未验收边界 | `06-verification/performance-capture-wiring-6.12.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |

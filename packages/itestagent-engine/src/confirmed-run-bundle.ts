@@ -4,6 +4,8 @@ import type {
   ArtifactIndex,
   DeviceInfo,
   EvidenceCollectionOutcome,
+  PerformanceCaptureResult,
+  PerformanceMetrics,
   RunResult,
   RunStatus,
   RunStep,
@@ -35,6 +37,7 @@ export interface PersistConfirmedRunInput {
   dispatch: ConfirmedExecutionDispatchResult;
   resultBundlePath: string;
   parentResult?: RunResult;
+  performance?: PerformanceCaptureResult;
 }
 
 export async function persistConfirmedRunToDefaultStore(
@@ -85,7 +88,7 @@ export async function persistConfirmedRun(
   let startedAt = now;
   let endedAt = now;
   let backendUsed = dispatch.path === 'xcuitest' ? 'xcodebuild' : 'device_backend';
-  let metrics = {};
+  let metrics: PerformanceMetrics = {};
   const invalidDeviceResult =
     dispatch.status !== 'blocked' &&
     dispatch.path === 'device_backend' &&
@@ -224,6 +227,59 @@ export async function persistConfirmedRun(
       relatedCase: artifact.relatedCase,
     }));
     backendUsed = artifacts[0]?.backend ?? 'appium';
+  }
+
+  if (input.performance) {
+    metrics = { ...metrics, ...input.performance.metrics };
+    artifacts.push(...input.performance.artifacts);
+    outcomes.push(
+      ...input.performance.artifacts.map((artifact) => ({
+        type: artifact.type,
+        status: 'collected' as const,
+        reasonCode: 'performance.collected',
+        artifactId: artifact.id,
+      })),
+    );
+  }
+  const metricFields = {
+    launch_time: 'launchDurationMs',
+    memory_peak: 'memoryPeakMB',
+    crash: 'crashDetected',
+    test_duration: 'testDurationMs',
+    hitches: 'hitchesSummary',
+    fps: 'fpsApproximate',
+  } as const;
+  const requestedMetrics = plan.execution.metrics ?? [];
+  if (requestedMetrics.length > 0) {
+    if (requestedMetrics.includes('test_duration') && steps.length > 0) {
+      metrics.testDurationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
+    }
+    const collected = metrics.collection ?? [];
+    metrics.collection = requestedMetrics.map((metric) => {
+      const field = metric === 'xctrace_summary' ? undefined : metricFields[metric];
+      const value = field ? metrics[field] : undefined;
+      if (value !== undefined && value !== 'inconclusive') {
+        return { metric, status: 'collected', reasonCode: 'performance.observed_value' };
+      }
+      return (
+        collected.find(
+          (outcome) => outcome.metric === metric && outcome.status !== 'collected',
+        ) ?? {
+          metric,
+          status: dispatch.status === 'cancelled' ? 'cancelled' : 'not_exportable',
+          reasonCode:
+            dispatch.status === 'cancelled'
+              ? 'performance.cancelled'
+              : 'performance.route_did_not_collect',
+        }
+      );
+    });
+    if (
+      status === 'passed' &&
+      metrics.collection.some((outcome) => outcome.status !== 'collected')
+    ) {
+      status = 'inconclusive';
+    }
   }
 
   const decidedTypes = new Set(outcomes.map((outcome) => outcome.type));

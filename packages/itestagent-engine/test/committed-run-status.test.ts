@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -129,6 +129,76 @@ function xcuitestDispatch(status: 'passed' | 'failed'): ConfirmedExecutionDispat
 }
 
 describe('committed canonical run status', () => {
+  test('missing requested metrics make UI success inconclusive and appear in the report', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('missing-performance');
+    confirmed.execution.metrics = ['memory_peak', 'crash'];
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(committed.runStatus).toBe('inconclusive');
+    expect(bundle.result.cases[0]?.status).toBe('passed');
+    expect(bundle.result.metrics.crashDetected).toBeUndefined();
+    expect(bundle.result.metrics.collection?.map((outcome) => outcome.status)).toEqual([
+      'not_exportable',
+      'not_exportable',
+    ]);
+    expect(await Bun.file(join(committed.runDir, 'summary.md')).text()).toContain(
+      'Missing data is not evidence',
+    );
+  });
+
+  test('verified performance facts survive canonical persistence', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('collected-performance');
+    confirmed.execution.metrics = ['memory_peak'];
+    const tracePath = join(root, 'fixture.trace');
+    mkdirSync(tracePath);
+    await Bun.write(join(tracePath, 'fixture.data'), 'synthetic trace evidence');
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [
+          {
+            id: 'fixture-trace',
+            type: 'trace',
+            path: tracePath,
+            redactionStatus: 'raw-local-only',
+            backend: 'xctrace',
+          },
+        ],
+        metrics: { memoryPeakMB: 42, approximate: true },
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(committed.runStatus).toBe('passed');
+    expect(bundle.result.metrics.memoryPeakMB).toBe(42);
+    expect(bundle.result.metrics.collection?.[0]?.status).toBe('collected');
+    const savedTrace = bundle.artifactIndex.artifacts.find(
+      (artifact) => artifact.id === 'fixture-trace',
+    );
+    expect(savedTrace?.redactionStatus).toBe('raw-local-only');
+    expect(savedTrace?.path.startsWith('artifacts/')).toBe(true);
+  });
   for (const assertionStatus of [
     'passed',
     'failed',
@@ -295,6 +365,98 @@ describe('committed canonical run status', () => {
 });
 
 describe('production executor committed status propagation', () => {
+  for (const cancel of [false, true]) {
+    test(`performance capture stops before cleanup and persistence (cancel=${cancel})`, async () => {
+      const { root, store } = await storage();
+      const confirmed = plan(`physical-performance-${cancel}`);
+      confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: 'FIXTURE' } };
+      confirmed.performance.baselineDomain = 'physical';
+      confirmed.execution.metrics = ['memory_peak'];
+      const target: DeviceInfo = { ...device, udid: 'FIXTURE', targetKind: 'physical' };
+      const controller = new AbortController();
+      const order: string[] = [];
+      let suggestions = 0;
+      const backend = {
+        launchApp: async () => ({ success: true }),
+        getUiTree: async () => ({
+          raw: '<XCUIElementTypeApplication><XCUIElementTypeStaticText name="Ready" label="Ready" /></XCUIElementTypeApplication>',
+          format: 'xml',
+          capturedAt: timestamp,
+        }),
+      } as unknown as DeviceBackend;
+      const result = await executeProductionTestPlan({
+        plan: confirmed,
+        device: target,
+        workspace: root,
+        bundleId: 'com.example.Demo',
+        store,
+        storeRoot: root,
+        signal: controller.signal,
+        authorize: async () => true,
+        suggest: async () =>
+          suggestions++ === 0 ? { action: 'wait', target: 'Ready', waitMs: 1 } : 'done',
+        createPerformanceCapture: async (captureInput) => {
+          expect(captureInput.signal).toBe(controller.signal);
+          expect(captureInput.executable).toBe('Demo');
+          expect(order).toEqual(['preflight']);
+          order.push('recording');
+          return {
+            finish: async () => {
+              order.push('finalized');
+              if (cancel) controller.abort();
+              return {
+                artifacts: [],
+                metrics: cancel ? {} : { memoryPeakMB: 12, approximate: true },
+              };
+            },
+          };
+        },
+        production: {
+          analyzeWorkspace: async () => {
+            throw new Error('No replanning');
+          },
+          deviceDiscovery: {} as never,
+          createDeviceBackend: () => backend,
+          physicalPreflight: async () => {
+            order.push('preflight');
+            return {
+              status: 'ready',
+              stage: 'ready',
+              artifact: {
+                sourceKind: 'build',
+                sourcePath: join(root, 'Demo.app'),
+                appPath: join(root, 'Demo.app'),
+                bundleId: 'com.example.Demo',
+                executable: 'Demo',
+                supportedPlatforms: ['iPhoneOS'],
+                architectures: ['arm64'],
+                signingValid: true,
+              },
+              wda: {
+                route: 'route_b_wda_manager_managed',
+                stage: 'ready',
+                ready: true,
+                targetDeviceUdid: target.udid,
+                targetWdaBundleId: 'fixture.wda',
+                waitedMs: 1,
+              },
+            };
+          },
+          closeDeviceBackend: async () => {
+            order.push('closed');
+            return { status: 'closed', reusable: true, issues: [] };
+          },
+        },
+      });
+      expect(order).toEqual(['preflight', 'recording', 'finalized', 'closed']);
+      expect(result.runStatus).toBe(cancel ? 'cancelled' : 'passed');
+      expect(existsSync(join(root, 'runs', confirmed.runId, 'staging'))).toBe(false);
+      const bundle = await store.loadRunBundle(confirmed.runId);
+      expect(bundle.result.metrics.collection?.[0]?.status).toBe(
+        cancel ? 'cancelled' : 'collected',
+      );
+    });
+  }
   test('commits cancelled and closes the backend when AUT preparation is aborted', async () => {
     const { root, store } = await storage();
     const confirmed = plan('preparation-cancelled');

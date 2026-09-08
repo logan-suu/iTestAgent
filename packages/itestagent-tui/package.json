@@ -17,6 +17,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "itestagent-backends-performance-xctrace-analyzer": "workspace:*",
     "@ai-sdk/openai": "^4.0.0",
     "@opentui/core": "0.5.10",
     "@opentui/solid": "0.5.10",

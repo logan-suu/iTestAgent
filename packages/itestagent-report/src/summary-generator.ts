@@ -201,6 +201,7 @@ function conclusionText(input: ReportSynthesizerInput): string {
 function metricsTable(input: ReportSynthesizerInput): string[] {
   const m = input.metrics;
   const rows: string[] = ['| Metric | Value |', '|--------|-------|'];
+  if (m.testDurationMs !== undefined) rows.push(`| Test Duration | ${m.testDurationMs}ms |`);
 
   if (m.launchDurationMs !== undefined) {
     rows.push(
@@ -229,6 +230,18 @@ function metricsTable(input: ReportSynthesizerInput): string[] {
     rows.push('| — | *No metrics collected* |');
   }
 
+  if (m.collection?.length) {
+    rows.push('', '| Requested metric | Collection status | Reason |', '|---|---|---|');
+    for (const outcome of m.collection) {
+      rows.push(`| ${outcome.metric} | ${outcome.status} | ${outcome.reasonCode} |`);
+    }
+    if (m.collection.some((outcome) => outcome.status !== 'collected')) {
+      rows.push(
+        '',
+        'Performance validation is incomplete. Missing data is not evidence of zero memory growth, no crashes, or no leaks.',
+      );
+    }
+  }
   return rows;
 }
 

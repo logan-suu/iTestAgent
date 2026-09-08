@@ -249,6 +249,19 @@
       "type": "object",
       "description": "Normalized performance metrics. Uncertain values MUST carry approximate:true (R5: no silent degradation or fabricated metrics). FPS is approximate by nature.",
       "properties": {
+        "testDurationMs": { "type": "integer", "minimum": 0 },
+        "collection": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["metric", "status", "reasonCode"],
+            "properties": {
+              "metric": { "type": "string", "enum": ["launch_time", "memory_peak", "crash", "test_duration", "hitches", "fps", "xctrace_summary"] },
+              "status": { "type": "string", "enum": ["collected", "not_exportable", "failed", "cancelled"] },
+              "reasonCode": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+            }
+          }
+        },
         "launchDurationMs": {
           "type": "integer",
           "minimum": 0,

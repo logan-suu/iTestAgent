@@ -1,4 +1,6 @@
 [
+  { "from": "itestagent-tui", "to": "itestagent-backends-performance-xctrace-analyzer" },
+  { "from": "itestagent-cli", "to": "itestagent-backends-performance-xctrace-analyzer" },
   {
     "from": "itestagent-tui",
     "to": "itestagent-cli"

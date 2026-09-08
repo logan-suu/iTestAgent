@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
+import { MetricCollectionOutcomeSchema } from './performance-capture.js';
 import { RunIdSchema } from './run-id.js';
 
 const CleanupOutcomeSchema = z.object({
@@ -87,6 +88,9 @@ export type CaseStatus = z.infer<typeof CaseStatusSchema>;
  * 技术选型 §11：主推 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate。
  */
 export const PerformanceMetricsSchema = z.object({
+  collection: z.array(MetricCollectionOutcomeSchema).optional(),
+  /** Measured execution interval, not application launch latency. */
+  testDurationMs: z.number().int().nonnegative().optional(),
   /** 启动耗时（毫秒），非负整数 */
   launchDurationMs: z.number().int().nonnegative().optional(),
   /** 内存峰值（MB），非负数 */

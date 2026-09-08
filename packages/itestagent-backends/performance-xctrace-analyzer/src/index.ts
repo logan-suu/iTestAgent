@@ -75,3 +75,4 @@ export type {
   XctraceRecordTemplate,
   XctraceRecorderDeps,
 } from './xctrace-recorder.js';
+export { createProductionPerformanceCapture } from './production-capture.js';
