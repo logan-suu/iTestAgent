@@ -625,10 +625,28 @@
       "item": "Production physical AUT build and artifact validation do not bind the run AbortSignal",
       "detail": "Verified while tracing the DerivedData artifact failure: production-run-executor.ts passes the run signal into createProductionPhysicalPreflight, but the preflight only checks it on entry before passing the unbound deps.runCommand to buildForPhysical and normalizePhysicalAppArtifact. buildForPhysical supplies cwd without a signal, and artifact validation also does not bind that signal; runProductionPhysicalCommand forwards only options.signal to Bun.spawn. Cancellation during an already-running AUT build, build-settings query, or validation command therefore cannot cancel that owned process through the run signal. The later coordinator does receive the signal, so this finding is about the newly composed AUT preparation stages, not a reversal of the historical DEF-033 device/WDA teardown evidence. Deferral rationale: the approved repair is limited to consistent build/settings arguments and artifact validation; completing this independent lifecycle fix also requires cancellation classification and owner-cleanup checks, plus a separately authorized physical build/cancellation revalidation. Keep it open in T6.12 and PR #81 before physical acceptance, rather than claiming the path regression tests prove cancellation. Next step: obtain approval for the scoped lifecycle repair, bind the same signal through build/settings and normalization, preserve an aborted terminal outcome, prove no later install/launch/WDA work occurs after abort, and verify child termination and staging cleanup with process-seam tests and authorized physical G5 evidence.",
       "target_phase": 6,
-      "status": "open",
+      "status": "resolved",
       "created_at": "2026-09-07T21:32:25Z",
-      "last_updated": "2026-09-08T03:10:42Z",
-      "notes": "PR #81 review remediation: run signal now binds build/settings and artifact-validation commands with before/after checks; cancelled preparation does not reach install/launch/WDA and remains cancelled in the committed report. The owned Bun command is terminated and reaped with a 1s SIGTERM-to-SIGKILL grace, verified using a real child that ignores SIGTERM. Local stage and canonical-report regressions pass. Retain open: real iPhone/xcodebuild process-tree cancellation, partial staging evidence and owner cleanup still require separately authorized G5; no claim that the generic child test closes physical acceptance. See docs/06-verification/pr81-review-remediation-6.12.md."
+      "last_updated": "2026-09-08T14:02:10Z",
+      "notes": "PR #81 review remediation: run signal now binds build/settings and artifact-validation commands with before/after checks; cancelled preparation does not reach install/launch/WDA and remains cancelled in the committed report. The owned Bun command is terminated and reaped with a 1s SIGTERM-to-SIGKILL grace, verified using a real child that ignores SIGTERM. Local stage and canonical-report regressions pass. Retain open: real iPhone/xcodebuild process-tree cancellation, partial staging evidence and owner cleanup still require separately authorized G5; no claim that the generic child test closes physical acceptance. See docs/06-verification/pr81-review-remediation-6.12.md. 2026-09-08T14:02:10Z Authorized real-device-target validation completed on iPhone 14 Plus / iOS 18.2.1 with Xcode 26.5 and Bun 1.3.14. Three production-executor runs cancelled active non-zombie build/settings/codesign processes, committed schema-valid cancelled reports, removed populated staging directories, and left no observed owned process residue at immediate and delayed checks; no manual rescue was used. Device operations were sealed by the verification safety boundary, with zero install/launch/WDA/model calls. Source and protected sibling files remained unchanged. Real runs produced no UI artifacts before cancellation; prior-evidence retention and SIGKILL escalation remain separately covered by passing regression tests. Evidence and explicit TUI/permission/Simulator exclusions: docs/06-verification/g5-def034-physical-cancellation-6.12.md. No production code changed in this verification.",
+      "resolved_at": "2026-09-08T14:02:10Z",
+      "resolved_by": "PR #81 commit 4e61146 plus authorized physical-target build/settings/artifact cancellation verification: docs/06-verification/g5-def034-physical-cancellation-6.12.md"
+    },
+    {
+      "id": "DEF-035",
+      "source": "Codex (self-review)",
+      "pr": null,
+      "pr_url": null,
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.12",
+      "severity": "minor",
+      "item": "Full-corpus forbidden-literal CLI scan does not exclude scenario paths",
+      "detail": "During the documentation-only DEF-034 submission, bun run gate:g2 reports feed-memory in packages/itestagent-contracts/src/scenarios/{feed-memory,index,scenario-registry}.ts and schemas/scenarios/feed-memory.schema.json. The generic/all branch passes absolute collectFiles paths to isUnderExcludedScenarioSurface, whose prefixes are repository-relative; scenario directories explicitly exempt by policy are therefore scanned. The changed/index mode uses relative Git paths and the architecture tests pass. scripts/scan-forbidden-literals.ts is byte-identical to origin/dev-1.0 (SHA-256 aec5014d30d7f15a902d4b46c84b2304d480440a025fc79a430250aba49eeb61), so this is not introduced by the evidence changes. Deferral is required because the current authorization is limited to submitting already-approved physical verification documentation; changing the shared quality-gate implementation requires a separate approved code/test plan. Normalize corpus paths to repository-relative before exclusion and add subprocess CLI regression coverage for generic/all and changed modes, preserving detection of actual forbidden literals on generic surfaces. Do not describe the current full-corpus CLI result as passing.",
+      "target_phase": 6,
+      "status": "open",
+      "created_at": "2026-09-08T15:41:05Z",
+      "last_updated": "2026-09-08T15:41:05Z"
     }
   ]
 }

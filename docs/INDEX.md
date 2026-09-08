@@ -52,7 +52,8 @@
 | 已确认执行目标与用户断言、动作格式有界纠正、异常部分事实、动态探索停滞保护与 OpenTUI activity | `decisions/ADR-037-confirmed-goal-and-execution-liveness.md` |
 | physical/simulator 同页分组、跨类型一次性确认、草案重编译与过期选择保护 | `decisions/ADR-038-explicit-device-target-switch.md` |
 | T6.12 动作纠正、失败证据保留、TUI 报告入口、启动/成功标识与设备类型切换验证（不替代 G5/G5-SIM） | `06-verification/exploration-action-recovery-report-6.12.md` |
-| PR #81 断言/权限契约、AUT 取消传播、密钥导航键与 PTY 资源修复验证（DEF-034 真机复验未关闭） | `06-verification/pr81-review-remediation-6.12.md` |
+| PR #81 断言/权限契约、AUT 取消传播、密钥导航键与 PTY 资源修复验证 | `06-verification/pr81-review-remediation-6.12.md` |
+| DEF-034 物理目标 AUT build/settings/codesign 取消、进程树与 staging 清理验证及关闭证据 | `06-verification/g5-def034-physical-cancellation-6.12.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
