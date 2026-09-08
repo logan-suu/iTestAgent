@@ -112,6 +112,21 @@ describe('authorizePersistence', () => {
       authorizePersistence(PERSISTENCE_CONFIRMATION_TOKEN, { service: 's', account: '' }).ok,
     ).toBe(false);
   });
+
+  it('rejects target text that could inject another interactive command', () => {
+    expect(
+      authorizePersistence(PERSISTENCE_CONFIRMATION_TOKEN, {
+        service: 'itestagent/service\ndelete-generic-password',
+        account: 'itestagent',
+      }).ok,
+    ).toBe(false);
+    expect(
+      authorizePersistence(PERSISTENCE_CONFIRMATION_TOKEN, {
+        service: 'itestagent/service',
+        account: 'account with spaces',
+      }).ok,
+    ).toBe(false);
+  });
 });
 
 // ─── saveCredential enforces authorization structurally ─────

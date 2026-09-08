@@ -13,7 +13,7 @@ describe('Phase 6 reliability and security closure', () => {
       new Response(process.stdout).text(),
       new Response(process.stderr).text(),
     ]);
-    expect(exitCode, stderr).toBe(0);
+    expect(exitCode, stderr || stdout).toBe(0);
     const matrix = JSON.parse(stdout) as Array<Record<string, unknown>>;
     expect(matrix).toHaveLength(3);
     for (const result of matrix) {

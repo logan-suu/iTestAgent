@@ -63,6 +63,7 @@ import { AppiumDriverError } from './appium-driver.js';
 import { discoverPhysicalDevices, discoverSimulatorDevices } from './device-discovery.js';
 import type { IProxyTunnel } from './iproxy-tunnel.js';
 import { type RedactingLogger, createRedactingLogger, redactError } from './redactor.js';
+import { WdaReadinessError } from './wda-launch-monitor.js';
 import type { WdaManager } from './wda-manager.js';
 
 // ─── Subprocess helper ─────────────────────────────────────────
@@ -400,7 +401,8 @@ export class AppiumDeviceBackend implements DeviceBackend {
       }
       // Clean up WDA if it was started during this attempt (external-url mode)
       if (this.wdaManager && this.targetKind === 'physical') {
-        if (this.wdaStartupMode === 'external-url' && this.wdaManager.isRunning()) {
+        if (this.wdaStartupMode === 'external-url') {
+          // An exited launch leader may still own descendants and pipe readers.
           try {
             await this.wdaManager.stop(undefined, signal);
           } catch {
@@ -796,10 +798,6 @@ export class AppiumDeviceBackend implements DeviceBackend {
     if (this.targetKind !== 'physical') {
       throw new Error('Physical WDA readiness cannot be probed for a simulator backend.');
     }
-    if (!this.opts.wdaBundleId) {
-      throw new Error('Physical WDA readiness requires an explicit WDA bundle ID.');
-    }
-
     const route =
       this.wdaStartupMode === 'external-url'
         ? 'route_b_wda_manager_managed'
@@ -811,9 +809,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
         await this.closeSession();
         signal.throwIfAborted();
       }
-      const expectedWdaBundleId = this.opts.wdaBundleId.endsWith('.xctrunner')
-        ? this.opts.wdaBundleId
-        : `${this.opts.wdaBundleId}.xctrunner`;
+      const expectedWdaBundleId = this.opts.wdaBundleId
+        ? this.opts.wdaBundleId.endsWith('.xctrunner')
+          ? this.opts.wdaBundleId
+          : `${this.opts.wdaBundleId}.xctrunner`
+        : undefined;
       const observedWdaBaseBundleId =
         this.wdaStartupMode === 'external-url'
           ? await this.observeExternalWdaBundleId(signal)
@@ -823,9 +823,22 @@ export class AppiumDeviceBackend implements DeviceBackend {
         : observedWdaBaseBundleId
           ? `${observedWdaBaseBundleId}.xctrunner`
           : undefined;
+      if (!this.activeSession?.deviceUdid || !observedWdaBundleId) {
+        return {
+          route,
+          stage: 'wda_status',
+          ready: false,
+          targetDeviceUdid: this.activeSession?.deviceUdid || 'unobserved',
+          targetWdaBundleId: observedWdaBundleId ?? 'unobserved',
+          waitedMs: Date.now() - startedAt,
+          failureCode: 'wda_status_failed',
+          details:
+            'The active route did not expose device and WDA identities. Verify the WDA status endpoint or diagnostic session identity reporting before retrying; readiness cannot be proved.',
+        };
+      }
       if (
         this.activeSession?.deviceUdid !== this.opts.udid ||
-        observedWdaBundleId !== expectedWdaBundleId
+        (expectedWdaBundleId !== undefined && observedWdaBundleId !== expectedWdaBundleId)
       ) {
         return {
           route,
@@ -845,38 +858,48 @@ export class AppiumDeviceBackend implements DeviceBackend {
         targetDeviceUdid: this.activeSession.deviceUdid,
         targetWdaBundleId: observedWdaBundleId,
         waitedMs: Date.now() - startedAt,
+        ...(!expectedWdaBundleId
+          ? { details: 'WDA identity was observed from the active route session.' }
+          : {}),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const managedFailure = error instanceof WdaReadinessError ? error : undefined;
       const signingFailure = /sign|provision|development team|xcodeorgid/iu.test(message);
       const tunnelFailure = /iproxy|tunnel|usbmux/iu.test(message);
       const launchFailure = /launch|xcodebuild/iu.test(message);
-      const failureCode = signingFailure
-        ? 'wda_signing_or_configuration_failed'
-        : tunnelFailure
-          ? 'wda_tunnel_failed'
-          : this.wdaStartupMode === 'managed-xcodebuild'
-            ? 'appium_session_failed'
-            : launchFailure
-              ? 'wda_launch_failed'
-              : 'wda_status_failed';
-      const stage = signingFailure
-        ? 'wda_launch'
-        : tunnelFailure
-          ? 'wda_tunnel'
-          : this.wdaStartupMode === 'managed-xcodebuild'
-            ? 'appium_session'
-            : launchFailure
-              ? 'wda_launch'
-              : 'wda_status';
+      const failureCode =
+        managedFailure?.failureCode ??
+        (signingFailure
+          ? 'wda_signing_or_configuration_failed'
+          : tunnelFailure
+            ? 'wda_tunnel_failed'
+            : this.wdaStartupMode === 'managed-xcodebuild'
+              ? 'appium_session_failed'
+              : launchFailure
+                ? 'wda_launch_failed'
+                : 'wda_status_failed');
+      const stage =
+        managedFailure?.stage ??
+        (signingFailure
+          ? 'wda_launch'
+          : tunnelFailure
+            ? 'wda_tunnel'
+            : this.wdaStartupMode === 'managed-xcodebuild'
+              ? 'appium_session'
+              : launchFailure
+                ? 'wda_launch'
+                : 'wda_status');
       return {
         route,
         stage,
         ready: false,
         targetDeviceUdid: this.opts.udid,
-        targetWdaBundleId: this.opts.wdaBundleId.endsWith('.xctrunner')
-          ? this.opts.wdaBundleId
-          : `${this.opts.wdaBundleId}.xctrunner`,
+        targetWdaBundleId: this.opts.wdaBundleId
+          ? this.opts.wdaBundleId.endsWith('.xctrunner')
+            ? this.opts.wdaBundleId
+            : `${this.opts.wdaBundleId}.xctrunner`
+          : 'unobserved',
         waitedMs: Date.now() - startedAt,
         failureCode,
         details: message,

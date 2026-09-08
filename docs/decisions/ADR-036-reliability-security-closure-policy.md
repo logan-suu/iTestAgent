@@ -55,6 +55,16 @@ T6.10 启动评审发现现有文档存在四组不一致：
 
 T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定其是否满足生产门禁。失败时 Ink 作为生产交互 renderer，ANSI 只用于 dumb terminal、非交互输出或明确配置；OpenTUI 保留为实验候选，等待后续版本复验。该结果写回 ADR-008 与验证报告，不能用 mocked renderer 测试替代真实 PTY 证据。
 
+2026-09-06 的 T6.12 入口验收进一步确认：首次配置同样必须服从上述 selector，不得以“安全配置”为由把整个进程强制固定到 ANSI。当前 OpenTUI 首次配置路径必须在真实 PTY 中证明 UTF-8 输入/粘贴、API key 不回显和 clean exit；配置完成后继续沿用同一 renderer。安全性由专用掩码输入路径保证，而不是通过降低 renderer 获得；显式选择尚无安全首次配置路径的 renderer 必须 fail-closed。
+
+同次验收还确认，候选链路与 TestPlan 审阅属于生产 renderer 门禁的一部分：多行标题、状态和命令区必须使用显式纵向布局，并禁止固定 header/footer 被滚动内容压缩，不能依赖 renderer 的默认方向与默认 shrink；Enter 必须分别产生候选确认与计划确认事件，`q` 必须明确表示取消，不能显示为完成。该行为必须通过真实 PTY 与字符帧覆盖，避免单元级 keymap 正确但输入组件未连接提交事件，也避免“有首帧字节”掩盖同一行覆盖。
+
+T6.12 的 USB 接入复测进一步确认：Agent 自动设备探测与用户按 `r` 触发的探测必须串行提交，显式刷新在目标尚未 ready 时执行有界稳定性复查，避免 CoreDevice 的瞬态旧状态或较早请求覆盖较新结果。header 只绑定已选择且 ready 的当前 `targetKind`，新规划周期清除选择时必须撤销 connected。tool lifecycle 只允许以独立、短生命周期的 allowlist activity 展示；原始 tool result、ProjectProfile、设备 JSON 和 UDID 不得进入聊天 transcript，模型侧设备事实也必须使用目标范围内的脱敏摘要。
+
+后续同轮复测确认，人机检查点与模型工具循环必须互斥：候选确认、设备选择、执行路线选择或 TestPlan 确认等待期间不得继续启动 AI SDK turn。设备确认必须刷新后针对具体 UDID 原子重验，失败时留在选择页；TestPlan 确认后必须直接续接 `executeTestPlan`，而不是返回聊天等待模型猜测下一步。内存内 TestPlan 编译不映射到 US-20 的 `generate_draft_test` 权限；执行阶段既有逐动作 R7 权限边界保持不变。真实 PTY 门禁还必须证明一次 Enter 只产生一次当前面板事件，面板切换后不能复用该按键确认下一页。
+
+TestPlan 确认后的执行生命周期也属于生产门禁：确认后必须立即显示可见 activity，权限等待、执行、成功、失败和超时事件必须持续驱动消息区与状态区刷新，不能因聊天视图缓存旧消息数组而只留下“Starting execution”。pending ask 必须先注册再发布权限事件；异步消息与直接执行各自持有 operation-scoped event queue owner，迟到 cleanup 不得清除当前执行事件。权限正文可显示明确 action 与脱敏后的目标，但不得把设备 UDID 写入聊天 transcript。真实 PTY 回归必须覆盖“计划确认 → activity → 权限提示”的连续帧。
+
 ### 2. 高风险 allow 不持久化
 
 - 高风险操作每次都以明确 `action/resource` 二次确认。
@@ -62,12 +72,21 @@ T6.10 必须先在隔离 spike 中复验当前稳定 OpenTUI 版本，再决定�
 - 用户可以明确持久化 `deny`；规则只写入全局 `~/.itestagent/config/itestagent.jsonc` 的 `permissions.deniedRules`，项目级配置不得声明 allow/deny 权限规则，TUI/CLI 必须提供查看和撤销入口。
 - 已确认 TestPlan 内普通导航与非敏感输入继续允许，不因底层动词逐项询问。
 - PermissionEngine 的 `remembered` 只有在持久化写入实际成功后才能为 true；纯内存规则不得描述为跨 session 持久化。
+- 权限等待必须显示输入并回车的操作方式和实际等待时限；等待期间明确执行已暂停。`permission.requested.timeoutMs` 与 `permission.resolved.reason` 为向后兼容的可选事件字段。超时、取消与内部错误继续以 `effect=deny` 失败关闭，但不得展示为用户主动拒绝；这些终态必须清除等待 activity。权限失败的工具结果不携带原始 resource，避免 UDID 流入聊天或模型上下文；内部授权仍绑定精确 action/resource。直接执行因权限超时结束后，TUI 引导用户以 `/plan <test goal>` 重新规划并逐项授权，不自动重试或复用旧 allow。
+
+权限事件契约必须拒绝 `reason=timeout/cancelled/error` 与 `effect=allow/ask` 的组合。发送权限请求事件失败时，必须消费已取消的 pending Promise 后再传播原始发送错误，避免未处理的 rejection 遗留。
 
 ### 3. Keychain 保存必须真实且可撤销
 
 保存 secret 前必须单独披露 device-local 范围、service、account 和撤销命令，并获得一次性确认。secret 只能经 stdin 或等价非 argv 通道交给 Keychain。只有写入和访问控制验证成功后，UI 才能显示“已保存”；失败时 secret 保持 session-only 并显示失败原因，不得虚报 remembered。
 
+T6.12 首次配置验收还发现，仅检查 API key 字符长度会让无效 credential 显示“配置完成”，直到第一条自然语言请求才暴露 provider 401。配置完成或 Keychain 写入前必须以当前 endpoint、credential 和 model 执行有界的最小 OpenAI-compatible 验证；401 清除 session credential 并返回掩码输入，其他错误按 model、余额、限流、provider 与网络分类。已有配置缺少对应 Keychain credential 时也进入同一恢复流程。provider 错误展示前必须移除其返回的明文或掩码 credential 片段。DeepSeek 新配置默认值更新为当前官方 `https://api.deepseek.com` 与 `deepseek-v4-flash`；已有显式 provider 配置仍按凭证绑定边界保留，不静默迁移。
+
+同次永久保存复测证明，`security add-generic-password ... -w` 的裸 `-w` 会等待交互 prompt，并不从 pipe stdin 读取 password；把 secret 直接写入该子进程 stdin 会等待至超时。Keychain 写入因此改用 macOS `security -i` 的官方 stdin 批处理模式：argv 只有 `-i`，stdin 中只有一条 `add-generic-password ... -X <UTF-8 hex>` 命令，service/account 先限制为单命令安全标识。credential 原文和编码形式均不得进入可见输出、日志或结构化错误。独立写后属性验证仍是 remembered 的必要条件，任何命令失败、超时或验证失败均保持 session-only。
+
 ### 4. Abort 是端到端协议
+
+物理 AUT 的 build、build-settings 查询与归一化校验同样属于此协议。每次命令前后检查同一 run signal，校验捕获异常时优先保留取消原因；不得在取消后继续设备副作用。生产准备命令先 SIGTERM，宽限 1 秒后升级 SIGKILL，并移除 listener/timer；真实 Xcode/设备链路的 owner 清理仍须 G5 复验。
 
 ```
 TUI cancel → session command → AgentRuntime.abort → ToolDispatcher cancel
@@ -97,6 +116,8 @@ Route C（Appium managed xcodebuild）仅为用户显式选择的诊断路线：
 - 无法证明本轮 Appium 与其 child 完整回收时，结果必须失败关闭并报告 cleanup limitation；
 - Route C 的第三方限制不再阻塞 Route B 的 production default 或 MVP 出口。
 
+主动探测无法观测设备或 WDA 身份时按 `wda_status_failed` 报告身份不可验证，不得假装 ready，也不得说成已证实的身份不匹配；只有实际观测到与期望不符的身份才使用 `wda_identity_mismatch`。
+
 Route B 的 production composition 必须区分两种输入：未提供外部 endpoint 时，由 iTestAgent/WdaManager 拥有 WDA 与 iproxy 的启动、readiness 和清理；用户显式提供 `webDriverAgentUrl` 时才进入 attach 模式。内部生成的 loopback URL 只是 managed Route B 的连接结果，不能作为“外部 WDA 已启动”的判据。
 
 ### 5.1 项目配置不得重定向全局凭证
@@ -121,7 +142,7 @@ Route B 的 production composition 必须区分两种输入：未提供外部 en
 
 ## 验证要求
 
-1. 真实 PTY renderer matrix 覆盖输入、流式更新、resize、退出和资源清理；记录 Bun、renderer、平台与终端环境。
+1. 真实 PTY renderer matrix 覆盖输入、流式更新、resize、退出和资源清理；OpenTUI 额外覆盖首次配置 UTF-8/掩码输入，以及候选链路和 TestPlan 审阅的 Enter 确认事件；记录 Bun、renderer、平台与终端环境。
 2. 权限测试证明高风险 allow 不能跨请求或 session 绕过确认，持久化 deny 可加载和撤销。
 3. Keychain 测试证明独立确认、非 argv 传递、成功后才 remembered，以及失败回退 session-only。
 4. XCUITest、DeviceBackend、pending ask、WDA readiness 与 xcresult parser 的取消测试使用同一 AbortSignal，并检查唯一 terminal event、部分证据和 owned-child 清理。

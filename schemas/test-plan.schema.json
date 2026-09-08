@@ -242,6 +242,19 @@
             "type": "string"
           }
         },
+        "goal": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Sanitized user goal confirmed in Plan Review and consumed by the execution agent."
+        },
+        "assertions": {
+          "type": "array",
+          "description": "Explicit success criteria compiled from the user's request.",
+          "items": {
+            "$ref": "#/$defs/UserAssertion"
+          }
+        },
         "flows": {
           "type": "array",
           "description": "Flow YAML IDs to replay (if any).",
@@ -363,6 +376,51 @@
         "testData",
         "assertion"
       ]
+    },
+    "UserAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "caseId": { "type": "string" },
+        "label": { "type": "string" },
+        "source": {
+          "type": "string",
+          "enum": ["user", "profile", "agent", "agent_confirmed", "explore_only"]
+        },
+        "conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "element_visible",
+                  "element_text",
+                  "element_disabled",
+                  "navigation_reached",
+                  "no_crash",
+                  "custom"
+                ]
+              },
+              "description": { "type": "string" },
+              "target": { "type": "string" },
+              "expected": {},
+              "satisfied": { "type": "boolean" },
+              "uncheckedReason": { "type": "string" }
+            },
+            "required": ["type", "description"]
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["id", "caseId", "source", "conditions"]
     },
     "ArtifactPolicy": {
       "type": "object",

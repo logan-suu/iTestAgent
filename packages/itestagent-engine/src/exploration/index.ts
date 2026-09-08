@@ -16,6 +16,7 @@ export {
 export type {
   ArtifactRefsProvider,
   RealDeviceRunOptions,
+  RealDeviceRunProgress,
   RealDeviceRunResult,
   RealRunBackend,
 } from './real-run.js';

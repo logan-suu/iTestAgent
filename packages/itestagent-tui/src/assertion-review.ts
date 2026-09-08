@@ -59,7 +59,7 @@ export function formatAssertionSuggestions(
 /** Footer status line: confirmed vs remaining counts. */
 export function assertionFooterStatus(confirmed: number, total: number): string {
   if (total === 0) return 'No agent-suggested assertions.';
-  return `${confirmed}/${total} confirmed — space:confirm n:reject A:confirm-all q:done`;
+  return `${confirmed}/${total} confirmed — Space:confirm n:reject A:all Enter:done Esc/q:back`;
 }
 
 // ─── Confirm / reject transforms (AC4: 请用户确认) ──────────────────────
@@ -117,4 +117,4 @@ export function clampAssertionIndex(index: number, total: number): number {
 
 /** Footer key hints shown at the top of the assertion review panel. */
 export const ASSERTION_REVIEW_FOOTER_HINTS =
-  'j/k: navigate · space: confirm · n: reject · A: confirm all · q: done';
+  '↑/↓ or j/k:nav Space:confirm n:reject A:all Enter:done Esc/q:back';

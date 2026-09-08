@@ -2,18 +2,32 @@ import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
-import { parseIntentResult, parseTestPlan } from 'itestagent-contracts';
+import {
+  DeviceInfoSchema,
+  RunStatusSchema,
+  TargetKindSchema,
+  parseIntentResult,
+  parseTestPlan,
+} from 'itestagent-contracts';
 import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
-import { DEFAULT_API_KEY_TARGET } from './api-key-loader.js';
+import { DEFAULT_API_KEY_TARGET, loadApiKey as loadStoredApiKey } from './api-key-loader.js';
 import { formatPersistenceAuthorizationNotice } from './credential-prompt.js';
+import { devicesForReview, isDeviceReady } from './device-review.js';
 import {
   PERSISTENCE_CONFIRMATION_TOKEN,
   authorizePersistence,
   createSecurityRunner,
   saveCredential,
 } from './keychain-persistence.js';
+import {
+  DEFAULT_PROVIDER_BASE_URL,
+  DEFAULT_PROVIDER_MODEL,
+  resolveProviderValidationTransition,
+  validateProviderAccess,
+} from './provider-validation.js';
 import { createConfiguredRenderer } from './renderer-factory.js';
+import type { RendererKind } from './renderer-selection.js';
 import { loadTuiRuntimeConfig } from './runtime-config.js';
 import {
   type TuiShellEvent,
@@ -26,6 +40,13 @@ import {
 
 function isFirstRun(): boolean {
   return !existsSync(resolve(homedir(), '.itestagent', 'config', 'itestagent.jsonc'));
+}
+
+export function requiresProviderSetup(
+  configMissing: boolean,
+  storedCredentialAvailable: boolean,
+): boolean {
+  return configMissing || !storedCredentialAvailable;
 }
 
 async function saveConfig(baseUrl: string, model: string): Promise<void> {
@@ -48,6 +69,37 @@ async function saveConfig(baseUrl: string, model: string): Promise<void> {
   );
 }
 
+export function assertSecureFirstRunRenderer(kind: RendererKind): void {
+  if (kind === 'ink') {
+    throw new Error(
+      'renderer_unavailable: ink: secure masked first-run setup is not implemented; use tui.framework=opentui or ansi',
+    );
+  }
+}
+
+export interface LatestOperationGate {
+  begin(): number;
+  isCurrent(token: number): boolean;
+  invalidate(): void;
+}
+
+/** Prevents late async UI operations from committing state after a newer user action. */
+export function createLatestOperationGate(): LatestOperationGate {
+  let revision = 0;
+  return {
+    begin() {
+      revision += 1;
+      return revision;
+    },
+    isCurrent(token) {
+      return token === revision;
+    },
+    invalidate() {
+      revision += 1;
+    },
+  };
+}
+
 // ── TUI entry ───────────────────────────────────────────────
 
 export async function startTui(workspace?: string): Promise<void> {
@@ -58,40 +110,37 @@ export async function startTui(workspace?: string): Promise<void> {
   }
 
   const ws = workspace ?? process.cwd();
-  const needsSetup = isFirstRun();
+  const configMissing = isFirstRun();
   const runtimeConfig = loadTuiRuntimeConfig({ workspace: ws });
-  if (needsSetup && !['auto', 'ansi'].includes(runtimeConfig.tui.framework)) {
-    throw new Error(
-      `renderer_unavailable: ${runtimeConfig.tui.framework}: secure masked first-run setup requires tui.framework=auto or ansi`,
-    );
-  }
-  const createdRenderer = await createConfiguredRenderer(
-    needsSetup ? 'ansi' : runtimeConfig.tui.framework,
-  );
-  const selectedRenderer = needsSetup
-    ? {
-        ...createdRenderer,
-        preference: runtimeConfig.tui.framework,
-        explicit: runtimeConfig.tui.framework === 'ansi',
-        reason:
-          runtimeConfig.tui.framework === 'ansi'
-            ? 'explicit tui.framework=ansi'
-            : 'auto: secure masked first-run credential setup',
-      }
-    : createdRenderer;
+  const storedCredential = configMissing ? null : await loadStoredApiKey();
+  const needsSetup = requiresProviderSetup(configMissing, storedCredential?.ok === true);
+  const selectedRenderer = await createConfiguredRenderer(runtimeConfig.tui.framework);
+  if (needsSetup) assertSecureFirstRunRenderer(selectedRenderer.kind);
   const renderer = selectedRenderer.renderer;
   let state: TuiShellState = createInitialState(ws);
   let pendingUserText = '';
   let pendingPermissionId: string | null = null;
   let agentTurnActive = false;
+  let deviceSelectionPending = false;
+  const deviceOperationGate = createLatestOperationGate();
   let sessionApiKey: string | null = null;
   let setupPersistencePending = false;
   let setupFinishing = false;
+  let setupValidationPending = false;
+  let providerValidated = false;
 
   // Detect first-run → enter setup wizard
   if (needsSetup) {
     state = tuiShellReducer(state, { type: 'setup_start' });
-    state = { ...state, setupBaseUrl: 'https://api.deepseek.com/v1', setupModel: 'deepseek-chat' };
+    state = {
+      ...state,
+      setupBaseUrl: runtimeConfig.model.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
+      setupModel: runtimeConfig.model.model ?? DEFAULT_PROVIDER_MODEL,
+      setupError:
+        !configMissing && storedCredential && !storedCredential.ok
+          ? 'No usable Keychain API key was found. Enter a provider credential for this session.'
+          : '',
+    };
   }
 
   // Try to create the agent session (skip if in setup)
@@ -118,6 +167,14 @@ export async function startTui(workspace?: string): Promise<void> {
 
   const finishSetup = async (credentialOutcome: string): Promise<void> => {
     if (setupFinishing) return;
+    if (!providerValidated) {
+      state = {
+        ...state,
+        setupError: 'Provider validation is required before setup can complete.',
+      };
+      renderer.update(state);
+      return;
+    }
     setupFinishing = true;
     try {
       await saveConfig(state.setupBaseUrl, state.setupModel);
@@ -146,6 +203,11 @@ export async function startTui(workspace?: string): Promise<void> {
   await renderer.start(state, (event: TuiShellEvent) => {
     // ── Setup mode handling ──────────────────────────────
     if (state.mode === 'setup' && event.type === 'submit') {
+      if (setupValidationPending) {
+        state = { ...state, setupError: 'Provider validation is still running.' };
+        renderer.update(state);
+        return;
+      }
       const input = pendingUserText.trim();
       pendingUserText = '';
 
@@ -156,6 +218,7 @@ export async function startTui(workspace?: string): Promise<void> {
           const fixed = url.startsWith('http') ? url : `https://${url}`;
           try {
             assertProviderUrl(fixed);
+            providerValidated = false;
             state = { ...state, setupStep: 1, setupBaseUrl: fixed, setupError: '' };
           } catch (error: unknown) {
             state = {
@@ -171,6 +234,7 @@ export async function startTui(workspace?: string): Promise<void> {
             state = { ...state, setupError: 'API key too short. Paste the full key.' };
           } else {
             sessionApiKey = input;
+            providerValidated = false;
             state = { ...state, setupStep: 2, setupError: '' };
           }
           break;
@@ -178,7 +242,39 @@ export async function startTui(workspace?: string): Promise<void> {
         case 2: {
           // Model name
           const model = input || state.setupModel;
-          state = { ...state, setupModel: model, setupStep: 3, setupError: '' };
+          const currentKey = sessionApiKey;
+          if (!currentKey) {
+            state = {
+              ...state,
+              setupStep: 1,
+              setupError: 'API key is required before provider validation.',
+            };
+            break;
+          }
+          setupValidationPending = true;
+          providerValidated = false;
+          state = {
+            ...state,
+            setupModel: model,
+            setupError: 'Validating provider endpoint, API key, and model…',
+          };
+          void (async () => {
+            const result = await validateProviderAccess({
+              baseURL: state.setupBaseUrl,
+              model,
+              apiKey: currentKey,
+            });
+            setupValidationPending = false;
+            const transition = resolveProviderValidationTransition(result);
+            providerValidated = transition.providerValidated;
+            if (transition.clearSessionApiKey) sessionApiKey = null;
+            state = {
+              ...state,
+              setupStep: transition.setupStep,
+              setupError: transition.error,
+            };
+            renderer.update(state);
+          })();
           break;
         }
         case 3: {
@@ -254,6 +350,89 @@ export async function startTui(workspace?: string): Promise<void> {
       return;
     }
 
+    if (
+      (event.type === 'device_confirm' || event.type === 'device_target_switch_decision') &&
+      agentSession
+    ) {
+      if (state.mode !== 'device_review') return;
+      if (deviceSelectionPending) return;
+      const pending = state.deviceTargetSwitch;
+      if (event.type === 'device_confirm' && pending) return;
+      if (event.type === 'device_target_switch_decision' && !pending) return;
+      const candidates = devicesForReview(state.devices);
+      const selected = pending
+        ? candidates.find((device) => device.udid === pending.udid)
+        : candidates[state.deviceSelectionIndex];
+      if (!selected) {
+        state = tuiShellReducer(state, {
+          type: 'system_message',
+          text: 'No matching device is available. Connect or boot one, then press r to refresh.',
+        });
+      } else {
+        const operationToken = deviceOperationGate.begin();
+        deviceSelectionPending = true;
+        state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
+        void agentSession
+          .selectDevice(
+            selected.udid,
+            event.type === 'device_target_switch_decision' && pending
+              ? { token: pending.token, allow: event.allow }
+              : undefined,
+          )
+          .then((patches) => {
+            if (!deviceOperationGate.isCurrent(operationToken)) return;
+            for (const patch of patches) state = applyAgentPatch(state, patch);
+          })
+          .catch((error: unknown) => {
+            if (!deviceOperationGate.isCurrent(operationToken)) return;
+            state = tuiShellReducer(state, {
+              type: 'system_message',
+              text: error instanceof Error ? error.message : String(error),
+            });
+          })
+          .finally(() => {
+            if (!deviceOperationGate.isCurrent(operationToken)) return;
+            deviceSelectionPending = false;
+            renderer.update(state);
+          });
+      }
+      renderer.update(state);
+      return;
+    }
+
+    if (event.type === 'device_refresh' && agentSession) {
+      const operationToken = deviceOperationGate.begin();
+      deviceSelectionPending = false;
+      state = tuiShellReducer(state, event);
+      state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
+      renderer.update(state);
+      void agentSession
+        .refreshDevices()
+        .then((patches) => {
+          if (!deviceOperationGate.isCurrent(operationToken)) return;
+          for (const patch of patches) state = applyAgentPatch(state, patch);
+          renderer.update(state);
+        })
+        .catch((error: unknown) => {
+          if (!deviceOperationGate.isCurrent(operationToken)) return;
+          state = tuiShellReducer(state, {
+            type: 'system_message',
+            text: error instanceof Error ? error.message : String(error),
+          });
+          renderer.update(state);
+        });
+      return;
+    }
+
+    if (event.type === 'device_cancel' && agentSession) {
+      deviceOperationGate.invalidate();
+      deviceSelectionPending = false;
+      state = tuiShellReducer(state, event);
+      for (const patch of agentSession.cancelPlan()) state = applyAgentPatch(state, patch);
+      renderer.update(state);
+      return;
+    }
+
     if (event.type === 'plan_modify_submit' && agentSession) {
       state = tuiShellReducer(state, event);
       try {
@@ -271,9 +450,12 @@ export async function startTui(workspace?: string): Promise<void> {
     }
 
     if (event.type === 'plan_confirm' && agentSession) {
-      state = tuiShellReducer(state, event);
+      deviceOperationGate.invalidate();
+      deviceSelectionPending = false;
+      let confirmed = false;
       try {
         for (const patch of agentSession.confirmPlan()) state = applyAgentPatch(state, patch);
+        confirmed = true;
       } catch (error: unknown) {
         state = tuiShellReducer(state, {
           type: 'system_message',
@@ -281,10 +463,31 @@ export async function startTui(workspace?: string): Promise<void> {
         });
       }
       renderer.update(state);
+      if (confirmed) {
+        agentTurnActive = true;
+        void processConfirmedPlan(agentSession, (patch) => {
+          state = applyAgentPatch(state, patch);
+          if (patch.type === 'permission_request') {
+            pendingPermissionId =
+              typeof patch.payload.callId === 'string' ? patch.payload.callId : null;
+          } else if (
+            patch.type === 'permission_resolved' &&
+            patch.payload.callId === pendingPermissionId
+          ) {
+            pendingPermissionId = null;
+          }
+          renderer.update(state);
+        }).finally(() => {
+          agentTurnActive = false;
+          pendingPermissionId = null;
+        });
+      }
       return;
     }
 
     if (event.type === 'plan_cancel' && agentSession) {
+      deviceOperationGate.invalidate();
+      deviceSelectionPending = false;
       state = tuiShellReducer(state, event);
       for (const patch of agentSession.cancelPlan()) state = applyAgentPatch(state, patch);
       renderer.update(state);
@@ -389,6 +592,46 @@ async function processAgentMessage(
   }
 }
 
+export async function processConfirmedPlan(
+  session: {
+    executeConfirmedPlan(): AsyncIterable<{
+      type: string;
+      payload: Record<string, unknown>;
+    }>;
+  },
+  onPatch: (patch: { type: string; payload: Record<string, unknown> }) => void,
+): Promise<void> {
+  const bootstrapActivityId = `confirmed-plan-${crypto.randomUUID()}`;
+  onPatch({
+    type: 'activity_update',
+    payload: {
+      id: bootstrapActivityId,
+      text: 'Preparing confirmed TestPlan execution…',
+    },
+  });
+  try {
+    let receivedTerminalPatch = false;
+    for await (const patch of session.executeConfirmedPlan()) {
+      if (
+        patch.type === 'error' ||
+        (patch.type === 'activity_update' && patch.payload.complete === true)
+      ) {
+        receivedTerminalPatch = true;
+      }
+      onPatch(patch);
+    }
+    if (!receivedTerminalPatch) {
+      onPatch({
+        type: 'error',
+        payload: { message: 'Confirmed TestPlan execution ended without a lifecycle result.' },
+      });
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    onPatch({ type: 'error', payload: { message: msg } });
+  }
+}
+
 export function applyAgentPatch(
   state: TuiShellState,
   patch: { type: string; payload: Record<string, unknown> },
@@ -409,6 +652,36 @@ export function applyAgentPatch(
         : [];
       return tuiShellReducer(state, { type: 'enter_candidate_review', candidates });
     }
+    case 'device_selection_request': {
+      const devices = DeviceInfoSchema.array().parse(patch.payload.devices ?? []);
+      const targetKind = TargetKindSchema.parse(patch.payload.targetKind);
+      const withDevices = tuiShellReducer(state, {
+        type: 'devices_updated',
+        devices,
+        status: devices.length > 0 ? 'discovered' : 'no_device',
+      });
+      return tuiShellReducer(withDevices, {
+        type: 'enter_device_review',
+        targetKind,
+        devices,
+      });
+    }
+    case 'device_target_switch_request':
+      return tuiShellReducer(state, {
+        type: 'device_target_switch_request',
+        request: {
+          token: String(patch.payload.token),
+          udid: String(patch.payload.udid),
+          name: String(patch.payload.name),
+          from: TargetKindSchema.parse(patch.payload.from),
+          to: TargetKindSchema.parse(patch.payload.to),
+        },
+      });
+    case 'device_selected':
+      return tuiShellReducer(state, {
+        type: 'device_selected',
+        udid: String(patch.payload.udid ?? ''),
+      });
     case 'plan_update': {
       if (patch.payload.plan === null) {
         return tuiShellReducer(state, { type: 'plan_cancel' });
@@ -434,43 +707,101 @@ export function applyAgentPatch(
         typeof patch.payload.text === 'string'
           ? patch.payload.text
           : String(patch.payload.text ?? '');
-      return tuiShellReducer(state, { type: 'system_message', text });
+      const runStatus = RunStatusSchema.safeParse(patch.payload.runStatus);
+      return tuiShellReducer(state, {
+        type: 'system_message',
+        text,
+        ...(patch.payload.role === 'system' && runStatus.success
+          ? { runStatus: runStatus.data }
+          : {}),
+      });
+    }
+    case 'activity_update': {
+      const callId = typeof patch.payload.id === 'string' ? patch.payload.id : '';
+      if (!callId) return state;
+      if (patch.payload.complete === true) {
+        return tuiShellReducer(state, { type: 'agent_activity_cleared', callId });
+      }
+      const text = typeof patch.payload.text === 'string' ? patch.payload.text : 'Working…';
+      return tuiShellReducer(state, { type: 'agent_activity_updated', callId, text });
     }
     case 'devices_update': {
-      const devices = Array.isArray(patch.payload.devices) ? patch.payload.devices : [];
+      const devices = DeviceInfoSchema.array().parse(patch.payload.devices ?? []);
       const discoveryStatus = patch.payload.discoveryStatus;
-      const hasReadyDevice = devices.some((device) => {
-        if (!device || typeof device !== 'object') return false;
-        const value = device as Record<string, unknown>;
-        return value.targetKind === 'physical' || value.state === 'booted';
-      });
+      const parsedTargetKind = TargetKindSchema.safeParse(patch.payload.targetKind);
+      const targetKind = parsedTargetKind.success
+        ? parsedTargetKind.data
+        : (state.deviceSelectionTargetKind ?? state.plan?.device.kind ?? null);
+      const relevantDevices = targetKind
+        ? devices.filter((device) => device.targetKind === targetKind)
+        : devices;
       const status =
         discoveryStatus === 'failed'
           ? 'unavailable'
           : discoveryStatus === 'partial'
             ? 'degraded'
-            : hasReadyDevice
-              ? 'healthy'
-              : devices.length > 0
-                ? 'unavailable'
-                : 'no_device';
+            : relevantDevices.length === 0
+              ? 'no_device'
+              : relevantDevices.some(isDeviceReady)
+                ? 'discovered'
+                : 'unavailable';
       return tuiShellReducer(state, {
-        type: 'device_status_updated',
+        type: 'devices_updated',
+        devices,
         status,
       });
     }
     case 'permission_request': {
+      const callId = String(patch.payload.callId ?? 'permission');
       const action = String(patch.payload.action ?? 'unknown action');
-      const resource = String(patch.payload.resource ?? 'unknown resource');
-      return tuiShellReducer(state, {
+      const resource = formatPermissionResourceForDisplay(
+        action,
+        String(patch.payload.resource ?? 'unknown resource'),
+      );
+      const timeoutMs = patch.payload.timeoutMs;
+      const deadline =
+        typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0
+          ? ` Respond within ${Math.ceil(timeoutMs / 1000)}s or execution will stop.`
+          : '';
+      const explanation =
+        action === 'prepare_wda'
+          ? ' Prepare WebDriverAgent (WDA) to automate the selected device.'
+          : '';
+      const waiting = tuiShellReducer(state, {
+        type: 'agent_activity_updated',
+        callId,
+        text: `Awaiting permission: ${action} — type allow + Enter to continue`,
+      });
+      return tuiShellReducer(waiting, {
         type: 'system_message',
-        text: `Permission required: ${action} on ${resource}. Reply allow, deny, or always-deny. Allow applies to this action only.`,
+        text: `Permission required: ${action} on ${resource}.${explanation} Execution is paused. Type allow, deny, or always-deny and press Enter.${deadline} Allow applies to this action only.`,
       });
     }
     case 'permission_resolved': {
-      return tuiShellReducer(state, {
+      const callId = String(patch.payload.callId ?? 'permission');
+      const effect = String(patch.payload.effect ?? 'resolved');
+      const reason = patch.payload.reason;
+      if (reason === 'timeout' || reason === 'cancelled' || reason === 'error') {
+        const cleared = tuiShellReducer(state, { type: 'agent_activity_cleared', callId });
+        const message =
+          reason === 'timeout'
+            ? 'Permission wait timed out without a response; execution stopped. This was not a user denial.'
+            : reason === 'cancelled'
+              ? 'Permission request cancelled; execution stopped.'
+              : 'Permission request failed; execution stopped.';
+        return tuiShellReducer(cleared, { type: 'system_message', text: message });
+      }
+      const continuing = tuiShellReducer(state, {
+        type: 'agent_activity_updated',
+        callId,
+        text:
+          effect === 'allow'
+            ? 'Permission granted; preparing execution…'
+            : 'Permission denied; stopping…',
+      });
+      return tuiShellReducer(continuing, {
         type: 'system_message',
-        text: `Permission ${String(patch.payload.effect ?? 'resolved')}.`,
+        text: `Permission ${effect}.`,
       });
     }
     case 'error': {
@@ -478,11 +809,29 @@ export function applyAgentPatch(
         typeof patch.payload.message === 'string'
           ? patch.payload.message
           : String(patch.payload.message ?? '');
-      return tuiShellReducer(state, { type: 'system_message', text: `❌ ${message}` });
+      const cleared = state.agentActivity
+        ? tuiShellReducer(state, {
+            type: 'agent_activity_cleared',
+            callId: state.agentActivity.callId,
+          })
+        : state;
+      return tuiShellReducer(cleared, { type: 'system_message', text: `❌ ${message}` });
     }
     default:
       return state;
   }
+}
+
+function formatPermissionResourceForDisplay(action: string, resource: string): string {
+  if (
+    action !== 'replace_device_app' &&
+    action !== 'prepare_wda' &&
+    action !== 'execute_project_build'
+  ) {
+    return resource;
+  }
+  const deviceSeparator = resource.lastIndexOf('@');
+  return deviceSeparator > 0 ? `${resource.slice(0, deviceSeparator)}@selected device` : resource;
 }
 
 /** B29: maps a thrown agent-session error to a readable message. */

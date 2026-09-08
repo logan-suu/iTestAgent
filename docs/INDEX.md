@@ -17,7 +17,7 @@
 | **开发避坑** | `03-implementation/` | `开发避坑与关键注意点手册.md` | 红线详解、高风险坑 Top8、真机/Simulator/签名/backend 陷阱、提交前自检清单 |
 | **AI Native 开发** | `04-ai-native/` | `AI Native 开发理念与实战技巧手册.md` | EPCC-V 工作流、上下文工程、质量门禁 G1-G7+G5-SIM、反模式 |
 | **验证与 Spike** | `06-verification/` | `phase-0-cross-evaluation-report.md`、`g5-sim-spike-report-*.md` | 多 Backend 横评报告、G5/G5-SIM 真机与 Simulator 验证证据
-| **疑难杂症** | `07-troubleshooting/` | `appium-free-account/blocker.md` + `unblock-plan.md` | 开发过程中遇到的阻塞问题根因分析与解决方案记录 |
+| **疑难杂症** | `07-troubleshooting/` | `appium-free-account/` + `tui-plan-confirmation-stall.md` | 开发过程中遇到的阻塞问题根因分析与解决方案记录 |
 | **开发计划** | `05-planning/` | `开发计划安排文档.md` | Phase 0-7 里程碑、任务拆解、单人排期（Phase 6 真机闭环收口；Phase 7 可选增强） |
 | **任务状态** | `05-planning/` | `task-status.json` | Phase/任务动态清单、依赖关系、当前进度 |
 | **延期待办** | `05-planning/` | `deferred-items.json` | PR review 合理但延期的修复条目，按 DEF-ID 集中追踪 |
@@ -49,6 +49,10 @@
 | Run bundle 提交、完整性 marker、证据采集结果与 legacy limitation | `decisions/ADR-034-run-bundle-commit-and-evidence-outcomes.md` |
 | 证据驱动 explain、XCUITest failed-only child run、DeviceBackend Flow 重放边界、parentRunId 与 flaky 判定 | `decisions/ADR-035-evidence-explain-and-rerun-lineage.md` |
 | 生产 renderer 行为门禁、高风险权限记忆、Route B 默认、端到端 abort 与 terminal teardown | `decisions/ADR-036-reliability-security-closure-policy.md` |
+| 已确认执行目标与用户断言、动作格式有界纠正、异常部分事实、动态探索停滞保护与 OpenTUI activity | `decisions/ADR-037-confirmed-goal-and-execution-liveness.md` |
+| physical/simulator 同页分组、跨类型一次性确认、草案重编译与过期选择保护 | `decisions/ADR-038-explicit-device-target-switch.md` |
+| T6.12 动作纠正、失败证据保留、TUI 报告入口、启动/成功标识与设备类型切换验证（不替代 G5/G5-SIM） | `06-verification/exploration-action-recovery-report-6.12.md` |
+| PR #81 断言/权限契约、AUT 取消传播、密钥导航键与 PTY 资源修复验证（DEF-034 真机复验未关闭） | `06-verification/pr81-review-remediation-6.12.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -165,4 +169,4 @@
 
 - 迁移批次清单与 manifest：`docs/06-verification/migration/`（B00-B42）
 - 证据留档：`docs/06-verification/evidence/`（t12 universal / t13 renderer-matrix）
-- ADR 记录：ADR-020~036（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界、自包含 run 契约、本地原始证据、Flow 生产重放、Run bundle commit marker、explain/rerun lineage，以及生产可靠性与安全收口）
+- ADR 记录：ADR-020~038（含 Codex 开发工作流迁移、分层源码分析、Planning Cycle、physical preflight、双执行路径、metadata-only 候选边界、自包含 run 契约、本地原始证据、Flow 生产重放、Run bundle commit marker、explain/rerun lineage、生产可靠性与安全收口、已确认执行目标与活性反馈，以及显式设备类型切换）

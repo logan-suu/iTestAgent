@@ -1,14 +1,30 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  createDevicectlOps,
   normalizePhysicalAppArtifact,
   resolveAppSource,
 } from 'itestagent-backends-build-xcodebuild';
 import type { XcodebuildProcessRunner } from 'itestagent-backends-build-xcodebuild';
-import type { PhysicalRoute, WdaReadinessProbe } from 'itestagent-contracts';
-import { PermissionEngine, createPhysicalPreflightCoordinator } from 'itestagent-engine';
+import {
+  AppiumDeviceBackend,
+  type AppiumDriver,
+  type IProxyTunnel,
+  WdaManager,
+} from 'itestagent-backends-device-appium';
+import {
+  type DeviceBackend,
+  type PhysicalRoute,
+  TestPlanSchema,
+  type WdaReadinessProbe,
+} from 'itestagent-contracts';
+import {
+  PermissionEngine,
+  createPhysicalPreflightCoordinator,
+  createProductionPhysicalPreflight,
+} from 'itestagent-engine';
 
 const roots: string[] = [];
 
@@ -47,6 +63,229 @@ afterEach(() => {
 });
 
 describe('Phase 6 physical app/WDA preflight', () => {
+  test('preserves the actual WDA signing failure through Route B and preflight without automatic repair', async () => {
+    const { root, appPath } = createPhysicalApp();
+    const artifact = await normalizePhysicalAppArtifact({
+      sourcePath: appPath,
+      normalizationRoot: join(root, 'normalized'),
+      run: validateRunner,
+    });
+    const calls: string[] = [];
+    const manager = new WdaManager({
+      spawnLaunch: (command, options) => {
+        expect(command.slice(0, 3)).toEqual(['xcrun', 'xcodebuild', 'test-without-building']);
+        calls.push('wda-launch');
+        // A real piped child supplies the observed diagnostic; no device side effects.
+        return Bun.spawn(
+          [
+            process.execPath,
+            '-e',
+            'console.error("Failed to install embedded profile: This provisioning profile has expired."); process.exit(65);',
+          ],
+          options,
+        );
+      },
+      fetchStatus: async () => {
+        throw new Error('fixture socket closed');
+      },
+    });
+    const backend = new AppiumDeviceBackend(
+      {
+        createSession: async () => {
+          calls.push('appium-session');
+          throw new Error('An Appium session must not be created after launch failure.');
+        },
+      } as unknown as AppiumDriver,
+      {
+        udid: 'physical-device-1',
+        targetKind: 'physical',
+        wdaStartupMode: 'external-url',
+        wdaManager: manager,
+        wdaProjectPath: '/fixture/WebDriverAgent.xcodeproj',
+        iproxyTunnel: {
+          ensure: () => {
+            calls.push('tunnel-start');
+          },
+          stop: () => {
+            calls.push('tunnel-stop');
+          },
+        } as unknown as IProxyTunnel,
+      },
+    );
+    const coordinator = createPhysicalPreflightCoordinator({
+      healthcheck: async () => ({ healthy: true }),
+      isAppInstalled: async () => false,
+      installApp: async () => {
+        calls.push('app-install');
+        return { success: true };
+      },
+      launchApp: async () => {
+        calls.push('app-launch');
+        return { success: true };
+      },
+      probeWda: async (_route, signal) => backend.probePhysicalReadiness(signal),
+      prepareWda: async () => {
+        calls.push('repair');
+        return { success: true };
+      },
+      requestPermission: async () => {
+        throw new Error('Unexpected repair permission.');
+      },
+      createCallId: () => 'phase6-wda-launch-failure',
+    });
+    try {
+      const start = Date.now();
+      const result = await coordinator.run({
+        artifact,
+        deviceUdid: 'physical-device-1',
+        route: 'route_b_wda_manager_managed',
+        confirmedTestPlan: true,
+        repairWdaWhenBlocked: false,
+      });
+      expect(Date.now() - start).toBeLessThan(2000);
+      expect(result).toMatchObject({
+        status: 'blocked',
+        stage: 'wda_launch',
+        failure: { code: 'wda_signing_or_configuration_failed' },
+        wda: { ready: false, route: 'route_b_wda_manager_managed' },
+      });
+      if (result.status !== 'blocked') throw new Error('Expected WDA preflight to block.');
+      expect(result.failure.message).toContain('provisioning profile has expired');
+      expect(result.failure.message).toContain('explicit confirmation');
+      expect(calls).toEqual([
+        'app-install',
+        'app-launch',
+        'tunnel-start',
+        'wda-launch',
+        'tunnel-stop',
+      ]);
+      expect(manager.isRunning()).toBe(false);
+    } finally {
+      await backend.closeSession();
+    }
+  });
+
+  for (const createBuiltApp of [true, false]) {
+    test(`production build passes its run-scoped artifact to validation/install (artifact exists: ${createBuiltApp})`, async () => {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'itestagent-build-context-')));
+      roots.push(root);
+      const workspace = join(root, 'project with spaces');
+      mkdirSync(join(workspace, 'Example.xcodeproj'), { recursive: true });
+      const stagingDir = join(root, 'run', 'staging');
+      const derivedData = join(stagingDir, 'DerivedData');
+      const appPath = join(derivedData, 'Build/Products/Debug-iphoneos/Example.app');
+      const buildCommands: string[][] = [];
+      const operations: string[] = [];
+      const preflight = createProductionPhysicalPreflight({
+        runCommand: async (cmd, args, options) => {
+          if (cmd !== 'xcodebuild') return validateRunner(cmd, args, options);
+          expect(options?.cwd).toBe(workspace);
+          buildCommands.push([...args]);
+          const index = args.indexOf('-derivedDataPath');
+          const directory = index < 0 ? join(root, 'default DerivedData') : args[index + 1];
+          if (args[0] === 'build') {
+            expect(directory).toBe(derivedData);
+            if (createBuiltApp) {
+              mkdirSync(appPath, { recursive: true });
+              writeFileSync(join(appPath, 'Info.plist'), '<plist/>');
+              writeFileSync(join(appPath, 'Example'), 'fixture-arm64-binary');
+            }
+            return { exitCode: 0, stdout: 'BUILD SUCCEEDED', stderr: '' };
+          }
+          return {
+            exitCode: 0,
+            stdout: `TARGET_BUILD_DIR = ${directory}/Build/Products/Debug-iphoneos\nFULL_PRODUCT_NAME = Example.app`,
+            stderr: '',
+          };
+        },
+        createDevicectlOps: () =>
+          createDevicectlOps({
+            spawnSync: () => {
+              throw new Error('Unexpected synchronous device command');
+            },
+            spawnAsync: async (_cmd, args) => {
+              if (args.includes('apps')) {
+                operations.push('inventory');
+                writeFileSync(args.at(-1) as string, JSON.stringify({ result: { apps: [] } }));
+              } else if (args.includes('install')) {
+                operations.push('install');
+                expect(args).toContain(appPath);
+                expect(existsSync(appPath)).toBe(true);
+              } else if (args.includes('launch')) {
+                operations.push('launch');
+              } else {
+                throw new Error('Unexpected device command');
+              }
+              return { exitCode: 0, stdout: '', stderr: '' };
+            },
+          }),
+      });
+      const plan = TestPlanSchema.parse({
+        schemaVersion: 'itestagent.test-plan.v3',
+        runId: 'run-build-context',
+        projectProfileRef: `projects/${'a'.repeat(64)}/project-profile.json`,
+        target: { type: 'current_workspace' },
+        device: { kind: 'physical', physical: { selector: 'by_udid', udid: 'device-fixture' } },
+        appSource: { strategy: 'auto_from_workspace' },
+        backendPreference: { device: ['appium'] },
+        execution: {
+          prefer: 'device_backend',
+          fallback: 'device_backend',
+          resolvedPath: 'device_backend',
+          selectionReason: 'confirmed_no_xcuitest_candidate',
+          features: ['Validation'],
+          goal: 'Validate the application.',
+          testData: { allowAgentGeneratedData: true, askUserInTuiWhenRequired: true },
+          assertion: { policy: 'user_goal_then_profile_then_agent_confirmed' },
+        },
+        artifacts: {
+          collect: ['screenshot'],
+          report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
+        },
+        performance: { baseline: 'skip', baselineDomain: 'physical', thresholdRequired: false },
+        safety: { defaultMode: 'ask', highRiskActions: [] },
+      });
+      const result = await preflight({
+        plan,
+        workspace,
+        scheme: 'Example',
+        device: { udid: 'device-fixture', platform: 'ios', targetKind: 'physical' },
+        bundleId: 'com.example.app',
+        stagingDir,
+        backend: {
+          healthcheck: async () => ({ healthy: true }),
+          probePhysicalReadiness: async () => {
+            operations.push('wda');
+            return {
+              route: 'route_b_wda_manager_managed',
+              stage: 'ready',
+              ready: true,
+              targetDeviceUdid: 'device-fixture',
+              targetWdaBundleId: 'com.example.wda',
+              waitedMs: 0,
+            };
+          },
+        } as unknown as DeviceBackend,
+        authorize: async () => true,
+      });
+
+      if (createBuiltApp) {
+        expect(result).toMatchObject({
+          status: 'ready',
+          artifact: { sourcePath: appPath, appPath },
+        });
+        expect(operations).toEqual(['inventory', 'install', 'launch', 'wda']);
+      } else {
+        expect(result).toMatchObject({ status: 'blocked', stage: 'artifact_validation' });
+        expect(operations).toEqual([]);
+      }
+      expect(buildCommands).toHaveLength(2);
+      for (const command of buildCommands) {
+        expect(command[command.indexOf('-derivedDataPath') + 1]).toBe(derivedData);
+      }
+    });
+  }
+
   for (const route of [
     'route_b_wda_manager_managed',
     'route_c_appium_managed',

@@ -17,6 +17,7 @@ import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { AppiumDeviceBackend, AppiumDriverError } from '../src/index.js';
+import { WdaReadinessError } from '../src/wda-launch-monitor.js';
 import type { WdaManager } from '../src/wda-manager.js';
 
 import type {
@@ -1579,6 +1580,7 @@ interface MockWdaConfig {
   isRunningResult?: boolean;
   stopThrows?: boolean;
   waitForReadyThrows?: boolean;
+  readinessError?: Error;
   waitForReadyResult?: { ready: boolean; waitedMs: number };
 }
 
@@ -1623,6 +1625,10 @@ class MockWdaManager {
     _timeoutMs?: number,
   ): Promise<{ ready: boolean; waitedMs: number }> {
     this.calls.push('waitForReady');
+    if (this.config.readinessError) {
+      this._isRunning = false;
+      throw this.config.readinessError;
+    }
     if (this.config.waitForReadyThrows) {
       throw new Error('WDA /status timeout');
     }
@@ -1808,6 +1814,30 @@ describe('AppiumDeviceBackend — lifecycle with WdaManager', () => {
 });
 
 describe('AppiumDeviceBackend — active physical readiness', () => {
+  it('keeps typed status failures distinct from signing advice and cleans an exited launch', async () => {
+    const wdaManager = new MockWdaManager({
+      readinessError: new WdaReadinessError(
+        'wda_status_failed',
+        'WDA /status not ready; a timeout does not establish a signing failure.',
+      ),
+    });
+    const driver = new MockAppiumDriver();
+    const backend = new AppiumDeviceBackend(driver, {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      wdaStartupMode: 'external-url',
+      wdaManager: wdaManager as unknown as WdaManager,
+    });
+    const probe = await backend.probePhysicalReadiness();
+    expect(probe).toMatchObject({
+      ready: false,
+      stage: 'wda_status',
+      failureCode: 'wda_status_failed',
+    });
+    expect(wdaManager.calls).toEqual(['launch', 'waitForReady', 'stop']);
+    expect(driver.calls).not.toContain('createSession');
+  });
+
   it('rejects implicit and inventory-only physical WDA routes', () => {
     const driver = new MockAppiumDriver();
     expect(
@@ -1853,6 +1883,28 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
     });
     expect(driver.lastSessionCaps?.['appium:wdaLocalPort']).toBe(8200);
     expect(driver.lastSessionCaps?.['appium:mjpegServerPort']).toBe(9200);
+    await backend.closeSession();
+  });
+
+  it('uses an observed active Route B identity when no WDA override was configured', async () => {
+    const backend = new AppiumDeviceBackend(new MockAppiumDriver(), {
+      udid: TEST_UDID,
+      targetKind: 'physical',
+      bundleId: TEST_BUNDLE_ID,
+      wdaStartupMode: 'external-url',
+      webDriverAgentUrl: 'http://127.0.0.1:8100',
+      wdaStatusFetch: async () =>
+        Response.json({
+          value: { build: { productBundleIdentifier: 'OBSERVED.WebDriverAgentRunner' } },
+        }),
+    });
+
+    await expect(backend.probePhysicalReadiness()).resolves.toMatchObject({
+      ready: true,
+      targetDeviceUdid: TEST_UDID,
+      targetWdaBundleId: 'OBSERVED.WebDriverAgentRunner.xctrunner',
+      details: 'WDA identity was observed from the active route session.',
+    });
     await backend.closeSession();
   });
 
@@ -1918,6 +1970,29 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
       targetWdaBundleId: 'OBSERVED.WebDriverAgentRunner.xctrunner',
     });
     await backend.closeSession();
+  });
+
+  it('reports unobserved Route C identity as unavailable, not a mismatch', async () => {
+    const backend = new AppiumDeviceBackend(
+      new MockAppiumDriver({
+        createSessionResult: { sessionId: 'unobserved-session', deviceUdid: TEST_UDID },
+      }),
+      {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaStartupMode: 'managed-xcodebuild',
+      },
+    );
+    try {
+      await expect(backend.probePhysicalReadiness()).resolves.toMatchObject({
+        ready: false,
+        failureCode: 'wda_status_failed',
+        targetWdaBundleId: 'unobserved',
+      });
+    } finally {
+      await backend.closeSession();
+    }
   });
 
   it('classifies Route C session failures without claiming readiness', async () => {

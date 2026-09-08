@@ -318,6 +318,96 @@ describe('compileTestPlan', () => {
       const plan = compileTestPlan(makeIntent({ scope: 'smoke' }), makeProfile());
       expect(plan.execution.assertion.policy).toBe('user_goal_then_profile_then_agent_confirmed');
     });
+
+    it('preserves the exact confirmed goal and compiles quoted visible conditions for exploration', () => {
+      const sourceText =
+        '用这台真机测试应用：启动后确认“T6.12 Device Lane”可见，点击“Tap Me”，确认“Taps: 1”可见，并采集截图。';
+      const profile = makeProfile({
+        features: [
+          {
+            name: 'Validation',
+            entry: 'ValidationView',
+            keywords: ['validation'],
+            testability: 'device_backend',
+            evidence: ['Source: ValidationView.swift'],
+            confidence: 0.8,
+            confirmed: true,
+            displayOrder: 0,
+          },
+        ],
+      });
+      const plan = compileTestPlan(
+        makeIntent({
+          goal: 'exploration',
+          scope: 'explore',
+          features: ['Validation'],
+          sourceText,
+          metricsRequested: false,
+        }),
+        profile,
+      );
+
+      expect(plan.execution.goal).toBe(sourceText);
+      expect(plan.execution.assertion.policy).toBe('user_goal_then_profile_then_agent_confirmed');
+      expect(plan.execution.assertions?.[0]?.source).toBe('user');
+      expect(
+        plan.execution.assertions?.[0]?.conditions.map((condition) => condition.target),
+      ).toEqual(['T6.12 Device Lane', 'Taps: 1']);
+    });
+
+    it('redacts sensitive text before persisting the confirmed goal', () => {
+      const plan = compileTestPlan(
+        makeIntent({ sourceText: '测试登录，OTP 123456，确认“Login”可见' }),
+        makeProfile(),
+      );
+      expect(plan.execution.goal).not.toContain('123456');
+      expect(plan.execution.goal).toContain('[REDACTED]');
+    });
+
+    it('blocks sensitive assertion literals without echoing them or making placeholder assertions', () => {
+      for (const secret of [
+        `sk-${'A'.repeat(32)}`,
+        'OTP 123456',
+        'tester@example.com',
+        '[REDACTED]',
+      ]) {
+        let failure: unknown;
+        try {
+          compileTestPlan(
+            makeIntent({ sourceText: `confirm "${secret}" is visible` }),
+            makeProfile(),
+          );
+        } catch (error) {
+          failure = error;
+        }
+        expect(failure).toBeInstanceOf(Error);
+        expect(String(failure)).toContain('assertion_sensitive_target');
+        expect(String(failure)).not.toContain(secret);
+      }
+    });
+
+    it('requires reconfirmation rather than assigning multi-case conditions to the first case', () => {
+      const profile = makeProfile();
+      for (const feature of profile.features) feature.confirmed = true;
+      expect(() =>
+        compileTestPlan(
+          makeIntent({
+            features: ['Login', 'Checkout'],
+            sourceText:
+              'Login: confirm "Welcome" is visible. Checkout: confirm "Order sent" is visible.',
+          }),
+          profile,
+        ),
+      ).toThrow('assertion_case_ambiguous');
+      const plan = compileTestPlan(
+        makeIntent({
+          features: ['Login', 'Checkout'],
+          sourceText: 'Explore Login and Checkout',
+        }),
+        profile,
+      );
+      expect(plan.execution.assertions).toEqual([]);
+    });
   });
 
   // ── confirmedOnly filter ───────────────────────────────────
@@ -353,9 +443,10 @@ describe('compileTestPlan', () => {
   // ── Backend preference resolution ──────────────────────────
 
   describe('backendPreference resolution', () => {
-    it('includes both device and performance backends', () => {
+    it('includes production device and performance backends without a mock fallback', () => {
       const plan = compileTestPlan(makeIntent(), makeProfile());
-      expect(plan.backendPreference.device).toBeDefined();
+      expect(plan.backendPreference.device).toEqual(['appium']);
+      expect(plan.backendPreference.device).not.toContain('mock');
       expect(plan.backendPreference.performance).toBeDefined();
     });
 

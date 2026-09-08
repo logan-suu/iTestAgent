@@ -16,7 +16,10 @@ function plan(path: 'xcuitest' | 'device_backend' = 'xcuitest'): TestPlan {
     projectProfileRef:
       'projects/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/project-profile.json',
     target: { type: 'current_workspace' },
-    device: { kind: 'simulator', simulator: { selector: 'by_udid', udid: 'SIM-1' } },
+    device:
+      path === 'device_backend'
+        ? { kind: 'physical', physical: { selector: 'by_udid', udid: 'DEVICE-1' } }
+        : { kind: 'simulator', simulator: { selector: 'by_udid', udid: 'SIM-1' } },
     appSource: { strategy: 'auto_from_workspace' },
     backendPreference: {},
     execution: {
@@ -167,8 +170,15 @@ describe('rerun production permission scope', () => {
       'execute_project_build',
       'replace_device_app',
     ]);
-    expect(productionPermissionActions(plan('device_backend'))).toEqual([]);
-    expect(productionPermissionActions(plan('device_backend'), true)).toEqual(['prepare_wda']);
+    expect(productionPermissionActions(plan('device_backend'))).toEqual([
+      'execute_project_build',
+      'replace_device_app',
+    ]);
+    expect(productionPermissionActions(plan('device_backend'), true)).toEqual([
+      'execute_project_build',
+      'replace_device_app',
+      'prepare_wda',
+    ]);
   });
 });
 

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { type LanguageModel, generateText } from 'ai';
 import type {
@@ -7,10 +7,13 @@ import type {
   DeviceBackend,
   DeviceDiscoverySnapshot,
   DeviceInfo,
+  RunStatus,
+  TargetKind,
   TestPlan,
   ToolCall,
   ToolResult,
 } from 'itestagent-contracts';
+import { RunStatusSchema } from 'itestagent-contracts';
 import {
   AiSdkAgentRuntime,
   BackendRegistry,
@@ -28,13 +31,34 @@ import {
   suggestExplorationAction,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
+import { isDeviceReady } from './device-review.js';
 import { persistGlobalDeniedRule } from './global-deny-store.js';
 import { retainMessages } from './message-retention.js';
+import {
+  DEFAULT_PROVIDER_BASE_URL,
+  DEFAULT_PROVIDER_MODEL,
+  sanitizeProviderErrorMessage,
+} from './provider-validation.js';
 import { loadTuiRuntimeConfig } from './runtime-config.js';
 
 interface SessionConfig {
   baseURL?: string;
   model?: string;
+}
+
+interface CommittedRunNotice {
+  runId: string;
+  runDir: string;
+  runStatus?: RunStatus;
+}
+
+function reportLocationNotice(committedRun: { runDir: string } | null): string {
+  if (!committedRun) return 'No report was saved for this execution.';
+  return [
+    `Report directory: ${committedRun.runDir}`,
+    `Summary: ${join(committedRun.runDir, 'summary.md')}`,
+    `Evidence directory: ${join(committedRun.runDir, 'artifacts')}`,
+  ].join('\n');
 }
 
 async function loadApiKey(): Promise<string | null> {
@@ -112,16 +136,12 @@ function normalizeDiscovery(value: AgentDeviceDiscovery | DeviceInfo[]): AgentDe
   return Array.isArray(value) ? { devices: value, status: 'ok', issues: [] } : value;
 }
 
-function isReadyDevice(device: DeviceInfo): boolean {
-  return device.targetKind === 'physical' || device.state === 'booted';
-}
-
 export function selectConfirmedPlanDevice(
   plan: TestPlan,
   devices: readonly DeviceInfo[],
 ): DeviceInfo {
   let candidates = devices.filter(
-    (device) => device.targetKind === plan.device.kind && isReadyDevice(device),
+    (device) => device.targetKind === plan.device.kind && isDeviceReady(device),
   );
   if (plan.device.kind === 'physical') {
     const selector = plan.device.physical;
@@ -158,6 +178,10 @@ export interface AgentSessionDependencies {
   createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
   listDevices?: () => Promise<AgentDeviceDiscovery | DeviceInfo[]>;
+  /** Injectable delay used by the explicit device-refresh settling probe. */
+  waitForDeviceRefresh?: (delayMs: number) => Promise<void>;
+  /** Injectable ask deadline; production uses the PermissionEngine default. */
+  permissionAskTimeoutMs?: number;
   createDeviceBackend?: (device: DeviceInfo) => DeviceBackend;
   closeDeviceBackend?: ProductionAgentSessionDependencies['closeDeviceBackend'];
   /** Full production composition; tests should replace only its external transport boundaries. */
@@ -172,6 +196,7 @@ export interface AgentSessionDependencies {
     workspace: string;
     device: DeviceInfo;
     signal?: AbortSignal;
+    onProgress?: (message: string) => void;
   }) => Promise<unknown>;
 }
 
@@ -179,8 +204,14 @@ export interface TuiAgentSession {
   processMessage(input: string): AsyncIterable<TuiStatePatch>;
   getDevices(): readonly DeviceInfo[];
   confirmCandidates(candidates: readonly CandidateLink[]): readonly TuiStatePatch[];
+  selectDevice(
+    udid: string,
+    switchDecision?: { token: string; allow: boolean },
+  ): Promise<readonly TuiStatePatch[]>;
+  refreshDevices(): Promise<readonly TuiStatePatch[]>;
   modifyPlan(input: string): readonly TuiStatePatch[];
   confirmPlan(): readonly TuiStatePatch[];
+  executeConfirmedPlan(): AsyncIterable<TuiStatePatch>;
   cancelPlan(): readonly TuiStatePatch[];
   getConfirmedPlan(): TestPlan | null;
   resolvePermission(callId: string, effect: 'allow' | 'deny', remember?: boolean): Promise<void>;
@@ -209,10 +240,14 @@ export interface TuiStatePatch {
     | 'mode_change'
     | 'intent_update'
     | 'candidates_update'
+    | 'device_selection_request'
+    | 'device_target_switch_request'
+    | 'device_selected'
     | 'plan_update'
     | 'permission_request'
     | 'permission_resolved'
     | 'devices_update'
+    | 'activity_update'
     | 'error';
   payload: Record<string, unknown>;
 }
@@ -247,6 +282,11 @@ class PatchQueue implements AsyncIterable<TuiStatePatch> {
   }
 }
 
+interface ActivePatchQueue {
+  readonly owner: symbol;
+  readonly queue: PatchQueue;
+}
+
 export async function createAgentSession(
   workspace: string,
   dependencies: AgentSessionDependencies = {},
@@ -254,10 +294,10 @@ export async function createAgentSession(
   const production = dependencies.production ?? createProductionAgentSessionDependencies();
   const runtimeConfig = loadTuiRuntimeConfig({ workspace });
   const config: SessionConfig = {
-    baseURL: runtimeConfig.model.baseURL ?? 'https://api.deepseek.com/v1',
-    model: runtimeConfig.model.model ?? 'deepseek-chat',
+    baseURL: runtimeConfig.model.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
+    model: runtimeConfig.model.model ?? DEFAULT_PROVIDER_MODEL,
   };
-  assertProviderUrl(config.baseURL ?? 'https://api.deepseek.com/v1');
+  assertProviderUrl(config.baseURL ?? DEFAULT_PROVIDER_BASE_URL);
   const apiKey = await (dependencies.loadApiKey ?? loadApiKey)();
   if (!apiKey) {
     throw new Error(
@@ -268,9 +308,9 @@ export async function createAgentSession(
   const model = dependencies.createModel
     ? dependencies.createModel(config, apiKey)
     : createOpenAI({
-        baseURL: config.baseURL ?? 'https://api.deepseek.com/v1',
+        baseURL: config.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
         apiKey,
-      }).chat(config.model ?? 'deepseek-chat');
+      }).chat(config.model ?? DEFAULT_PROVIDER_MODEL);
 
   const analyzeWorkspace = dependencies.analyzeWorkspace ?? production.analyzeWorkspace;
   const listDevices = dependencies.listDevices ?? (() => production.deviceDiscovery.discover());
@@ -279,25 +319,74 @@ export async function createAgentSession(
     (dependencies.createDeviceBackend ? () => false : (production.preparesWda ?? (() => false)));
   let discovery = normalizeDiscovery(await listDevices());
   let devices = discovery.devices;
-  const physicalDevice = devices.find((device) => device.targetKind === 'physical');
-
-  const registry = new BackendRegistry();
-  if (physicalDevice) {
-    registry.register(
-      'appium',
-      (dependencies.createDeviceBackend ?? production.createDeviceBackend)(physicalDevice),
+  let selectedDeviceUdid: string | null = null;
+  const waitForDeviceRefresh =
+    dependencies.waitForDeviceRefresh ??
+    ((delayMs: number) => new Promise<void>((resolve) => setTimeout(resolve, delayMs)));
+  let refreshTail: Promise<void> = Promise.resolve();
+  const refreshDiscovery = () => {
+    const refresh = refreshTail.then(async () => {
+      const nextDiscovery = normalizeDiscovery(await listDevices());
+      discovery = nextDiscovery;
+      devices = nextDiscovery.devices;
+      if (
+        selectedDeviceUdid &&
+        !devices.some((device) => device.udid === selectedDeviceUdid && isDeviceReady(device))
+      ) {
+        selectedDeviceUdid = null;
+      }
+      return nextDiscovery;
+    });
+    // A failed probe must not poison later user-requested refreshes.
+    refreshTail = refresh.then(
+      () => undefined,
+      () => undefined,
     );
-  }
+    return refresh;
+  };
+
+  const targetKindForCurrentPlan = (): TargetKind | null =>
+    planningSession?.getSnapshot().plan?.device.kind ?? null;
+
+  const refreshUntilTargetSettles = async (selectedUdid?: string, requestedKind?: TargetKind) => {
+    await refreshDiscovery();
+    const targetKind = requestedKind ?? targetKindForCurrentPlan();
+    if (!targetKind) return;
+    for (const delayMs of [250, 750, 1_500]) {
+      if (
+        devices.some(
+          (device) =>
+            device.targetKind === targetKind &&
+            (!selectedUdid || device.udid === selectedUdid) &&
+            isDeviceReady(device),
+        )
+      ) {
+        return;
+      }
+      await waitForDeviceRefresh(delayMs);
+      await refreshDiscovery();
+    }
+  };
 
   const permissionEngine = new PermissionEngine({
     preloadedRules: runtimeConfig.permissions.deniedRules,
+    askTimeoutMs: dependencies.permissionAskTimeoutMs,
   });
   const pendingPermissionIds = new Set<string>();
   const pendingPermissions = new Map<string, { action: string; resource: string }>();
-  let activeQueue: PatchQueue | null = null;
+  let activeQueue: ActivePatchQueue | null = null;
   let activeTurn = false;
+  let activeDirectExecutionAbort: AbortController | null = null;
   let discoveryNoticeEmitted = false;
   let planningSession: PlanningSession | null = null;
+  let deviceSelectionRevision = 0;
+  let pendingTargetSwitch: {
+    token: string;
+    udid: string;
+    kind: TargetKind;
+    session: PlanningSession;
+    plan: string;
+  } | null = null;
   let cachedAnalysis: ProjectAnalysisResult | null = null;
   const transcript: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
@@ -305,7 +394,9 @@ export async function createAgentSession(
     if (!cachedAnalysis) cachedAnalysis = await analyzeWorkspace(workspace);
     return cachedAnalysis;
   };
-  let latestCommittedRun: { runId: string; runDir: string } | null = null;
+  let latestCommittedRun: CommittedRunNotice | null = null;
+  const getLatestCommittedRun = (): CommittedRunNotice | null => latestCommittedRun;
+  let activeExecutionActivityId: string | null = null;
 
   const confirmedExecutionContext = () => {
     const plan = planningSession?.getConfirmedPlan();
@@ -320,16 +411,13 @@ export async function createAgentSession(
       throw new Error('execution_blocked: project profile has no confirmed bundleId');
     }
     const resource = `${bundleId}@${device.udid}`;
-    const actions =
-      plan.execution.resolvedPath === 'xcuitest'
-        ? [...productionPermissionActions(plan)]
-        : ['replace_device_app', ...productionPermissionActions(plan, preparesWda(device))];
+    const actions = [...productionPermissionActions(plan, preparesWda(device))];
     return { plan, device, bundleId, resource, actions };
   };
 
   const executeConfirmedPlan =
     dependencies.executeConfirmedPlan ??
-    (async ({ plan, workspace: executionWorkspace, device, signal }) => {
+    (async ({ plan, workspace: executionWorkspace, device, signal, onProgress }) => {
       const analysis = await analyzeOnce();
       const bundleId = analysis.profile.app.bundleId;
       if (!bundleId) {
@@ -352,17 +440,21 @@ export async function createAgentSession(
         workspace: executionWorkspace,
         device,
         bundleId,
+        ...(analysis.profile.app.scheme ? { scheme: analysis.profile.app.scheme } : {}),
         preparesWda: preparesWda(device),
         suggest:
           dependencies.suggestExplorationAction ??
-          (({ caseId, uiTree, history, signal: suggestionSignal }) =>
+          (({ caseId, goal, assertions, uiTree, history, signal: suggestionSignal, onProgress }) =>
             suggestExplorationAction({
               generate: async (prompt, runSignal) =>
                 (await generateText({ model, prompt, abortSignal: runSignal })).text,
               caseId,
+              goal,
+              assertions,
               uiTree,
               history,
               signal: suggestionSignal,
+              onProgress,
             })),
         authorize: (action, resource) =>
           authorizedByExecutionTool.has(`${action}\u0000${resource}`)
@@ -377,18 +469,19 @@ export async function createAgentSession(
           analyzeWorkspace,
           deviceDiscovery: production.deviceDiscovery,
           createDeviceBackend: dependencies.createDeviceBackend ?? production.createDeviceBackend,
+          physicalPreflight: production.physicalPreflight,
           closeDeviceBackend: dependencies.closeDeviceBackend ?? production.closeDeviceBackend,
         },
         transports: dependencies.transports,
         signal,
+        onProgress: ({ message }) => onProgress?.(message),
       });
-      latestCommittedRun = { runId: plan.runId, runDir: executed.runDir };
       return executed;
     });
 
   const toolDispatcher = new ToolDispatcher({
     permissionEngine,
-    backendSelector: new BackendSelector(registry),
+    backendSelector: new BackendSelector(new BackendRegistry()),
     targetKind: 'physical',
     customTools: {
       analyzeProject: {
@@ -402,18 +495,18 @@ export async function createAgentSession(
         resource: 'local-apple-devices',
         backendName: 'itestagent-backends-device-appium',
         execute: async () => {
-          discovery = normalizeDiscovery(await listDevices());
-          devices = discovery.devices;
-          activeQueue?.push({
+          await refreshDiscovery();
+          activeQueue?.queue.push({
             type: 'devices_update',
             payload: {
               devices,
               discoveryStatus: discovery.status,
               issues: discovery.issues,
+              targetKind: targetKindForCurrentPlan(),
             },
           });
           if (discovery.issues.length > 0) {
-            activeQueue?.push({
+            activeQueue?.queue.push({
               type: 'message_add',
               payload: {
                 role: 'system',
@@ -421,17 +514,26 @@ export async function createAgentSession(
               },
             });
           }
+          const targetKind = targetKindForCurrentPlan();
+          const targetDevices = targetKind
+            ? devices.filter((device) => device.targetKind === targetKind)
+            : devices;
+          const selectedDevice =
+            devices.find((device) => device.udid === selectedDeviceUdid && isDeviceReady(device)) ??
+            null;
           return {
-            connected: devices.some(isReadyDevice),
-            selectedDevice: devices.find((device) => device.targetKind === 'physical') ?? null,
-            devices,
+            targetKind,
+            ready: targetDevices.some(isDeviceReady),
+            selectedDevice: selectedDevice ? summarizeDeviceForModel(selectedDevice) : null,
+            devices: targetDevices.map(summarizeDeviceForModel),
             discoveryStatus: discovery.status,
             limitations: discovery.issues,
           };
         },
       },
       compileTestPlan: {
-        action: 'generate_draft_test',
+        // Compiling the in-memory TestPlan is not US-20 test-code generation.
+        action: 'compile_test_plan',
         resource: `workspace:${workspace}`,
         backendName: 'itestagent-engine',
         execute: async () => {
@@ -451,7 +553,36 @@ export async function createAgentSession(
         backendName: 'itestagent-engine',
         execute: async (_args, signal) => {
           const { plan, device } = confirmedExecutionContext();
-          return executeConfirmedPlan({ plan, workspace, device, signal });
+          const result = await executeConfirmedPlan({
+            plan,
+            workspace,
+            device,
+            signal,
+            onProgress: (message) => {
+              if (!activeExecutionActivityId) return;
+              activeQueue?.queue.push({
+                type: 'activity_update',
+                payload: { id: activeExecutionActivityId, text: message },
+              });
+            },
+          });
+          if (
+            result &&
+            typeof result === 'object' &&
+            'runDir' in result &&
+            typeof result.runDir === 'string' &&
+            result.runDir.trim().length > 0
+          ) {
+            const runStatus = RunStatusSchema.safeParse(
+              'runStatus' in result ? result.runStatus : undefined,
+            );
+            latestCommittedRun = {
+              runId: plan.runId,
+              runDir: resolve(result.runDir),
+              ...(runStatus.success ? { runStatus: runStatus.data } : {}),
+            };
+          }
+          return result;
         },
       },
       generateReport: {
@@ -467,6 +598,15 @@ export async function createAgentSession(
       },
     },
     onEvent: (event) => {
+      if (event.type === 'tool.started' && event.name === 'executeTestPlan') {
+        activeExecutionActivityId = event.callId;
+      }
+      if (
+        (event.type === 'tool.completed' || event.type === 'tool.failed') &&
+        event.callId === activeExecutionActivityId
+      ) {
+        activeExecutionActivityId = null;
+      }
       if (event.type === 'permission.requested') {
         pendingPermissionIds.add(event.callId);
         pendingPermissions.set(event.callId, { action: event.action, resource: event.resource });
@@ -482,7 +622,7 @@ export async function createAgentSession(
         event.type === 'tool.progress'
       ) {
         const patch = mapEventToPatch(event);
-        if (patch) activeQueue?.push(patch);
+        if (patch) activeQueue?.queue.push(patch);
       }
     },
   });
@@ -501,7 +641,8 @@ export async function createAgentSession(
       if (activeTurn) throw new Error('An agent turn is already in progress');
       activeTurn = true;
       const queue = new PatchQueue();
-      activeQueue = queue;
+      const queueOwner = Symbol('agent-message');
+      activeQueue = { owner: queueOwner, queue };
       queue.push({
         type: 'devices_update',
         payload: {
@@ -539,12 +680,16 @@ export async function createAgentSession(
           }
           if (planningSnapshot) {
             if (explicitGoal !== null) {
+              selectedDeviceUdid = null;
               queue.push({ type: 'planning_reset', payload: {} });
             }
-            for (const patch of planningPatches(planningSnapshot)) queue.push(patch);
+            for (const patch of planningPatches(planningSnapshot, devices)) queue.push(patch);
           }
 
           transcript.push({ role: 'user', content: input });
+          if (planningSnapshot && planningSnapshotNeedsUserInput(planningSnapshot.status)) {
+            return;
+          }
           let assistantText = '';
           for await (const event of agentRuntime.streamTurn({
             messages: retainSessionTranscript(transcript, 40),
@@ -561,7 +706,7 @@ export async function createAgentSession(
           });
         } finally {
           activeTurn = false;
-          activeQueue = null;
+          if (activeQueue?.owner === queueOwner) activeQueue = null;
           queue.close();
         }
       })();
@@ -577,20 +722,158 @@ export async function createAgentSession(
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      return planningPatches(planningSession.confirmCandidates(candidates));
+      return planningPatches(planningSession.confirmCandidates(candidates), devices);
+    },
+
+    async selectDevice(udid, switchDecision) {
+      if (!planningSession) {
+        throw new Error('planning_session_unavailable: submit a test goal first');
+      }
+      const session = planningSession;
+      const initial = session.getSnapshot();
+      const plan = initial.plan;
+      if (!plan) throw new Error('plan_unavailable: there is no draft plan to update');
+      if (initial.status !== 'awaiting_plan_confirmation')
+        throw new Error('invalid_transition: device selection requires a draft plan');
+      const revision = ++deviceSelectionRevision;
+      const planIdentity = JSON.stringify(plan);
+      const candidate = devices.find((device) => device.udid === udid);
+      const pending = pendingTargetSwitch;
+      pendingTargetSwitch = null;
+      if (
+        switchDecision &&
+        (!pending ||
+          pending.token !== switchDecision.token ||
+          pending.udid !== udid ||
+          pending.session !== session ||
+          pending.plan !== planIdentity ||
+          candidate?.targetKind !== pending.kind)
+      ) {
+        throw new Error(
+          'target_switch_stale: select the device again to confirm a fresh target switch',
+        );
+      }
+      if (switchDecision && !switchDecision.allow) {
+        return [
+          { type: 'device_selection_request', payload: { devices, targetKind: plan.device.kind } },
+        ];
+      }
+      if (candidate && candidate.targetKind !== plan.device.kind && !switchDecision) {
+        const token = crypto.randomUUID();
+        pendingTargetSwitch = {
+          token,
+          udid,
+          kind: candidate.targetKind,
+          session,
+          plan: planIdentity,
+        };
+        return [
+          {
+            type: 'device_target_switch_request',
+            payload: {
+              token,
+              udid,
+              name: candidate.name ?? 'Unnamed device',
+              from: plan.device.kind,
+              to: candidate.targetKind,
+            },
+          },
+        ];
+      }
+      const selectedKind = candidate?.targetKind ?? plan.device.kind;
+      await refreshUntilTargetSettles(udid, selectedKind);
+      if (
+        revision !== deviceSelectionRevision ||
+        planningSession !== session ||
+        session.getSnapshot().status !== 'awaiting_plan_confirmation' ||
+        JSON.stringify(session.getSnapshot().plan) !== planIdentity
+      )
+        return [];
+      const selected = devices.find(
+        (device) =>
+          device.udid === udid && device.targetKind === selectedKind && isDeviceReady(device),
+      );
+      if (!selected) {
+        const snapshot = planningSession.getSnapshot();
+        return [
+          deviceUpdatePatch(plan.device.kind, devices, discovery),
+          {
+            type: 'device_selection_request',
+            payload: { devices, targetKind: snapshot.plan?.device.kind ?? plan.device.kind },
+          },
+          {
+            type: 'error',
+            payload: {
+              message: `device_not_ready: selected ${selectedKind} target is not ready after refresh; connect or boot it and press r to retry`,
+            },
+          },
+        ];
+      }
+      const device =
+        selected.targetKind === 'physical'
+          ? {
+              kind: 'physical' as const,
+              physical: { selector: 'by_udid' as const, udid: selected.udid },
+            }
+          : {
+              kind: 'simulator' as const,
+              simulator: { selector: 'by_udid' as const, udid: selected.udid },
+            };
+      const snapshot =
+        selectedKind === plan.device.kind
+          ? session.selectDevice(device)
+          : session.switchDeviceTarget(device);
+      selectedDeviceUdid = snapshot.plan ? selected.udid : null;
+      return [
+        deviceUpdatePatch(selectedKind, devices, discovery),
+        ...(snapshot.plan
+          ? [{ type: 'device_selected' as const, payload: { udid: selected.udid } }]
+          : []),
+        ...planningPatches(snapshot, devices),
+      ];
+    },
+
+    async refreshDevices() {
+      const revision = ++deviceSelectionRevision;
+      const session = planningSession;
+      pendingTargetSwitch = null;
+      await refreshUntilTargetSettles();
+      if (revision !== deviceSelectionRevision || session !== planningSession) return [];
+      const targetKind = targetKindForCurrentPlan();
+      const patches: TuiStatePatch[] = [
+        {
+          type: 'devices_update',
+          payload: {
+            devices,
+            discoveryStatus: discovery.status,
+            issues: discovery.issues,
+            targetKind,
+          },
+        },
+      ];
+      const snapshot = planningSession?.getSnapshot();
+      if (snapshot?.plan) patches.push(...planningPatches(snapshot, devices));
+      return patches;
     },
 
     modifyPlan(input) {
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      return planningPatches(planningSession.modifyPlan(input));
+      return planningPatches(planningSession.modifyPlan(input), devices);
     },
 
     confirmPlan() {
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
+      const snapshot = planningSession.getSnapshot();
+      if (!snapshot.plan || planNeedsDeviceSelection(snapshot.plan, devices)) {
+        throw new Error(
+          'device_selection_required: select one ready execution target before confirming the plan',
+        );
+      }
+      selectConfirmedPlanDevice(snapshot.plan, devices);
       const plan = planningSession.confirmPlan();
       return [
         { type: 'plan_update', payload: { plan, confirmed: true } },
@@ -599,15 +882,136 @@ export async function createAgentSession(
           type: 'message_add',
           payload: {
             role: 'system',
-            text: 'Plan confirmed. Use /plan <test goal> to start a new planning cycle.',
+            text: 'Plan confirmed. Starting execution of the confirmed TestPlan.',
           },
         },
       ];
     },
 
+    executeConfirmedPlan() {
+      if (activeTurn) throw new Error('An agent operation is already in progress');
+      if (!planningSession?.getConfirmedPlan()) {
+        throw new Error('plan_confirmation_required: confirm the displayed TestPlan first');
+      }
+      latestCommittedRun = null;
+      activeTurn = true;
+      const queue = new PatchQueue();
+      const queueOwner = Symbol('confirmed-plan-execution');
+      activeQueue = { owner: queueOwner, queue };
+      const controller = new AbortController();
+      activeDirectExecutionAbort = controller;
+      const callId = `execute-${crypto.randomUUID()}`;
+      queue.push({
+        type: 'activity_update',
+        payload: { id: callId, text: 'Preparing confirmed TestPlan execution…' },
+      });
+
+      void (async () => {
+        try {
+          const result = await toolDispatcher.dispatch(
+            { id: callId, name: 'executeTestPlan', arguments: {} },
+            controller.signal,
+          );
+          const committedRun = getLatestCommittedRun();
+          queue.push({ type: 'activity_update', payload: { complete: true, id: callId } });
+          if (result.status === 'error') {
+            const output = result.output as { error?: unknown; code?: unknown } | undefined;
+            const retryHint =
+              output?.code === 'permission_timeout'
+                ? ' To retry, submit /plan <your test goal>, confirm the plan, and answer each permission prompt separately.'
+                : String(output?.error ?? '').startsWith('exploration_suggestion_invalid:')
+                  ? ' To retry, submit /plan <your test goal> and confirm the new plan. Invalid suggestions were not executed.'
+                  : '';
+            queue.push({
+              type: 'error',
+              payload: {
+                message: [
+                  (committedRun
+                    ? `${String(output?.error ?? 'Confirmed TestPlan execution failed')}. Run ${committedRun.runId} was committed with the failure result.`
+                    : String(output?.error ?? 'Confirmed TestPlan execution failed')) + retryHint,
+                  reportLocationNotice(committedRun),
+                ].join('\n'),
+                id: callId,
+              },
+            });
+            return;
+          }
+          const executionOutput =
+            typeof result.output === 'object' && result.output !== null
+              ? (result.output as Record<string, unknown>)
+              : null;
+          const deviceResult =
+            executionOutput &&
+            typeof executionOutput.result === 'object' &&
+            executionOutput.result !== null
+              ? (executionOutput.result as Record<string, unknown>)
+              : null;
+          const termination =
+            deviceResult &&
+            typeof deviceResult.explorationTermination === 'object' &&
+            deviceResult.explorationTermination !== null
+              ? (deviceResult.explorationTermination as Record<string, unknown>)
+              : null;
+          const terminationReason = termination?.reason;
+          const terminationMessage = termination?.message;
+          const assertion =
+            deviceResult &&
+            typeof deviceResult.assertion === 'object' &&
+            deviceResult.assertion !== null
+              ? (deviceResult.assertion as Record<string, unknown>)
+              : null;
+          const assertionStatus =
+            committedRun?.runStatus ??
+            (typeof assertion?.status === 'string' ? assertion.status : 'inconclusive');
+          queue.push({
+            type: 'message_add',
+            payload: {
+              role: 'system',
+              ...(!controller.signal.aborted &&
+              executionOutput?.status === 'completed' &&
+              committedRun?.runStatus
+                ? { runStatus: committedRun.runStatus }
+                : {}),
+              text: [
+                (terminationReason === 'no_progress' || terminationReason === 'step_limit') &&
+                typeof terminationMessage === 'string'
+                  ? terminationMessage +
+                    (committedRun
+                      ? ` Run ${committedRun.runId} committed with status ${assertionStatus}.`
+                      : '')
+                  : committedRun
+                    ? `Execution completed. Run ${committedRun.runId} committed.`
+                    : 'Execution completed.',
+                reportLocationNotice(committedRun),
+              ].join('\n'),
+            },
+          });
+        } catch (error: unknown) {
+          queue.push({
+            type: 'error',
+            payload: {
+              message: `${error instanceof Error ? error.message : String(error)}\n${reportLocationNotice(getLatestCommittedRun())}`,
+              id: callId,
+            },
+          });
+        } finally {
+          activeTurn = false;
+          activeDirectExecutionAbort = null;
+          activeExecutionActivityId = null;
+          if (activeQueue?.owner === queueOwner) activeQueue = null;
+          queue.close();
+        }
+      })();
+
+      return queue;
+    },
+
     cancelPlan() {
       if (!planningSession) return [];
       planningSession.cancel();
+      deviceSelectionRevision += 1;
+      pendingTargetSwitch = null;
+      selectedDeviceUdid = null;
       return [
         { type: 'plan_update', payload: { plan: null, confirmed: false } },
         { type: 'mode_change', payload: { mode: 'chat' } },
@@ -646,17 +1050,23 @@ export async function createAgentSession(
     },
 
     dispose() {
+      deviceSelectionRevision += 1;
+      pendingTargetSwitch = null;
       for (const callId of pendingPermissionIds) {
         permissionEngine.cancel(callId, 'session closed');
       }
       pendingPermissionIds.clear();
       pendingPermissions.clear();
+      activeDirectExecutionAbort?.abort('session closed');
       void agentRuntime.abort('session closed');
     },
   };
 }
 
-function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): TuiStatePatch[] {
+function planningPatches(
+  snapshot: ReturnType<PlanningSession['getSnapshot']>,
+  devices: readonly DeviceInfo[],
+): TuiStatePatch[] {
   const patches: TuiStatePatch[] = [
     { type: 'intent_update', payload: { result: snapshot.intentResult } },
   ];
@@ -721,10 +1131,70 @@ function planningPatches(snapshot: ReturnType<PlanningSession['getSnapshot']>): 
     });
   }
   if (snapshot.status === 'awaiting_plan_confirmation' && snapshot.plan) {
-    patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });
-    patches.push({ type: 'mode_change', payload: { mode: 'plan_review' } });
+    if (planNeedsDeviceSelection(snapshot.plan, devices)) {
+      patches.push({
+        type: 'device_selection_request',
+        payload: {
+          targetKind: snapshot.plan.device.kind,
+          devices,
+        },
+      });
+      patches.push({ type: 'mode_change', payload: { mode: 'device_review' } });
+    } else {
+      patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });
+      patches.push({ type: 'mode_change', payload: { mode: 'plan_review' } });
+    }
   }
   return patches;
+}
+
+function planningSnapshotNeedsUserInput(
+  status: ReturnType<PlanningSession['getSnapshot']>['status'],
+): boolean {
+  return (
+    status === 'awaiting_clarification' ||
+    status === 'awaiting_candidate_confirmation' ||
+    status === 'awaiting_execution_route_selection' ||
+    status === 'execution_route_blocked' ||
+    status === 'awaiting_plan_confirmation'
+  );
+}
+
+function deviceUpdatePatch(
+  targetKind: TargetKind | null,
+  devices: readonly DeviceInfo[],
+  discovery: AgentDeviceDiscovery,
+): TuiStatePatch {
+  return {
+    type: 'devices_update',
+    payload: {
+      devices,
+      discoveryStatus: discovery.status,
+      issues: discovery.issues,
+      targetKind,
+    },
+  };
+}
+
+function planNeedsDeviceSelection(plan: TestPlan, devices: readonly DeviceInfo[]): boolean {
+  const selector = plan.device.kind === 'physical' ? plan.device.physical : plan.device.simulator;
+  if (selector?.selector === 'by_udid') {
+    return !devices.some(
+      (device) =>
+        device.targetKind === plan.device.kind &&
+        device.udid === selector.udid &&
+        isDeviceReady(device),
+    );
+  }
+  if (selector?.selector === 'by_name') {
+    return !devices.some(
+      (device) =>
+        device.targetKind === plan.device.kind &&
+        device.name === selector.name &&
+        isDeviceReady(device),
+    );
+  }
+  return true;
 }
 
 function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
@@ -733,54 +1203,68 @@ function mapEventToPatch(event: AgentEvent): TuiStatePatch | null {
       return { type: 'message_update', payload: { text: event.delta, id: event.turnId } };
     case 'tool.started':
       return {
-        type: 'message_add',
+        type: 'activity_update',
         payload: {
-          role: 'system',
-          text: `Tool ${event.name} on ${event.backend}...`,
+          text: formatToolActivity(event.name),
           id: event.callId,
         },
       };
     case 'tool.progress':
       return {
-        type: 'message_add',
-        payload: {
-          role: 'system',
-          text:
-            event.percent === undefined ? event.message : `${event.message} (${event.percent}%)`,
-          id: event.callId,
-        },
+        type: 'activity_update',
+        payload: { text: event.message, id: event.callId },
       };
     case 'tool.completed':
       return {
-        type: 'message_add',
-        payload: { role: 'system', text: formatToolOutput(event.result), id: event.callId },
+        type: 'activity_update',
+        payload: { complete: true, id: event.callId },
       };
     case 'tool.failed':
       return { type: 'error', payload: { message: event.error.message, id: event.callId } };
     case 'permission.requested':
       return {
         type: 'permission_request',
-        payload: { callId: event.callId, action: event.action, resource: event.resource },
+        payload: {
+          callId: event.callId,
+          action: event.action,
+          resource: event.resource,
+          timeoutMs: event.timeoutMs,
+        },
       };
     case 'permission.resolved':
       return {
         type: 'permission_resolved',
-        payload: { callId: event.callId, effect: event.effect },
+        payload: { callId: event.callId, effect: event.effect, reason: event.reason },
       };
     case 'session.error':
-      return { type: 'error', payload: { message: event.error.message } };
+      return {
+        type: 'error',
+        payload: { message: sanitizeProviderErrorMessage(event.error.message) },
+      };
     default:
       return null;
   }
 }
 
-function formatToolOutput(result: ToolResult): string {
-  if (typeof result.output === 'string') return result.output;
-  try {
-    return JSON.stringify(result.output, null, 2);
-  } catch {
-    return String(result.output);
-  }
+function formatToolActivity(toolName: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    analyzeProject: 'Analyzing project…',
+    getDeviceInfo: 'Refreshing devices…',
+    compileTestPlan: 'Compiling TestPlan…',
+    executeTestPlan: 'Executing confirmed TestPlan…',
+    generateReport: 'Generating report…',
+  };
+  return labels[toolName] ?? 'Working…';
+}
+
+function summarizeDeviceForModel(device: DeviceInfo) {
+  return {
+    name: device.name ?? 'Unnamed device',
+    targetKind: device.targetKind,
+    osVersion: device.osVersion,
+    state: device.state,
+    availability: isDeviceReady(device) ? ('ready' as const) : ('discovered' as const),
+  };
 }
 
 /** B29: caps a session transcript to the retention window. */

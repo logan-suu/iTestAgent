@@ -24,6 +24,17 @@ export interface PermissionEngineOptions {
   askTimeoutMs?: number;
 }
 
+/** Distinguishes an unanswered/cancelled ask from an explicit user denial. */
+export class PermissionRequestError extends Error {
+  constructor(
+    readonly reason: 'timeout' | 'cancelled',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'PermissionRequestError';
+  }
+}
+
 // ─── Internal ──────────────────────────────────────────────
 
 interface PendingAsk {
@@ -116,6 +127,10 @@ export class PermissionEngine {
 
   // ─── Async Permission Request (blocking on ask) ──────────
 
+  getAskTimeoutMs(): number {
+    return this.askTimeoutMs;
+  }
+
   /**
    * Request permission for a tool call.
    *
@@ -157,8 +172,9 @@ export class PermissionEngine {
       const timer = setTimeout(() => {
         this.pending.delete(callId);
         reject(
-          new Error(
-            `Permission ask timed out after ${this.askTimeoutMs}ms: ${action} on ${resource}`,
+          new PermissionRequestError(
+            'timeout',
+            `Permission ask timed out after ${this.askTimeoutMs}ms: ${action}`,
           ),
         );
       }, this.askTimeoutMs);
@@ -213,7 +229,7 @@ export class PermissionEngine {
 
     clearTimeout(pending.timer);
     this.pending.delete(callId);
-    pending.reject(new Error(`Permission ask cancelled: ${reason}`));
+    pending.reject(new PermissionRequestError('cancelled', `Permission ask cancelled: ${reason}`));
   }
 
   // ─── Rule Management ─────────────────────────────────────

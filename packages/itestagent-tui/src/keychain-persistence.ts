@@ -6,9 +6,11 @@
  *     every first save must present scope/service/account/revocation and
  *     obtain an explicit interactive confirmation (see authorizePersistence).
  *   - The secret must never travel through argv, environment, URL, process
- *     title, stdout/stderr, or reports. This module transports the secret
- *     via the child's STDIN only: `security add-generic-password ... -w`
- *     uses a bare trailing `-w` flag so the password is read from stdin.
+ *     title, stdout/stderr, or reports. This module transports encoded
+ *     credential material through the child's STDIN only by running
+ *     `security -i` and submitting an `add-generic-password ... -X <hex>`
+ *     command. A bare trailing `-w` is forbidden because macOS treats it as
+ *     an interactive prompt rather than reading the password from a pipe.
  *   - Items must be non-sync, device-local, when-unlocked
  *     (KEYCHAIN_ACCESS_CONTROL). Items created by `security
  *     add-generic-password` are login-keychain (device-local) generic
@@ -106,8 +108,13 @@ export interface PersistenceAuthorization {
  */
 const liveAuthorizations = new Set<PersistenceAuthorization>();
 
+const SECURITY_INTERACTIVE_TARGET = /^[A-Za-z0-9._/@:+-]+$/u;
+
 function isValidTarget(target: KeychainTarget): boolean {
-  return target.service.trim().length > 0 && target.account.trim().length > 0;
+  return (
+    SECURITY_INTERACTIVE_TARGET.test(target.service) &&
+    SECURITY_INTERACTIVE_TARGET.test(target.account)
+  );
 }
 
 export function authorizePersistence(
@@ -116,7 +123,10 @@ export function authorizePersistence(
   now: number = Date.now(),
 ): Result<PersistenceAuthorization, KeychainError> {
   if (!isValidTarget(target)) {
-    return err({ code: 'invalid_target', message: 'Keychain service and account are required' });
+    return err({
+      code: 'invalid_target',
+      message: 'Keychain service and account must be non-empty safe identifiers',
+    });
   }
   if (confirmation !== PERSISTENCE_CONFIRMATION_TOKEN) {
     return err({
@@ -206,13 +216,13 @@ export interface SecurityRunner {
 /** Pinned security binary location (never resolved from PATH). */
 export const SECURITY_BINARY = '/usr/bin/security';
 
-const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 /**
  * Default runner backed by node:child_process.
  *
  * Exposure discipline:
- *   - argv carries only non-secret flags; `-w` is always bare (stdin read).
+ *   - argv carries only the non-secret `-i` flag for credential writes.
  *   - env is a minimal PATH/HOME allowlist — ambient variables (which could
  *     plausibly contain secrets) are never forwarded to the child.
  *   - stdout/stderr are only ever READ; the module never writes into them.
@@ -341,11 +351,24 @@ export async function saveCredential(
   // Consume the single-use authorization up front: one confirmation, one save.
   liveAuthorizations.delete(authorization);
 
-  // Bare trailing `-w`: the password is read from stdin, never argv.
-  const addResult = await runner.run(
-    ['add-generic-password', '-U', '-s', target.service, '-a', target.account, '-w'],
-    { stdin: value },
-  );
+  // `security add-generic-password ... -w` cannot consume a piped password:
+  // a bare -w explicitly requests an interactive prompt. Interactive mode,
+  // however, accepts commands on stdin. Encode arbitrary UTF-8 bytes for -X
+  // so neither the raw credential nor encoded material enters argv.
+  const encodedValue = Buffer.from(value, 'utf-8').toString('hex');
+  const addCommand = [
+    'add-generic-password',
+    '-U',
+    '-s',
+    target.service,
+    '-a',
+    target.account,
+    '-X',
+    encodedValue,
+  ].join(' ');
+  const addResult = await runner.run(['-i'], {
+    stdin: `${addCommand}\n`,
+  });
 
   const addError = mapRunResult(addResult);
   if (addError) return err(addError);

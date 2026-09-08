@@ -22,7 +22,15 @@ import {
   YELLOW,
   separatorLine,
 } from '../ansi-layout.js';
+import { reviewPresentation } from '../review-presentation.js';
+import {
+  STARTUP_BRAND_COLOR,
+  completionMessageParts,
+  startupBrandLines,
+  successBrandLines,
+} from '../startup-brand.js';
 import type { TuiShellState } from '../tui-shell.js';
+import { isListReview } from './opentui-key-dispatch.js';
 
 /** Minimal write surface — satisfied by process.stdout and test fakes. */
 export interface FrameWriteTarget {
@@ -48,14 +56,28 @@ export function renderFrame(state: TuiShellState): string[] {
   const lines: string[] = [];
   const cols = process.stdout.columns || 80;
   const mode = state.mode;
+  const dimensions = { width: cols, height: process.stdout.rows || 24 };
+  const startupLines = startupBrandLines(state, dimensions);
+  const startupColor =
+    startupLines.length > 1
+      ? `${CSI}38;2;${[1, 3, 5].map((offset) => Number.parseInt(STARTUP_BRAND_COLOR.slice(offset, offset + 2), 16)).join(';')}m`
+      : CYAN;
 
   // Header
-  lines.push(`${BOLD}iTestAgent v0.0.1${RESET}`);
+  lines.push(`${BOLD}${startupLines.length > 1 ? '' : 'iTestAgent '}v0.0.1${RESET}`);
   lines.push(`${DIM}${state.workspace}${RESET}`);
+  if (state.agentActivity) {
+    lines.push(`${DIM}Activity: ${state.agentActivity.text}${RESET}`);
+  }
   lines.push(separatorLine(cols));
+  for (const line of startupLines) {
+    lines.push(`${startupColor}${line}${RESET}`);
+  }
+  if (isListReview(state)) return [...lines, ...reviewPresentation(state, dimensions.height)];
 
   // Messages
   for (const msg of state.messages) {
+    const parts = completionMessageParts(msg);
     const prefix =
       msg.type === 'user'
         ? `${GREEN}YOU${RESET}`
@@ -64,7 +86,11 @@ export function renderFrame(state: TuiShellState): string[] {
           : msg.type === 'error'
             ? `${RED}ERR${RESET}`
             : `${DIM}SYS${RESET}`;
-    lines.push(`[${prefix}] ${msg.text}`);
+    lines.push(`[${prefix}] ${parts.heading}`);
+    for (const line of successBrandLines(msg, dimensions, state.messages)) {
+      lines.push(`${BOLD}${GREEN}${line}${RESET}`);
+    }
+    if (parts.details) lines.push(parts.details);
   }
 
   if (state.messages.length === 0) {
@@ -94,7 +120,7 @@ export function renderFrame(state: TuiShellState): string[] {
     } else if (step === 2) {
       lines.push(`${BOLD}Model Name${RESET}`);
       lines.push(`${DIM}Default: ${state.setupModel}${RESET}`);
-      lines.push('Press Enter to accept default, or type a custom model name.');
+      lines.push('Press Enter to validate the endpoint, API key, and model.');
       if (state.setupError) lines.push(`${RED}${state.setupError}${RESET}`);
     } else if (step === 3) {
       lines.push(`${BOLD}Credential Storage${RESET}`);
@@ -109,12 +135,6 @@ export function renderFrame(state: TuiShellState): string[] {
     }
     lines.push('');
     lines.push(`${DIM}Ctrl+C to exit setup at any time.${RESET}`);
-  } else if (mode === 'candidate_review') {
-    lines.push(
-      `${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`,
-    );
-  } else if (mode === 'plan_review') {
-    lines.push(`${YELLOW}[Plan Review]${RESET} j/k to navigate, Enter to confirm, q to cancel`);
   }
 
   return lines;

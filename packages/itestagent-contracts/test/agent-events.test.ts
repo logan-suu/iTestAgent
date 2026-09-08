@@ -156,6 +156,38 @@ test('PermissionResolvedEventSchema parses with allow/deny effect', () => {
   expect(asked.effect).toBe('ask');
 });
 
+test('non-user permission failures must deny in both standalone and union schemas', () => {
+  for (const reason of ['timeout', 'cancelled', 'error']) {
+    for (const effect of ['allow', 'ask', 'deny']) {
+      const event = { type: 'permission.resolved', callId: 'test-ask', effect, reason };
+      expect(PermissionResolvedEventSchema.safeParse(event).success).toBe(effect === 'deny');
+      expect(AgentEventSchema.safeParse(event).success).toBe(effect === 'deny');
+    }
+  }
+});
+
+test('permission events retain the ask deadline and non-user terminal reason', () => {
+  expect(
+    AgentEventSchema.parse({
+      type: 'permission.requested',
+      callId: 'call_deadline',
+      action: 'prepare_wda',
+      resource: 'com.example.App@device-fixture',
+      timeoutMs: 120_000,
+    }),
+  ).toMatchObject({ timeoutMs: 120_000 });
+  for (const reason of ['timeout', 'cancelled', 'error']) {
+    expect(
+      AgentEventSchema.parse({
+        type: 'permission.resolved',
+        callId: 'call_deadline',
+        effect: 'deny',
+        reason,
+      }),
+    ).toMatchObject({ effect: 'deny', reason });
+  }
+});
+
 // ─── Test 8: ToolStartedEventSchema parses valid tool start ────
 
 test('ToolStartedEventSchema parses valid tool start', () => {

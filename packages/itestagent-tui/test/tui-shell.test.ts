@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import type { DeviceInfo } from 'itestagent-contracts';
 import {
   type TuiShellEvent,
   type TuiShellState,
@@ -152,6 +153,105 @@ describe('tuiShellReducer', () => {
   it('device_status_updated does not affect messages', () => {
     const next = tuiShellReducer(base, { type: 'device_status_updated', status: 'untrusted' });
     expect(next.messages).toHaveLength(0);
+  });
+
+  it('keeps discovered inventory unselected until device review confirms a ready target', () => {
+    const offline: DeviceInfo = {
+      udid: 'offline',
+      name: 'Paired iPhone',
+      platform: 'ios',
+      targetKind: 'physical',
+      availability: 'discovered',
+    };
+    const ready: DeviceInfo = {
+      udid: 'ready',
+      name: 'USB iPhone',
+      platform: 'ios',
+      targetKind: 'physical',
+      availability: 'ready',
+    };
+    const inventory = tuiShellReducer(base, {
+      type: 'devices_updated',
+      devices: [offline, ready],
+      status: 'discovered',
+    });
+    expect(inventory.deviceStatus).toBe('discovered');
+    expect(inventory.selectedDeviceUdid).toBeNull();
+
+    const review = tuiShellReducer(inventory, {
+      type: 'enter_device_review',
+      targetKind: 'physical',
+      devices: [offline, ready],
+    });
+    expect(review.mode).toBe('device_review');
+    expect(review.deviceSelectionIndex).toBe(1);
+
+    const selected = tuiShellReducer(review, { type: 'device_selected', udid: ready.udid });
+    expect(selected.deviceStatus).toBe('healthy');
+    expect(selected.selectedDeviceUdid).toBe(ready.udid);
+  });
+
+  it('clears healthy status when the selected target disappears on refresh', () => {
+    const selected = {
+      ...base,
+      selectedDeviceUdid: 'ready',
+      deviceStatus: 'healthy' as const,
+    };
+    const refreshed = tuiShellReducer(selected, {
+      type: 'devices_updated',
+      devices: [],
+      status: 'no_device',
+    });
+    expect(refreshed.deviceStatus).toBe('no_device');
+    expect(refreshed.selectedDeviceUdid).toBeNull();
+  });
+
+  it('clears the selected target when the same inventory record is no longer ready', () => {
+    const selected = {
+      ...base,
+      selectedDeviceUdid: 'ready',
+      deviceStatus: 'healthy' as const,
+    };
+    const refreshed = tuiShellReducer(selected, {
+      type: 'devices_updated',
+      devices: [
+        {
+          udid: 'ready',
+          platform: 'ios',
+          targetKind: 'physical',
+          availability: 'discovered',
+        },
+      ],
+      status: 'unavailable',
+    });
+    expect(refreshed.deviceStatus).toBe('unavailable');
+    expect(refreshed.selectedDeviceUdid).toBeNull();
+  });
+
+  it('keeps a planning reset unavailable when inventory has no ready target', () => {
+    const discoveredOnly = {
+      ...base,
+      devices: [
+        {
+          udid: 'paired-only',
+          platform: 'ios' as const,
+          targetKind: 'physical' as const,
+          availability: 'discovered' as const,
+        },
+      ],
+      deviceStatus: 'unavailable' as const,
+    };
+    const reset = tuiShellReducer(discoveredOnly, { type: 'planning_reset' });
+    expect(reset.deviceStatus).toBe('unavailable');
+  });
+
+  it('fails closed when a physical inventory record omits readiness', () => {
+    const inventory = tuiShellReducer(base, {
+      type: 'enter_device_review',
+      targetKind: 'physical',
+      devices: [{ udid: 'paired-only', platform: 'ios', targetKind: 'physical' }],
+    });
+    expect(inventory.deviceStatus).toBe('unavailable');
   });
 
   // ── quit event ──

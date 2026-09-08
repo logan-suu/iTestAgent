@@ -171,6 +171,31 @@ function formatExecutionSection(plan: TestPlan): PlanSection {
         kind: 'enum',
         editable: false,
       },
+      ...(plan.execution.goal
+        ? [
+            {
+              key: 'goal',
+              label: 'Goal',
+              value: plan.execution.goal,
+              kind: 'text' as const,
+              editable: false,
+            },
+          ]
+        : []),
+      ...(plan.execution.assertions?.length
+        ? [
+            {
+              key: 'assertions',
+              label: 'Success Criteria',
+              value: plan.execution.assertions
+                .flatMap((assertion) => assertion.conditions)
+                .map((condition) => condition.description)
+                .join('; '),
+              kind: 'list' as const,
+              editable: false,
+            },
+          ]
+        : []),
       {
         key: 'assertion',
         label: 'Assertion',

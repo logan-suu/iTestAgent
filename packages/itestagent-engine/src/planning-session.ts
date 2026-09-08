@@ -1,4 +1,5 @@
-import type { Intent, IntentParseResult, TestPlan } from 'itestagent-contracts';
+import { parseTestPlan } from 'itestagent-contracts';
+import type { DeviceSelector, Intent, IntentParseResult, TestPlan } from 'itestagent-contracts';
 import type {
   CandidateLink,
   ProjectAnalysisResult,
@@ -207,6 +208,7 @@ export class PlanningSession {
     }
 
     const currentIntent = this.intentResult.intent;
+    const selectedDevice = this.plan.device;
     const parsed = parseIntent(input, this.reviewedProfile);
     const requested = parsed.intent.features;
     const confirmedNames = new Set(
@@ -246,10 +248,34 @@ export class PlanningSession {
       sourceText: `${currentIntent.sourceText}\nModification: ${input}`,
     };
     this.intentResult = { status: 'complete', intent };
-    return this.resolvePlan(intent, false, {
+    const resolved = this.resolvePlan(intent, false, {
       runId: this.plan.runId,
       projectProfileRef: this.plan.projectProfileRef,
     });
+    if (
+      resolved.status === 'awaiting_plan_confirmation' &&
+      this.plan &&
+      this.plan.device.kind === selectedDevice.kind
+    ) {
+      this.plan = parseTestPlan({ ...this.plan, device: selectedDevice });
+      return this.snapshot();
+    }
+    return resolved;
+  }
+
+  selectDevice(device: DeviceSelector): PlanningSnapshot {
+    this.requireStatus('awaiting_plan_confirmation', 'select device');
+    if (!this.plan) {
+      throw new PlanningSessionError('plan_unavailable', 'there is no draft plan to update');
+    }
+    if (device.kind !== this.plan.device.kind) {
+      throw new PlanningSessionError(
+        'invalid_transition',
+        `selected ${device.kind} target does not match planned ${this.plan.device.kind} target`,
+      );
+    }
+    this.plan = parseTestPlan({ ...this.plan, device });
+    return this.snapshot();
   }
 
   confirmPlan(): TestPlan {
@@ -259,6 +285,29 @@ export class PlanningSession {
     }
     this.status = 'confirmed';
     return clonePlanningValue(this.plan);
+  }
+
+  /** Recompile a draft after an explicit, target-specific user confirmation. */
+  switchDeviceTarget(device: DeviceSelector): PlanningSnapshot {
+    this.requireStatus('awaiting_plan_confirmation', 'switch device target');
+    if (!this.plan || this.intentResult?.status !== 'complete') {
+      throw new PlanningSessionError('plan_unavailable', 'there is no draft plan to update');
+    }
+    // Resolve on a separate draft so invalid input cannot partially mutate this session.
+    const draft = new PlanningSession(this.analysis);
+    draft.candidates = clonePlanningValue(this.candidates);
+    draft.reviewedProfile = clonePlanningValue(this.reviewedProfile);
+    draft.resolvePlan({ ...this.intentResult.intent, targetKind: device.kind }, false, {
+      runId: this.plan.runId,
+      projectProfileRef: this.plan.projectProfileRef,
+    });
+    if (draft.plan) draft.selectDevice(device);
+    this.intentResult = draft.intentResult;
+    this.plan = draft.plan;
+    this.executionRoute = draft.executionRoute;
+    this.pendingIdentity = draft.pendingIdentity;
+    this.status = draft.status;
+    return this.snapshot();
   }
 
   cancel(): PlanningSnapshot {

@@ -63,12 +63,16 @@ function storeRunner(store: Map<string, string>, dumpOk = true) {
     const account = acctIdx >= 0 ? (args[acctIdx + 1] ?? '') : '';
     const key = `${service}|${account}`;
     switch (verb) {
-      case 'add-generic-password': {
-        // Bare -w: password arrives via stdin.
-        if (stdin === undefined) {
+      case '-i': {
+        const match =
+          /^add-generic-password -U -s ([A-Za-z0-9._/@:+-]+) -a ([A-Za-z0-9._/@:+-]+) -X ([0-9a-f]+)\n$/u.exec(
+            stdin ?? '',
+          );
+        if (!match) {
           return { exitCode: 45, stdout: '', stderr: 'password required', timedOut: false };
         }
-        store.set(key, stdin);
+        const interactiveKey = `${match[1] ?? ''}|${match[2] ?? ''}`;
+        store.set(interactiveKey, Buffer.from(match[3] ?? '', 'hex').toString('utf-8'));
         return { exitCode: 0, stdout: '', stderr: '', timedOut: false };
       }
       case 'find-generic-password': {
@@ -257,16 +261,18 @@ describe('post-write verification', () => {
 // ─── Transport discipline inside the happy path ─────────────
 
 describe('transport discipline', () => {
-  it('add-generic-password receives the secret via stdin with a bare trailing -w', async () => {
+  it('add-generic-password runs in stdin-driven interactive mode with hex credential data', async () => {
     const store = new Map<string, string>();
     const runner = storeRunner(store);
     await saveCredential(runner, TARGET, SECRET_A, authorized());
 
-    const add = runner.calls.find((c) => c.args[0] === 'add-generic-password');
+    const add = runner.calls.find((c) => c.args[0] === '-i');
     expect(add).toBeDefined();
-    expect(add?.args.at(-1)).toBe('-w');
-    expect(add?.stdin).toBe(SECRET_A);
+    expect(add?.args).toEqual(['-i']);
     expect(add?.args.join(' ')).not.toContain(SECRET_A);
+    expect(add?.stdin).toContain(Buffer.from(SECRET_A, 'utf-8').toString('hex'));
+    expect(add?.stdin).not.toContain(SECRET_A);
+    expect(add?.stdin?.endsWith('\n')).toBe(true);
   });
 
   it('attribute verification never requests the password (-w absent)', async () => {

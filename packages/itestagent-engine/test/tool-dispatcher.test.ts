@@ -259,6 +259,23 @@ function createDispatcher(
 
 // ─── Zod parse / Tool registry ─────────────────────────────────
 
+test('event delivery failure drains the cancelled permission before rejecting', async () => {
+  const original = new Error('synthetic delivery failure');
+  const engine = new PermissionEngine();
+  const { dispatcher } = createDispatcher({
+    permissionEngine: engine,
+    onEvent: () => {
+      throw original;
+    },
+  });
+  await expect(dispatcher.authorize('delivery-test', 'prepare_wda', 'test-app')).rejects.toBe(
+    original,
+  );
+  // Bun reports an unhandled rejection as a test failure, even if authorize was caught.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(engine.resolve('delivery-test', 'allow', false)).toBeUndefined();
+});
+
 describe('ToolRegistry — Zod parse and tool-to-backend mapping', () => {
   test('valid tap tool call maps to backend.tap with parsed params', async () => {
     const { dispatcher, backend } = createDispatcher();
@@ -454,7 +471,7 @@ describe('Permission gate — allow/deny/ask flow', () => {
 
   test('ask gate timeout → returns permission timeout error', async () => {
     const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 100 });
-    const { dispatcher, backend } = createDispatcher({ permissionEngine: pe });
+    const { dispatcher, backend, events } = createDispatcher({ permissionEngine: pe });
     const call = makeToolCall({ id: 'tc_timeout' });
 
     const result = await dispatcher.dispatch(call);
@@ -462,6 +479,54 @@ describe('Permission gate — allow/deny/ask flow', () => {
     expect(result.status).toBe('error');
     const output = result.output as Record<string, unknown>;
     expect(output.error).toMatch(/timeout|Timeout/i);
+    expect(output.code).toBe('permission_timeout');
+    expect(output.error).not.toContain('device-1');
+    expect(events).toContainEqual({
+      type: 'permission.requested',
+      callId: 'tc_timeout',
+      action: 'tap',
+      resource: 'deviceId:device-1',
+      timeoutMs: 100,
+    });
+    expect(events).toContainEqual({
+      type: 'permission.resolved',
+      callId: 'tc_timeout',
+      effect: 'deny',
+      reason: 'timeout',
+    });
+    expect(backend.tapCalls).toHaveLength(0);
+  });
+
+  test('manual ask cancellation is not reported as a timeout or user denial', async () => {
+    const pe = new PermissionEngine({ highRiskActions: ['tap'] });
+    const { dispatcher, backend, events } = createDispatcher({ permissionEngine: pe });
+    const pending = dispatcher.dispatch(makeToolCall({ id: 'tc_cancelled' }));
+    pe.cancel('tc_cancelled', 'session closed');
+
+    const result = await pending;
+    expect(result.output).toMatchObject({ code: 'permission_cancelled' });
+    expect(events).toContainEqual({
+      type: 'permission.resolved',
+      callId: 'tc_cancelled',
+      effect: 'deny',
+      reason: 'cancelled',
+    });
+    expect(backend.tapCalls).toHaveLength(0);
+  });
+
+  test('unexpected ask failure is not mislabeled as a timeout', async () => {
+    const pe = new PermissionEngine({ highRiskActions: ['tap'] });
+    const { dispatcher, backend, events } = createDispatcher({ permissionEngine: pe });
+    const pending = dispatcher.dispatch(makeToolCall({ id: 'tc_invalid' }));
+    pe.resolve('tc_invalid', 'ask', false);
+
+    expect((await pending).output).toMatchObject({ code: 'permission_error' });
+    expect(events).toContainEqual({
+      type: 'permission.resolved',
+      callId: 'tc_invalid',
+      effect: 'deny',
+      reason: 'error',
+    });
     expect(backend.tapCalls).toHaveLength(0);
   });
 
@@ -771,6 +836,23 @@ describe('AgentEvent emission', () => {
 
     pe.resolve('tc_event_1', 'allow', false);
     await dispatchPromise;
+  });
+
+  test('a permission event consumer can resolve the registered ask immediately', async () => {
+    const pe = new PermissionEngine({ highRiskActions: ['tap'], askTimeoutMs: 100 });
+    const { dispatcher, backend } = createDispatcher({
+      permissionEngine: pe,
+      onEvent: (event) => {
+        if (event.type === 'permission.requested') {
+          pe.resolve(event.callId, 'allow', false);
+        }
+      },
+    });
+
+    const result = await dispatcher.dispatch(makeToolCall({ id: 'tc_immediate_permission' }));
+
+    expect(result.status).toBe('ok');
+    expect(backend.tapCalls).toHaveLength(1);
   });
 
   test('permission.resolved event is emitted after ask is resolved', async () => {

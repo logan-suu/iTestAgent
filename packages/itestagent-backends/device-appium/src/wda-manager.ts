@@ -20,6 +20,7 @@ import { homedir } from 'node:os';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Subprocess } from 'bun';
+import { WdaLaunchMonitor, WdaReadinessError } from './wda-launch-monitor.js';
 
 // ─── Internal helper ──────────────────────────────────────────────────────
 
@@ -153,6 +154,19 @@ export interface WdaPreinstallVerification {
 export interface WdaManagerOptions {
   /** Staging directory for WDA build artifacts. Default: ~/.itestagent/wda-staging/. */
   stagingDir?: string;
+  /** Launch process seam; production always owns a detached, piped child. */
+  spawnLaunch?: (
+    command: string[],
+    options: {
+      stdout: 'pipe';
+      stderr: 'pipe';
+      signal?: AbortSignal;
+      detached: true;
+      env: Record<string, string | undefined>;
+    },
+  ) => Subprocess<'ignore', 'pipe', 'pipe'>;
+  /** Status transport seam for readiness tests without a device. */
+  fetchStatus?: (url: string, options: { signal: AbortSignal }) => Promise<Response>;
 }
 
 // ─── Implementation ───────────────────────────────────────────────────────
@@ -202,10 +216,15 @@ export async function ensureFreshProfile(
 
 export class WdaManager {
   private runningProcess: Subprocess | null = null;
+  private launchMonitor: WdaLaunchMonitor | null = null;
   private readonly stagingDir: string;
+  private readonly spawnLaunch: NonNullable<WdaManagerOptions['spawnLaunch']>;
+  private readonly fetchStatus: NonNullable<WdaManagerOptions['fetchStatus']>;
 
   constructor(options?: WdaManagerOptions) {
     this.stagingDir = options?.stagingDir ?? join(homedir(), '.itestagent', 'wda-staging');
+    this.spawnLaunch = options?.spawnLaunch ?? ((command, options) => Bun.spawn(command, options));
+    this.fetchStatus = options?.fetchStatus ?? ((url, options) => fetch(url, options));
   }
 
   /**
@@ -315,6 +334,10 @@ export class WdaManager {
    * IMPORTANT: Call stop() to clean up the subprocess.
    */
   async launch(options: WdaLaunchOptions): Promise<WdaLaunchResult> {
+    options.signal?.throwIfAborted();
+    // Retain ownership of an exited leader until its process group is cleaned.
+    if (this.runningProcess) await this.stop(undefined, options.signal);
+    options.signal?.throwIfAborted();
     const scheme = options.scheme ?? 'WebDriverAgentRunner';
     const port = options.wdaPort ?? 8100;
     const target = options.deploymentTarget ?? '17.0';
@@ -345,18 +368,31 @@ export class WdaManager {
       args.push('-derivedDataPath', options.derivedDataPath);
     }
 
-    const proc = Bun.spawn(['xcrun', 'xcodebuild', ...args], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-      signal: options.signal,
-      detached: true,
-      env: {
-        ...process.env,
-        ...(options.mjpegServerPort ? { MJPEG_SERVER_PORT: String(options.mjpegServerPort) } : {}),
-      },
-    });
+    let proc: Subprocess<'ignore', 'pipe', 'pipe'>;
+    try {
+      proc = this.spawnLaunch(['xcrun', 'xcodebuild', ...args], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+        signal: options.signal,
+        detached: true,
+        env: {
+          ...process.env,
+          ...(options.mjpegServerPort
+            ? { MJPEG_SERVER_PORT: String(options.mjpegServerPort) }
+            : {}),
+        },
+      });
+    } catch {
+      options.signal?.throwIfAborted();
+      throw new WdaReadinessError(
+        'wda_launch_failed',
+        'Unable to start the WDA xcodebuild launch process. Check that the Xcode command-line tools are available. ' +
+          'Raw process diagnostics were omitted for privacy; no automatic repair was performed.',
+      );
+    }
 
     this.runningProcess = proc;
+    this.launchMonitor = new WdaLaunchMonitor(proc);
 
     return {
       port,
@@ -382,52 +418,73 @@ export class WdaManager {
   ): Promise<WdaStatusResult> {
     const timeout = timeoutMs ?? 60000;
     const start = Date.now();
-    let lastError: string | undefined;
+    const monitor = this.launchMonitor;
+    const deadline = new AbortController();
+    const deadlineTimer = setTimeout(() => deadline.abort(), timeout);
+    const boundary = AbortSignal.any([
+      deadline.signal,
+      ...(signal ? [signal] : []),
+      ...(monitor ? [monitor.signal] : []),
+    ]);
+    let lastStatus = 'no ready response';
 
-    while (true) {
+    const checkBoundary = async () => {
       if (signal?.aborted) {
         throw new Error('WDA readiness check cancelled');
       }
-
-      if (Date.now() - start >= timeout) {
-        const waited = Date.now() - start;
-        throw new Error(
-          `WDA /status not ready after ${waited}ms${lastError ? ` (last error: ${lastError})` : ''}`,
+      await monitor?.throwIfExited();
+      if (deadline.signal.aborted || Date.now() - start >= timeout) {
+        throw new WdaReadinessError(
+          'wda_status_failed',
+          `WDA /status not ready after ${Date.now() - start}ms (${lastStatus}). Check the device connection and the WDA endpoint before retrying; signing failure is not established by a status timeout.`,
         );
       }
+    };
 
-      try {
-        const resp = await fetch(`http://127.0.0.1:${port}/status`, {
-          signal: AbortSignal.timeout(2000),
-        });
-        const body = (await resp.json()) as { value?: Record<string, unknown> };
-
-        if (body.value?.ready === true) {
-          const version: WdaVersionInfo | undefined = body.value.build
-            ? { build: body.value.build as WdaVersionInfo['build'] }
-            : undefined;
-
-          return {
-            ready: true,
-            version,
-            waitedMs: Date.now() - start,
-          };
+    try {
+      while (true) {
+        await checkBoundary();
+        const request = new AbortController();
+        const requestTimer = setTimeout(() => request.abort(), 2000);
+        try {
+          const resp = await this.fetchStatus(`http://127.0.0.1:${port}/status`, {
+            signal: AbortSignal.any([boundary, request.signal]),
+          });
+          if (!resp.ok) {
+            lastStatus = `HTTP ${resp.status}`;
+            await resp.body?.cancel();
+          } else {
+            const body = (await resp.json()) as { value?: Record<string, unknown> } | null;
+            await checkBoundary();
+            if (body?.value?.ready === true) {
+              const version: WdaVersionInfo | undefined = body.value.build
+                ? { build: body.value.build as WdaVersionInfo['build'] }
+                : undefined;
+              return { ready: true, version, waitedMs: Date.now() - start };
+            }
+            lastStatus = 'ready was not true';
+          }
+        } catch {
+          await checkBoundary();
+          lastStatus = 'request failed or timed out';
+        } finally {
+          clearTimeout(requestTimer);
+          request.abort();
         }
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : String(err);
-        // Continue polling — WDA may still be starting
-      }
-
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, 500);
-        if (signal) {
-          const onAbort = () => {
+        await checkBoundary();
+        await new Promise<void>((resolve) => {
+          const finish = () => {
             clearTimeout(timer);
+            boundary.removeEventListener('abort', finish);
             resolve();
           };
-          signal.addEventListener('abort', onAbort, { once: true });
-        }
-      });
+          const timer = setTimeout(finish, 500);
+          boundary.addEventListener('abort', finish, { once: true });
+          if (boundary.aborted) finish();
+        });
+      }
+    } finally {
+      clearTimeout(deadlineTimer);
     }
   }
 
@@ -586,6 +643,8 @@ export class WdaManager {
 
     const ownedProcess = this.runningProcess;
     this.runningProcess = null;
+    this.launchMonitor?.dispose();
+    this.launchMonitor = null;
 
     const grace = graceMs ?? 3000;
 

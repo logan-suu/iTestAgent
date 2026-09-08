@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserAssertionSchema } from './assertion.js';
 import { TargetKindSchema } from './device-types.js';
 import { RunIdSchema } from './run-id.js';
 
@@ -151,6 +152,14 @@ export const ExecutionPlanSchema = z.object({
   ]),
   /** Feature names from ProjectProfile to cover */
   features: z.array(z.string()),
+  /** Sanitized user goal confirmed in Plan Review and used by the execution agent. */
+  goal: z
+    .string()
+    .min(1)
+    .regex(/\S/, 'The confirmed goal must contain non-whitespace text')
+    .optional(),
+  /** Explicit success criteria compiled from the user's request. */
+  assertions: z.array(UserAssertionSchema).optional(),
   /** Flow YAML IDs to replay */
   flows: z.array(z.string()).optional(),
   /** Test data policy */

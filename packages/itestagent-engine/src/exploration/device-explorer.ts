@@ -64,6 +64,7 @@ export class DeviceExplorer {
   private readonly evidenceCollector: EvidenceCollector;
   private readonly artifactStore?: ArtifactStore;
   private checkpoints: CaseCheckpoint[] = [];
+  private readonly artifacts = new Map<string, ArtifactRef>();
   private callCounter = 0;
   private launched = false;
 
@@ -127,12 +128,18 @@ export class DeviceExplorer {
     return [...this.checkpoints];
   }
 
+  /** Metadata for already produced evidence, retained even if a later action throws. */
+  getArtifacts(): readonly ArtifactRef[] {
+    return [...this.artifacts.values()];
+  }
+
   /**
    * Reset the recorder for a new exploration run.
    */
   reset(): void {
     this.recorder.reset();
     this.checkpoints = [];
+    this.artifacts.clear();
     this.callCounter = 0;
     this.launched = false;
   }
@@ -428,13 +435,18 @@ export class DeviceExplorer {
 
     if (result.status === 'ok' && result.artifacts && result.artifacts.length > 0) {
       const firstArtifact = result.artifacts[0];
-      if (firstArtifact) return firstArtifact;
+      if (firstArtifact) {
+        this.artifacts.set(firstArtifact.id, firstArtifact);
+        return firstArtifact;
+      }
     }
 
     // Check if the output itself is an ArtifactRef
     const output = result.output as Record<string, unknown> | undefined;
     if (output && typeof output.id === 'string' && typeof output.type === 'string') {
-      return output as unknown as ArtifactRef;
+      const artifact = output as unknown as ArtifactRef;
+      this.artifacts.set(artifact.id, artifact);
+      return artifact;
     }
 
     return null;
@@ -474,6 +486,7 @@ export class DeviceExplorer {
         dsymPath: this.options.dsymPath,
         caseId,
       });
+      for (const artifact of summary.artifacts) this.artifacts.set(artifact.id, artifact);
       this.recorder.failStep(
         stepId,
         redactedError,
@@ -579,6 +592,7 @@ export class DeviceExplorer {
         backend: this.options.backendName,
       });
       artifactId = artifact.id;
+      this.artifacts.set(artifact.id, artifact);
       this.recorder.linkArtifact(step.stepId, artifact.id);
     }
 

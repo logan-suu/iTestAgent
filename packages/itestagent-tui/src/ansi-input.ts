@@ -37,6 +37,8 @@ export interface AnsiInputHandler {
   handleChunk(chunk: string): void;
   /** Current unsubmitted input buffer. */
   getInputBuffer(): string;
+  beginEdit(text: string): void;
+  handleEditKey(key: string, value: string): void;
 }
 
 const BACKSPACE = [8, 127];
@@ -45,6 +47,7 @@ const CTRL_C = 3;
 
 export function createAnsiInputHandler(hooks: AnsiInputHooks): AnsiInputHandler {
   let inputBuffer = '';
+  let editCursor = 0;
   const visibleBuffer = () => (hooks.maskInput?.() ? '*'.repeat(inputBuffer.length) : inputBuffer);
 
   const handleChunk = (chunk: string) => {
@@ -88,5 +91,34 @@ export function createAnsiInputHandler(hooks: AnsiInputHooks): AnsiInputHandler 
   return {
     handleChunk,
     getInputBuffer: () => inputBuffer,
+    beginEdit(text) {
+      inputBuffer = text;
+      editCursor = Array.from(text).length;
+    },
+    handleEditKey(key, value) {
+      if (key === 'up' || key === 'down') return;
+      const chars = Array.from(inputBuffer);
+      if (key === 'left') editCursor = Math.max(0, editCursor - 1);
+      else if (key === 'right') editCursor = Math.min(chars.length, editCursor + 1);
+      else if (key === 'home') editCursor = 0;
+      else if (key === 'end') editCursor = chars.length;
+      else if (key === 'backspace') {
+        if (editCursor > 0) chars.splice(--editCursor, 1);
+      } else if (key === 'delete') chars.splice(editCursor, 1);
+      else if (
+        value &&
+        Array.from(value).every(
+          (char) => (char.codePointAt(0) ?? 0) >= 32 && char.codePointAt(0) !== 127,
+        )
+      ) {
+        const inserted = Array.from(value);
+        chars.splice(editCursor, 0, ...inserted);
+        editCursor += inserted.length;
+      } else return;
+      inputBuffer = chars.join('');
+      hooks.write(`\x1b[G\x1b[0K> ${visibleBuffer()}`);
+      const remainingWidth = Bun.stringWidth(chars.slice(editCursor).join(''));
+      if (remainingWidth > 0) hooks.write(`\x1b[${remainingWidth}D`);
+    },
   };
 }

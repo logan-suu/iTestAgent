@@ -16,21 +16,40 @@ import type { TuiShellEvent } from './tui-shell.js';
 export const CANDIDATE_REVIEW_KEYMAP: Readonly<Record<string, TuiShellEvent>> = {
   j: { type: 'candidate_navigate', direction: 'down' },
   k: { type: 'candidate_navigate', direction: 'up' },
+  down: { type: 'candidate_navigate', direction: 'down' },
+  up: { type: 'candidate_navigate', direction: 'up' },
   ' ': { type: 'candidate_toggle' },
   e: { type: 'candidate_edit_start' },
   A: { type: 'candidate_confirm_all' },
   N: { type: 'candidate_unconfirm_all' },
   enter: { type: 'candidate_confirm' },
   q: { type: 'exit_candidate_review' },
+  escape: { type: 'exit_candidate_review' },
 };
 
 /** Key pressed in plan review (non-modify mode) → dispatched event. */
 export const PLAN_REVIEW_KEYMAP: Readonly<Record<string, TuiShellEvent>> = {
   j: { type: 'plan_navigate_section', direction: 'down' },
   k: { type: 'plan_navigate_section', direction: 'up' },
+  down: { type: 'plan_navigate_section', direction: 'down' },
+  up: { type: 'plan_navigate_section', direction: 'up' },
   m: { type: 'plan_start_modify' },
   enter: { type: 'plan_confirm' },
   q: { type: 'plan_cancel' },
+  escape: { type: 'plan_cancel' },
+};
+
+export const ASSERTION_REVIEW_KEYMAP: Readonly<Record<string, TuiShellEvent>> = {
+  up: { type: 'assertion_navigate', direction: 'up' },
+  k: { type: 'assertion_navigate', direction: 'up' },
+  down: { type: 'assertion_navigate', direction: 'down' },
+  j: { type: 'assertion_navigate', direction: 'down' },
+  ' ': { type: 'assertion_confirm' },
+  n: { type: 'assertion_reject' },
+  A: { type: 'assertion_confirm_all' },
+  enter: { type: 'exit_assertion_review' },
+  escape: { type: 'exit_assertion_review' },
+  q: { type: 'exit_assertion_review' },
 };
 
 /** Shared edit-mode commit/cancel keys (candidate edit + plan modify). */

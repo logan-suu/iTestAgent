@@ -75,9 +75,11 @@ describe('buildForPhysical', () => {
       { projectRoot: '/fixture/project', scheme: 'FixtureScheme', udid: 'UDID-FIXTURE-X' },
       runner,
     );
-    const buildCall = calls.find((c) => c.args[0] === 'build');
-    if (!buildCall) throw new Error('expected a build call');
-    expect(buildCall.args).not.toContain('-allowProvisioningUpdates');
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.args).not.toContain('-allowProvisioningUpdates');
+      expect(call.args).not.toContain('-derivedDataPath');
+    }
   });
 
   it('uses the generic physical destination without a UDID', async () => {
@@ -95,5 +97,103 @@ describe('buildForPhysical', () => {
     if (!buildCall) throw new Error('expected a build call');
     const destIndex = buildCall.args.indexOf('-destination');
     expect(buildCall.args[destIndex + 1]).toBe('generic/platform=iOS');
+  });
+
+  it('uses the discovered Xcode container and configuration for build and settings', async () => {
+    const { runner, calls } = makeScriptedRunner((call) =>
+      call.args[0] === 'build'
+        ? { exitCode: 0, stdout: '', stderr: '' }
+        : { exitCode: 0, stdout: SETTINGS_STDOUT, stderr: '' },
+    );
+
+    await buildForPhysical(
+      {
+        projectRoot: '/fixture/project',
+        projectContainer: {
+          path: '/fixture/project/Fixture.xcworkspace',
+          type: 'xcode_workspace',
+        },
+        scheme: 'FixtureScheme',
+        configuration: 'Debug',
+        udid: 'UDID-FIXTURE-X',
+      },
+      runner,
+    );
+
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.args).toContain('-workspace');
+      expect(call.args).toContain('/fixture/project/Fixture.xcworkspace');
+      expect(call.args).toContain('-configuration');
+      expect(call.args).toContain('Debug');
+      expect(call.args).toContain('-destination');
+    }
+  });
+
+  it('fails explicitly when build settings cannot resolve the artifact', async () => {
+    const { runner } = makeScriptedRunner((call) =>
+      call.args[0] === 'build'
+        ? { exitCode: 0, stdout: '', stderr: '' }
+        : { exitCode: 74, stdout: '', stderr: 'settings failed' },
+    );
+
+    const result = await buildForPhysical(
+      { projectRoot: '/fixture/project', scheme: 'FixtureScheme' },
+      runner,
+    );
+    expect(result.exitCode).toBe(74);
+    expect(result.appPath).toBeUndefined();
+  });
+
+  it('resolves the app from the same run-scoped DerivedData used by the build', async () => {
+    const derivedDataPath = '/fixture/run with spaces/staging/DerivedData';
+    const { runner, calls } = makeScriptedRunner((call) => {
+      if (call.args[0] === 'build') return { exitCode: 0, stdout: '', stderr: '' };
+      const index = call.args.indexOf('-derivedDataPath');
+      const root = index === -1 ? '/fixture/default/DerivedData' : call.args[index + 1];
+      return {
+        exitCode: 0,
+        stdout: `TARGET_BUILD_DIR = ${root}/Build/Products/Debug-iphoneos\nFULL_PRODUCT_NAME = Fixture.app`,
+        stderr: '',
+      };
+    });
+
+    const result = await buildForPhysical(
+      {
+        projectRoot: '/fixture/project',
+        scheme: 'FixtureScheme',
+        configuration: 'Debug',
+        udid: 'device-fixture',
+        derivedDataPath,
+        allowProvisioningUpdates: true,
+      },
+      runner,
+    );
+
+    expect(result.appPath).toBe(`${derivedDataPath}/Build/Products/Debug-iphoneos/Fixture.app`);
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.args[call.args.indexOf('-derivedDataPath') + 1]).toBe(derivedDataPath);
+    }
+    expect(calls[1]?.args).toEqual([
+      '-showBuildSettings',
+      ...(calls[0]?.args.slice(1).filter((arg) => arg !== '-allowProvisioningUpdates') ?? []),
+    ]);
+  });
+
+  it('does not query settings or return an old artifact after a failed build', async () => {
+    const { runner, calls } = makeScriptedRunner(() => ({
+      exitCode: 65,
+      stdout: '',
+      stderr: 'Build failed',
+    }));
+    const result = await buildForPhysical(
+      { projectRoot: '/fixture/project', scheme: 'FixtureScheme' },
+      runner,
+    );
+
+    expect(result.exitCode).toBe(65);
+    expect(result.appPath).toBeUndefined();
+    expect(calls).toHaveLength(1);
   });
 });

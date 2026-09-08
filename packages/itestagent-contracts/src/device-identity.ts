@@ -40,6 +40,8 @@ export const DeviceInfoSchema = z.object({
   state: z
     .enum(['booted', 'shutdown', 'creating', 'booting', 'shutting_down', 'unknown'])
     .optional(),
+  /** Discovery readiness. `discovered` is inventory-only and cannot be executed yet. */
+  availability: z.enum(['ready', 'discovered']).optional(),
 });
 
 export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;

@@ -91,6 +91,16 @@ function makeMinimalExecution() {
 }
 
 describe('ExecutionPlanSchema.xcuitest (B04 target-explicit override)', () => {
+  it('rejects blank goals but preserves legacy absence and nonblank text', () => {
+    for (const goal of ['', ' ', '\t\n', '\u3000']) {
+      expect(ExecutionPlanSchema.safeParse({ ...makeMinimalExecution(), goal }).success).toBe(
+        false,
+      );
+    }
+    expect(
+      ExecutionPlanSchema.parse({ ...makeMinimalExecution(), goal: ' 测试 Login ' }).goal,
+    ).toBe(' 测试 Login ');
+  });
   it('is optional — plans without it keep parsing', () => {
     const parsed = ExecutionPlanSchema.parse(makeMinimalExecution());
     expect(parsed.xcuitest).toBeUndefined();
@@ -146,6 +156,32 @@ describe('ExecutionPlanSchema.xcuitest (B04 target-explicit override)', () => {
       xcuitest: { scheme: 42 },
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('ExecutionPlanSchema confirmed execution semantics', () => {
+  it('accepts an optional confirmed goal and tier-1 assertions', () => {
+    const parsed = ExecutionPlanSchema.parse({
+      ...makeMinimalExecution(),
+      goal: 'Confirm the title is visible.',
+      assertions: [
+        {
+          id: 'user-validation-visible',
+          caseId: 'validation',
+          source: 'user',
+          conditions: [
+            {
+              type: 'element_visible',
+              description: 'Confirm "Title" is visible.',
+              target: 'Title',
+              expected: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(parsed.goal).toContain('Confirm');
+    expect(parsed.assertions?.[0]?.source).toBe('user');
   });
 });
 
