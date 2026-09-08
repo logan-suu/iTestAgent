@@ -9,7 +9,7 @@
  * This module is framework-independent and testable without a renderer.
  * Follows the same pattern as candidate-review.ts.
  */
-import type { TestPlan } from 'itestagent-contracts';
+import { MEMORY_CAPTURE_POLICY, type TestPlan } from 'itestagent-contracts';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -195,7 +195,18 @@ function formatExecutionSection(plan: TestPlan): PlanSection {
               editable: false,
             },
           ]
-        : []),
+        : [
+            {
+              key: 'assertions',
+              label: 'Success Criteria',
+              value:
+                plan.execution.resolvedPath === 'xcuitest'
+                  ? 'No additional user conditions; results come from the selected XCUITest tests.'
+                  : 'No explicit success conditions recognized. Exploration alone cannot pass or establish a successful baseline. Modify the plan to add an unambiguous condition, such as confirm "Ready" is visible.',
+              kind: 'text' as const,
+              editable: false,
+            },
+          ]),
       {
         key: 'assertion',
         label: 'Assertion',
@@ -310,7 +321,7 @@ function formatPerformanceSection(plan: TestPlan): PlanSection {
             {
               key: 'memoryObservation',
               label: 'Memory observation',
-              value: `Minimum ${plan.performance.memoryObservation.minimumDurationMs / 1000}s; wait ${plan.performance.memoryObservation.settleDurationMs / 1000}s after actions. Actions execute once; no automatic repetition. Leaks export may be unavailable.`,
+              value: `Minimum ${plan.performance.memoryObservation.minimumDurationMs / 1000}s of exported samples; wait ${plan.performance.memoryObservation.settleDurationMs / 1000}s after actions. Physical capture reserves ${MEMORY_CAPTURE_POLICY.samplingAllowanceMs / 1000}s sampling allowance; incomplete coverage remains inconclusive. Actions execute once; no automatic repetition. Leaks export may be unavailable.`,
               kind: 'text' as const,
               editable: false,
             },

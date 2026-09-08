@@ -69,38 +69,48 @@ for (const abort of [false, true])
     const calls: string[][] = [];
     const controller = new AbortController();
     let cancellations = 0;
-    const factory = createProductionPerformanceCapture((command, options) => {
-      calls.push(command);
-      const ok = { stdout: '', stderr: '', exitCode: 0, failure: undefined };
-      if (command.includes('record')) {
-        expect(command[command.indexOf('--template') + 1]).toBe('Leaks');
-        expect(command[command.indexOf('--instrument') + 1]).toBe('Activity Monitor');
-        mkdirSync(command[command.indexOf('--output') + 1] as string);
-        let done!: (r: typeof ok) => void;
-        const completed = new Promise<typeof ok>((resolve) => {
-          done = resolve;
-        });
-        queueMicrotask(() => options.onOutput?.('Ctrl-C to stop the recording'));
+    let now = 0;
+    const factory = createProductionPerformanceCapture(
+      (command, options) => {
+        calls.push(command);
+        const ok = { stdout: '', stderr: '', exitCode: 0, failure: undefined };
+        if (command.includes('record')) {
+          expect(command[command.indexOf('--template') + 1]).toBe('Leaks');
+          expect(command[command.indexOf('--instrument') + 1]).toBe('Activity Monitor');
+          mkdirSync(command[command.indexOf('--output') + 1] as string);
+          let done!: (r: typeof ok) => void;
+          const completed = new Promise<typeof ok>((resolve) => {
+            done = resolve;
+          });
+          queueMicrotask(() => options.onOutput?.('Ctrl-C to stop the recording'));
+          return {
+            completed,
+            stop: () => done(ok),
+            cancel: () => {
+              cancellations++;
+              done(ok);
+            },
+          };
+        }
         return {
-          completed,
-          stop: () => done(ok),
-          cancel: () => {
-            cancellations++;
-            done(ok);
-          },
+          completed: Promise.resolve({
+            ...ok,
+            stdout: command.includes('--toc')
+              ? '<table schema="activity-monitor-process-live"/>'
+              : xml,
+          }),
+          stop() {},
+          cancel() {},
         };
-      }
-      return {
-        completed: Promise.resolve({
-          ...ok,
-          stdout: command.includes('--toc')
-            ? '<table schema="activity-monitor-process-live"/>'
-            : xml,
-        }),
-        stop() {},
-        cancel() {},
-      };
-    });
+      },
+      {
+        now: () => now,
+        wait: async (ms, signal) => {
+          signal?.throwIfAborted();
+          now += ms;
+        },
+      },
+    );
     const messages: string[] = [];
     const capture = await factory({
       runId: 'fixture',
@@ -125,6 +135,7 @@ for (const abort of [false, true])
       expect(result.metrics.collection?.every((o) => o.status === 'cancelled')).toBe(true);
     } else {
       expect(result.metrics.memoryGrowth?.deltaMiB).toBe(1);
+      expect(result.metrics.memoryGrowth?.recordingDurationMs).toBe(31_000);
       expect(result.metrics.memoryPeakUnit).toBe('MiB');
       expect(result.metrics.collection).toEqual([
         { metric: 'memory_peak', status: 'collected', reasonCode: 'xctrace.observed_value' },
@@ -138,3 +149,170 @@ for (const abort of [false, true])
       expect(result.artifacts[0]?.redactionStatus).toBe('raw-local-only');
     }
   });
+
+for (const scenario of [
+  {
+    name: 'delayed samples cover the requested window',
+    elapsed: 20_000,
+    span: 85_000,
+    stopAt: 100_000,
+    complete: true,
+  },
+  {
+    name: 'allowance does not promote short samples',
+    elapsed: 20_000,
+    span: 59_847,
+    stopAt: 100_000,
+    complete: false,
+  },
+  {
+    name: 'long actions do not add another allowance',
+    elapsed: 150_000,
+    span: 140_000,
+    stopAt: 160_000,
+    complete: true,
+  },
+  {
+    name: 'zero settling preserves completed recording budget',
+    elapsed: 150_000,
+    span: 140_000,
+    stopAt: 150_000,
+    complete: true,
+    settle: 0,
+  },
+  {
+    name: 'maximum observation remains below the transport limit',
+    elapsed: 0,
+    span: 300_000,
+    stopAt: 330_000,
+    complete: true,
+    minimum: 300_000,
+    settle: 60_000,
+  },
+  {
+    name: 'cancellation during allowance stops without export',
+    elapsed: 20_000,
+    span: 85_000,
+    stopAt: 71_000,
+    complete: false,
+    abortAt: 71_000,
+  },
+  {
+    name: 'early process exit during allowance stays failed',
+    elapsed: 20_000,
+    span: 85_000,
+    stopAt: 71_000,
+    complete: false,
+    exitAt: 71_000,
+  },
+]) {
+  test(`sampling budget: ${scenario.name}`, async () => {
+    const stagingDir = mkdtempSync(join(tmpdir(), 'itestagent-sampling-budget-'));
+    roots.push(stagingDir);
+    const controller = new AbortController();
+    let now = 0;
+    let stopAt = -1;
+    let stops = 0;
+    let cancels = 0;
+    let exports = 0;
+    let records = 0;
+    const ok = { stdout: '', stderr: '', exitCode: 0, failure: undefined };
+    let resolveRecording!: (result: typeof ok) => void;
+    const messages: string[] = [];
+    const factory = createProductionPerformanceCapture(
+      (command, options) => {
+        if (command.includes('record')) {
+          records++;
+          expect(command[command.indexOf('--time-limit') + 1]).toBe('600s');
+          mkdirSync(command[command.indexOf('--output') + 1] as string);
+          const completed = new Promise<typeof ok>((resolve) => {
+            resolveRecording = resolve;
+          });
+          queueMicrotask(() => options.onOutput?.('Recording started'));
+          return {
+            completed,
+            stop: () => {
+              stops++;
+              stopAt = now;
+              resolveRecording(ok);
+            },
+            cancel: () => {
+              cancels++;
+              stopAt = now;
+              resolveRecording(ok);
+            },
+          };
+        }
+        exports++;
+        expect(stops).toBe(1);
+        return {
+          completed: Promise.resolve({
+            ...ok,
+            stdout: command.includes('--toc')
+              ? '<table schema="activity-monitor-process-live"/>'
+              : xml.replace('>1000000000<', `>${scenario.span * 1_000_000}<`),
+          }),
+          stop() {},
+          cancel() {},
+        };
+      },
+      {
+        now: () => now,
+        wait: async (ms, signal) => {
+          expect(ms).toBeLessThanOrEqual(1000);
+          now += ms;
+          if (scenario.abortAt && now >= scenario.abortAt) controller.abort();
+          if (scenario.exitAt && now >= scenario.exitAt) {
+            resolveRecording(ok);
+            await Promise.resolve();
+          }
+          signal?.throwIfAborted();
+        },
+      },
+    );
+    const capture = await factory({
+      runId: 'sampling-fixture',
+      deviceId: 'fixture',
+      targetKind: 'physical',
+      executable: 'Demo',
+      stagingDir,
+      metrics: ['memory_growth'],
+      signal: controller.signal,
+      memoryObservation: {
+        minimumDurationMs: scenario.minimum ?? 70_000,
+        settleDurationMs: scenario.settle ?? 10_000,
+      },
+      onProgress: (m) => messages.push(m),
+    });
+    now = scenario.elapsed;
+    const [result, again] = await Promise.all([capture.finish(), capture.finish()]);
+    expect(result).toBe(again);
+    expect(records).toBe(1);
+    expect(stopAt).toBe(scenario.stopAt);
+    if (scenario.abortAt || scenario.exitAt) {
+      expect(exports).toBe(0);
+      expect(cancels).toBe(scenario.abortAt ? 1 : 0);
+      expect(result.metrics.collection?.[0]?.status).toBe(
+        scenario.abortAt ? 'cancelled' : 'failed',
+      );
+      expect(result.metrics.memoryGrowth).toBeUndefined();
+    } else {
+      expect(stops).toBe(1);
+      expect(exports).toBe(2);
+      expect(result.metrics.memoryGrowth?.durationMs).toBe(scenario.span);
+      expect(result.metrics.memoryGrowth?.recordingDurationMs).toBe(scenario.stopAt);
+      expect(result.metrics.memoryGrowth?.coverage).toBe(
+        scenario.complete ? 'complete' : 'partial',
+      );
+      expect(result.metrics.collection?.[0]?.status).toBe(
+        scenario.complete ? 'collected' : 'not_exportable',
+      );
+      if (!scenario.complete)
+        expect(result.metrics.collection?.[0]?.reasonCode).toBe('xctrace.memory_window_incomplete');
+    }
+    if (scenario.elapsed < scenario.stopAt) {
+      expect(messages.some((m) => m.includes('sampling allowance (30s)'))).toBe(true);
+      expect(messages.some((m) => m.includes('coverage is verified after export'))).toBe(true);
+    }
+  });
+}

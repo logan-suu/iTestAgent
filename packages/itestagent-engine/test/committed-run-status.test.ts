@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -12,12 +13,19 @@ import type {
 import { TestPlanSchema } from 'itestagent-contracts';
 import { createBaselineStore, createRunStore, createStoreCore, initStore } from 'itestagent-store';
 import { analyzeMemoryGrowth } from '../../itestagent-backends/performance-xctrace-analyzer/src/memory-growth.js';
+import { AssertionEvaluator } from '../src/assertion/assertion-evaluator.js';
+import { BaselineManager } from '../src/baseline/baseline-manager.js';
 import { persistConfirmedRun } from '../src/confirmed-run-bundle.js';
 import type { ConfirmedExecutionDispatchResult } from '../src/dual-execution-dispatcher.js';
 import type { RealDeviceRunResult } from '../src/exploration/real-run.js';
 import { createProductionPhysicalPreflight } from '../src/production-physical-preflight.js';
 import { executeProductionTestPlan } from '../src/production-run-executor.js';
 import { createRerunPlan } from '../src/rerun.js';
+import {
+  extractExplicitUserAssertions,
+  parseTestPlanYaml,
+  testPlanToYaml,
+} from '../src/test-plan-compiler.js';
 
 const roots: string[] = [];
 const databases: Array<ReturnType<typeof createStoreCore>['sqlite']> = [];
@@ -130,6 +138,51 @@ function xcuitestDispatch(status: 'passed' | 'failed'): ConfirmedExecutionDispat
 }
 
 describe('committed canonical run status', () => {
+  test.each([true, false, undefined])(
+    'unquoted conditions require observations before a successful baseline (visible=%s)',
+    async (visible) => {
+      const { root, store } = await storage();
+      const baselineStore = createBaselineStore(root);
+      const confirmed = plan('unquoted-baseline');
+      confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: device.udid } };
+      confirmed.performance = {
+        baseline: 'local_auto',
+        baselineDomain: 'physical',
+        thresholdRequired: false,
+      };
+      confirmed.execution.metrics = ['memory_peak'];
+      confirmed.execution.assertions = extractExplicitUserAssertions(
+        '确认 Workload complete 可见',
+        caseId,
+      );
+      const reloaded = parseTestPlanYaml(testPlanToYaml(confirmed));
+      const assertion = new AssertionEvaluator().evaluate({
+        policy: reloaded.execution.assertion.policy,
+        userAssertions: reloaded.execution.assertions,
+        observations: {
+          [caseId]: visible === undefined ? {} : { 'Workload complete_visible': visible },
+        },
+      });
+      const result = { ...deviceResult(root, assertion.status), assertion };
+      await persistConfirmedRun({
+        store,
+        baselineStore,
+        plan: reloaded,
+        device: { ...device, targetKind: 'physical' },
+        resultBundlePath: join(root, 'missing.xcresult'),
+        dispatch: { status: 'completed', path: 'device_backend', fallbackHistory: [], result },
+        performance: {
+          artifacts: [],
+          metrics: { memoryPeakMB: 10, memoryPeakUnit: 'MiB', approximate: true },
+        },
+      });
+      const bundle = await store.loadRunBundle(confirmed.runId);
+      expect(bundle.result.status).toBe(
+        visible === true ? 'passed' : visible === false ? 'failed' : 'inconclusive',
+      );
+      expect(await baselineStore.list()).toHaveLength(visible === true ? 1 : 0);
+    },
+  );
   test('partial memory facts cannot override incomplete coverage or create a baseline', async () => {
     const { root, store } = await storage();
     const baselineStore = createBaselineStore(root);
@@ -276,6 +329,27 @@ describe('committed canonical run status', () => {
         thresholdRequired: false,
       };
       confirmed.execution.metrics = ['memory_peak'];
+      if (runId === 'baseline-memory-first') {
+        const hash = (value: unknown) =>
+          createHash('sha256').update(JSON.stringify(value)).digest('hex');
+        await new BaselineManager({ baselineStore }).establishBaseline(
+          { memoryPeakMB: 999 },
+          {
+            projectId: hash(confirmed.projectProfileRef),
+            targetKind: 'physical',
+            deviceModel: hash({ udid: target.udid, model: target.model }),
+            iosVersion: target.osVersion as string,
+            scenario: hash({
+              version: 'memory-observation-v1',
+              execution: confirmed.execution,
+              observation: confirmed.performance.memoryObservation,
+              peakUnit: 'MiB',
+              appSource: confirmed.appSource,
+            }),
+            runId: 'legacy-policy-baseline',
+          },
+        );
+      }
       await persistConfirmedRun({
         store,
         baselineStore,
@@ -295,9 +369,13 @@ describe('committed canonical run status', () => {
       });
     }
     const records = await baselineStore.list();
-    expect(records).toHaveLength(1);
-    expect(records[0]?.updatedFromRun).toBe('baseline-memory-first');
-    expect(records[0]?.memoryPeakMB).toBe(10);
+    expect(records).toHaveLength(2);
+    expect(records.find((r) => r.updatedFromRun === 'baseline-memory-first')?.memoryPeakMB).toBe(
+      10,
+    );
+    expect(records.find((r) => r.updatedFromRun === 'legacy-policy-baseline')?.memoryPeakMB).toBe(
+      999,
+    );
     const second = await store.loadRunResult('baseline-memory-second');
     expect(second.baselineDelta?.deltas.memoryPeakMB).toBe(2);
     expect(second.metrics.memoryPeakUnit).toBe('MiB');

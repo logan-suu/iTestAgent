@@ -7,7 +7,7 @@ import type {
   PerformanceCaptureResult,
   PerformanceMetrics,
 } from 'itestagent-contracts';
-import { MemoryObservationSchema } from 'itestagent-contracts';
+import { MEMORY_CAPTURE_POLICY, MemoryObservationSchema } from 'itestagent-contracts';
 import { parseActivityMonitorMemory } from './activity-monitor-memory.js';
 import { startCaptureProcess } from './capture-process.js';
 import { parseLeaksDetail } from './leaks-detail.js';
@@ -44,6 +44,10 @@ function unavailable(input: PerformanceCaptureInput, reasonCode: string): Perfor
  */
 export function createProductionPerformanceCapture(
   spawn: typeof startCaptureProcess = startCaptureProcess,
+  clock: { now(): number; wait: typeof waitForObservation } = {
+    now: () => performance.now(),
+    wait: waitForObservation,
+  },
 ): PerformanceCaptureFactory {
   return async (input) => {
     input.signal?.throwIfAborted();
@@ -134,7 +138,7 @@ export function createProductionPerformanceCapture(
       );
     }
     let endedEarly = false;
-    const startedAt = performance.now();
+    const startedAt = clock.now();
     let finishing = false;
     void recording.completed
       .then(() => {
@@ -148,20 +152,21 @@ export function createProductionPerformanceCapture(
       finish() {
         final ??= (async () => {
           if (observation && !input.signal?.aborted && !endedEarly) {
+            // Readiness is not the first sample. Reserve headroom in this same trace;
+            // only exported sample timestamps can establish complete coverage below.
             const waitMs = Math.max(
-              observation.minimumDurationMs - (performance.now() - startedAt),
+              observation.minimumDurationMs +
+                MEMORY_CAPTURE_POLICY.samplingAllowanceMs -
+                (clock.now() - startedAt),
               observation.settleDurationMs,
             );
-            const deadline = performance.now() + waitMs;
+            const deadline = clock.now() + waitMs;
             try {
-              while (performance.now() < deadline && !endedEarly) {
+              while (clock.now() < deadline && !endedEarly) {
                 progress(
-                  `Observing memory after actions: ${Math.ceil((deadline - performance.now()) / 1000)}s remaining; recording is active…`,
+                  `Observing memory after actions: ${Math.ceil((deadline - clock.now()) / 1000)}s remaining; includes sampling allowance (${MEMORY_CAPTURE_POLICY.samplingAllowanceMs / 1000}s); coverage is verified after export…`,
                 );
-                await waitForObservation(
-                  Math.min(1000, Math.max(0, deadline - performance.now())),
-                  input.signal,
-                );
+                await clock.wait(Math.min(1000, Math.max(0, deadline - clock.now())), input.signal);
               }
             } catch {
               recording.cancel();
@@ -170,7 +175,7 @@ export function createProductionPerformanceCapture(
             }
           }
           finishing = true;
-          const recordingDurationMs = performance.now() - startedAt;
+          const recordingDurationMs = clock.now() - startedAt;
           progress('Finalizing performance recording…');
           recording.stop();
           const recorded = await recording.completed;

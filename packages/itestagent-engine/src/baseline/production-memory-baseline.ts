@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { MEMORY_CAPTURE_POLICY } from 'itestagent-contracts';
 import type {
   BaselineStore,
   DeviceInfo,
@@ -37,7 +38,7 @@ export async function prepareMemoryBaseline(input: {
     deviceModel: hash({ udid: device.udid, model: device.model }),
     iosVersion: device.osVersion.replace(/[^a-zA-Z0-9._-]/g, '_'),
     scenario: hash({
-      version: 'memory-observation-v1',
+      version: MEMORY_CAPTURE_POLICY.id,
       execution: plan.execution,
       observation: plan.performance.memoryObservation,
       peakUnit: metrics.memoryPeakUnit ?? 'MB',

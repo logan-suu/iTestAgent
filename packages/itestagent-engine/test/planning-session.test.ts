@@ -68,6 +68,26 @@ function analysisWithRoutes(): ProjectAnalysisResult {
 }
 
 describe('PlanningSession', () => {
+  it('retains unquoted conditions through target selection and explicit plan confirmation', () => {
+    const session = new PlanningSession(analysis());
+    const initial = session.begin(
+      '用本机 iPhone 测试登录，确认 Workload complete 可见；采集内存增长',
+    );
+    const draft = session.confirmCandidates(
+      initial.candidates.map((c) => ({ ...c, confirmed: c.name === 'Login' })),
+    );
+    expect(draft.plan?.execution.assertions?.[0]?.conditions[0]?.target).toBe('Workload complete');
+    expect(session.getConfirmedPlan()).toBeNull();
+    session.switchDeviceTarget({
+      kind: 'physical',
+      physical: { selector: 'by_udid', udid: 'fixture-phone' },
+    });
+    session.confirmPlan();
+    expect(session.getConfirmedPlan()?.execution.assertions).toEqual(
+      draft.plan?.execution.assertions,
+    );
+    expect(session.getConfirmedPlan()?.execution.metrics).toContain('memory_growth');
+  });
   it('recompiles explicit target switches in both directions without losing the goal or assertions', () => {
     const session = new PlanningSession(analysis());
     const initial = session.begin('用本机 iPhone 测试登录，确认“Welcome”可见并截图');

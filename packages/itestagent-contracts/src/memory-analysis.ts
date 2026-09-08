@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/** Bounded sampling headroom, not a guarantee of valid exported sample coverage. */
+export const MEMORY_CAPTURE_POLICY = {
+  id: 'memory-observation-v2',
+  samplingAllowanceMs: 30_000,
+} as const;
+
 /** Confirmed bounded observation, not permission to repeat application actions. */
 export const MemoryObservationSchema = z.object({
   minimumDurationMs: z.number().int().min(1000).max(300_000),

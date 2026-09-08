@@ -221,3 +221,99 @@ Canonical run：`run_01a082a3-9a09-7000-94bc-26e9d6da37bf`，默认目录 `~/.it
 ## 14. 增量提交前检查（2026-09-08）
 
 用户要求先提交推送到当前 PR #82。重新运行 typecheck、lint（888 files）、build、schema/架构/脱敏专项（32 pass）及完整回归：3966 pass / 7 existing skip / 0 fail，11453 assertions、367 files、92.23s。完整日志 `/private/tmp/itestagent-memory-precommit-tests.log`。本次未新增真机运行，不将自动化检查扩大为尚未完成的验收；第13节阳性实证及 explored 限制保持不变。DEF-035 的历史全库 literal CLI 问题仍 open，提交按 changed/index 范围另行检查，不宣称全库 CLI 门禁已修复。T6.12 保持 in_progress。
+
+## 15. 无引号可见性条件与计划提示（2026-09-08）
+
+用户确认先修复影响成功 baseline 验收的断言缺口，本轮不操作真机。按证据排序核查：解析遗漏、计划确认丢失、执行汇总丢失。直接调用生产 parser，中文 `确认 Workload complete 可见` 与英文 `verify Workload complete is visible` 均返回空数组；带引号则产生用户条件。代码仅匹配引号目标，确定解析阶段已遗漏，不把第13节 explored 改写为 passed。
+
+新增有限无引号语法及原文顺序去重，沿用敏感目标和多 case 阻断；明确否定/条件前缀、复合目标、否定可见性或尾部替代项不生成新条件。复杂/不能可靠解析的表达仍保留 goal。Plan Review 始终显示 Success Criteria，缺失时提示并给出修改示例；XCUITest 原生结果边界独立说明。
+
+先新增回归得到53 pass / 5 fail，验证旧实现缺口；修复后定向119 pass / 0 fail、335 assertions。覆盖中英文、有/无引号混排、T6.12/Taps: 1 标点保留、去重、敏感值不回显、多 case 歧义、候选/目标选择及显式确认、YAML重加载。通过真实 AssertionEvaluator 和 canonical writer/store 的回归：可见观测→passed并建立baseline；不可见→failed、缺观测→inconclusive，两者均不建baseline。该测试使用合成观测和指标，不能替代真机实测。
+
+本轮未构建、重签、安装、录制或改写历史run；零泄漏语义、多轮与baseline真实验收、Simulator仍未完成。DEF-035不变，T6.12保持in_progress。
+
+最终检查：typecheck、lint（888 files）、diff-check和diff敏感信息扫描通过；全库3990 pass / 7 existing skip / 0 fail，11507 assertions、367 files、95.03s。日志 `/private/tmp/itestagent-unquoted-full-tests.log`；包含既有OpenTUI字符帧、滚动与键盘回归，不冒称新真实终端人工验收。本增量未提交推送。
+
+## 16. 明确断言通过，但首次 baseline 被采样覆盖门禁阻断（2026-09-08）
+
+用户重新连接 iPhone 并明确授权本轮 MemoryProbe 构建、替换安装和 WDA 准备，各使用一次。设备最初 tunnelState=disconnected，但交叉复查确认 USB 可见、transportType=wired，生产发现解析为 ready；不把隧道字段单独解释为整体不可用。正常 CLI/PTY、原生产模型/设备/采集/报告组合，未替换依赖或重签 WDA。在候选、物理目标及计划审核中确认两条无引号可见性条件、三项内存指标、70秒观察、10秒操作后等待和 local_auto。
+
+Canonical run：`run_01a082cc-99a3-7000-a96c-76d566174635`。`createDefaultRunStore().loadRunBundle()` 重新加载通过 schema、交叉引用和 artifact 完整性验证。辅助终端/Appium原始日志仅保存在 `~/.itestagent/runs/memory-baseline-tui-1788900781/artifacts/`；canonical截图和trace保持raw-local-only。
+
+| 验证项 | 真实结果 |
+| --- | --- |
+| 计划成功条件 | iTest Memory Probe 可见；Workload complete 可见，两条条件均保留 |
+| 功能结果 | MemoryProbe case passed；launch、tap、wait、screenshot 四步 |
+| 内存采集 | 40个目标进程样本；录制70002.649ms，有效样本跨度59847.264ms，coverage=partial |
+| 近似观测值 | 首9.281776MiB、末48.219299MiB、峰48.578674MiB、增长38.937523MiB；只代表实际覆盖区间 |
+| 独立泄漏诊断 | detected / observed_allocations，13条、3407872 bytes（3.25MiB）；不补齐为样例理论分配数量 |
+| 指标状态 | memory_peak与memory_leaks collected；memory_growth not_exportable / xctrace.memory_window_incomplete |
+| 总状态与baseline | run inconclusive；physical baseline 文件数为0，未将不完整指标提升为首次成功baseline |
+
+诊断按证据排序：①停止时机按录制墙钟而不是有效采样跨度，最强证据；②Activity Monitor启动/尾端刷新或稀疏采样造成覆盖缺口，可能但未定位底层原因；③parser误算时间或丢失行，尚无证据证明。现有 `production-capture.finish()` 计算 `max(minimumDurationMs - elapsed, settleDurationMs)`，本次在约70秒停止；随后导出的首末样本只有约59.85秒。代码可确认“等待墙钟满足最小时间并不保证样本窗口满足”的设计缺口，但不据此宣称已查明Apple工具内部的延迟原因。
+
+本轮证明第15节明确断言已进入真实生产执行并通过，未证明成功baseline建立或第二次对比。不得放宽覆盖率门禁、伪造缺失样本、手写baseline或自动重复工作负载绕过。下一步需批准采集窗口策略修复及回归，再单独授权新的真机运行；保留零扫描、多轮与Simulator的未完成边界。已有DEF-035不变，T6.12继续in_progress。
+
+收尾：本轮TUI与专用Appium已正常退出；只读进程清单未见xcodebuild、iproxy、xctrace。重新核对进程可执行文件后，定向停止本轮MemoryProbe，复查其进程数为0；应用安装和全部证据保留，不删除旧baseline或历史run。无生产代码变更，沿用第15节自动化门禁，不冒称重跑全库。未提交推送。
+
+## 17. 有界采样余量与baseline策略隔离修复（2026-09-08）
+
+用户批准修复第16节阻断。本增量不重新操作真机，不复用已消耗的构建、替换安装或WDA准备授权。按ADR-040，在同一录制中为有效样本窗口预留30秒工程余量，截止为 `max(readyAt + minimumDurationMs + 30000, actionsFinishedAt + settleDurationMs)`；不重复动作，不追加第二条trace。30秒覆盖既有约10秒/23秒的观测差值，但不是底层工具延迟保证，也不是已证明本轮真机问题解决。
+
+共享MEMORY_CAPTURE_POLICY把余量和baseline策略版本绑定；TUI计划说明“Minimum … of exported samples”、physical额外采样余量和inconclusive限制，后台每秒倒计时说明导出后才验证覆盖。长动作已经超过预算时只保留用户的settling；最大确认窗口300秒对应330秒预算，工具600秒上限保持。finish仍幂等，沿用同一AbortSignal/owned transport；新增单调clock与可取消wait测试边界，不替换生产编排。导出后的严格coverage判断及不完整run禁止baseline逻辑未放宽。v2不与v1 baseline自动混比、不覆盖旧文件。
+
+回归覆盖：模拟70秒目标、20秒动作和延迟采样时录制至100秒；有效样本85秒可通过、59.847秒仍partial/not_exportable；150秒长动作只加10秒settling，零settling不追加；最大窗口上界、余量内取消和提前退出均收尾且不导出，单次record/stop与重复finish一致。canonical测试同时保留v1的999MiB历史baseline并建立v2的10MiB基线，第二次12MiB仅对比v2得到+2MiB，历史值不变。上述数值是受控fixture，不是真机测量。
+
+检查：定向54 pass / 0 fail / 864 assertions；typecheck、lint（888 files）、diff-check和差异gitleaks扫描通过；全库3998 pass / 7 existing skip / 0 fail，12205 assertions、367 files、107.78s。日志 `/private/tmp/itestagent-sampling-allowance-tests.log`。`sync-docs-itest`同步规格窗口说明、数据流、ADR-040、开发安排和任务状态，不修改历史验收结论。
+
+本增量尚无新G5/G5-SIM证据，首次成功baseline/后续比较、有效零扫描、多轮及Simulator仍未完成。DEF-035保持open；T6.12保持in_progress，T6.13不启动。未提交推送。
+
+## 18. 新策略正常TUI真机首次成功baseline（2026-09-08）
+
+用户另行授权复测：MemoryProbe构建、替换安装、复用现有WDA签名准备，各一次。正常CLI/PTY入口、真实候选和物理设备选择、TestPlan审核及三项PermissionEngine许可，无模型/设备/采集替身，不额外重签或自动重复新一轮。TUI审核实际显示两条明确可见性条件、70秒有效导出样本、10秒操作后等待、30秒采样余量；活动中也观察到采样余量提示和导出阶段。
+
+Canonical run：`run_01a082ed-5ee5-7000-be47-00b41954a634`，报告位于默认 `~/.itestagent/runs/<runId>/`。`createDefaultRunStore().loadRunBundle()` 重加载通过schema、交叉引用和artifact完整性校验。
+
+| 验证项 | 真实结果 |
+| --- | --- |
+| 功能与总状态 | 两条明确可见性条件保留，MemoryProbe case passed，run passed |
+| 请求指标 | memory_peak、memory_growth、memory_leaks全部collected |
+| 内存有效覆盖 | 89个样本，跨度227793.130ms，录制229791.503ms，coverage=complete |
+| 近似footprint | 首9.250504MiB、末47.609901MiB、峰48.359901MiB、变化+38.359398MiB |
+| 独立Leaks诊断 | detected / observed_allocations，19条、4980736 bytes（4.75MiB） |
+| 首次baseline | 运行前physical文件数0，运行后1；updatedFromRun为本run，峰值48.359901MiB、增长38.359398MiB与canonical报告一致 |
+| 策略一致性 | baseline scenario与本plan/execution/observation/appSource/单位和memory-observation-v2计算结果匹配 |
+| 原始证据 | 2张截图、1个trace，均raw-local-only；辅助PTY/Appium记录在memory-baseline-tui-1788902920/artifacts，未输出原始设备内容 |
+
+审计动作：launch、tap、wait、screenshot、wait、wait；仅一次tap，三次wait实际约20003/70029/10003ms。模型将70秒观察和10秒后等待也生成了动作等待，加上模型/设备读取耗时及采集收尾，总录制约230秒。这证明**新代码的真实生产链路可成功采集并首次建立baseline**，但不构成30秒余量在短工作负载边界上的独立因果验证；不得把227.8秒样本描述成“只加30秒即修复”。等待时长与性能配置的重复表达仍是后续精确时长控制需评估的边界，本次未修改计划或重跑绕过。
+
+Leaks阳性是诊断结果，不按未确认阈值改为功能失败；4.75MiB已诊断泄漏不等于38.36MiB总footprint增长。首轮无baselineDelta是正常首次建立语义，第二轮生产对比尚未执行；既有单元测试不替代该真机验收。有效零扫描、多轮可复现工作负载、Simulator及其他US-12.3剩余项保持未完成。
+
+本轮TUI与专用Appium正常退出，进程清单未见xcodebuild/iproxy/xctrace；重新验证可执行文件后定向停止本轮MemoryProbe，复查进程数0，安装、baseline及全部报告保留。无生产代码修改，沿用第17节3998 pass/7 existing skip/0 fail门禁，不宣称重跑全库。仅同步验证记录、ADR与任务计划；T6.12继续in_progress、DEF-035不变、T6.13不启动。未提交推送。下一次构建/覆盖安装/WDA准备须新授权。
+
+## 19. 正常TUI第二轮自动baseline对比实证（2026-09-08）
+
+用户确认继续，另行授权MemoryProbe构建、替换安装及现有WDA准备各一次，三项均经生产PermissionEngine提示后单次确认。沿用第18节完全相同的自然语言目标、生产CLI/PTY入口与物理iPhone，不替换模型/设备/采集依赖、不重签WDA、不手写baseline或差值。
+
+Canonical run：`run_01a082fd-4353-7000-be2a-84cb022096a7`；正常报告目录为 `~/.itestagent/runs/<runId>/`。生产RunStore重新加载通过schema、引用与artifact完整性校验。
+
+| 验证项 | 真实结果 |
+| --- | --- |
+| 功能与指标 | 两条明确可见性条件保留；case/run均passed，memory_peak/growth/leaks均collected |
+| 有效覆盖 | 96个样本，跨度226309.330ms，录制231016.274ms，coverage=complete |
+| 近似footprint | 首9.344276MiB、末48.266174MiB、峰48.359924MiB、增长38.921898MiB |
+| Leaks诊断 | detected / observed_allocations，20条、5242880 bytes（5MiB） |
+| 自动差值 | baselineDelta指向首轮baseline；memoryGrowthMiB=+0.5625、memoryPeakMB=+0.00002288818359375（单位MiB），分别与两轮canonical值相减完全相等 |
+| 原baseline保护 | physical文件数仍为1；updatedFromRun仍为run_01a082ed-5ee5-7000-be47-00b41954a634；运行前后SHA256均为a0238dbcf9a92402dd3f42bea8f733b1559def771d75903da4b9763121ae0cfe |
+| 可比配置 | 两轮projectProfileRef、execution、memoryObservation、appSource逐项相同，baseline key相同；minimum=70000ms、settle=10000ms |
+| 原始证据 | 2张截图及1个trace均raw-local-only；辅助PTY/Appium记录仅在memory-baseline-tui-1788903946/artifacts |
+
+本轮审计仍为launch、tap、wait、screenshot、wait、wait，仅一次tap；三次wait实际约20006/70004/10004ms。因此证明真实生产首次baseline→下一次自动比较链路，不代表已接入已确认Flow的多轮自动工作负载，也不单独证明30秒余量在短动作边界的因果有效性。产品baselineDelta.summary为regressed，表示观测值增加，不是统计显著退化证明或功能失败；峰值差只有约24 bytes。内存增长与Leaks诊断仍分开解释，不以5MiB泄漏代替38.92MiB总占用变化。
+
+TUI与专用Appium正常退出，复查本轮xcodebuild/iproxy/xctrace进程已退出。设备进程查询的权限审核首次超时、重试成功；随后重新验证PID与MemoryProbe可执行文件匹配，定向停止应用并复查MemoryProbe进程数为0。原baseline、安装与证据保留。无生产代码修改，沿用第17节3998 pass/7 existing skip/0 fail门禁，不冒称重跑全库。本轮文档diff-check、任务JSON解析与差异gitleaks扫描通过，无可级联转ready的pending任务。有效零扫描、多轮可复现工作负载、Simulator、接受新baseline及其他US-12.3剩余项仍未完成；T6.12保持in_progress、DEF-035不变、T6.13不启动。本轮未提交推送。
+
+## 20. 提交与session交接检查（2026-09-08）
+
+用户要求先提交推送到现有PR，再提供新session交接文档。本次重新运行typecheck、lint（888 files）、build及schema/依赖架构/脱敏专项（32 pass / 0 fail）。沙箱首跑3976 pass / 29 skip / 0 fail，其中22项本地服务测试因loopback受限额外跳过；随后在允许本地loopback/PTY的环境重跑全库：**3998 pass / 7 existing skip / 0 fail，12205 assertions，367 files，104.65s**。日志分别为 `/private/tmp/itestagent-handoff-tests.log` 和 `/private/tmp/itestagent-handoff-tests-full.log`，其他门禁日志同前缀。
+
+本次没有新增真机运行或新生产逻辑，提交范围为§15–19的已批准实现、回归与实证。提交沿用PR #82和当前分支，保持T6.12 in_progress；DEF-035保持open，使用changed/index提交范围扫描，不宣称全库literal CLI已修复。历史各节“未提交”保留为当时状态。本次handoff见 `docs/05-planning/handoff-6.12-memory-2026-09-08.md`，交接包含已验证链路、下一步优先建议、未完成边界及必须重新取得的一次性授权；不传递secret或原始设备证据。

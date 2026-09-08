@@ -611,6 +611,7 @@ export type {
   PerformanceCaptureResult,
 } from './performance-capture.js';
 export {
+  MEMORY_CAPTURE_POLICY,
   MemoryGrowthSchema,
   MemoryLeaksSchema,
   MemoryObservationSchema,
