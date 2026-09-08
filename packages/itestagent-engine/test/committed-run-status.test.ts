@@ -10,7 +10,8 @@ import type {
   TestPlan,
 } from 'itestagent-contracts';
 import { TestPlanSchema } from 'itestagent-contracts';
-import { createRunStore, createStoreCore, initStore } from 'itestagent-store';
+import { createBaselineStore, createRunStore, createStoreCore, initStore } from 'itestagent-store';
+import { analyzeMemoryGrowth } from '../../itestagent-backends/performance-xctrace-analyzer/src/memory-growth.js';
 import { persistConfirmedRun } from '../src/confirmed-run-bundle.js';
 import type { ConfirmedExecutionDispatchResult } from '../src/dual-execution-dispatcher.js';
 import type { RealDeviceRunResult } from '../src/exploration/real-run.js';
@@ -129,6 +130,184 @@ function xcuitestDispatch(status: 'passed' | 'failed'): ConfirmedExecutionDispat
 }
 
 describe('committed canonical run status', () => {
+  test('partial memory facts cannot override incomplete coverage or create a baseline', async () => {
+    const { root, store } = await storage();
+    const baselineStore = createBaselineStore(root);
+    const confirmed = plan('memory-partial-window');
+    confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: device.udid } };
+    confirmed.performance = {
+      baseline: 'local_auto',
+      baselineDomain: 'physical',
+      thresholdRequired: false,
+    };
+    confirmed.execution.metrics = ['memory_growth'];
+    const growth = analyzeMemoryGrowth([
+      { timestampMs: 0, footprintMiB: 10 },
+      { timestampMs: 7000, footprintMiB: 12 },
+    ]);
+    if (!growth) throw new Error('Expected fixture growth');
+    const committed = await persistConfirmedRun({
+      store,
+      baselineStore,
+      plan: confirmed,
+      device: { ...device, targetKind: 'physical' },
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [],
+        metrics: {
+          memoryGrowth: { ...growth, coverage: 'partial', recordingDurationMs: 30000 },
+          collection: [
+            {
+              metric: 'memory_growth',
+              status: 'not_exportable',
+              reasonCode: 'xctrace.memory_window_incomplete',
+            },
+          ],
+        },
+      },
+    });
+    expect(committed.runStatus).toBe('inconclusive');
+    expect((await store.loadRunResult(confirmed.runId)).metrics.memoryGrowth?.samples).toHaveLength(
+      2,
+    );
+    expect(await baselineStore.list()).toHaveLength(0);
+    expect(await Bun.file(join(committed.runDir, 'summary.md')).text()).toContain(
+      'Partial: samples do not span',
+    );
+  });
+  test('positive leak diagnostics survive canonical reload and are visible in the report', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('positive-leak-diagnostics');
+    confirmed.execution.metrics = ['memory_leaks'];
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [],
+        metrics: {
+          memoryLeaks: {
+            source: 'xctrace-leaks-detail',
+            status: 'detected',
+            scope: 'observed_allocations',
+            allocationCount: 20,
+            totalBytes: 5242880,
+          },
+        },
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(bundle.result.metrics.memoryLeaks?.allocationCount).toBe(20);
+    expect(bundle.result.metrics.collection?.[0]?.status).toBe('collected');
+    const summary = await Bun.file(join(committed.runDir, 'summary.md')).text();
+    expect(summary).toContain('Detected: 20 allocations, 5242880 bytes');
+    expect(summary).toContain('not all retain cycles');
+  });
+
+  test('growth facts reach the canonical report while missing leak evidence remains inconclusive', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('memory-growth-leaks');
+    confirmed.execution.metrics = ['memory_growth', 'memory_leaks'];
+    const growth = analyzeMemoryGrowth([
+      { timestampMs: 0, footprintMiB: 10 },
+      { timestampMs: 30000, footprintMiB: 12 },
+    ]);
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [],
+        metrics: {
+          memoryGrowth: growth,
+          collection: [
+            {
+              metric: 'memory_leaks',
+              status: 'not_exportable',
+              reasonCode: 'xctrace.leaks_diagnostic_not_exportable',
+            },
+          ],
+        },
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(bundle.result.metrics.memoryGrowth?.deltaMiB).toBe(2);
+    expect(bundle.result.metrics.memoryGrowth?.samples).toHaveLength(2);
+    expect(committed.runStatus).toBe('inconclusive');
+    expect(bundle.result.cases[0]?.status).toBe('passed');
+    const summary = await Bun.file(join(committed.runDir, 'summary.md')).text();
+    expect(summary).toContain('Memory Growth (approximate)');
+    expect(summary).toContain('No zero-leak conclusion');
+  });
+
+  test('committed physical memory runs establish then compare a baseline without overwriting it', async () => {
+    const { root, store } = await storage();
+    const baselineStore = createBaselineStore(root);
+    const target: DeviceInfo = { ...device, targetKind: 'physical' };
+    for (const [runId, peak] of [
+      ['baseline-memory-first', 10],
+      ['baseline-memory-second', 12],
+    ] as const) {
+      const confirmed = plan(runId);
+      confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: device.udid } };
+      confirmed.performance = {
+        baseline: 'local_auto',
+        baselineDomain: 'physical',
+        thresholdRequired: false,
+      };
+      confirmed.execution.metrics = ['memory_peak'];
+      await persistConfirmedRun({
+        store,
+        baselineStore,
+        plan: confirmed,
+        device: target,
+        resultBundlePath: join(root, 'missing.xcresult'),
+        dispatch: {
+          status: 'completed',
+          path: 'device_backend',
+          fallbackHistory: [],
+          result: deviceResult(root, 'passed'),
+        },
+        performance: {
+          artifacts: [],
+          metrics: { memoryPeakMB: peak, memoryPeakUnit: 'MiB', approximate: true },
+        },
+      });
+    }
+    const records = await baselineStore.list();
+    expect(records).toHaveLength(1);
+    expect(records[0]?.updatedFromRun).toBe('baseline-memory-first');
+    expect(records[0]?.memoryPeakMB).toBe(10);
+    const second = await store.loadRunResult('baseline-memory-second');
+    expect(second.baselineDelta?.deltas.memoryPeakMB).toBe(2);
+    expect(second.metrics.memoryPeakUnit).toBe('MiB');
+    const summary = await Bun.file(
+      join(root, 'runs', 'baseline-memory-second', 'summary.md'),
+    ).text();
+    expect(summary).toContain('12 MiB');
+    expect(summary).toContain('+2MiB');
+    expect(second.status).toBe('passed');
+  });
   test('missing requested metrics make UI success inconclusive and appear in the report', async () => {
     const { root, store } = await storage();
     const confirmed = plan('missing-performance');

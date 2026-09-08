@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { Intent, TestPlan } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
+import { parseIntent } from '../src/intent-parser.js';
 import {
   compileTestPlan as compileTestPlanCore,
   parseTestPlanYaml,
@@ -107,6 +108,35 @@ function makeSimulatorIntent(): Intent {
 // ─── Tests ───────────────────────────────────────────────────
 
 describe('compileTestPlan', () => {
+  it('preserves explicit memory requests and bounded observation in the confirmed plan', () => {
+    const plan = compileTestPlan(
+      makeIntent({ requestedMetrics: ['memory_peak', 'memory_growth', 'memory_leaks'] }),
+      makeProfile(),
+    );
+    expect(plan.execution.metrics).toEqual(['memory_peak', 'memory_growth', 'memory_leaks']);
+    expect(plan.performance.thresholdRequired).toBe(false);
+    expect(plan.artifacts.collect).toContain('trace');
+    expect(plan.performance.memoryObservation).toEqual({
+      minimumDurationMs: 30000,
+      settleDurationMs: 5000,
+    });
+    expect(parseTestPlanYaml(testPlanToYaml(plan)).performance.memoryObservation).toEqual(
+      plan.performance.memoryObservation,
+    );
+  });
+  it('keeps workload waiting separate from the post-action interval through plan serialization', () => {
+    const request =
+      '用这台真机测试应用：点击按钮，等待20秒，确认完成；采集内存增长和泄漏，观察70秒，操作后等待10秒';
+    const { intent } = parseIntent(request);
+    // Model the candidate confirmation step before compiling the fixture plan.
+    const plan = compileTestPlan({ ...intent, features: ['Login'] }, makeProfile());
+    const reloaded = parseTestPlanYaml(testPlanToYaml(plan));
+    expect(reloaded.performance.memoryObservation).toEqual({
+      minimumDurationMs: 70000,
+      settleDurationMs: 10000,
+    });
+    expect(reloaded.execution.goal).toContain('等待20秒');
+  });
   // ── AC1: Unified TestPlan ──────────────────────────────────
 
   describe('AC1: unified TestPlan from Intent + Profile', () => {

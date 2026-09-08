@@ -66,8 +66,12 @@ export function generateSummary(input: ReportSynthesizerInput): string {
       lines.push(`| Launch Duration | ${formatDelta(d.launchDurationMs, 'ms')} |`);
     }
     if (d.memoryPeakMB !== undefined) {
-      lines.push(`| Memory Peak | ${formatDelta(d.memoryPeakMB, 'MB')} |`);
+      lines.push(
+        `| Memory Peak | ${formatDelta(d.memoryPeakMB, input.metrics.memoryPeakUnit ?? 'MB')} |`,
+      );
     }
+    if (d.memoryGrowthMiB !== undefined)
+      lines.push(`| Memory Growth | ${formatDelta(d.memoryGrowthMiB, 'MiB')} |`);
     if (d.hangCount !== undefined) {
       lines.push(`| Hang Count | ${formatDelta(d.hangCount, '')} |`);
     }
@@ -209,10 +213,25 @@ function metricsTable(input: ReportSynthesizerInput): string[] {
     );
   }
   if (m.memoryPeakMB !== undefined) {
-    rows.push(`| Memory Peak | ${m.memoryPeakMB} MB${m.approximate ? ' (approximate)' : ''} |`);
+    rows.push(
+      `| Memory Peak | ${m.memoryPeakMB} ${m.memoryPeakUnit ?? 'MB'}${m.approximate ? ' (approximate)' : ''} |`,
+    );
   }
   if (m.crashDetected !== undefined) {
     rows.push(`| Crash Detected | ${m.crashDetected ? 'Yes' : 'No'} |`);
+  }
+  if (m.memoryGrowth) {
+    const g = m.memoryGrowth;
+    if (g.coverage === 'partial')
+      rows.push(
+        '| Memory Coverage | Partial: samples do not span the requested observation window; no full-window conclusion |',
+      );
+    rows.push(
+      `| Memory Growth (approximate) | ${g.deltaMiB.toFixed(3)} MiB (${g.direction}); ${g.rateMiBPerMinute.toFixed(3)} MiB/min |`,
+    );
+    rows.push(
+      `| Memory Observation | ${g.sampleCount} samples across ${(g.durationMs / 1000).toFixed(3)}s; start ${g.startMiB.toFixed(3)} MiB, end ${g.endMiB.toFixed(3)} MiB, peak ${g.peakMiB.toFixed(3)} MiB |`,
+    );
   }
   if (m.hangCount !== undefined) {
     rows.push(`| Hang Count | ${m.hangCount}${m.approximate ? ' (approximate)' : ''} |`);
@@ -226,6 +245,11 @@ function metricsTable(input: ReportSynthesizerInput): string[] {
     );
   }
 
+  if (m.memoryLeaks) {
+    rows.push(
+      `| Memory Leaks | Detected: ${m.memoryLeaks.allocationCount} allocations, ${m.memoryLeaks.totalBytes} bytes (xctrace Leaks) |`,
+    );
+  }
   if (rows.length === 2) {
     rows.push('| — | *No metrics collected* |');
   }
@@ -241,6 +265,22 @@ function metricsTable(input: ReportSynthesizerInput): string[] {
         'Performance validation is incomplete. Missing data is not evidence of zero memory growth, no crashes, or no leaks.',
       );
     }
+  }
+  if (m.memoryGrowth)
+    rows.push(
+      '',
+      'Memory growth describes only the sampled interval, not a repeated-workload trend, retained allocation diagnosis, or proof of a leak. Sample timestamps and values are in result.json.',
+    );
+  if (m.memoryLeaks)
+    rows.push(
+      '',
+      'Leak findings cover only allocations diagnosed by Leaks in this recording, not all retain cycles or all application lifetimes. The raw-local-only performance trace is listed in the evidence section.',
+    );
+  if (m.collection?.some((o) => o.metric === 'memory_leaks' && o.status !== 'collected')) {
+    rows.push(
+      '',
+      'Automatic leak diagnosis is unavailable for this run. No zero-leak conclusion was generated. If a Leaks trace was collected, open the local trace listed in the evidence section with Instruments and inspect its Leaks instrument. A memory-growth curve is not a leak diagnosis.',
+    );
   }
   return rows;
 }

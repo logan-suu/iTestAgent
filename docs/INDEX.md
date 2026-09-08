@@ -56,7 +56,8 @@
 | DEF-034 物理目标 AUT build/settings/codesign 取消、进程树与 staging 清理验证及关闭证据 | `06-verification/g5-def034-physical-cancellation-6.12.md` |
 | T6.12 用户确认、既有真机成功 run 完整性复核、历史证据边界与收尾事项 | `06-verification/g5-physical-closed-loop-report-6.12.md` |
 | 性能采集生命周期、逐指标证据状态与 UI 成功不等于性能通过 | `decisions/ADR-039-performance-capture-lifecycle-and-evidence-status.md` |
-| T6.12 性能生产接线第一单元自动化验证、真实采集与增长/泄漏未验收边界 | `06-verification/performance-capture-wiring-6.12.md` |
+| 内存增长/泄漏产品契约、TUI自动阳性诊断实证、零结果及baseline剩余边界 | `decisions/ADR-040-memory-growth-and-leak-diagnostics.md` |
+| T6.12 性能生产接线、采样覆盖限制（§7）、正常TUI真机内存增长与阳性Leaks报告（§13） | `06-verification/performance-capture-wiring-6.12.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -105,7 +106,7 @@
 | E9 | iTestAgent Flow（录制与重放） | US-9.1~9.2 | P0 |
 | E10 | 测试数据与账号 | US-10.1~10.2 | P0/P1 |
 | E11 | 断言策略 | US-11.1 | P1 |
-| E12 | 性能采集与 baseline | US-12.1~12.2 | P0/P1 |
+| E12 | 性能采集、baseline 与内存增长/泄漏诊断 | US-12.1~12.3 | P0/P1 |
 | E13 | 证据采集 | US-13.1 | P0 |
 | E14 | 失败归因与解释 | US-14.1 | P1 |
 | E15 | 报告输出 | US-15.1 | P0 |

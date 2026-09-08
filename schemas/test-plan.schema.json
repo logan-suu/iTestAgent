@@ -302,6 +302,8 @@
             "enum": [
               "launch_time",
               "memory_peak",
+              "memory_growth",
+              "memory_leaks",
               "crash",
               "test_duration",
               "hitches",
@@ -487,6 +489,14 @@
             "simulator"
           ],
           "description": "ADR-011: Baseline domain isolation. physical and simulator baselines are strictly separated."
+        },
+        "memoryObservation": {
+          "type": "object",
+          "required": ["minimumDurationMs", "settleDurationMs"],
+          "properties": {
+            "minimumDurationMs": { "type": "integer", "minimum": 1000, "maximum": 300000 },
+            "settleDurationMs": { "type": "integer", "minimum": 0, "maximum": 60000 }
+          }
         },
         "thresholdRequired": {
           "type": "boolean"

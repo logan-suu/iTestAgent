@@ -28,13 +28,16 @@
 
 - 保留既有五方法 `PerformanceBackend` API，增加 contracts 层 `PerformanceCaptureFactory`/`PerformanceCapture` 生命周期边界。工厂仅在录制就绪后返回；`finish()` 幂等，等待所属录制进程退出后再导出。engine 只编排，不拼底层命令；TUI/CLI 组合根注入现有 xctrace backend 包提供的生命周期适配器。
 - 该增量适配器使用已有选型允许的公开 `xcrun xctrace record/export` 通道，不引入第三方依赖、不逆向 trace，不把此接线视为重新完成 ADR-007 全部解析底座与 schema 覆盖。实际表是否可导出、可解析仍以运行证据为准。
-- 当前物理 DeviceBackend 路径在 AUT preflight 就绪后、探索动作前开始 attach，使用经过验证的 executable name，而非把 bundle ID 当作进程名。设备 UDID 始终显式传递。内存请求使用 VM Tracker，其余使用 Animation Hitches；不自动重启 AUT、多次重跑或跨模板静默 fallback。
+- 2026-09-08 真机增量验证确认 Xcode 26.5 的就绪文本为 `Ctrl-C to stop the recording`，须兼容跨输出 chunk 的提示。内存公开表 `activity-monitor-process-live` 按列 mnemonic/type 读取 `memory-physical-footprint`，只接受 `size-in-bytes`，按确切进程名/PID 过滤并解析类型一致的 id/ref；未知单位、损坏引用或截断输出不生成指标。转换除以 1024²，沿用现有 `memoryPeakMB` 字段，报告解释为近似 MiB；本次不新增增长/泄漏结论。
+- 当前物理 DeviceBackend 路径在 AUT preflight 就绪后、探索动作前开始 attach，使用经过验证的 executable name，而非把 bundle ID 当作进程名。设备 UDID 始终显式传递。内存请求使用 Activity Monitor 模板并通过 `--instrument 'VM Tracker'` 加入 VM Tracker，其余使用 Animation Hitches；不自动重启 AUT、多次重跑或跨模板静默 fallback。2026-09-08 本机 Xcode 26.5 的 `list templates/instruments` 证明 VM Tracker 是 instrument 而不是独立 template；参数修正不代表真实录制或指标已验收。
 - 每个子进程有明确 owner、输出上限、超时和同一 run AbortSignal。停止录制先 SIGINT，超期强杀并等待退出；导出和采集错误仅输出固定原因码，原始输出不进入模型或日志。
 - 完成的 `.trace` 经 RunWriter 导入、校验和索引，标为 `raw-local-only`；不向模型传送 trace/XML，不在结果中留下被删除的 staging 路径。取消时只保留已完成的证据。
 - `result.json` 的 `metrics` 向后兼容新增可选 `collection` 与 `testDurationMs`。每个请求指标对应 `collected / not_exportable / failed / cancelled` 及稳定原因码。没有观测到 crash/hang 事件时不填 false/0；`approximate:true` 不是伪造数值的许可。
 - 原本 `passed` 的 run 若缺少请求的性能指标，改为 `inconclusive`，UI case 的通过事实保留。失败、取消及基础设施失败不被性能缺失覆盖。summary 明确列出缺失指标与原因；完成通知不能把该 run 显示为全项 SUCCESS。
 
 ## 当前增量边界及后果
+
+> 以下保留第一单元的边界记录。2026-09-08 用户随后批准增长/泄漏产品能力扩展；单区间采样与生产 baseline 接线已有增量，当前事实以 [ADR-040](ADR-040-memory-growth-and-leak-diagnostics.md) 及验证报告 §7 为准，不将旧记录中的“尚待接线”误读为最新实现状态。
 
 - 这是采集—收尾—报告的第一可验证单元，**不是全量性能能力完成**。attach 在启动后发生，不能测冷启动；未识别的真实 XML、实验性 summary 仍 `not_exportable`。现有有限格式解析不是跨 Xcode 版本已验收的证明。
 - Simulator 和 XCUITest 目前没有新增并行 trace 接线，原有 xcresult 指标保留，其余请求显式缺失；需要后续按执行路线确定生命周期并做 G5-SIM/G5。不得借用真机指标或把模拟器数据当真机代表值。

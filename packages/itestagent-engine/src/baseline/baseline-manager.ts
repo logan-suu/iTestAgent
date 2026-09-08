@@ -144,6 +144,7 @@ export class BaselineManager {
       targetKind: context.targetKind,
       launchDurationMs: summary.launchDurationMs,
       memoryPeakMB: summary.memoryPeakMB,
+      memoryGrowthMiB: summary.memoryGrowthMiB,
       hangCount: summary.hangCount,
       hitchesSummary: summary.hitchesSummary,
       fpsApproximate: summary.fpsApproximate,
@@ -207,20 +208,27 @@ export class BaselineManager {
       baseline.launchDurationMs,
     );
     const memoryPeakMB = computeNumericDelta(summary.memoryPeakMB, baseline.memoryPeakMB);
+    const memoryGrowthMiB = computeNumericDelta(summary.memoryGrowthMiB, baseline.memoryGrowthMiB);
     const hangCount = computeNumericDelta(summary.hangCount, baseline.hangCount);
     const fpsApproximate = computeNumericDelta(summary.fpsApproximate, baseline.fpsApproximate);
     const hitches = computeHitchesDelta(summary.hitchesSummary, baseline.hitchesSummary);
 
     // Determine overall summary
-    const deltaSummary = computeOverallSummary(
+    let deltaSummary = computeOverallSummary(
       launchDurationMs,
       memoryPeakMB,
       hangCount,
       fpsApproximate,
       hitches,
     );
+    if (memoryGrowthMiB !== undefined) {
+      if (memoryGrowthMiB > 0) deltaSummary = 'regressed';
+      else if (deltaSummary !== 'regressed' && memoryGrowthMiB < 0) deltaSummary = 'improved';
+      else if (deltaSummary === 'inconclusive') deltaSummary = 'unchanged';
+    }
 
     const deltas: BaselineDelta['deltas'] = {};
+    if (memoryGrowthMiB !== undefined) deltas.memoryGrowthMiB = memoryGrowthMiB;
     if (launchDurationMs !== undefined) deltas.launchDurationMs = launchDurationMs;
     if (memoryPeakMB !== undefined) deltas.memoryPeakMB = memoryPeakMB;
     if (hangCount !== undefined) deltas.hangCount = hangCount;

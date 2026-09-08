@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { UserAssertionSchema } from './assertion.js';
 import { TargetKindSchema } from './device-types.js';
+import { MemoryObservationSchema } from './memory-analysis.js';
 import { RunIdSchema } from './run-id.js';
 
 /**
@@ -29,6 +30,8 @@ export const TEST_PLAN_SCHEMA_VERSION = 'itestagent.test-plan.v3';
 export const TEST_PLAN_METRIC_VALUES = [
   'launch_time',
   'memory_peak',
+  'memory_growth',
+  'memory_leaks',
   'crash',
   'test_duration',
   'hitches',
@@ -202,6 +205,7 @@ export type ArtifactPolicy = z.infer<typeof ArtifactPolicySchema>;
 // ─── Performance Plan ────────────────────────────────────────
 
 export const PerformancePlanSchema = z.object({
+  memoryObservation: MemoryObservationSchema.optional(),
   /** Baseline strategy */
   baseline: z.enum(['local_auto', 'skip']),
   /** Baseline domain isolation per ADR-011 */

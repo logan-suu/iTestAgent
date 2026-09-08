@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type {
   ArtifactIndex,
+  BaselineStore,
   DeviceInfo,
   EvidenceCollectionOutcome,
   PerformanceCaptureResult,
@@ -25,6 +26,7 @@ import {
   initStore,
   resolveStoreRoot,
 } from 'itestagent-store';
+import { prepareMemoryBaseline } from './baseline/production-memory-baseline.js';
 import type { ConfirmedExecutionDispatchResult } from './dual-execution-dispatcher.js';
 import type { RealDeviceRunResult } from './exploration/real-run.js';
 import { applyRerunFlakiness } from './rerun.js';
@@ -38,6 +40,8 @@ export interface PersistConfirmedRunInput {
   resultBundlePath: string;
   parentResult?: RunResult;
   performance?: PerformanceCaptureResult;
+  baselineStore?: BaselineStore;
+  onBaselineWarning?: () => void;
 }
 
 export async function persistConfirmedRunToDefaultStore(
@@ -244,6 +248,8 @@ export async function persistConfirmedRun(
   const metricFields = {
     launch_time: 'launchDurationMs',
     memory_peak: 'memoryPeakMB',
+    memory_growth: 'memoryGrowth',
+    memory_leaks: 'memoryLeaks',
     crash: 'crashDetected',
     test_duration: 'testDurationMs',
     hitches: 'hitchesSummary',
@@ -256,6 +262,9 @@ export async function persistConfirmedRun(
     }
     const collected = metrics.collection ?? [];
     metrics.collection = requestedMetrics.map((metric) => {
+      const reported = collected.find((outcome) => outcome.metric === metric);
+      if (metric !== 'test_duration' && reported && reported.status !== 'collected')
+        return reported;
       const field = metric === 'xctrace_summary' ? undefined : metricFields[metric];
       const value = field ? metrics[field] : undefined;
       if (value !== undefined && value !== 'inconclusive') {
@@ -385,6 +394,27 @@ export async function persistConfirmedRun(
     report.cases = adjusted.cases;
     report.explanation = adjusted.explanation;
   }
+  let baseline: Awaited<ReturnType<typeof prepareMemoryBaseline>>;
+  const warnBaseline = () => {
+    try {
+      input.onBaselineWarning?.();
+    } catch {
+      /* Preserve the committed run if a UI observer fails. */
+    }
+  };
+  try {
+    if (input.baselineStore)
+      baseline = await prepareMemoryBaseline({
+        store: input.baselineStore,
+        plan,
+        device,
+        metrics,
+        status: report.status,
+      });
+    if (baseline?.delta) report.baselineDelta = baseline.delta;
+  } catch {
+    warnBaseline();
+  }
   const committed = await persistRunBundle({
     store: input.store,
     plan,
@@ -397,5 +427,10 @@ export async function persistConfirmedRun(
         : dirname(input.resultBundlePath),
     report,
   });
+  try {
+    await baseline?.afterCommit();
+  } catch {
+    warnBaseline();
+  }
   return { ...committed, runStatus: report.status };
 }

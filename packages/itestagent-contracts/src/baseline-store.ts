@@ -38,6 +38,7 @@ export const BaselineRecordSchema = z
     launchDurationMs: z.number().int().nonnegative().optional(),
     /** Memory peak in MB (approximate per R5) */
     memoryPeakMB: z.number().nonnegative().optional(),
+    memoryGrowthMiB: z.number().finite().optional(),
     /** Number of detected hangs */
     hangCount: z.number().int().nonnegative().optional(),
     /** Hitches summary (structured by parser, experimental per S8) */

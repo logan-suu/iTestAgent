@@ -244,6 +244,8 @@ export class PlanningSession {
       xcuitestTestPlan: parsed.intent.xcuitestTestPlan ?? currentIntent.xcuitestTestPlan,
       features,
       metricsRequested: parsed.intent.metricsRequested || currentIntent.metricsRequested,
+      requestedMetrics: parsed.intent.requestedMetrics ?? currentIntent.requestedMetrics,
+      memoryObservation: parsed.intent.memoryObservation ?? currentIntent.memoryObservation,
       scope: parsed.intent.scope === 'custom' ? currentIntent.scope : parsed.intent.scope,
       sourceText: `${currentIntent.sourceText}\nModification: ${input}`,
     };

@@ -44,7 +44,10 @@ test('finalizes once before TOC/XPath exports; unknown data is not healthy data'
       }>((resolve) => {
         finish = resolve;
       });
-      queueMicrotask(() => options.onOutput?.('Recording started'));
+      queueMicrotask(() => {
+        options.onOutput?.('Starting recording with the Activity Monitor template.\nCtrl-C to ');
+        options.onOutput?.('stop the recording\n');
+      });
       return {
         completed,
         cancel: () => {},
@@ -61,8 +64,13 @@ test('finalizes once before TOC/XPath exports; unknown data is not healthy data'
         failure: undefined,
         stderr: '',
         stdout: command.includes('--toc')
-          ? '<table schema="memory-footprint"/>'
-          : '<row><peak-memory-MB>42</peak-memory-MB></row>',
+          ? '<table schema="activity-monitor-process-live"/>'
+          : `<trace-query-result><node><schema name="activity-monitor-process-live">
+              <col><mnemonic>process</mnemonic><engineering-type>process</engineering-type></col>
+              <col><mnemonic>pid</mnemonic><engineering-type>pid</engineering-type></col>
+              <col><mnemonic>memory-physical-footprint</mnemonic><engineering-type>size-in-bytes</engineering-type></col>
+              </schema><row><process id="1" fmt="Demo (321)"><pid id="2">321</pid></process>
+              <pid ref="2"/><size-in-bytes id="3">44040192</size-in-bytes></row></node></trace-query-result>`,
       }),
       stop: () => {},
       cancel: () => {},
@@ -82,6 +90,24 @@ test('finalizes once before TOC/XPath exports; unknown data is not healthy data'
   expect(first.artifacts[0]?.redactionStatus).toBe('raw-local-only');
   expect(calls).toHaveLength(3);
   expect(calls[0]).toContain('Demo');
+  const recording = calls[0] as string[];
+  expect(recording[recording.indexOf('--template') + 1]).toBe('Activity Monitor');
+  expect(recording[recording.indexOf('--instrument') + 1]).toBe('VM Tracker');
+});
+
+test('non-memory recording keeps the Animation Hitches template without VM Tracker', async () => {
+  const factory = createProductionPerformanceCapture((command) => {
+    expect(command[command.indexOf('--template') + 1]).toBe('Animation Hitches');
+    expect(command).not.toContain('--instrument');
+    return {
+      completed: Promise.resolve({ exitCode: 1, stdout: '', stderr: '', failure: undefined }),
+      stop: () => {},
+      cancel: () => {},
+    };
+  });
+  await expect(factory({ ...input(), metrics: ['hitches'] })).rejects.toThrow(
+    'performance.recording_not_ready',
+  );
 });
 
 test('recording early exit rejects without exporting or pretending readiness', async () => {

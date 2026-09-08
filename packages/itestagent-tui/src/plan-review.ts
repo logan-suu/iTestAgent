@@ -305,6 +305,17 @@ function formatPerformanceSection(plan: TestPlan): PlanSection {
     id: 'performance',
     title: 'Performance',
     fields: [
+      ...(plan.performance.memoryObservation
+        ? [
+            {
+              key: 'memoryObservation',
+              label: 'Memory observation',
+              value: `Minimum ${plan.performance.memoryObservation.minimumDurationMs / 1000}s; wait ${plan.performance.memoryObservation.settleDurationMs / 1000}s after actions. Actions execute once; no automatic repetition. Leaks export may be unavailable.`,
+              kind: 'text' as const,
+              editable: false,
+            },
+          ]
+        : []),
       {
         key: 'baseline',
         label: 'Baseline',

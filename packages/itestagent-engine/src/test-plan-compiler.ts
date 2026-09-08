@@ -58,7 +58,15 @@ export function compileTestPlan(
   const performance = {
     baseline: 'local_auto' as const,
     baselineDomain: targetKind,
-    thresholdRequired: intent.metricsRequested,
+    thresholdRequired: false,
+    ...(execution.metrics?.some((m) => m === 'memory_growth' || m === 'memory_leaks')
+      ? {
+          memoryObservation: intent.memoryObservation ?? {
+            minimumDurationMs: 30_000,
+            settleDurationMs: 5000,
+          },
+        }
+      : {}),
   };
 
   const plan: TestPlan = {
@@ -71,7 +79,13 @@ export function compileTestPlan(
     backendPreference: resolveBackendPreference(profile),
     execution,
     artifacts: {
-      collect: ['screenshot', 'uitree', 'crashlog', 'xcresult'],
+      collect: [
+        'screenshot',
+        'uitree',
+        'crashlog',
+        'xcresult',
+        ...(execution.metrics?.some((m) => m !== 'test_duration') ? ['trace' as const] : []),
+      ],
       report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
     },
     performance,
@@ -220,6 +234,7 @@ export class TestPlanConfirmationError extends Error {
 
 /** Select metrics based on Intent.scope and metricsRequested */
 function resolveMetrics(intent: Intent): ExecutionPlan['metrics'] {
+  if (intent.requestedMetrics?.length) return [...new Set(intent.requestedMetrics)];
   // Perf scope always collects all metrics
   if (intent.scope === 'perf') {
     return ['launch_time', 'memory_peak', 'crash', 'test_duration', 'hitches', 'fps'] as const;

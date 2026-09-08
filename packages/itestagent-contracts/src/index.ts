@@ -610,3 +610,11 @@ export type {
   PerformanceCaptureInput,
   PerformanceCaptureResult,
 } from './performance-capture.js';
+export {
+  MemoryGrowthSchema,
+  MemoryLeaksSchema,
+  MemoryObservationSchema,
+  MemorySampleSchema,
+  type MemoryGrowth,
+  type MemoryLeaks,
+} from './memory-analysis.js';

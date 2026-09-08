@@ -5,6 +5,8 @@ import type { PerformanceMetrics } from './run-result-contracts.js';
 export const PerformanceMetricNameSchema = z.enum([
   'launch_time',
   'memory_peak',
+  'memory_growth',
+  'memory_leaks',
   'crash',
   'test_duration',
   'hitches',
@@ -30,6 +32,7 @@ export interface PerformanceCapture {
 }
 
 export interface PerformanceCaptureInput {
+  memoryObservation?: { minimumDurationMs: number; settleDurationMs: number };
   runId: string;
   deviceId: string;
   targetKind: 'physical' | 'simulator';

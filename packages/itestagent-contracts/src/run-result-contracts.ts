@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
+import { MemoryGrowthSchema, MemoryLeaksSchema } from './memory-analysis.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
 import { MetricCollectionOutcomeSchema } from './performance-capture.js';
 import { RunIdSchema } from './run-id.js';
@@ -88,13 +89,16 @@ export type CaseStatus = z.infer<typeof CaseStatusSchema>;
  * 技术选型 §11：主推 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate。
  */
 export const PerformanceMetricsSchema = z.object({
+  memoryGrowth: MemoryGrowthSchema.optional(),
+  memoryLeaks: MemoryLeaksSchema.optional(),
   collection: z.array(MetricCollectionOutcomeSchema).optional(),
   /** Measured execution interval, not application launch latency. */
   testDurationMs: z.number().int().nonnegative().optional(),
   /** 启动耗时（毫秒），非负整数 */
   launchDurationMs: z.number().int().nonnegative().optional(),
-  /** 内存峰值（MB），非负数 */
+  /** Legacy field name; new collectors specify the actual unit explicitly. */
   memoryPeakMB: z.number().nonnegative().optional(),
+  memoryPeakUnit: z.enum(['MB', 'MiB']).optional(),
   /** 是否检测到 crash */
   crashDetected: z.boolean().optional(),
   /** 卡顿次数，非负整数 */

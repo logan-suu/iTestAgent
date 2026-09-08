@@ -17,6 +17,7 @@ import type {
 import { loadProfile } from 'itestagent-project-analyzer';
 import type { RunStore } from 'itestagent-store';
 import {
+  createBaselineStore,
   createDefaultRunStore,
   createStoreCore,
   initStore,
@@ -303,6 +304,7 @@ export async function executeProductionTestPlan(
               executable: preflight.artifact.executable,
               stagingDir,
               metrics: requestedMetrics,
+              memoryObservation: plan.performance.memoryObservation,
               signal: input.signal,
               onProgress: (message) =>
                 input.onProgress?.({ stage: 'collecting_performance', message }),
@@ -422,6 +424,12 @@ export async function executeProductionTestPlan(
       dispatch,
       resultBundlePath,
       performance,
+      baselineStore: createBaselineStore(input.storeRoot),
+      onBaselineWarning: () =>
+        input.onProgress?.({
+          stage: 'saving_result',
+          message: 'Memory baseline storage unavailable; no comparison or update is claimed.',
+        }),
     });
     return { ...dispatch, ...committed };
   } finally {
