@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-07T21:32:25Z",
+  "last_updated": "2026-09-08T15:44:02Z",
   "items": [
     {
       "id": "DEF-001",
@@ -635,8 +635,8 @@
     {
       "id": "DEF-035",
       "source": "Codex (self-review)",
-      "pr": null,
-      "pr_url": null,
+      "pr": 82,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/82",
       "comment_id": null,
       "comment_url": null,
       "task": "6.12",
