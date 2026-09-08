@@ -91,6 +91,16 @@ function makeMinimalExecution() {
 }
 
 describe('ExecutionPlanSchema.xcuitest (B04 target-explicit override)', () => {
+  it('rejects blank goals but preserves legacy absence and nonblank text', () => {
+    for (const goal of ['', ' ', '\t\n', '\u3000']) {
+      expect(ExecutionPlanSchema.safeParse({ ...makeMinimalExecution(), goal }).success).toBe(
+        false,
+      );
+    }
+    expect(
+      ExecutionPlanSchema.parse({ ...makeMinimalExecution(), goal: ' 测试 Login ' }).goal,
+    ).toBe(' 测试 Login ');
+  });
   it('is optional — plans without it keep parsing', () => {
     const parsed = ExecutionPlanSchema.parse(makeMinimalExecution());
     expect(parsed.xcuitest).toBeUndefined();

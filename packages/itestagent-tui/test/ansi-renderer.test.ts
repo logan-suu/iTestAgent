@@ -16,6 +16,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import { RunStatusSchema } from 'itestagent-contracts';
 import {
   CHAT_PROMPT,
   effectiveColumns,
@@ -28,6 +29,7 @@ import {
   renderScreen,
 } from '../src/renderers/ansi-renderer-frame.js';
 import { createAnsiRenderer } from '../src/renderers/ansi-renderer.js';
+import { STARTUP_LOGO, SUCCESS_LOGO } from '../src/startup-brand.js';
 import { type Message, type TuiShellState, createInitialState } from '../src/tui-shell.js';
 import {
   CLEAR_SCREEN,
@@ -81,6 +83,24 @@ function chatStateWith(messages: Message[]): TuiShellState {
 
 function msg(type: Message['type'], text: string, id = 'm1'): Message {
   return { id, type, text, timestamp: 1 };
+}
+
+function withTerminalSize<T>(columns: number, rows: number, action: () => T): T {
+  const previousColumns = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
+  const previousRows = Object.getOwnPropertyDescriptor(process.stdout, 'rows');
+  Object.defineProperty(process.stdout, 'columns', { value: columns, configurable: true });
+  Object.defineProperty(process.stdout, 'rows', { value: rows, configurable: true });
+  try {
+    return action();
+  } finally {
+    for (const [key, descriptor] of [
+      ['columns', previousColumns],
+      ['rows', previousRows],
+    ] as const) {
+      if (descriptor) Object.defineProperty(process.stdout, key, descriptor);
+      else Reflect.deleteProperty(process.stdout, key);
+    }
+  }
 }
 
 // ── createAnsiRenderer surface ─────────────────────────────────────────
@@ -352,6 +372,107 @@ function makeFakeWriter(): { chunks: string[]; target: FrameWriteTarget } {
 }
 
 describe('renderFrame (extracted from ansi-renderer render())', () => {
+  it('renders the four-row startup wordmark without a duplicate product caption', () => {
+    const lines = withTerminalSize(100, 50, () => renderFrame(createInitialState('/test/ws')));
+    expect(STARTUP_LOGO).toHaveLength(4);
+    for (const row of STARTUP_LOGO) expect(lines).toContain(`\x1b[38;2;139;213;202m${row}\x1b[0m`);
+    expect(lines.join('\n')).not.toContain('iTestAgent');
+    expect(lines[0]).toBe('\x1b[1mv0.0.1\x1b[0m');
+    expect(lines[1]).toBe(headerWorkspaceLine('/test/ws'));
+  });
+
+  it('keeps compact startup product identification and version', () => {
+    const lines = withTerminalSize(30, 24, () => renderFrame(createInitialState('/test/ws')));
+    expect(lines).toContain(HEADER_TITLE);
+    expect(lines).toContain('\x1b[36miTestAgent\x1b[0m');
+    for (const row of STARTUP_LOGO) expect(lines.join('\n')).not.toContain(row);
+  });
+
+  it('puts all four green success rows before the canonical passed report', () => {
+    const passed = withTerminalSize(100, 50, () =>
+      renderFrame(
+        chatStateWith([
+          {
+            ...msg('system', 'Execution completed.\nReport directory: /tmp/run'),
+            runStatus: 'passed',
+          },
+        ]),
+      ),
+    );
+    expect(SUCCESS_LOGO).toHaveLength(4);
+    const reportIndex = passed.findIndex((line) => line.includes('Report directory:'));
+    const expected = SUCCESS_LOGO.map((row) => `\x1b[1m\x1b[32m${row}\x1b[0m`);
+    expect(passed.slice(reportIndex - 4, reportIndex)).toEqual(expected);
+    expect(passed[reportIndex - 5]).toContain('Execution completed.');
+    expect(passed).not.toContain('\x1b[1m\x1b[32mSUCCESS\x1b[0m');
+  });
+
+  for (const [width, height] of [
+    [30, 50],
+    [100, 24],
+  ] as const) {
+    it(`uses compact green success at ${width}x${height}`, () => {
+      const passed = withTerminalSize(width, height, () =>
+        renderFrame(
+          chatStateWith([
+            {
+              ...msg('system', 'Execution completed.\nReport directory: /tmp/run'),
+              runStatus: 'passed',
+            },
+          ]),
+        ),
+      );
+      const marker = '\x1b[1m\x1b[32mSUCCESS\x1b[0m';
+      expect(passed).toContain(marker);
+      expect(passed[passed.indexOf(marker) - 1]).toContain('Execution completed.');
+      expect(passed.indexOf(marker)).toBeLessThan(
+        passed.findIndex((line) => line.includes('Report directory:')),
+      );
+      for (const row of SUCCESS_LOGO) expect(passed.join('\n')).not.toContain(row);
+    });
+  }
+
+  it('does not style ordinary words or non-passing results as success', () => {
+    const messages: Message[] = [
+      ...(['user', 'assistant', 'error', 'system'] as const).map((type) => msg(type, 'SUCCESS')),
+      ...(['user', 'assistant', 'error'] as const).map((type) => ({
+        ...msg(type, 'SUCCESS'),
+        runStatus: 'passed' as const,
+      })),
+      ...RunStatusSchema.options
+        .filter((status) => status !== 'passed')
+        .map((runStatus) => ({
+          ...msg('system', 'SUCCESS'),
+          runStatus,
+        })),
+    ];
+    const lines = withTerminalSize(100, 50, () => renderFrame(chatStateWith(messages)));
+    expect(lines.join('\n')).not.toContain('\x1b[1m\x1b[32m');
+    for (const row of SUCCESS_LOGO) expect(lines.join('\n')).not.toContain(row);
+  });
+
+  it('budgets the full transcript and long report paths before showing large success', () => {
+    const runDir = `/tmp/验收/${'long-project/'.repeat(8)}run`;
+    const report = [
+      `Report directory: ${runDir}`,
+      `Summary: ${runDir}/summary.md`,
+      `Evidence directory: ${runDir}/artifacts`,
+    ].join('\n');
+    const lines = withTerminalSize(100, 36, () =>
+      renderFrame(
+        chatStateWith([
+          msg('user', 'Confirmed test goal '.repeat(50), 'goal'),
+          { ...msg('system', `Execution completed.\n${report}`, 'report'), runStatus: 'passed' },
+        ]),
+      ),
+    );
+    const marker = '\x1b[1m\x1b[32mSUCCESS\x1b[0m';
+    expect(lines).toContain(marker);
+    expect(lines.indexOf(marker)).toBeLessThan(lines.findIndex((line) => line.includes(report)));
+    expect(lines.join('\n')).toContain(`${runDir}/summary.md`);
+    expect(lines.join('\n')).toContain(`${runDir}/artifacts`);
+    for (const row of SUCCESS_LOGO) expect(lines.join('\n')).not.toContain(row);
+  });
   it('returns the frame lines without any escape-sequence framing or prompt', () => {
     const lines = renderFrame(chatStateWith([msg('user', 'hello')]));
     expect(Array.isArray(lines)).toBe(true);

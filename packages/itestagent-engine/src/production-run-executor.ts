@@ -2,7 +2,15 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
-import type { DeviceInfo, RunResult, TestPlan, UserAssertion } from 'itestagent-contracts';
+import type {
+  BackendCleanupOutcome,
+  DeviceBackend,
+  DeviceInfo,
+  RunResult,
+  RunStatus,
+  TestPlan,
+  UserAssertion,
+} from 'itestagent-contracts';
 import { loadProfile } from 'itestagent-project-analyzer';
 import type { RunStore } from 'itestagent-store';
 import {
@@ -15,6 +23,7 @@ import { persistConfirmedRun } from './confirmed-run-bundle.js';
 import {
   type ConfirmedExecutionDispatchResult,
   DeviceBackendCleanupError,
+  DeviceBackendExecutionError,
 } from './dual-execution-dispatcher.js';
 import { assertProviderUrl } from './exploration/assertion-suggester.js';
 import {
@@ -39,6 +48,7 @@ export type ProductionActionSuggestion = (input: {
   uiTree: string;
   history: readonly import('itestagent-contracts').RunStep[];
   signal?: AbortSignal;
+  onProgress?: (progress: RealDeviceRunProgress) => void;
 }) => Promise<ExplorationAction | 'done'>;
 
 /** Build the model-backed DeviceBackend action suggestion at the engine boundary. */
@@ -51,7 +61,7 @@ export function createProductionActionSuggestion(input: {
   const model = createOpenAI({ apiKey: input.apiKey, baseURL: input.baseURL }).chat(
     input.model ?? 'gpt-4o',
   );
-  return ({ caseId, goal, assertions, uiTree, history, signal }) =>
+  return ({ caseId, goal, assertions, uiTree, history, signal, onProgress }) =>
     suggestExplorationAction({
       generate: async (prompt, runSignal) =>
         (await generateText({ model, prompt, abortSignal: runSignal })).text,
@@ -61,6 +71,7 @@ export function createProductionActionSuggestion(input: {
       uiTree,
       history,
       signal,
+      onProgress,
     });
 }
 
@@ -157,13 +168,16 @@ export function productionPermissionActions(
 /** Shared production execution used by standalone rerun and interactive sessions. */
 export async function executeProductionTestPlan(
   input: ProductionRunExecutorInput,
-): Promise<ConfirmedExecutionDispatchResult & { runDir: string }> {
+): Promise<ConfirmedExecutionDispatchResult & { runDir: string; runStatus: RunStatus }> {
   if (input.plan.rerun && input.plan.execution.resolvedPath === 'device_backend') {
     throw new Error(
       'rerun_case_not_reproducible: DeviceBackend exploration cases are not replayable; save a confirmed Flow and use `itestagent run flow <flowId>`',
     );
   }
-  if (input.plan.execution.resolvedPath === 'device_backend' && !input.plan.execution.goal) {
+  if (
+    input.plan.execution.resolvedPath === 'device_backend' &&
+    !input.plan.execution.goal?.trim()
+  ) {
     throw new Error(
       'execution_goal_missing: this legacy TestPlan has no confirmed execution goal; create and confirm a new plan',
     );
@@ -191,7 +205,7 @@ export async function executeProductionTestPlan(
           'tests.xcresult',
         ),
       });
-      return { ...blocked, runDir: committed.runDir };
+      return { ...blocked, ...committed };
     }
   }
 
@@ -205,6 +219,19 @@ export async function executeProductionTestPlan(
     mkdirSync(dirname(resultBundlePath), { recursive: true });
   }
   const production = input.production ?? createProductionAgentSessionDependencies();
+  const closeBackend = async (
+    backend: DeviceBackend,
+  ): Promise<BackendCleanupOutcome | undefined> => {
+    try {
+      return await production.closeDeviceBackend?.(backend, input.signal);
+    } catch {
+      return {
+        status: 'failed',
+        reusable: false,
+        issues: ['Device backend cleanup threw an error; the backend must not be reused.'],
+      };
+    }
+  };
   const dispatcher = createProductionDualExecutionDispatcher(async ({ plan }) => {
     input.onProgress?.({
       stage: 'connecting_device',
@@ -259,6 +286,7 @@ export async function executeProductionTestPlan(
               uiTree,
               history,
               signal,
+              onProgress: input.onProgress,
             }),
           authorizeSensitiveAction: ({ action, resource }) => input.authorize(action, resource),
         },
@@ -272,11 +300,13 @@ export async function executeProductionTestPlan(
         stage: 'cleaning_up',
         message: 'Execution stopped; cleaning up the device session…',
       });
-      const cleanup = await production.closeDeviceBackend?.(backend, input.signal);
+      const cleanup = await closeBackend(backend);
       if (cleanup && !cleanup.reusable) {
         throw new DeviceBackendCleanupError(
           `backend_execution_and_cleanup_failed: ${executionError instanceof Error ? executionError.message : String(executionError)}; cleanup ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
-          undefined,
+          executionError instanceof DeviceBackendExecutionError
+            ? executionError.partialResult
+            : undefined,
           cleanup,
         );
       }
@@ -286,7 +316,7 @@ export async function executeProductionTestPlan(
       stage: 'cleaning_up',
       message: 'Cleaning up the device session…',
     });
-    const cleanup = await production.closeDeviceBackend?.(backend, input.signal);
+    const cleanup = await closeBackend(backend);
     if (cleanup && !cleanup.reusable) {
       throw new DeviceBackendCleanupError(
         `backend_cleanup_incomplete: ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
@@ -323,7 +353,7 @@ export async function executeProductionTestPlan(
       dispatch,
       resultBundlePath,
     });
-    return { ...dispatch, runDir: committed.runDir };
+    return { ...dispatch, ...committed };
   } finally {
     rmSync(stagingDir, { recursive: true, force: true });
   }
@@ -332,7 +362,7 @@ export async function executeProductionTestPlan(
 /** Default-store production entry used by the interactive TUI composition root. */
 export async function executeProductionTestPlanToDefaultStore(
   input: Omit<ProductionRunExecutorInput, 'store' | 'storeRoot'>,
-): Promise<ConfirmedExecutionDispatchResult & { runDir: string }> {
+): Promise<ConfirmedExecutionDispatchResult & { runDir: string; runStatus: RunStatus }> {
   input.onProgress?.({
     stage: 'preparing_store',
     message: 'Preparing local run storage…',

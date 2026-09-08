@@ -86,8 +86,8 @@ export function emptyMessageLineTail(type: CharacterizedMessageType): string {
 // ── Mode indicator lines ──────────────────────────────────────────────
 
 export const MODE_HINT_LINES = {
-  candidate_review: `${YELLOW}[Candidate Review]${RESET} j/k to navigate, Space to toggle, Enter to confirm`,
-  plan_review: `${YELLOW}[Plan Review]${RESET} j/k to navigate, Enter to confirm, q to cancel`,
+  candidate_review: '↑/↓ or j/k:nav Space:toggle e:edit A:all N:none Enter:confirm Esc/q:cancel',
+  plan_review: '↑/↓ or j/k:nav m:modify Enter:start Esc/q:cancel',
 } as const;
 
 // ── Setup wizard panel ────────────────────────────────────────────────
@@ -129,6 +129,7 @@ export function buildEmptyChatFrame(workspace: string, columns?: number): string
     HEADER_TITLE,
     headerWorkspaceLine(workspace),
     sep,
+    `${CYAN}iTestAgent${RESET}`,
     `${DIM}${EMPTY_STATE_HINT}${RESET}`,
     '',
     sep,

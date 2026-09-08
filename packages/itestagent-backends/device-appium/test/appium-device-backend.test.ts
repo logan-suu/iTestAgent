@@ -1972,6 +1972,29 @@ describe('AppiumDeviceBackend — active physical readiness', () => {
     await backend.closeSession();
   });
 
+  it('reports unobserved Route C identity as unavailable, not a mismatch', async () => {
+    const backend = new AppiumDeviceBackend(
+      new MockAppiumDriver({
+        createSessionResult: { sessionId: 'unobserved-session', deviceUdid: TEST_UDID },
+      }),
+      {
+        udid: TEST_UDID,
+        targetKind: 'physical',
+        bundleId: TEST_BUNDLE_ID,
+        wdaStartupMode: 'managed-xcodebuild',
+      },
+    );
+    try {
+      await expect(backend.probePhysicalReadiness()).resolves.toMatchObject({
+        ready: false,
+        failureCode: 'wda_status_failed',
+        targetWdaBundleId: 'unobserved',
+      });
+    } finally {
+      await backend.closeSession();
+    }
+  });
+
   it('classifies Route C session failures without claiming readiness', async () => {
     const backend = new AppiumDeviceBackend(
       new MockAppiumDriver({

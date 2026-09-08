@@ -79,3 +79,26 @@
 自动化验证使用无设备副作用的真实 Bun 子进程注入观察到的 Xcode 错误文本，覆盖提前退出、stdout/stderr 大量及跨 chunk 输出、过期与非过期区分、HTTP/status deadline、run abort、旧 launch 隔离、持有 pipe 的 descendants 清理；跨包验证贯穿 WdaManager → AppiumDeviceBackend → physical preflight，证明签名错误与恢复提示保留、Appium session 未启动、没有自动修复。修复前两个关键用例分别退化为 timeout 和错误的 ready，修复后通过。
 
 本轮只修复错误报告与生命周期等待逻辑，未重签、覆盖安装或实际启动设备上的 WDA；当前环境恢复及修复后 G5 仍需单独授权与真机验证。DEF-034 所述 AUT build/validation 的独立取消链缺口仍保持 open，不以这里的 WDA 取消测试替代。
+
+## 后续修复：动作缺少有效目标，并在异常提交时丢失已有事实
+
+2026-09-07 18:01 的复测报 `exploration_suggestion_invalid: target, accessibilityId, or label is required for Validation`。只读核对确认 TestPlan 保留了用户原始执行目标与可见性条件；该错误发生在动作建议解析阶段，不是 API key 或签名失败。旧解析器只有在 tap/input 缺少有效顶层字符串定位时产生此错误。未保存原始模型响应，因此不能断言现场具体是漏字段、对象型 target 还是嵌套 arguments；三种形状均可用合成响应复现，合法顶层字符串则通过。
+
+根因包括两个可验证缺口：生产模型 prompt 未明确逐动作 JSON 字段形状，解析失败没有纠正机会；探索抛错后，已完成的 launch/动作和已生成证据未随异常返回，后续即使提交 failure bundle 也可能丢失既有事实。严格拒绝无目标点击本身是正确的安全行为，不能通过猜测目标解决。
+
+本次按确认计划修复：
+
+1. 共享 Zod action schema 与模型 prompt，严格接受单对象及完整 JSON code fence；tap/input 必须有顶层非空字符串定位，别名冲突与嵌套字段失败关闭。
+2. 仅格式错误允许一次纠正请求，并发布 `repairing_action` activity。反馈只有固定错误码和已脱敏上下文，不包含拒绝响应。纠正后照常检查语义风险与逐动作授权；耗尽、未知动作、provider 错误或取消均不会无限循环。
+3. 通过受控执行异常传递已有步骤和证据元数据，保留 screenshot/UI checkpoint 与 case/step 关联；异常恢复不新增设备调用，不伪造无效动作，不把未评估断言判 passed。cleanup 返回失败或抛错也不能覆盖部分结果。
+4. TUI 结束时清除 activity，显示已提交 run 与错误；格式纠正耗尽后提示 `/plan <your test goal>` 重新规划确认，不自动重跑设备或复用高风险 allow。
+
+回归证据与限制见 `docs/06-verification/exploration-action-recovery-report-6.12.md`。本轮仅进行确定性自动化验证，没有访问模型 API、修改凭证或执行真机/Simulator 动作；完整的点击、断言和截图闭环仍需修复后实测。Task 6.12 保持 in_progress，DEF-034 不因本次探索阶段取消测试而关闭。
+
+## 后续修复：运行结束未告知报告位置
+
+2026-09-07 18:17 的用户复测显示 `Execution completed. Run … committed.`，但没有报告位置。只读核对该运行的 result、steps、artifact index、确认计划与报告，状态为 passed，包含 launch、tap、screenshot 三步和两张截图；bundle 契约、关联、文件哈希和大小校验通过。此处是交付提示缺失，不是报告未保存，也不能以这一条 DeviceBackend 运行代替 T6.12 的完整出口验收。
+
+根因是生产执行器返回的 `runDir` 已在会话中保存，终态消息却仅使用 `runId`。经用户确认后，正常结束和受控错误出口共用报告位置提示：输出本次实际报告目录、`summary.md` 路径与 `artifacts` 目录；不绑定默认存储根，不自动打开或上传文件，不读取原始设备证据到模型。缺失或空 runDir 不被记作已保存；相对存储配置返回的真实路径按进程工作目录转成绝对路径，不能误报为未保存。下一次执行先清除旧引用；未提交时明确显示未保存，禁止复用上一轮位置或声称虚构的 `Run result committed`。
+
+测试覆盖成功、失败、取消、中文/空格目录、无报告及前次报告隔离，并使用 OpenTUI 字符帧验证最终消息可见。仅修改报告入口提示，不修改断言、设备操作、报告 writer 或签名逻辑；验证详情追加到 `docs/06-verification/exploration-action-recovery-report-6.12.md`。

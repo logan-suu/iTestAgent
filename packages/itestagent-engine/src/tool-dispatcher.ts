@@ -626,6 +626,8 @@ export class ToolDispatcher {
       });
     } catch (error: unknown) {
       this.permissionEngine.cancel(callId, 'permission request delivery failed');
+      // Drain the cancelled ask before propagating the original delivery error.
+      await permission.catch(() => undefined);
       throw error;
     }
     const cancelPendingAsk = () =>

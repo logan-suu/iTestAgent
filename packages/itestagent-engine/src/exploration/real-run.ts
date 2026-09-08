@@ -16,11 +16,14 @@ import type {
 import type { ArtifactStore } from 'itestagent-contracts';
 import { writeArtifactIndex } from 'itestagent-store';
 import { AssertionEvaluator } from '../assertion/assertion-evaluator.js';
-import { redactUiTreeForModel } from '../context-builder.js';
+import { redactUiTreeForModel, redactValue } from '../context-builder.js';
+import { DeviceBackendExecutionError } from '../device-execution-error.js';
 import { type UiTreeCapture, observationsFromUiTrees } from './assertion-observations.js';
 import { type SuggestionResult, suggestAssertions } from './assertion-suggester.js';
 import { DeviceExplorer, type ExplorerToolDispatcher } from './device-explorer.js';
 import type { ExplorationAction, ExplorationOptions } from './types.js';
+
+export { suggestExplorationAction } from './action-suggestion.js';
 
 /** Minimal backend surface the run needs (DeviceBackend subset). */
 export interface BackendActionResult {
@@ -156,6 +159,7 @@ export interface RealDeviceRunProgress {
     | 'launching_app'
     | 'reading_interface'
     | 'waiting_for_action'
+    | 'repairing_action'
     | 'executing_action'
     | 'evaluating_assertions'
     | 'indexing_evidence';
@@ -190,83 +194,6 @@ export function isSensitiveUiAction(action: ExplorationAction): boolean {
   );
 }
 
-/** Ask the configured model for one low-risk action within a confirmed case. */
-export async function suggestExplorationAction(input: {
-  generate: (prompt: string, signal?: AbortSignal) => Promise<string>;
-  caseId: string;
-  goal?: string;
-  assertions?: readonly UserAssertion[];
-  uiTree: string;
-  history: readonly RunStep[];
-  signal?: AbortSignal;
-}): Promise<ExplorationAction | 'done'> {
-  const response = await input.generate(
-    [
-      'You are exploring an iOS app inside a confirmed TestPlan case.',
-      `CASE: ${input.caseId}`,
-      `GOAL: ${input.goal ?? `(legacy plan: complete the confirmed ${input.caseId} case safely)`}`,
-      `SUCCESS CRITERIA: ${
-        (input.assertions ?? [])
-          .flatMap((assertion) => assertion.conditions)
-          .map((condition) => condition.description)
-          .join('; ') || '(none confirmed)'
-      }`,
-      `COMPLETED ACTIONS: ${input.history.map((step) => `${step.action}:${step.target ?? ''}:${step.status}`).join(', ') || '(none)'}`,
-      'CURRENT UI TREE:',
-      redactUiTreeForModel(input.uiTree).slice(0, 12000),
-      '',
-      'Return exactly one JSON object. Allowed low-risk actions are tap, swipe, input, screenshot, wait.',
-      'Use {"action":"done"} when the case goal is reached or no safe progress is possible.',
-      'For an action include target and, when applicable, text, direction, or waitMs.',
-    ].join('\n'),
-    input.signal,
-  );
-  const match = response.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`exploration_suggestion_invalid: no JSON action for ${input.caseId}`);
-  const parsed = JSON.parse(match[0]) as Record<string, unknown>;
-  if (parsed.action === 'done') return 'done';
-  if (!['tap', 'swipe', 'input', 'screenshot', 'wait'].includes(String(parsed.action))) {
-    throw new Error(
-      `exploration_suggestion_blocked: unsupported or high-risk action "${String(parsed.action)}"`,
-    );
-  }
-  const action = parsed.action as ExplorationAction['action'];
-  const targetCandidate = [parsed.target, parsed.accessibilityId, parsed.label].find(
-    (value) => typeof value === 'string' && value.trim().length > 0,
-  );
-  const explicitTarget = typeof targetCandidate === 'string' ? targetCandidate.trim() : null;
-  if ((action === 'tap' || action === 'input') && !explicitTarget) {
-    throw new Error(
-      `exploration_suggestion_invalid: target, accessibilityId, or label is required for ${input.caseId}`,
-    );
-  }
-  const direction =
-    parsed.direction === 'up' ||
-    parsed.direction === 'down' ||
-    parsed.direction === 'left' ||
-    parsed.direction === 'right'
-      ? parsed.direction
-      : undefined;
-  const waitMs =
-    typeof parsed.waitMs === 'number' && Number.isFinite(parsed.waitMs)
-      ? Math.max(1, Math.trunc(parsed.waitMs))
-      : undefined;
-  const target =
-    explicitTarget ??
-    (action === 'screenshot'
-      ? 'screenshot'
-      : action === 'swipe'
-        ? `swipe_${direction ?? 'down'}`
-        : `wait_${waitMs ?? 1000}ms`);
-  return {
-    action,
-    target,
-    ...(typeof parsed.text === 'string' ? { text: parsed.text } : {}),
-    ...(direction ? { direction } : {}),
-    ...(waitMs ? { waitMs } : {}),
-  };
-}
-
 /** Wrap a DeviceBackend subset as the explorer's tool dispatcher. */
 /** Dispatcher side-channel collecting artifact refs during the run. */
 export interface ArtifactRefsProvider {
@@ -279,6 +206,25 @@ export function collectDispatcherArtifactRefs(
 ): readonly { id: string; type: 'screenshot'; path: string }[] {
   const provider = dispatcher as Partial<ArtifactRefsProvider>;
   return provider.getArtifactRefs?.() ?? [];
+}
+
+/** Index only evidence already produced; never issue device calls during error recovery. */
+function collectedArtifacts(
+  options: RealDeviceRunOptions,
+  steps: readonly RunStep[],
+  explorer: DeviceExplorer,
+): ArtifactIndex['artifacts'] {
+  const refs = options.artifactRefs ?? collectDispatcherArtifactRefs(options.toolDispatcher);
+  const collected = new Map([...refs, ...explorer.getArtifacts()].map((ref) => [ref.id, ref]));
+  return [...collected.values()].map((artifact) => {
+    const owner = steps.find((step) => step.artifacts.includes(artifact.id));
+    return {
+      ...artifact,
+      relatedStep: owner?.stepId,
+      relatedCase: owner?.caseId,
+      redactionStatus: 'raw-local-only' as const,
+    };
+  });
 }
 
 export function createBackendToolDispatcher(
@@ -425,234 +371,259 @@ export async function runRealDeviceExploration(
   );
 
   let explorationTermination: RealDeviceRunResult['explorationTermination'];
-  if (options.dynamicActions) {
-    // The first model observation must describe the confirmed AUT, not whichever app was active.
-    options.onProgress?.({
-      stage: 'launching_app',
-      message: 'Launching the app and preparing the first observation…',
-    });
-    const launchSteps = await explorer.explore([]);
-    const launchStep = launchSteps.find((step) => step.action === 'launch');
-    if (!launchStep || launchStep.status !== 'completed') {
-      throw new Error(
-        `app_launch_failed: ${JSON.stringify(launchStep?.result ?? { error: 'no launch result' })}`,
-      );
-    }
-    const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
-    for (const caseId of options.dynamicActions.cases) {
-      let previousObservation = '';
-      let previousAction = '';
-      let repeatedNoProgress = 0;
-      let caseFinished = false;
-      for (let index = 0; index < maxSteps; index += 1) {
-        options.signal?.throwIfAborted();
-        options.onProgress?.({
-          stage: 'reading_interface',
-          message: `Reading the interface for ${caseId} (step ${index + 1})…`,
-        });
-        const tree = await options.backend.getUiTree(
-          { deviceId: options.deviceId },
-          options.signal,
+  let activeCaseId: string | undefined;
+  try {
+    if (options.dynamicActions) {
+      // The first model observation must describe the confirmed AUT, not whichever app was active.
+      options.onProgress?.({
+        stage: 'launching_app',
+        message: 'Launching the app and preparing the first observation…',
+      });
+      const launchSteps = await explorer.explore([]);
+      const launchStep = launchSteps.find((step) => step.action === 'launch');
+      if (!launchStep || launchStep.status !== 'completed') {
+        throw new Error(
+          `app_launch_failed: ${JSON.stringify(launchStep?.result ?? { error: 'no launch result' })}`,
         );
-        options.onProgress?.({
-          stage: 'waiting_for_action',
-          message: `Waiting for the next safe action for ${caseId}…`,
-        });
-        const suggestion = await options.dynamicActions.suggest({
-          caseId,
-          uiTree: redactUiTreeForModel(tree.raw),
-          history: explorer.getSteps().filter((step) => step.caseId === caseId),
-          signal: options.signal,
-        });
-        options.signal?.throwIfAborted();
-        if (suggestion === 'done') {
-          explorationTermination ??= {
-            reason: 'goal_reached',
-            message: `The action agent reported that ${caseId} reached its confirmed goal.`,
-          };
-          caseFinished = true;
-          break;
+      }
+      const maxSteps = options.dynamicActions.maxStepsPerCase ?? 12;
+      for (const caseId of options.dynamicActions.cases) {
+        activeCaseId = caseId;
+        let previousObservation = '';
+        let previousAction = '';
+        let repeatedNoProgress = 0;
+        let caseFinished = false;
+        for (let index = 0; index < maxSteps; index += 1) {
+          options.signal?.throwIfAborted();
+          options.onProgress?.({
+            stage: 'reading_interface',
+            message: `Reading the interface for ${caseId} (step ${index + 1})…`,
+          });
+          const tree = await options.backend.getUiTree(
+            { deviceId: options.deviceId },
+            options.signal,
+          );
+          options.onProgress?.({
+            stage: 'waiting_for_action',
+            message: `Waiting for the next safe action for ${caseId}…`,
+          });
+          const suggestion = await options.dynamicActions.suggest({
+            caseId,
+            uiTree: redactUiTreeForModel(tree.raw),
+            history: explorer.getSteps().filter((step) => step.caseId === caseId),
+            signal: options.signal,
+          });
+          options.signal?.throwIfAborted();
+          if (suggestion === 'done') {
+            explorationTermination ??= {
+              reason: 'goal_reached',
+              message: `The action agent reported that ${caseId} reached its confirmed goal.`,
+            };
+            caseFinished = true;
+            break;
+          }
+          const observation = redactUiTreeForModel(tree.raw);
+          const actionSignature = JSON.stringify(suggestion);
+          if (observation === previousObservation && actionSignature === previousAction) {
+            repeatedNoProgress += 1;
+          } else {
+            repeatedNoProgress = 0;
+          }
+          previousObservation = observation;
+          previousAction = actionSignature;
+          if (repeatedNoProgress >= 2) {
+            explorationTermination = {
+              reason: 'no_progress',
+              message: `Execution stalled for ${caseId}: the interface and suggested action repeated without progress.`,
+            };
+            options.onProgress?.({
+              stage: 'evaluating_assertions',
+              message: `${explorationTermination.message} Evaluating available evidence…`,
+            });
+            caseFinished = true;
+            break;
+          }
+          if (isSensitiveUiAction(suggestion)) {
+            const authorize = options.dynamicActions.authorizeSensitiveAction;
+            if (!authorize) {
+              throw new Error(
+                `exploration_permission_required: sensitive UI action blocked for "${suggestion.target ?? 'unknown'}"`,
+              );
+            }
+            const allowed = await authorize({
+              callId: `exploration_sensitive_${caseId}_${index + 1}`,
+              action: 'interact_sensitive_ui',
+              resource: `${caseId}:${suggestion.target ?? 'unknown'}`,
+            });
+            if (!allowed) {
+              throw new Error(
+                `exploration_permission_denied: sensitive UI action denied for "${suggestion.target ?? 'unknown'}"`,
+              );
+            }
+          }
+          options.onProgress?.({
+            stage: 'executing_action',
+            message: `Executing ${suggestion.action} for ${caseId}…`,
+          });
+          await explorer.explore([{ ...suggestion, caseId }]);
         }
-        const observation = redactUiTreeForModel(tree.raw);
-        const actionSignature = JSON.stringify(suggestion);
-        if (observation === previousObservation && actionSignature === previousAction) {
-          repeatedNoProgress += 1;
-        } else {
-          repeatedNoProgress = 0;
-        }
-        previousObservation = observation;
-        previousAction = actionSignature;
-        if (repeatedNoProgress >= 2) {
+        if (!caseFinished) {
           explorationTermination = {
-            reason: 'no_progress',
-            message: `Execution stalled for ${caseId}: the interface and suggested action repeated without progress.`,
+            reason: 'step_limit',
+            message: `Execution reached the ${maxSteps}-step safety limit for ${caseId}.`,
           };
           options.onProgress?.({
             stage: 'evaluating_assertions',
             message: `${explorationTermination.message} Evaluating available evidence…`,
           });
-          caseFinished = true;
-          break;
         }
-        if (isSensitiveUiAction(suggestion)) {
-          const authorize = options.dynamicActions.authorizeSensitiveAction;
-          if (!authorize) {
-            throw new Error(
-              `exploration_permission_required: sensitive UI action blocked for "${suggestion.target ?? 'unknown'}"`,
-            );
-          }
-          const allowed = await authorize({
-            callId: `exploration_sensitive_${caseId}_${index + 1}`,
-            action: 'interact_sensitive_ui',
-            resource: `${caseId}:${suggestion.target ?? 'unknown'}`,
-          });
-          if (!allowed) {
-            throw new Error(
-              `exploration_permission_denied: sensitive UI action denied for "${suggestion.target ?? 'unknown'}"`,
-            );
-          }
-        }
-        options.onProgress?.({
-          stage: 'executing_action',
-          message: `Executing ${suggestion.action} for ${caseId}…`,
-        });
-        await explorer.explore([{ ...suggestion, caseId }]);
       }
-      if (!caseFinished) {
-        explorationTermination = {
-          reason: 'step_limit',
-          message: `Execution reached the ${maxSteps}-step safety limit for ${caseId}.`,
-        };
-        options.onProgress?.({
-          stage: 'evaluating_assertions',
-          message: `${explorationTermination.message} Evaluating available evidence…`,
-        });
-      }
+    } else {
+      options.onProgress?.({
+        stage: 'launching_app',
+        message: 'Launching the app and starting the confirmed actions…',
+      });
+      await explorer.explore([...(options.actions ?? [])]);
     }
-  } else {
+    const steps = explorer.getSteps();
+
+    const assertions = options.assertions ?? [];
+    const latestCheckpointByCase = new Map<string, UiTreeCapture>();
+    for (const checkpoint of explorer.getCheckpoints()) {
+      const owner = steps.find((step) => step.stepId === checkpoint.stepId);
+      if (owner?.status !== 'completed') continue;
+      latestCheckpointByCase.set(checkpoint.caseId, {
+        caseId: checkpoint.caseId,
+        raw: checkpoint.raw,
+      });
+    }
+    const uiTrees = [...latestCheckpointByCase.values()];
+    if (uiTrees.length === 0 && options.llmSuggest) {
+      const tree = await options.backend.getUiTree({ deviceId: options.deviceId }, options.signal);
+      uiTrees.push({ caseId: 'exploration', raw: tree.raw });
+    }
+
     options.onProgress?.({
-      stage: 'launching_app',
-      message: 'Launching the app and starting the confirmed actions…',
+      stage: 'evaluating_assertions',
+      message: 'Evaluating the confirmed assertions…',
     });
-    await explorer.explore([...(options.actions ?? [])]);
-  }
-  const steps = explorer.getSteps();
+    const observations = observationsFromUiTrees(assertions, uiTrees);
 
-  const assertions = options.assertions ?? [];
-  const latestCheckpointByCase = new Map<string, UiTreeCapture>();
-  for (const checkpoint of explorer.getCheckpoints()) {
-    const owner = steps.find((step) => step.stepId === checkpoint.stepId);
-    if (owner?.status !== 'completed') continue;
-    latestCheckpointByCase.set(checkpoint.caseId, {
-      caseId: checkpoint.caseId,
-      raw: checkpoint.raw,
+    let llmSuggestions: readonly UserAssertion[] = [];
+    let llmReason: string | undefined;
+    if (
+      !assertions.some((a) => a.source === 'user' || a.source === 'profile') &&
+      options.llmSuggest
+    ) {
+      const suggestion = await suggestAssertions(
+        {
+          goal: options.llmSuggest.goal,
+          uiTree: redactUiTreeForModel(uiTrees[0]?.raw ?? ''),
+          featureName: options.llmSuggest.featureName,
+        },
+        { generate: options.llmSuggest.generate },
+        options.signal,
+      );
+      llmSuggestions = suggestion.suggestions;
+      llmReason = suggestion.reason;
+    }
+
+    const evaluator = new AssertionEvaluator();
+    let assertion = evaluator.evaluate({
+      policy: options.policy ?? 'user_goal_then_profile_then_agent_confirmed',
+      userAssertions: assertions.filter((a) => a.source === 'user'),
+      profileAssertions: assertions.filter((a) => a.source === 'profile'),
+      agentSuggestions: [...assertions.filter((a) => a.source === 'agent'), ...llmSuggestions],
+      observations,
     });
-  }
-  const uiTrees = [...latestCheckpointByCase.values()];
-  if (uiTrees.length === 0 && options.llmSuggest) {
-    const tree = await options.backend.getUiTree({ deviceId: options.deviceId }, options.signal);
-    uiTrees.push({ caseId: 'exploration', raw: tree.raw });
-  }
+    if (
+      explorationTermination &&
+      explorationTermination.reason !== 'goal_reached' &&
+      assertion.status === 'explored'
+    ) {
+      assertion = {
+        status: 'inconclusive',
+        cases:
+          options.dynamicActions?.cases.map((caseId) => ({
+            caseId,
+            status: 'inconclusive' as const,
+            resolvedBy: 'explore_only' as const,
+          })) ?? [],
+        summary: explorationTermination.message,
+      };
+    }
 
-  options.onProgress?.({
-    stage: 'evaluating_assertions',
-    message: 'Evaluating the confirmed assertions…',
-  });
-  const observations = observationsFromUiTrees(assertions, uiTrees);
+    options.onProgress?.({
+      stage: 'indexing_evidence',
+      message: 'Indexing the collected local evidence…',
+    });
+    // Persist artifact-index.json from the refs collected by the dispatcher.
+    let artifactIndexPath: string | null = null;
+    let artifactCount = 0;
+    const artifacts = collectedArtifacts(options, steps, explorer);
+    artifactCount = artifacts.length;
+    if (artifacts.length > 0 && options.publishLegacyArtifactIndex === true) {
+      const index: ArtifactIndex = {
+        schemaVersion: '2.0',
+        runId: options.runId,
+        artifacts,
+        collectionOutcomes: artifacts.map((artifact) => {
+          const owner = steps.find((step) => step.artifacts.includes(artifact.id));
+          return {
+            type: artifact.type,
+            status: 'collected' as const,
+            reasonCode: 'collected',
+            artifactId: artifact.id,
+            relatedStep: owner?.stepId,
+            relatedCase: owner?.caseId,
+          };
+        }),
+      };
+      const result = writeArtifactIndex(`${options.runDir}/artifacts`, index);
+      artifactIndexPath = result.indexPath;
+    }
 
-  let llmSuggestions: readonly UserAssertion[] = [];
-  let llmReason: string | undefined;
-  if (
-    !assertions.some((a) => a.source === 'user' || a.source === 'profile') &&
-    options.llmSuggest
-  ) {
-    const suggestion = await suggestAssertions(
-      {
-        goal: options.llmSuggest.goal,
-        uiTree: redactUiTreeForModel(uiTrees[0]?.raw ?? ''),
-        featureName: options.llmSuggest.featureName,
-      },
-      { generate: options.llmSuggest.generate },
-      options.signal,
-    );
-    llmSuggestions = suggestion.suggestions;
-    llmReason = suggestion.reason;
-  }
-
-  const evaluator = new AssertionEvaluator();
-  let assertion = evaluator.evaluate({
-    policy: options.policy ?? 'user_goal_then_profile_then_agent_confirmed',
-    userAssertions: assertions.filter((a) => a.source === 'user'),
-    profileAssertions: assertions.filter((a) => a.source === 'profile'),
-    agentSuggestions: [...assertions.filter((a) => a.source === 'agent'), ...llmSuggestions],
-    observations,
-  });
-  if (
-    explorationTermination &&
-    explorationTermination.reason !== 'goal_reached' &&
-    assertion.status === 'explored'
-  ) {
-    assertion = {
-      status: 'inconclusive',
-      cases:
-        options.dynamicActions?.cases.map((caseId) => ({
-          caseId,
-          status: 'inconclusive' as const,
-          resolvedBy: 'explore_only' as const,
-        })) ?? [],
-      summary: explorationTermination.message,
-    };
-  }
-
-  options.onProgress?.({
-    stage: 'indexing_evidence',
-    message: 'Indexing the collected local evidence…',
-  });
-  // Persist artifact-index.json from the refs collected by the dispatcher.
-  let artifactIndexPath: string | null = null;
-  let artifactCount = 0;
-  const refs = options.artifactRefs ?? collectDispatcherArtifactRefs(options.toolDispatcher);
-  artifactCount = refs.length;
-  const artifacts: ArtifactIndex['artifacts'] = refs.map((a) => {
-    const owner = steps.find((step) => step.artifacts.includes(a.id));
     return {
-      id: a.id,
-      type: a.type,
-      path: a.path,
-      relatedStep: owner?.stepId,
-      relatedCase: owner?.caseId,
-      redactionStatus: 'raw-local-only' as const,
-    };
-  });
-  if (refs.length > 0 && options.publishLegacyArtifactIndex === true) {
-    const index: ArtifactIndex = {
-      schemaVersion: '2.0',
-      runId: options.runId,
+      runDir: options.runDir,
+      steps,
+      assertion,
+      artifactIndexPath,
+      artifactCount,
       artifacts,
-      collectionOutcomes: refs.map((artifact) => {
-        const owner = steps.find((step) => step.artifacts.includes(artifact.id));
-        return {
-          type: artifact.type,
-          status: 'collected' as const,
-          reasonCode: 'collected',
-          artifactId: artifact.id,
-          relatedStep: owner?.stepId,
-          relatedCase: owner?.caseId,
-        };
-      }),
+      ...(explorationTermination ? { explorationTermination } : {}),
+      ...(options.llmSuggest ? { llmSuggestions, llmReason } : {}),
     };
-    const result = writeArtifactIndex(`${options.runDir}/artifacts`, index);
-    artifactIndexPath = result.indexPath;
+  } catch (error) {
+    const steps = explorer.getSteps();
+    const artifacts = collectedArtifacts(options, steps, explorer);
+    const caseIds = [
+      ...new Set([
+        ...steps.flatMap((step) => (step.caseId ? [step.caseId] : [])),
+        ...(activeCaseId ? [activeCaseId] : []),
+      ]),
+    ];
+    const partialResult: RealDeviceRunResult = {
+      runDir: options.runDir,
+      steps,
+      artifacts,
+      artifactCount: artifacts.length,
+      artifactIndexPath: null,
+      assertion: {
+        status: 'inconclusive',
+        cases: caseIds.map((caseId) => ({
+          caseId,
+          status: 'inconclusive',
+          resolvedBy: 'explore_only',
+        })),
+        summary:
+          'Execution stopped before assertion evaluation; recorded steps and existing evidence were retained.',
+      },
+    };
+    throw new DeviceBackendExecutionError(
+      redactValue(
+        error instanceof Error ? error.message : 'exploration_execution_failed: execution stopped.',
+      ),
+      partialResult,
+    );
   }
-
-  return {
-    runDir: options.runDir,
-    steps,
-    assertion,
-    artifactIndexPath,
-    artifactCount,
-    artifacts,
-    ...(explorationTermination ? { explorationTermination } : {}),
-    ...(options.llmSuggest ? { llmSuggestions, llmReason } : {}),
-  };
 }

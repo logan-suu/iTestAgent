@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { resolve } from 'node:path';
 import * as aiReal from 'ai';
 import type { DeviceBackend, DeviceInfo, TestPlan } from 'itestagent-contracts';
+import { RunStatusSchema } from 'itestagent-contracts';
 import type {
   AgentSessionDependencies,
   TuiAgentSession,
@@ -305,6 +307,119 @@ describe('createAgentSession production composition', () => {
 });
 
 describe('AgentSession tools', () => {
+  it('requires a bound confirmation to switch either target kind, then returns to plan review', async () => {
+    const execute = mock(async () => ({}));
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({ executeConfirmedPlan: execute }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke，确认“Welcome”可见');
+    session.confirmCandidates(confirmedFakeCandidates());
+    for (const target of [SIMULATOR_DEVICE, PHYSICAL_DEVICE]) {
+      const request = (await session.selectDevice(target.udid)).find(
+        (patch) => patch.type === 'device_target_switch_request',
+      );
+      if (!request) throw new Error('Expected target switch confirmation');
+      expect(request.payload.to).toBe(target.targetKind);
+      expect(session.getConfirmedPlan()).toBeNull();
+      const token = String(request.payload.token);
+      const patches = await session.selectDevice(target.udid, { token, allow: true });
+      const plan = patches.find((patch) => patch.type === 'plan_update')?.payload.plan as TestPlan;
+      expect(plan.device.kind).toBe(target.targetKind);
+      expect(plan.performance.baselineDomain).toBe(target.targetKind);
+      expect(plan.execution.goal).toContain('Welcome');
+      expect(plan.execution.assertions?.length).toBeGreaterThan(0);
+      expect(patches.some((patch) => patch.payload.mode === 'plan_review')).toBe(true);
+      expect(session.getConfirmedPlan()).toBeNull();
+      await expect(session.selectDevice(target.udid, { token, allow: true })).rejects.toThrow(
+        'target_switch_stale',
+      );
+    }
+    expect(execute).not.toHaveBeenCalled();
+    session.dispose();
+  });
+
+  it('keeps the original plan on denial, and invalidates confirmation on refresh or a new plan', async () => {
+    const session = await createAgentSession('/workspace', dependencies());
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    const ask = async () =>
+      String((await session.selectDevice(SIMULATOR_DEVICE.udid))[0]?.payload.token);
+    const denied = await session.selectDevice(SIMULATOR_DEVICE.udid, {
+      token: await ask(),
+      allow: false,
+    });
+    expect(denied[0]?.payload.targetKind).toBe('physical');
+    const token = await ask();
+    await session.refreshDevices();
+    await expect(
+      session.selectDevice(SIMULATOR_DEVICE.udid, { token, allow: true }),
+    ).rejects.toThrow('target_switch_stale');
+    const stale = await ask();
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    await expect(
+      session.selectDevice(SIMULATOR_DEVICE.udid, { token: stale, allow: true }),
+    ).rejects.toThrow('target_switch_stale');
+    session.dispose();
+  });
+
+  it('does not switch or boot a simulator that disappears or remains shut down', async () => {
+    let inventory = [PHYSICAL_DEVICE, SIMULATOR_DEVICE];
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({ listDevices: async () => inventory }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    for (const available of [false, true]) {
+      inventory = [PHYSICAL_DEVICE, SIMULATOR_DEVICE];
+      await session.refreshDevices();
+      const token = String((await session.selectDevice(SIMULATOR_DEVICE.udid))[0]?.payload.token);
+      inventory = available
+        ? [PHYSICAL_DEVICE, { ...SIMULATOR_DEVICE, state: 'shutdown', availability: 'discovered' }]
+        : [PHYSICAL_DEVICE];
+      const patches = await session.selectDevice(SIMULATOR_DEVICE.udid, { token, allow: true });
+      expect(patches.find((patch) => patch.type === 'error')?.payload.message).toContain(
+        'device_not_ready',
+      );
+      expect(
+        patches.find((patch) => patch.type === 'device_selection_request')?.payload.targetKind,
+      ).toBe('physical');
+      expect(session.getConfirmedPlan()).toBeNull();
+    }
+    session.dispose();
+  });
+
+  it('discards a pending cross-target selection when a newer refresh supersedes it', async () => {
+    let release!: () => void;
+    let probes = 0;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        listDevices: async () => {
+          if (++probes === 2) await gate;
+          return [PHYSICAL_DEVICE, SIMULATOR_DEVICE];
+        },
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    const token = String((await session.selectDevice(SIMULATOR_DEVICE.udid))[0]?.payload.token);
+    const selecting = session.selectDevice(SIMULATOR_DEVICE.udid, { token, allow: true });
+    const refreshing = session.refreshDevices();
+    release();
+    expect(await selecting).toEqual([]);
+    expect(
+      (await refreshing).find((patch) => patch.type === 'device_selection_request')?.payload
+        .targetKind,
+    ).toBe('physical');
+    session.dispose();
+  });
+
   it('requires explicit selection and rejects a paired but disconnected physical target', async () => {
     const offline = { ...PHYSICAL_DEVICE, udid: 'offline', availability: 'discovered' as const };
     const session = await createAgentSession(
@@ -366,7 +481,9 @@ describe('AgentSession tools', () => {
     expect(permissionActions).toEqual(['execute_project_build', 'replace_device_app']);
     expect(
       executionPatches.some(
-        (patch) => patch.type === 'message_add' && patch.payload.text === 'Execution completed.',
+        (patch) =>
+          patch.type === 'message_add' &&
+          String(patch.payload.text).startsWith('Execution completed.'),
       ),
     ).toBe(true);
     expect(dispatched[0]).toMatchObject({
@@ -376,6 +493,218 @@ describe('AgentSession tools', () => {
     expect(dispatched[0]?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  for (const runStatus of [...RunStatusSchema.options, undefined, 'completed', 'SUCCESS']) {
+    it(`uses only the committed canonical outcome for success presentation: ${runStatus ?? 'missing'}`, async () => {
+      const { applyAgentPatch } = await import('../src/entry.js');
+      const { createInitialState } = await import('../src/tui-shell.js');
+      const session = await createAgentSession(
+        '/workspace',
+        dependencies({
+          executeConfirmedPlan: async () => ({
+            status: 'completed',
+            path: 'device_backend',
+            runDir: '/custom storage/committed-outcome',
+            runStatus,
+            // A nested passing assertion must not override the committed run outcome.
+            result: { assertion: { status: 'passed' } },
+          }),
+        }),
+      );
+      await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(PHYSICAL_DEVICE.udid);
+      session.confirmPlan();
+      let state = createInitialState('/workspace');
+      for await (const patch of session.executeConfirmedPlan()) {
+        state = applyAgentPatch(state, patch);
+        if (patch.type === 'permission_request') {
+          await session.resolvePermission(String(patch.payload.callId), 'allow');
+        }
+      }
+      const terminal = state.messages.find((msg) => msg.text.includes('Report directory:'));
+      expect(terminal).toBeDefined();
+      expect(terminal?.runStatus === 'passed').toBe(runStatus === 'passed');
+      const parsedStatus = RunStatusSchema.safeParse(runStatus);
+      expect(terminal?.runStatus).toBe(parsedStatus.success ? parsedStatus.data : undefined);
+      session.dispose();
+    });
+  }
+
+  for (const { status, withError, aborted } of [
+    { status: 'failed', withError: true },
+    { status: 'cancelled', withError: true },
+    { status: 'failed' },
+    { status: 'cancelled' },
+    { status: 'blocked' },
+    { status: 'unknown' },
+    { status: undefined },
+    { status: 'completed', aborted: true },
+  ]) {
+    it(`does not show success for a contradictory outcome: status=${status}, error=${!!withError}, aborted=${!!aborted}`, async () => {
+      const session = await createAgentSession(
+        '/workspace',
+        dependencies({
+          executeConfirmedPlan: async () => {
+            if (aborted) session.dispose();
+            return {
+              status,
+              path: 'device_backend',
+              runDir: '/custom storage/stale-outcome',
+              runStatus: 'passed',
+              ...(withError ? { error: `Fixture ${status}.` } : {}),
+            };
+          },
+        }),
+      );
+      await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(PHYSICAL_DEVICE.udid);
+      session.confirmPlan();
+      const patches: TuiStatePatch[] = [];
+      for await (const patch of session.executeConfirmedPlan()) {
+        patches.push(patch);
+        if (patch.type === 'permission_request') {
+          await session.resolvePermission(String(patch.payload.callId), 'allow');
+        }
+      }
+      expect(patches.some((patch) => patch.payload.runStatus === 'passed')).toBe(false);
+      session.dispose();
+    });
+  }
+
+  for (const { status, runDir } of [
+    ...(['completed', 'failed', 'cancelled'] as const).map((status) => ({
+      status,
+      runDir: '/custom storage/中文 验收/run-with-report',
+    })),
+    { status: 'completed', runDir: './custom storage/中文 验收/relative-run' },
+  ]) {
+    it(`shows the actual report and evidence locations for a committed ${status} execution at ${runDir}`, async () => {
+      const absoluteRunDir = resolve(runDir);
+      const session = await createAgentSession(
+        '/workspace',
+        dependencies({
+          executeConfirmedPlan: async () => ({
+            status,
+            path: 'device_backend',
+            fallbackHistory: [],
+            runDir,
+            ...(status === 'completed' ? {} : { error: `Fixture ${status} execution.` }),
+          }),
+        }),
+      );
+      await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(PHYSICAL_DEVICE.udid);
+      session.confirmPlan();
+
+      const patches: TuiStatePatch[] = [];
+      for await (const patch of session.executeConfirmedPlan()) {
+        patches.push(patch);
+        if (patch.type === 'permission_request') {
+          await session.resolvePermission(String(patch.payload.callId), 'allow');
+        }
+      }
+      const terminalText = patches
+        .filter((patch) => patch.type === 'message_add' || patch.type === 'error')
+        .map((patch) => String(patch.payload.text ?? patch.payload.message))
+        .join('\n');
+      expect(terminalText).toContain(`Report directory: ${absoluteRunDir}`);
+      expect(terminalText).toContain(`Summary: ${absoluteRunDir}/summary.md`);
+      expect(terminalText).toContain(`Evidence directory: ${absoluteRunDir}/artifacts`);
+      expect(terminalText).not.toContain('No report was saved for this execution.');
+      if (status !== 'completed') {
+        expect(patches.some((patch) => patch.type === 'error')).toBe(true);
+        expect(terminalText).toContain(`Fixture ${status} execution.`);
+      }
+      session.dispose();
+    });
+  }
+
+  for (const runDir of [undefined, '', '   ']) {
+    it(`does not invent report paths when runDir is ${runDir === undefined ? 'missing' : JSON.stringify(runDir)}`, async () => {
+      const session = await createAgentSession(
+        '/workspace',
+        dependencies({
+          executeConfirmedPlan: async () => ({
+            status: 'completed',
+            path: 'device_backend',
+            runStatus: 'passed',
+            ...(runDir === undefined ? {} : { runDir }),
+          }),
+        }),
+      );
+      await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(PHYSICAL_DEVICE.udid);
+      session.confirmPlan();
+      const patches: TuiStatePatch[] = [];
+      for await (const patch of session.executeConfirmedPlan()) {
+        patches.push(patch);
+        if (patch.type === 'permission_request') {
+          await session.resolvePermission(String(patch.payload.callId), 'allow');
+        }
+      }
+      const text = JSON.stringify(patches);
+      expect(text).toContain('No report was saved for this execution.');
+      expect(text).not.toContain('Report directory:');
+      expect(text).not.toContain('Summary:');
+      expect(text).not.toContain('Evidence directory:');
+      expect(text).not.toContain('summary.md');
+      expect(patches.some((patch) => patch.payload.runStatus === 'passed')).toBe(false);
+      session.dispose();
+    });
+  }
+
+  it('does not reuse the prior report location when the next execution saves no report', async () => {
+    const previousRunDir = '/custom storage/prior-run';
+    let executions = 0;
+    const session = await createAgentSession(
+      '/workspace',
+      dependencies({
+        executeConfirmedPlan: async () => {
+          executions += 1;
+          if (executions === 1) {
+            return {
+              status: 'completed',
+              path: 'device_backend',
+              runDir: previousRunDir,
+              runStatus: 'passed',
+            };
+          }
+          throw new Error('Fixture failure before a report was committed.');
+        },
+      }),
+    );
+    await collectMessagePatches(session, '/plan 用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(confirmedFakeCandidates());
+    await session.selectDevice(PHYSICAL_DEVICE.udid);
+    session.confirmPlan();
+    const outputs: TuiStatePatch[][] = [];
+    for (let index = 0; index < 2; index += 1) {
+      const patches: TuiStatePatch[] = [];
+      for await (const patch of session.executeConfirmedPlan()) {
+        patches.push(patch);
+        if (patch.type === 'permission_request') {
+          await session.resolvePermission(String(patch.payload.callId), 'allow');
+        }
+      }
+      outputs.push(patches);
+    }
+    expect(executions).toBe(2);
+    expect(JSON.stringify(outputs[0])).toContain(`Report directory: ${previousRunDir}`);
+    const second = JSON.stringify(outputs[1]);
+    expect(second).toContain('Fixture failure before a report was committed.');
+    expect(second).toContain('No report was saved for this execution.');
+    expect(second).not.toContain(previousRunDir);
+    expect(second).not.toContain('Report directory:');
+    expect(second).not.toContain('Summary:');
+    expect(second).not.toContain('Evidence directory:');
+    expect(outputs[0]?.some((patch) => patch.payload.runStatus === 'passed')).toBe(true);
+    expect(outputs[1]?.some((patch) => patch.payload.runStatus === 'passed')).toBe(false);
+    session.dispose();
+  });
+
   it('streams confirmed execution stages and commits an explicit failure terminal message', async () => {
     const session = await createAgentSession(
       '/workspace',
@@ -383,6 +712,7 @@ describe('AgentSession tools', () => {
         executeConfirmedPlan: async ({ plan, onProgress }) => {
           onProgress?.('Connecting to the selected device…');
           onProgress?.('Waiting for the next safe action for Validation…');
+          onProgress?.('Requesting one action format correction…');
           return {
             status: 'failed',
             path: 'device_backend',
@@ -423,7 +753,17 @@ describe('AgentSession tools', () => {
       },
     });
     const terminal = patches.find((patch) => patch.type === 'error');
+    expect(patches).toContainEqual({
+      type: 'activity_update',
+      payload: { id: activityId, text: 'Requesting one action format correction…' },
+    });
+    expect(patches).toContainEqual({
+      type: 'activity_update',
+      payload: { id: activityId, complete: true },
+    });
     expect(String(terminal?.payload.message)).toContain('exploration_suggestion_invalid');
+    expect(String(terminal?.payload.message)).toContain('/plan <your test goal>');
+    expect(String(terminal?.payload.message)).toContain('Invalid suggestions were not executed.');
     expect(String(terminal?.payload.message)).toContain(
       `Run ${session.getConfirmedPlan()?.runId as string} was committed with the failure result.`,
     );

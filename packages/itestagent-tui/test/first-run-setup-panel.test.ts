@@ -42,6 +42,25 @@ describe('OpenTUI first-run setup input', () => {
     expect(setup.appendSetupInput('api-', 'key\n\u0000value')).toBe('api-keyvalue');
   });
 
+  it('ignores navigation and function key sequences without corrupting the masked draft', () => {
+    for (const sequence of [
+      '\u001b[A',
+      '\u001b[B',
+      '\u001b[C',
+      '\u001b[D',
+      '\u001b[H',
+      '\u001b[F',
+      '\u001b[3~',
+      '\u001bOP',
+      '\u009bA',
+    ]) {
+      expect(setup.appendSetupKey('fake-key', sequence)).toBe('fake-key');
+    }
+    expect(setup.appendSetupKey('fake-', 'A')).toBe('fake-A');
+    expect(setup.appendSetupKey('', '中')).toBe('中');
+    expect(setup.appendSetupInput('', '[A')).toBe('[A');
+  });
+
   it('never places the raw API key in the rendered setup tree', () => {
     const secret = 'itestagent-fake-secret-open-tui-612';
     const state: TuiShellState = {

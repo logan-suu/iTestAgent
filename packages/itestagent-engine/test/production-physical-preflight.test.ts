@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { DeviceBackend, DeviceInfo, PhysicalAppArtifact } from 'itestagent-contracts';
 import { TestPlanSchema } from 'itestagent-contracts';
-import { createProductionPhysicalPreflight } from '../src/production-physical-preflight.js';
+import {
+  createProductionPhysicalPreflight,
+  runProductionPhysicalCommand,
+} from '../src/production-physical-preflight.js';
 
 const device: DeviceInfo = {
   udid: 'DEVICE-1',
@@ -48,6 +54,110 @@ const artifact: PhysicalAppArtifact = {
 };
 
 describe('production physical preflight composition', () => {
+  for (const abortStage of ['build', '-showBuildSettings', 'validation']) {
+    test(`propagates cancellation during ${abortStage} and prevents subsequent stages`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'itestagent-preflight-abort-'));
+      const controller = new AbortController();
+      const calls: string[] = [];
+      const reason = new DOMException('Test cancellation', 'AbortError');
+      const preflight = createProductionPhysicalPreflight({
+        findProjectFile: () => ({ type: 'xcode_project', path: '/workspace/Demo.xcodeproj' }),
+        resolveAppSource: () => ({
+          kind: 'build_required',
+          workspacePath: '/workspace',
+          projectType: 'xcodeproj',
+        }),
+        normalizePhysicalAppArtifact: async ({ run }) => {
+          await run('validation', []);
+          return artifact;
+        },
+        createDevicectlOps: () => {
+          calls.push('device');
+          return {} as never;
+        },
+        runCommand: async (cmd, args, options) => {
+          expect(options?.signal).toBe(controller.signal);
+          const stage = cmd === 'validation' ? cmd : args[0];
+          calls.push(stage as string);
+          if (stage === abortStage) {
+            controller.abort(reason);
+            // Some process adapters return an exit code instead of throwing.
+            return { exitCode: 143, stdout: '', stderr: '' };
+          }
+          return {
+            exitCode: 0,
+            stdout: `TARGET_BUILD_DIR = ${root}\nFULL_PRODUCT_NAME = Demo.app`,
+            stderr: '',
+          };
+        },
+      });
+      try {
+        await expect(
+          preflight({
+            plan,
+            workspace: '/workspace',
+            scheme: 'Demo',
+            device,
+            bundleId: artifact.bundleId,
+            stagingDir: root,
+            backend: {} as DeviceBackend,
+            authorize: async () => true,
+            signal: controller.signal,
+          }),
+        ).rejects.toBe(reason);
+        expect(calls).toEqual(
+          ['build', '-showBuildSettings', 'validation'].slice(
+            0,
+            ['build', '-showBuildSettings', 'validation'].indexOf(abortStage) + 1,
+          ),
+        );
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+
+  test('reaps an owned child that ignores SIGTERM before reporting cancellation', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'itestagent-preflight-child-'));
+    const marker = join(root, 'ready');
+    const controller = new AbortController();
+    const reason = new DOMException('Test cancellation', 'AbortError');
+    const running = runProductionPhysicalCommand(
+      process.execPath,
+      [
+        '-e',
+        `process.on("SIGTERM", () => {}); require("node:fs").writeFileSync(${JSON.stringify(marker)}, String(process.pid)); setInterval(() => {}, 1000);`,
+      ],
+      { cwd: root, signal: controller.signal },
+    );
+    // Attach a handler before cancellation so the test itself never leaks a rejection.
+    const settled = running.then(
+      () => null,
+      (error: unknown) => error,
+    );
+    let pid: number | undefined;
+    try {
+      const deadline = Date.now() + 3_000;
+      while (!existsSync(marker) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(existsSync(marker)).toBe(true);
+      pid = Number(readFileSync(marker, 'utf8'));
+      controller.abort(reason);
+      expect(await settled).toBe(reason);
+      expect(() => process.kill(pid as number, 0)).toThrow();
+    } finally {
+      controller.abort(reason);
+      if (pid !== undefined) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {}
+      }
+      await settled;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('orders build, validation, install, launch, and active WDA readiness', async () => {
     const events: string[] = [];
     const preflight = createProductionPhysicalPreflight({

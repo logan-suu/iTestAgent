@@ -4,10 +4,13 @@ import { RESET } from '../ansi-layout.js';
 import type { TuiRenderer } from '../renderer.js';
 import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { moveCursorToPromptColumn, renderScreen } from './ansi-renderer-frame.js';
+import { createAnsiReviewInput } from './ansi-review-input.js';
 import {
   dispatchCandidateKey,
   dispatchDeviceKey,
   dispatchPlanKey,
+  dispatchReviewKey,
+  isListReview,
 } from './opentui-key-dispatch.js';
 
 // ── Simple ANSI terminal renderer — zero external dependencies ──
@@ -24,8 +27,11 @@ export function createAnsiRenderer(): TuiRenderer {
   let activeDataListener: ((chunk: string) => void) | null = null;
   let activeResizeListener: (() => void) | null = null;
   let resolveExit: (() => void) | null = null;
+  let reviewInput: ReturnType<typeof createAnsiReviewInput> | null = null;
 
   const cleanup = () => {
+    reviewInput?.dispose();
+    reviewInput = null;
     process.stdin.setRawMode?.(false);
     process.stdin.pause();
     if (activeDataListener) {
@@ -47,7 +53,7 @@ export function createAnsiRenderer(): TuiRenderer {
     submit: (text) => {
       if (dispatchFn) {
         if (currentState.mode === 'candidate_review') {
-          if (currentState.candidateEditMode && text) {
+          if (currentState.candidateEditMode) {
             dispatchFn({ type: 'candidate_edit_input', text });
           }
           dispatchCandidateKey(
@@ -67,7 +73,7 @@ export function createAnsiRenderer(): TuiRenderer {
           return;
         }
         if (currentState.mode === 'plan_review') {
-          if (currentState.planModifyMode && text) {
+          if (currentState.planModifyMode) {
             dispatchFn({ type: 'plan_modify_input', text });
           }
           dispatchPlanKey(
@@ -106,6 +112,26 @@ export function createAnsiRenderer(): TuiRenderer {
     async start(initialState, dispatch) {
       currentState = initialState;
       dispatchFn = dispatch;
+      reviewInput = createAnsiReviewInput((value, key) => {
+        if (key.ctrl && key.name === 'c') {
+          cleanup();
+          return;
+        }
+        if (!dispatchFn || key.ctrl || key.meta) return;
+        const editing = currentState.candidateEditMode || currentState.planModifyMode;
+        if (editing && value === 'return') {
+          input.handleChunk('\r');
+          return;
+        }
+        if (editing && value !== 'escape') {
+          input.handleEditKey(key.name ?? '', value);
+          return;
+        }
+        if (dispatchReviewKey(currentState, value, dispatchFn) !== 'ignored') {
+          renderScreen(currentState);
+          redrawInput();
+        }
+      });
 
       // Render initial screen
       renderScreen(currentState);
@@ -116,32 +142,8 @@ export function createAnsiRenderer(): TuiRenderer {
       process.stdin.setEncoding('utf-8');
 
       const onData = (chunk: string) => {
-        if (dispatchFn && currentState.mode === 'device_review') {
-          for (const char of chunk) {
-            dispatchDeviceKey(dispatchFn, char);
-          }
-          return;
-        }
-        if (
-          dispatchFn &&
-          currentState.mode === 'candidate_review' &&
-          !currentState.candidateEditMode
-        ) {
-          for (const char of chunk) {
-            dispatchCandidateKey(
-              { dispatch: dispatchFn, editMode: false, editDraft: '' },
-              char === '\r' ? 'enter' : char,
-            );
-          }
-          return;
-        }
-        if (dispatchFn && currentState.mode === 'plan_review' && !currentState.planModifyMode) {
-          for (const char of chunk) {
-            dispatchPlanKey(
-              { dispatch: dispatchFn, editMode: false, editDraft: '' },
-              char === '\r' ? 'enter' : char,
-            );
-          }
+        if (isListReview(currentState)) {
+          reviewInput?.handleChunk(chunk);
           return;
         }
         input.handleChunk(chunk);
@@ -170,6 +172,15 @@ export function createAnsiRenderer(): TuiRenderer {
     },
 
     update(state: TuiShellState) {
+      if (state.candidateEditMode && !currentState?.candidateEditMode)
+        input.beginEdit(state.candidateEditDraft);
+      else if (state.planModifyMode && !currentState?.planModifyMode)
+        input.beginEdit(state.planModifyDraft);
+      else if (
+        !(state.candidateEditMode || state.planModifyMode) &&
+        (currentState?.candidateEditMode || currentState?.planModifyMode)
+      )
+        input.beginEdit('');
       currentState = state;
       renderScreen(state);
       redrawInput();

@@ -156,6 +156,16 @@ test('PermissionResolvedEventSchema parses with allow/deny effect', () => {
   expect(asked.effect).toBe('ask');
 });
 
+test('non-user permission failures must deny in both standalone and union schemas', () => {
+  for (const reason of ['timeout', 'cancelled', 'error']) {
+    for (const effect of ['allow', 'ask', 'deny']) {
+      const event = { type: 'permission.resolved', callId: 'test-ask', effect, reason };
+      expect(PermissionResolvedEventSchema.safeParse(event).success).toBe(effect === 'deny');
+      expect(AgentEventSchema.safeParse(event).success).toBe(effect === 'deny');
+    }
+  }
+});
+
 test('permission events retain the ask deadline and non-user terminal reason', () => {
   expect(
     AgentEventSchema.parse({

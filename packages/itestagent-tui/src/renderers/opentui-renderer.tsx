@@ -6,18 +6,33 @@
  * US-4.1 AC2：TUI 显示当前 workspace、设备状态、可输入自然语言。
  */
 
-import { render as otRender } from '@opentui/solid';
+import type { ScrollBoxRenderable } from '@opentui/core';
+import { render as otRender, useKeyboard, useTerminalDimensions } from '@opentui/solid';
 import type { JSX } from '@opentui/solid';
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import {
   ASSERTION_REVIEW_FOOTER_HINTS,
   assertionFooterStatus,
+  formatAssertionSuggestion,
   formatAssertionSuggestions,
 } from '../assertion-review.js';
 import { formatConfidenceBar, getConfidenceTier } from '../candidate-review.js';
-import { devicesForTarget, formatDeviceAvailability, isDeviceReady } from '../device-review.js';
+import {
+  DEVICE_KINDS,
+  devicesForReview,
+  devicesForTarget,
+  formatDeviceAvailability,
+  isDeviceReady,
+  targetSwitchPrompt,
+} from '../device-review.js';
 import { PLAN_SECTIONS, formatPlanSections } from '../plan-review.js';
 import type { TuiRenderer } from '../renderer.js';
+import {
+  STARTUP_BRAND_COLOR,
+  completionMessageParts,
+  startupBrandLines,
+  successBrandLinesInViewport,
+} from '../startup-brand.js';
 import type { DeviceStatus, Message, TuiShellEvent, TuiShellState } from '../tui-shell.js';
 import { CredentialPromptPanel } from './credential-prompt-panel.jsx';
 import { FirstRunSetupPanel } from './first-run-setup-panel.jsx';
@@ -34,6 +49,7 @@ import {
   dispatchCandidateKey,
   dispatchDeviceKey,
   dispatchPlanKey,
+  dispatchReviewKey,
 } from './opentui-key-dispatch.js';
 import {
   type OpenTuiStateRef,
@@ -42,6 +58,7 @@ import {
   reduceOpenTuiLocalState,
 } from './opentui-renderer-lifecycle.js';
 import { RecordingPanel } from './recording-panel.jsx';
+import { useReviewScroll } from './review-scroll.js';
 
 // ─── 常量 ──────────────────────────────────────────────────────────────
 
@@ -68,6 +85,7 @@ function Header(props: {
   workspace: string;
   deviceStatus: DeviceStatus;
   activity: string | null;
+  compactBrand?: string;
 }): JSX.Element {
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
   const [frame, setFrame] = createSignal(0);
@@ -82,7 +100,7 @@ function Header(props: {
   return (
     <box flexDirection="column" flexShrink={0} borderStyle="single" padding={1} marginBottom={1}>
       <box>
-        <text>{`Workspace: ${props.workspace}`}</text>
+        <text>{`${props.compactBrand ? `${props.compactBrand} | ` : ''}Workspace: ${props.workspace}`}</text>
       </box>
       <box>
         <text>{`Device: ${DEVICE_LABELS[props.deviceStatus]}`}</text>
@@ -98,9 +116,40 @@ function Header(props: {
 
 function MessageList(props: { state: () => TuiShellState }): JSX.Element {
   const messages = createMemo(() => props.state().messages);
+  const [viewport, setViewport] = createSignal({ width: 0, height: 0 });
+  let transcript: ScrollBoxRenderable | undefined;
+  const updateViewport = () => {
+    if (transcript) {
+      setViewport({ width: transcript.viewport.width, height: transcript.viewport.height });
+    }
+  };
+  onCleanup(() => transcript?.viewport.off('resize', updateViewport));
+  useKeyboard((key) => {
+    if (key.ctrl || key.meta || key.option) return;
+    if ((key.name === 'pageup' || key.name === 'pagedown') && transcript?.handleKeyPress(key)) {
+      key.preventDefault();
+      key.stopPropagation();
+    }
+  });
 
   return (
-    <box flexDirection="column" flexGrow={1} padding={1}>
+    <scrollbox
+      id="chat-transcript"
+      ref={(ref: ScrollBoxRenderable) => {
+        transcript = ref;
+        // Observe layout resize without replacing ScrollBox's internal size callback.
+        ref.viewport.on('resize', updateViewport);
+        updateViewport();
+      }}
+      flexGrow={1}
+      flexBasis={0}
+      minHeight={0}
+      scrollX={false}
+      scrollY={true}
+      stickyScroll={true}
+      stickyStart="bottom"
+      contentOptions={{ flexDirection: 'column', padding: 1 }}
+    >
       <Show
         when={messages().length > 0}
         fallback={
@@ -109,6 +158,8 @@ function MessageList(props: { state: () => TuiShellState }): JSX.Element {
       >
         <For each={messages() as Message[]}>
           {(msg) => {
+            const success = createMemo(() => successBrandLinesInViewport(msg, viewport()));
+            const parts = completionMessageParts(msg);
             let prefix: string;
             switch (msg.type) {
               case 'user':
@@ -125,15 +176,30 @@ function MessageList(props: { state: () => TuiShellState }): JSX.Element {
                 break;
             }
             return (
-              <text id={msg.id}>
-                <span>{`[${prefix}] `}</span>
-                <span>{msg.text}</span>
-              </text>
+              <box flexDirection="column" flexShrink={0}>
+                <text id={msg.id} flexShrink={0}>
+                  <span>{`[${prefix}] `}</span>
+                  <span>{parts.heading}</span>
+                </text>
+                <Show when={success().length > 0}>
+                  <text
+                    fg="green"
+                    flexShrink={0}
+                    marginTop={success().length > 1 ? 1 : 0}
+                    marginBottom={success().length > 1 ? 1 : 0}
+                  >
+                    {success().join('\n')}
+                  </text>
+                </Show>
+                <Show when={parts.details}>
+                  <text flexShrink={0}>{parts.details}</text>
+                </Show>
+              </box>
             );
           }}
         </For>
       </Show>
-    </box>
+    </scrollbox>
   );
 }
 
@@ -143,13 +209,15 @@ function DeviceReviewPanel(props: {
 }): JSX.Element {
   const s = props.state;
   const [cmd, setCmd] = createSignal('');
-  const candidates = () => {
-    const targetKind = s().deviceSelectionTargetKind;
-    return targetKind ? devicesForTarget(s().devices, targetKind) : [];
+  const candidates = () => devicesForReview(s().devices);
+  const switchPrompt = () => {
+    const request = s().deviceTargetSwitch;
+    return request ? targetSwitchPrompt(request) : '';
   };
+  const deviceScrollRef = useReviewScroll(() => `device-review-${s().deviceSelectionIndex}`);
 
   const handleCommand = (value: string) => {
-    dispatchDeviceKey(props.dispatch, value);
+    dispatchReviewKey(s(), value, props.dispatch);
   };
 
   const handleInput = (value: string) => {
@@ -164,36 +232,51 @@ function DeviceReviewPanel(props: {
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
       <box flexDirection="column" flexShrink={0} borderStyle="double" padding={1} marginBottom={1}>
-        <text>{`Device Selection — ${s().deviceSelectionTargetKind ?? 'unknown'}`}</text>
-        <text opacity={0.5}>j/k:nav Enter:select r:refresh q:cancel</text>
+        <text>{`Device Selection — current plan: ${s().deviceSelectionTargetKind ?? 'unknown'}`}</text>
+        <text opacity={0.5}>↑/↓ or j/k:nav Enter:select r:refresh Esc/q:cancel</text>
+        <text
+          opacity={0.5}
+        >{`physical: ${devicesForTarget(candidates(), 'physical').length} · simulator: ${devicesForTarget(candidates(), 'simulator').length}`}</text>
+        <Show when={s().deviceTargetSwitch}>
+          <text fg="#eed49f">{switchPrompt()}</text>
+        </Show>
       </box>
 
-      <scrollbox flexGrow={1} padding={1}>
+      <scrollbox ref={deviceScrollRef} flexGrow={1} padding={1}>
         <box flexDirection="column">
           <Show when={s().messages.length > 0}>
             <text>{s().messages[s().messages.length - 1]?.text ?? ''}</text>
           </Show>
-          <Show when={candidates().length === 0}>
-            <text>No matching targets discovered. Connect or boot one, then press r.</text>
-          </Show>
-          <For each={candidates()}>
-            {(device, index) => {
-              const selected = () => index() === s().deviceSelectionIndex;
-              return (
-                <box
-                  flexDirection="column"
-                  padding={1}
-                  marginBottom={1}
-                  borderStyle={selected() ? 'single' : undefined}
-                  backgroundColor={selected() ? '#222233' : undefined}
-                >
-                  <text>{`${selected() ? '>' : ' '} ${device.name ?? 'Unnamed device'}`}</text>
-                  <text opacity={isDeviceReady(device) ? 1 : 0.5}>
-                    {`${device.targetKind} · iOS ${device.osVersion ?? 'unknown'} · ${formatDeviceAvailability(device)}`}
-                  </text>
-                </box>
-              );
-            }}
+          <For each={DEVICE_KINDS}>
+            {(kind) => (
+              <box flexDirection="column">
+                <text>{`${kind}${kind === s().deviceSelectionTargetKind ? ' (current plan)' : ''}`}</text>
+                <Show when={devicesForTarget(candidates(), kind).length === 0}>
+                  <text>No targets discovered. Connect or boot one, then refresh.</text>
+                </Show>
+                <For each={devicesForTarget(candidates(), kind)}>
+                  {(device) => {
+                    const selected = () =>
+                      candidates().indexOf(device) === s().deviceSelectionIndex;
+                    return (
+                      <box
+                        id={`device-review-${candidates().indexOf(device)}`}
+                        flexDirection="column"
+                        paddingLeft={1}
+                        paddingRight={1}
+                        marginBottom={1}
+                        backgroundColor={selected() ? '#222233' : undefined}
+                      >
+                        <text>{`${selected() ? '>' : ' '} ${device.name ?? 'Unnamed device'}`}</text>
+                        <text opacity={isDeviceReady(device) ? 1 : 0.5}>
+                          {`${device.targetKind} · iOS ${device.osVersion ?? 'unknown'} · ${formatDeviceAvailability(device)}`}
+                        </text>
+                      </box>
+                    );
+                  }}
+                </For>
+              </box>
+            )}
           </For>
         </box>
       </scrollbox>
@@ -211,7 +294,9 @@ function DeviceReviewPanel(props: {
             value={cmd()}
             onInput={handleInput}
             onSubmit={() => handleCommand('enter')}
-            placeholder="j/k/Enter/r/q"
+            placeholder={
+              s().deviceTargetSwitch ? 'y:confirm / n:keep current plan' : '↑/↓/Enter/r/Esc (j/k/q)'
+            }
           />
         </box>
       </box>
@@ -225,7 +310,7 @@ function InputBar(props: {
   onSubmit: () => void;
 }): JSX.Element {
   return (
-    <box flexDirection="row" flexShrink={0} borderStyle="rounded" padding={1}>
+    <box id="chat-input" flexDirection="row" flexShrink={0} borderStyle="rounded" padding={1}>
       <text>{'> '}</text>
       <input
         focused={true}
@@ -270,6 +355,7 @@ function CandidateReviewPanel(props: {
 
   const candidates = createMemo(() => s().candidates);
   const idx = createMemo(() => s().candidateIndex);
+  const candidateScrollRef = useReviewScroll(() => `candidate-review-${idx()}`);
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
@@ -278,24 +364,24 @@ function CandidateReviewPanel(props: {
         <text opacity={0.5}>{CANDIDATE_REVIEW_FOOTER_HINTS}</text>
       </box>
 
-      <scrollbox flexGrow={1} padding={0}>
+      <scrollbox ref={candidateScrollRef} flexGrow={1} padding={0}>
         <box flexDirection="column">
           <For each={candidates()}>
             {(candidate, index) => {
-              const isSelected = index() === idx();
+              const isSelected = () => index() === idx();
               const tier = getConfidenceTier(candidate.confidence);
               const marker = candidate.confirmed ? '[x]' : '[ ]';
-              const prefix = isSelected ? '>' : ' ';
 
               return (
                 <box
+                  id={`candidate-review-${index()}`}
                   flexDirection="column"
                   padding={0}
-                  borderStyle={isSelected ? 'single' : undefined}
-                  backgroundColor={isSelected ? '#222233' : undefined}
+                  borderStyle={isSelected() ? 'single' : undefined}
+                  backgroundColor={isSelected() ? '#222233' : undefined}
                 >
                   <text>
-                    <span>{`${prefix} ${marker} `}</span>
+                    <span>{`${isSelected() ? '>' : ' '} ${marker} `}</span>
                     <span>{`${CONFIDENCE_PREFIX[tier]} ${candidate.name}`}</span>
                     <Show when={candidate.keywords && candidate.keywords.length > 0}>
                       <span>{`  (${(candidate.keywords ?? []).join(', ')})`}</span>
@@ -338,10 +424,14 @@ function CandidateReviewPanel(props: {
           </Show>
           <input
             focused={true}
-            value={cmd()}
-            onInput={handleCmdInput}
+            value={s().candidateEditMode ? s().candidateEditDraft : cmd()}
+            onInput={(value: string) =>
+              s().candidateEditMode
+                ? dispatch({ type: 'candidate_edit_input', text: value })
+                : handleCmdInput(value)
+            }
             onSubmit={() => handleCommand('enter')}
-            placeholder="j/k/space/e/A/N/Enter/q"
+            placeholder="↑/↓/Space/Enter/Esc (j/k/e/A/N/q)"
           />
         </box>
       </box>
@@ -365,6 +455,7 @@ function PlanReviewPanel(props: {
     return formatPlanSections(plan);
   };
   const sectionIndex = () => s().planSectionIndex;
+  const planScrollRef = useReviewScroll(() => `plan-review-${sectionIndex()}`);
 
   const handleCommand = (value: string) => {
     dispatchPlanKey(
@@ -389,23 +480,23 @@ function PlanReviewPanel(props: {
         <text opacity={0.5}>{PLAN_REVIEW_FOOTER_HINTS}</text>
       </box>
 
-      <scrollbox flexGrow={1} padding={1}>
+      <scrollbox ref={planScrollRef} flexGrow={1} padding={1}>
         <box flexDirection="column">
           <For each={sections() as unknown as Array<ReturnType<typeof formatPlanSections>[number]>}>
             {(section, index) => {
-              const isSelected = index() === sectionIndex();
-              const prefix = isSelected ? '>' : ' ';
+              const isSelected = () => index() === sectionIndex();
 
               return (
                 <box
+                  id={`plan-review-${index()}`}
                   flexDirection="column"
                   padding={0}
                   marginBottom={1}
-                  borderStyle={isSelected ? 'single' : undefined}
-                  backgroundColor={isSelected ? '#222233' : undefined}
+                  borderStyle={isSelected() ? 'single' : undefined}
+                  backgroundColor={isSelected() ? '#222233' : undefined}
                 >
                   <text>
-                    <span>{`${prefix} ${section.title}`}</span>
+                    <span>{`${isSelected() ? '>' : ' '} ${section.title}`}</span>
                   </text>
                   <For each={section.fields as unknown as Array<(typeof section.fields)[number]>}>
                     {(field) => (
@@ -442,10 +533,14 @@ function PlanReviewPanel(props: {
           </Show>
           <input
             focused={true}
-            value={cmd()}
-            onInput={handleCmdInput}
+            value={s().planModifyMode ? s().planModifyDraft : cmd()}
+            onInput={(value: string) =>
+              s().planModifyMode
+                ? dispatch({ type: 'plan_modify_input', text: value })
+                : handleCmdInput(value)
+            }
             onSubmit={() => handleCommand('enter')}
-            placeholder="j/k/m/Enter/q"
+            placeholder="↑/↓/Enter/Esc (j/k/m/q)"
           />
         </box>
       </box>
@@ -465,7 +560,7 @@ function AssertionReviewPanel(props: {
 
   const suggestions = createMemo(() => s().assertionSuggestions);
   const idx = createMemo(() => s().assertionIndex);
-  const lines = createMemo(() => formatAssertionSuggestions(suggestions(), idx()));
+  const assertionScrollRef = useReviewScroll(() => `assertion-review-${idx()}`);
 
   const handleCmdInput = (value: string) => {
     if (!value) {
@@ -473,29 +568,26 @@ function AssertionReviewPanel(props: {
       return;
     }
     const key = value[value.length - 1] ?? value;
-    if (key === 'j') dispatch({ type: 'assertion_navigate', direction: 'down' });
-    else if (key === 'k') dispatch({ type: 'assertion_navigate', direction: 'up' });
-    else if (key === ' ') dispatch({ type: 'assertion_confirm' });
-    else if (key === 'n') dispatch({ type: 'assertion_reject' });
-    else if (key === 'A') dispatch({ type: 'assertion_confirm_all' });
-    else if (key === 'q') dispatch({ type: 'exit_assertion_review' });
+    dispatchReviewKey(s(), key, dispatch);
     setTimeout(() => setCmd(''), 0);
   };
 
   return (
     <box flexDirection="column" flexGrow={1} padding={1}>
-      <box borderStyle="double" padding={1} marginBottom={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="double" padding={1} marginBottom={1}>
         <text>Assertion Suggestions — Review Evidence & Confirm (US-11.1 AC4)</text>
         <text opacity={0.5}>{ASSERTION_REVIEW_FOOTER_HINTS}</text>
       </box>
 
-      <scrollbox flexGrow={1} padding={0}>
+      <scrollbox ref={assertionScrollRef} flexGrow={1} padding={0}>
         <box flexDirection="column">
-          <For each={lines()}>
-            {(line) => (
-              <text>
-                <span>{line}</span>
-              </text>
+          <For each={suggestions()}>
+            {(suggestion, index) => (
+              <box id={`assertion-review-${index()}`} flexDirection="column">
+                <For each={formatAssertionSuggestion(suggestion, index() === idx())}>
+                  {(line) => <text>{line}</text>}
+                </For>
+              </box>
             )}
           </For>
           <Show when={suggestions().length === 0}>
@@ -504,7 +596,7 @@ function AssertionReviewPanel(props: {
         </box>
       </scrollbox>
 
-      <box borderStyle="rounded" padding={1} marginTop={1}>
+      <box flexDirection="column" flexShrink={0} borderStyle="rounded" padding={1} marginTop={1}>
         <text opacity={0.5}>
           {assertionFooterStatus(
             s().assertionConfirmed.length,
@@ -515,7 +607,8 @@ function AssertionReviewPanel(props: {
           focused={true}
           value={cmd()}
           onInput={handleCmdInput}
-          placeholder="j/k/space/n/A/q"
+          onSubmit={() => dispatchReviewKey(s(), 'enter', dispatch)}
+          placeholder="↑/↓/Space/Enter/Esc (j/k/n/A/q)"
         />
       </box>
     </box>
@@ -531,6 +624,8 @@ export function OpenTuiApp(props: {
 }): JSX.Element {
   const [state, setState] = createSignal<TuiShellState>(props.initialState);
   const [draft, setDraft] = createSignal('');
+  const dimensions = useTerminalDimensions();
+  const branding = createMemo(() => startupBrandLines(state(), dimensions()));
 
   // Expose setState for external renderer.update() calls
   props.setStateRef.current = (s: TuiShellState) => setState(s);
@@ -546,6 +641,17 @@ export function OpenTuiApp(props: {
     props.dispatch(event);
   };
 
+  useKeyboard((key) => {
+    if (key.ctrl || key.meta || key.option) return;
+    const command = ['up', 'down', 'left', 'right', 'escape', 'return', 'enter'].includes(key.name)
+      ? key.name
+      : key.sequence;
+    if (dispatchReviewKey(state(), command, wrappedDispatch) !== 'ignored') {
+      key.preventDefault();
+      key.stopPropagation();
+    }
+  });
+
   const handleSubmit = () => {
     const currentDraft = draft();
     if (currentDraft.trim()) {
@@ -560,12 +666,19 @@ export function OpenTuiApp(props: {
   };
 
   return (
-    <box flexDirection="column" padding={1}>
+    <box flexDirection="column" width="100%" height="100%" overflow="hidden" padding={1}>
       <Header
         workspace={s().workspace}
         deviceStatus={s().deviceStatus}
         activity={s().agentActivity?.text ?? null}
+        compactBrand={branding().length === 1 ? branding()[0] : undefined}
       />
+
+      <Show when={branding().length > 1}>
+        <box flexDirection="column" alignItems="center" flexShrink={0}>
+          <text fg={STARTUP_BRAND_COLOR}>{branding().join('\n')}</text>
+        </box>
+      </Show>
 
       {s().mode === 'setup' ? (
         <FirstRunSetupPanel

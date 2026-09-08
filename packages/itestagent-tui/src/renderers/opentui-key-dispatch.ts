@@ -15,13 +15,14 @@
  */
 
 import {
+  ASSERTION_REVIEW_KEYMAP,
   CANDIDATE_REVIEW_KEYMAP,
   EDIT_CANCEL_KEY,
   EDIT_COMMIT_KEY,
   PLAN_REVIEW_KEYMAP,
   lookupKeyAction,
 } from '../keymap-registry.js';
-import type { TuiShellEvent } from '../tui-shell.js';
+import type { TuiShellEvent, TuiShellState } from '../tui-shell.js';
 
 /** Outcome of one dispatched key, mirroring the legacy panel side effects. */
 export type KeyDispatchResult = 'handled' | 'edit-committed' | 'ignored';
@@ -110,18 +111,68 @@ export function dispatchDeviceKey(
   const key = normalizeKey(value === '\r' || value === '\n' ? 'enter' : value.toLowerCase());
   if (!key) return 'ignored';
   const event: TuiShellEvent | null =
-    key === 'j'
+    key === 'j' || key === 'down'
       ? { type: 'device_navigate', direction: 'down' }
-      : key === 'k'
+      : key === 'k' || key === 'up'
         ? { type: 'device_navigate', direction: 'up' }
         : key === 'r'
           ? { type: 'device_refresh' }
-          : key === 'q'
+          : key === 'q' || key === 'escape'
             ? { type: 'device_cancel' }
-            : key === 'enter'
-              ? { type: 'device_confirm' }
-              : null;
+            : key === 'y' || key === 'n'
+              ? { type: 'device_target_switch_decision', allow: key === 'y' }
+              : key === 'enter'
+                ? { type: 'device_confirm' }
+                : null;
   if (!event) return 'ignored';
   dispatch(event);
   return 'handled';
+}
+
+export function isListReview(state: TuiShellState): boolean {
+  return ['device_review', 'candidate_review', 'plan_review', 'assertion_review'].includes(
+    state.mode,
+  );
+}
+
+/** Shared native-key routing. Editing fields retain their own cursor and input handling. */
+export function dispatchReviewKey(
+  state: TuiShellState,
+  value: string,
+  dispatch: (event: TuiShellEvent) => void,
+): KeyDispatchResult {
+  const key = value === 'return' || value === '\r' || value === '\n' ? 'enter' : value;
+  if (state.mode === 'candidate_review') {
+    if (state.candidateEditMode && key !== 'enter' && key !== 'escape') return 'ignored';
+    return dispatchCandidateKey(
+      { dispatch, editMode: state.candidateEditMode, editDraft: state.candidateEditDraft },
+      key,
+    );
+  }
+  if (state.mode === 'plan_review') {
+    if (state.planModifyMode && key !== 'enter' && key !== 'escape') return 'ignored';
+    return dispatchPlanKey(
+      { dispatch, editMode: state.planModifyMode, editDraft: state.planModifyDraft },
+      key,
+    );
+  }
+  if (state.mode === 'device_review') {
+    if (state.deviceTargetSwitch) {
+      // Enter repeats are never approval of a new target kind.
+      if (key === 'enter' || key === 'up' || key === 'down' || key === 'j' || key === 'k')
+        return 'handled';
+      if (key === 'escape') {
+        dispatch({ type: 'device_target_switch_decision', allow: false });
+        return 'handled';
+      }
+    }
+    return dispatchDeviceKey(dispatch, key);
+  }
+  if (state.mode === 'assertion_review') {
+    const event = lookupKeyAction(ASSERTION_REVIEW_KEYMAP, key);
+    if (!event) return 'ignored';
+    dispatch(event);
+    return 'handled';
+  }
+  return 'ignored';
 }

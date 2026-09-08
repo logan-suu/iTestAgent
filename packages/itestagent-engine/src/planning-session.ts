@@ -287,6 +287,29 @@ export class PlanningSession {
     return clonePlanningValue(this.plan);
   }
 
+  /** Recompile a draft after an explicit, target-specific user confirmation. */
+  switchDeviceTarget(device: DeviceSelector): PlanningSnapshot {
+    this.requireStatus('awaiting_plan_confirmation', 'switch device target');
+    if (!this.plan || this.intentResult?.status !== 'complete') {
+      throw new PlanningSessionError('plan_unavailable', 'there is no draft plan to update');
+    }
+    // Resolve on a separate draft so invalid input cannot partially mutate this session.
+    const draft = new PlanningSession(this.analysis);
+    draft.candidates = clonePlanningValue(this.candidates);
+    draft.reviewedProfile = clonePlanningValue(this.reviewedProfile);
+    draft.resolvePlan({ ...this.intentResult.intent, targetKind: device.kind }, false, {
+      runId: this.plan.runId,
+      projectProfileRef: this.plan.projectProfileRef,
+    });
+    if (draft.plan) draft.selectDevice(device);
+    this.intentResult = draft.intentResult;
+    this.plan = draft.plan;
+    this.executionRoute = draft.executionRoute;
+    this.pendingIdentity = draft.pendingIdentity;
+    this.status = draft.status;
+    return this.snapshot();
+  }
+
   cancel(): PlanningSnapshot {
     if (
       this.status !== 'awaiting_plan_confirmation' &&

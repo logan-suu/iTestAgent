@@ -99,13 +99,18 @@ export type PermissionRequestedEvent = z.infer<typeof PermissionRequestedEventSc
 
 // ─── 6. PermissionResolvedEvent ───────────────────────────────
 
-export const PermissionResolvedEventSchema = z.object({
-  type: z.literal('permission.resolved'),
-  callId: z.string(),
-  effect: PermissionEffectSchema,
-  /** A fail-closed resolution without a user decision. */
-  reason: z.enum(['timeout', 'cancelled', 'error']).optional(),
-});
+export const PermissionResolvedEventSchema = z
+  .object({
+    type: z.literal('permission.resolved'),
+    callId: z.string(),
+    effect: PermissionEffectSchema,
+    /** A fail-closed resolution without a user decision. */
+    reason: z.enum(['timeout', 'cancelled', 'error']).optional(),
+  })
+  .refine((event) => event.reason === undefined || event.effect === 'deny', {
+    path: ['effect'],
+    message: 'A failed permission request must resolve as deny',
+  });
 
 export type PermissionResolvedEvent = z.infer<typeof PermissionResolvedEventSchema>;
 

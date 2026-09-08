@@ -153,7 +153,11 @@ export const ExecutionPlanSchema = z.object({
   /** Feature names from ProjectProfile to cover */
   features: z.array(z.string()),
   /** Sanitized user goal confirmed in Plan Review and used by the execution agent. */
-  goal: z.string().min(1).optional(),
+  goal: z
+    .string()
+    .min(1)
+    .regex(/\S/, 'The confirmed goal must contain non-whitespace text')
+    .optional(),
   /** Explicit success criteria compiled from the user's request. */
   assertions: z.array(UserAssertionSchema).optional(),
   /** Flow YAML IDs to replay */

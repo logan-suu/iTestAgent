@@ -30,10 +30,16 @@ export function decodeSetupPaste(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
 }
 
+/** Keyboard control sequences are not pasted text and must never enter a secret. */
+export function appendSetupKey(current: string, sequence: string): string {
+  if (sequence.includes('\u001b') || sequence.includes('\u009b')) return current;
+  return appendSetupInput(current, sequence);
+}
+
 function SetupStepCopy(props: { state: () => TuiShellState }): JSX.Element {
   const state = props.state;
   return (
-    <box flexDirection="column" padding={1} marginBottom={1}>
+    <box flexDirection="column" flexShrink={0} padding={1} marginBottom={1}>
       <text>First-Time Setup</text>
       <text opacity={0.5}>Configure your AI provider to get started.</text>
       <Show when={state().setupStep === 0}>
@@ -91,7 +97,7 @@ export function FirstRunSetupPanel(props: {
       return;
     }
 
-    const next = appendSetupInput(props.draft(), key.sequence);
+    const next = appendSetupKey(props.draft(), key.sequence);
     if (next !== props.draft()) {
       key.preventDefault();
       key.stopPropagation();
@@ -113,12 +119,13 @@ export function FirstRunSetupPanel(props: {
           // biome-ignore lint/correctness/useJsxKeyInIterable: OpenTUI uses id as element key
           <text
             id={message.id}
+            flexShrink={0}
           >{`[${message.type === 'system' ? 'Sys' : message.type}] ${message.text}`}</text>
         ))}
         <SetupStepCopy state={props.state} />
       </box>
 
-      <box borderStyle="rounded" padding={1} marginTop={1}>
+      <box borderStyle="rounded" flexShrink={0} padding={1} marginTop={1}>
         <text>{'> '}</text>
         {isSecretInput() ? (
           <text>{maskedDisplayValue(props.draft())}</text>
@@ -132,7 +139,9 @@ export function FirstRunSetupPanel(props: {
           />
         )}
       </box>
-      <text opacity={0.5}>Ctrl+C to exit setup at any time.</text>
+      <text flexShrink={0} opacity={0.5}>
+        Ctrl+C to exit setup at any time.
+      </text>
     </box>
   );
 }

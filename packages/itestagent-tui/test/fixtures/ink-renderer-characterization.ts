@@ -30,6 +30,7 @@ export const INITIAL_STATE: Readonly<TuiShellState> = Object.freeze({
   devices: [],
   deviceSelectionTargetKind: null,
   deviceSelectionIndex: 0,
+  deviceTargetSwitch: null,
   selectedDeviceUdid: null,
   agentActivity: null,
   candidates: [],

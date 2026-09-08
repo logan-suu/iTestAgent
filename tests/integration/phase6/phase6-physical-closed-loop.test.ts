@@ -411,6 +411,9 @@ describe('T6.11 production physical MVP closed loop', () => {
     expect(executionPatches.some((patch) => patch.type === 'error')).toBe(false);
     expect(backendCloses).toBe(1);
     expect(backendBundleId).toBe('com.example.Demo');
+    for (const stage of ['physical_preflight', 'backend_launch', 'ui_tree', 'tap', 'screenshot']) {
+      expect(lifecycle).toContain(stage);
+    }
     expect(lifecycle.indexOf('physical_preflight')).toBeLessThan(
       lifecycle.indexOf('backend_launch'),
     );

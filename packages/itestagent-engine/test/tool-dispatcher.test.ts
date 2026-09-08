@@ -259,6 +259,23 @@ function createDispatcher(
 
 // ─── Zod parse / Tool registry ─────────────────────────────────
 
+test('event delivery failure drains the cancelled permission before rejecting', async () => {
+  const original = new Error('synthetic delivery failure');
+  const engine = new PermissionEngine();
+  const { dispatcher } = createDispatcher({
+    permissionEngine: engine,
+    onEvent: () => {
+      throw original;
+    },
+  });
+  await expect(dispatcher.authorize('delivery-test', 'prepare_wda', 'test-app')).rejects.toBe(
+    original,
+  );
+  // Bun reports an unhandled rejection as a test failure, even if authorize was caught.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(engine.resolve('delivery-test', 'allow', false)).toBeUndefined();
+});
+
 describe('ToolRegistry — Zod parse and tool-to-backend mapping', () => {
   test('valid tap tool call maps to backend.tap with parsed params', async () => {
     const { dispatcher, backend } = createDispatcher();

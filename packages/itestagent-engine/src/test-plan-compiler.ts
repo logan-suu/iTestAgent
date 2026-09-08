@@ -160,6 +160,11 @@ function buildExecutionPlan(
   // Metrics selection
   const metrics = resolveMetrics(intent);
   const assertions = extractExplicitUserAssertions(intent.sourceText, features[0] ?? 'exploration');
+  if (assertions.length > 0 && features.length > 1) {
+    throw new Error(
+      'assertion_case_ambiguous: visible conditions cannot be assigned to multiple cases reliably; plan one feature at a time and confirm again',
+    );
+  }
 
   return {
     prefer,
@@ -251,6 +256,7 @@ function resolveAssertionPolicy(
 
 /** Compile quoted "confirm … visible" clauses into deterministic tier-1 assertions. */
 export function extractExplicitUserAssertions(sourceText: string, caseId: string): UserAssertion[] {
+  const sanitizedSource = redactSensitiveText(sourceText);
   const targets: string[] = [];
   const patterns = [
     /(?:确认|验证|检查)\s*[“"]([^”"]+)[”"]\s*(?:可见|已显示|显示)/gu,
@@ -259,6 +265,16 @@ export function extractExplicitUserAssertions(sourceText: string, caseId: string
   for (const pattern of patterns) {
     for (const match of sourceText.matchAll(pattern)) {
       const target = match[1]?.trim();
+      if (
+        target &&
+        (target.includes('[REDACTED]') ||
+          redactSensitiveText(target) !== target ||
+          !sanitizedSource.includes(target))
+      ) {
+        throw new Error(
+          'assertion_sensitive_target: secret literals cannot be stored as assertion targets; use a non-sensitive visible condition and confirm again',
+        );
+      }
       if (target && !targets.includes(target)) targets.push(target);
     }
   }

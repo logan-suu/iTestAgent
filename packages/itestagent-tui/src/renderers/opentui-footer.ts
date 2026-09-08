@@ -3,15 +3,15 @@
  *
  * B27: extracted from src/renderers/opentui-renderer.tsx so the hint strings
  * live in one place (they are part of the panel UX contract exercised by the
- * shell tests). Strings must stay byte-identical to the pre-refactor panels.
+ * shell tests).
  */
 
 /** Key hints shown in the candidate review footer. */
 export const CANDIDATE_REVIEW_FOOTER_HINTS =
-  'j/k:nav space:toggle e:edit A:all N:none Enter:confirm q:cancel';
+  '↑/↓ or j/k:nav Space:toggle e:edit A:all N:none Enter:confirm Esc/q:cancel';
 
 /** Key hints shown in the plan review footer. */
-export const PLAN_REVIEW_FOOTER_HINTS = 'j/k:nav m:modify Enter:start q:cancel';
+export const PLAN_REVIEW_FOOTER_HINTS = '↑/↓ or j/k:nav m:modify Enter:start Esc/q:cancel';
 
 /** Label prefixing the command input in both review footers. */
 export const FOOTER_CMD_LABEL = 'Cmd: ';

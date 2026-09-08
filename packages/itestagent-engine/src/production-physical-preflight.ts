@@ -63,15 +63,35 @@ export const runProductionPhysicalCommand: XcodebuildProcessRunner = async (cmd,
     cwd: options?.cwd,
     stdout: 'pipe',
     stderr: 'pipe',
-    signal: options?.signal,
-    killSignal: 'SIGTERM',
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-    process.exited,
-  ]);
-  return { exitCode, stdout, stderr };
+  let escalation: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    if (escalation !== undefined) return;
+    if (process.exitCode !== null || process.signalCode !== null) return;
+    process.kill('SIGTERM');
+    escalation = setTimeout(() => process.kill('SIGKILL'), 1_000);
+  };
+  const timeout =
+    options?.timeoutMs === undefined ? undefined : setTimeout(stop, options.timeoutMs);
+  options?.signal?.addEventListener('abort', stop, { once: true });
+  if (options?.signal?.aborted) stop();
+  try {
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(process.stdout).text(),
+      new Response(process.stderr).text(),
+      process.exited,
+    ]);
+    options?.signal?.throwIfAborted();
+    return { exitCode, stdout, stderr };
+  } catch (error) {
+    stop();
+    await process.exited;
+    throw error;
+  } finally {
+    options?.signal?.removeEventListener('abort', stop);
+    clearTimeout(timeout);
+    clearTimeout(escalation);
+  }
 };
 
 function requirePhysicalReadinessBackend(backend: DeviceBackend): DeviceBackend & {
@@ -125,6 +145,17 @@ export function createProductionPhysicalPreflight(
   };
   return async (input) => {
     input.signal?.throwIfAborted();
+    // Bind every preparation subprocess, including build-settings and validation.
+    // The post-await check also covers runners that return an exit code on abort.
+    const runCommand: XcodebuildProcessRunner = async (cmd, args, options) => {
+      input.signal?.throwIfAborted();
+      const result = await deps.runCommand(cmd, args, {
+        ...options,
+        signal: input.signal ?? options?.signal,
+      });
+      input.signal?.throwIfAborted();
+      return result;
+    };
     input.onProgress?.({
       stage: 'resolving_app_source',
       message: 'Resolving the confirmed application source…',
@@ -176,8 +207,9 @@ export function createProductionPhysicalPreflight(
           allowProvisioningUpdates: true,
           derivedDataPath,
         },
-        deps.runCommand,
+        runCommand,
       );
+      input.signal?.throwIfAborted();
       if (build.exitCode !== 0 || !build.appPath) {
         const signing = diagnoseSigningError(build.log);
         const message = signing
@@ -192,6 +224,7 @@ export function createProductionPhysicalPreflight(
       sourceKind = source.kind === 'existing_artifact' ? 'app' : source.artifactType;
     }
 
+    input.signal?.throwIfAborted();
     input.onProgress?.({
       stage: 'validating_app',
       message: 'Validating the physical application artifact and signature…',
@@ -203,12 +236,14 @@ export function createProductionPhysicalPreflight(
         sourceKind,
         normalizationRoot: join(input.stagingDir, 'normalized-app'),
         expectedBundleId: input.bundleId,
-        run: deps.runCommand,
+        run: runCommand,
       });
     } catch (error) {
+      input.signal?.throwIfAborted();
       return blockedFromError('artifact_validation', 'artifact_invalid', error);
     }
 
+    input.signal?.throwIfAborted();
     const readinessBackend = requirePhysicalReadinessBackend(input.backend);
     const devicectl = deps.createDevicectlOps();
     const coordinator = createPhysicalPreflightCoordinator({

@@ -74,6 +74,8 @@ TestPlan 确认后的执行生命周期也属于生产门禁：确认后必须�
 - PermissionEngine 的 `remembered` 只有在持久化写入实际成功后才能为 true；纯内存规则不得描述为跨 session 持久化。
 - 权限等待必须显示输入并回车的操作方式和实际等待时限；等待期间明确执行已暂停。`permission.requested.timeoutMs` 与 `permission.resolved.reason` 为向后兼容的可选事件字段。超时、取消与内部错误继续以 `effect=deny` 失败关闭，但不得展示为用户主动拒绝；这些终态必须清除等待 activity。权限失败的工具结果不携带原始 resource，避免 UDID 流入聊天或模型上下文；内部授权仍绑定精确 action/resource。直接执行因权限超时结束后，TUI 引导用户以 `/plan <test goal>` 重新规划并逐项授权，不自动重试或复用旧 allow。
 
+权限事件契约必须拒绝 `reason=timeout/cancelled/error` 与 `effect=allow/ask` 的组合。发送权限请求事件失败时，必须消费已取消的 pending Promise 后再传播原始发送错误，避免未处理的 rejection 遗留。
+
 ### 3. Keychain 保存必须真实且可撤销
 
 保存 secret 前必须单独披露 device-local 范围、service、account 和撤销命令，并获得一次性确认。secret 只能经 stdin 或等价非 argv 通道交给 Keychain。只有写入和访问控制验证成功后，UI 才能显示“已保存”；失败时 secret 保持 session-only 并显示失败原因，不得虚报 remembered。
@@ -83,6 +85,8 @@ T6.12 首次配置验收还发现，仅检查 API key 字符长度会让无效 c
 同次永久保存复测证明，`security add-generic-password ... -w` 的裸 `-w` 会等待交互 prompt，并不从 pipe stdin 读取 password；把 secret 直接写入该子进程 stdin 会等待至超时。Keychain 写入因此改用 macOS `security -i` 的官方 stdin 批处理模式：argv 只有 `-i`，stdin 中只有一条 `add-generic-password ... -X <UTF-8 hex>` 命令，service/account 先限制为单命令安全标识。credential 原文和编码形式均不得进入可见输出、日志或结构化错误。独立写后属性验证仍是 remembered 的必要条件，任何命令失败、超时或验证失败均保持 session-only。
 
 ### 4. Abort 是端到端协议
+
+物理 AUT 的 build、build-settings 查询与归一化校验同样属于此协议。每次命令前后检查同一 run signal，校验捕获异常时优先保留取消原因；不得在取消后继续设备副作用。生产准备命令先 SIGTERM，宽限 1 秒后升级 SIGKILL，并移除 listener/timer；真实 Xcode/设备链路的 owner 清理仍须 G5 复验。
 
 ```
 TUI cancel → session command → AgentRuntime.abort → ToolDispatcher cancel
@@ -111,6 +115,8 @@ Route C（Appium managed xcodebuild）仅为用户显式选择的诊断路线：
 - 必须使用独立、可归属的 Appium lifecycle；
 - 无法证明本轮 Appium 与其 child 完整回收时，结果必须失败关闭并报告 cleanup limitation；
 - Route C 的第三方限制不再阻塞 Route B 的 production default 或 MVP 出口。
+
+主动探测无法观测设备或 WDA 身份时按 `wda_status_failed` 报告身份不可验证，不得假装 ready，也不得说成已证实的身份不匹配；只有实际观测到与期望不符的身份才使用 `wda_identity_mismatch`。
 
 Route B 的 production composition 必须区分两种输入：未提供外部 endpoint 时，由 iTestAgent/WdaManager 拥有 WDA 与 iproxy 的启动、readiness 和清理；用户显式提供 `webDriverAgentUrl` 时才进入 attach 模式。内部生成的 loopback URL 只是 managed Route B 的连接结果，不能作为“外部 WDA 已启动”的判据。
 

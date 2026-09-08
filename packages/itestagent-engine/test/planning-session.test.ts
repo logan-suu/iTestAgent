@@ -68,6 +68,107 @@ function analysisWithRoutes(): ProjectAnalysisResult {
 }
 
 describe('PlanningSession', () => {
+  it('recompiles explicit target switches in both directions without losing the goal or assertions', () => {
+    const session = new PlanningSession(analysis());
+    const initial = session.begin('用本机 iPhone 测试登录，确认“Welcome”可见并截图');
+    const original = session.confirmCandidates(
+      initial.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    ).plan;
+    if (!original) throw new Error('Expected draft plan');
+    const switched = session.switchDeviceTarget({
+      kind: 'simulator',
+      simulator: { selector: 'by_udid', udid: 'sim-1' },
+    });
+    expect(switched.status).toBe('awaiting_plan_confirmation');
+    expect(switched.plan?.device.kind).toBe('simulator');
+    expect(switched.plan?.performance.baselineDomain).toBe('simulator');
+    expect(switched.plan?.execution.goal).toBe(original.execution.goal);
+    expect(original.execution.assertions?.length).toBeGreaterThan(0);
+    expect(switched.plan?.execution.assertions).toEqual(original.execution.assertions);
+    expect(switched.plan?.runId).toBe(original.runId);
+    expect(session.getConfirmedPlan()).toBeNull();
+    const back = session.switchDeviceTarget({
+      kind: 'physical',
+      physical: { selector: 'by_udid', udid: 'phone-1' },
+    });
+    expect(back.plan?.device.kind).toBe('physical');
+    expect(back.plan?.performance.baselineDomain).toBe('physical');
+    session.confirmPlan();
+    expect(() =>
+      session.switchDeviceTarget({ kind: 'simulator', simulator: { selector: 'booted' } }),
+    ).toThrow('invalid_transition');
+  });
+
+  it('blocks ambiguous multi-feature assertions and permits a corrected candidate confirmation', () => {
+    const session = new PlanningSession(analysis());
+    const initial = session.begin('用本机 iPhone 测试登录，确认“Welcome”可见并截图');
+    expect(() =>
+      session.confirmCandidates(
+        initial.candidates.map((candidate) => ({ ...candidate, confirmed: true })),
+      ),
+    ).toThrow('assertion_case_ambiguous');
+    expect(session.getConfirmedPlan()).toBeNull();
+    const corrected = session.confirmCandidates(
+      initial.candidates.map((candidate) => ({
+        ...candidate,
+        confirmed: candidate.name === 'Login',
+      })),
+    );
+    expect(corrected.plan?.execution.features).toEqual(['Login']);
+    expect(corrected.plan?.execution.assertions?.[0]?.caseId).toBe('Login');
+    expect(corrected.status).toBe('awaiting_plan_confirmation');
+    expect(session.getConfirmedPlan()).toBeNull();
+  });
+
+  it('re-resolves target-specific route evidence and blocks unknown discovery', () => {
+    const source = analysis();
+    const assets = source.analysis.executionAssets;
+    if (!assets) throw new Error('Expected discovery evidence');
+    const session = new PlanningSession({
+      ...source,
+      analysis: {
+        ...source.analysis,
+        executionAssets: {
+          ...assets,
+          statusByTargetKind: { physical: 'none', simulator: 'indeterminate' },
+        },
+      },
+    });
+    const initial = session.begin('用本机 iPhone 跑登录 smoke');
+    session.confirmCandidates(
+      initial.candidates.map((candidate) => ({ ...candidate, confirmed: true })),
+    );
+    const switched = session.switchDeviceTarget({
+      kind: 'simulator',
+      simulator: { selector: 'by_udid', udid: 'sim-1' },
+    });
+    expect(switched.status).toBe('execution_route_blocked');
+    expect(switched.plan).toBeNull();
+    expect(() => session.confirmPlan()).toThrow('invalid_transition');
+  });
+
+  it('leaves an invalid switch atomic and refuses to reopen a cancelled draft', () => {
+    const session = new PlanningSession(analysis());
+    const initial = session.begin('用本机 iPhone 跑登录 smoke');
+    const original = session.confirmCandidates(
+      initial.candidates.map((candidate) => ({ ...candidate, confirmed: true })),
+    );
+    expect(() =>
+      session.switchDeviceTarget({
+        kind: 'simulator',
+        simulator: { selector: 'invalid' as never },
+      }),
+    ).toThrow();
+    expect(session.getSnapshot()).toEqual(original);
+    session.cancel();
+    expect(() =>
+      session.switchDeviceTarget({ kind: 'simulator', simulator: { selector: 'booted' } }),
+    ).toThrow('invalid_transition');
+  });
+
   it('uses the selected target status when another target kind has candidates', () => {
     const session = new PlanningSession(analysisWithRoutes());
     const snapshot = session.begin('Run the login smoke test on the booted Simulator');

@@ -13,6 +13,8 @@ import termios
 import time
 from typing import Optional
 
+from renderer_pty_matrix import read_initial_frame
+
 
 ANSI_ESCAPE = re.compile(
     rb'(?:\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-_])'
@@ -40,12 +42,35 @@ def visible_text(data: bytes) -> bytes:
     return ANSI_ESCAPE.sub(b'', data)
 
 
+def cleanup_pty_resources(pid: int, master: int, event_path: str) -> None:
+    """Reap only this scenario's child, even when reading its events fails."""
+    try:
+        try:
+            waited, _ = os.waitpid(pid, os.WNOHANG)
+            if waited == 0:
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
+    finally:
+        try:
+            os.close(master)
+        except OSError:
+            pass
+        try:
+            os.unlink(event_path)
+        except FileNotFoundError:
+            pass
+
+
 def run_scenario(
     repo: str,
     launch_cwd: str,
     scenario: str,
     expected_event: str,
     forbidden_event: Optional[str] = None,
+    renderer: str = 'opentui',
+    arrow_keys: bool = False,
 ) -> dict:
     event_fd, event_path = tempfile.mkstemp(prefix=f'itestagent-opentui-{scenario}-', suffix='.jsonl')
     os.close(event_fd)
@@ -64,87 +89,93 @@ def run_scenario(
             [
                 'bun',
                 harness,
-                'opentui',
+                renderer,
                 event_path,
                 scenario,
             ],
             env,
         )
 
-    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 36, 100, 0, 0))
-    initial = read_available(master, 1.5)
     try:
-        os.write(master, b'\r')
-    except OSError:
-        pass
-    after_enter = read_available(master, 0.8)
-    first_events = []
-    if scenario == 'device-to-plan':
-        with open(event_path, encoding='utf-8') as stream:
-            first_events = [json.loads(line) for line in stream if line.strip()]
+        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 36, 100, 0, 0))
+        initial, startup_ms, input_ready = read_initial_frame(master, renderer)
+        if arrow_keys:
+            for key in (b'\x1b[B', b'\x1b[A'):
+                os.write(master, key)
+                read_available(master, 0.15)
         try:
             os.write(master, b'\r')
         except OSError:
             pass
-        after_followup = read_available(master, 0.8)
-    else:
-        after_followup = b''
-    try:
-        os.write(master, b'\x03')
-    except OSError:
-        pass
-    exit_output = read_available(master, 1.5)
+        after_enter = read_available(master, 0.8)
+        first_events = []
+        if scenario == 'device-to-plan':
+            with open(event_path, encoding='utf-8') as stream:
+                first_events = [json.loads(line) for line in stream if line.strip()]
+            try:
+                os.write(master, b'\r')
+            except OSError:
+                pass
+            after_followup = read_available(master, 0.8)
+        else:
+            after_followup = b''
+        try:
+            os.write(master, b'\x03')
+        except OSError:
+            pass
+        exit_output = read_available(master, 1.5)
 
-    deadline = time.monotonic() + 2.0
-    status = None
-    while time.monotonic() < deadline:
-        waited, current = os.waitpid(pid, os.WNOHANG)
-        if waited == pid:
-            status = current
-            break
-        time.sleep(0.05)
-    if status is None:
-        os.kill(pid, signal.SIGKILL)
-        _, status = os.waitpid(pid, 0)
+        deadline = time.monotonic() + 2.0
+        status = None
+        while time.monotonic() < deadline:
+            waited, current = os.waitpid(pid, os.WNOHANG)
+            if waited == pid:
+                status = current
+                break
+            time.sleep(0.05)
+        if status is None:
+            os.kill(pid, signal.SIGKILL)
+            _, status = os.waitpid(pid, 0)
 
-    try:
         with open(event_path, encoding='utf-8') as stream:
             events = [json.loads(line) for line in stream if line.strip()]
-    finally:
-        os.unlink(event_path)
-        os.close(master)
 
-    expected_count = sum(1 for event in events if event == {'type': expected_event})
-    forbidden_count = (
-        sum(1 for event in first_events if event == {'type': forbidden_event})
-        if forbidden_event
-        else 0
-    )
-    visible_followup = visible_text(after_followup)
-    compact_followup = re.sub(rb'\s+', b'', visible_followup)
-    return {
-        'scenario': scenario,
-        'selected': b'PTY_SELECTED:opentui' in initial,
-        'firstFrame': len(initial) > 1000,
-        'enterEvent': expected_count == 1,
-        'enterEventCount': expected_count,
-        'forbiddenEventCount': forbidden_count,
-        'followupPlanConfirmCount': sum(
-            1 for event in events if event == {'type': 'plan_confirm'}
-        ),
-        'followupRendered': (
-            b'Activity:' in compact_followup
-            and b'Awaitingpermission:replace_device_app' in compact_followup
-            and b'ermissionrequired:replace_device_app' in compact_followup
-            and b'physical-device-udid' not in compact_followup
-        ),
-        'cleanExit': os.waitstatus_to_exitcode(status) == 0,
-        'bytes': {
-            'initial': len(initial),
-            'afterEnter': len(after_enter),
-            'exit': len(exit_output),
-        },
-    }
+        expected_count = sum(1 for event in events if event == {'type': expected_event})
+        forbidden_count = (
+            sum(1 for event in first_events if event == {'type': forbidden_event})
+            if forbidden_event
+            else 0
+        )
+        visible_followup = visible_text(after_followup)
+        compact_followup = re.sub(rb'\s+', b'', visible_followup)
+        return {
+            'scenario': scenario,
+            'selected': f'PTY_SELECTED:{renderer}'.encode() in initial,
+            'events': events if arrow_keys else [],
+            'firstFrame': len(initial) > 1000,
+            'inputReady': input_ready,
+            'startupMs': startup_ms,
+            'enterEvent': expected_count == 1,
+            'enterEventCount': expected_count,
+            'forbiddenEventCount': forbidden_count,
+            'followupPlanConfirmCount': sum(
+                1 for event in events if event == {'type': 'plan_confirm'}
+            ),
+            'followupRendered': (
+                b'Activity:' in compact_followup
+                and b'Awaitingpermission:replace_device_app' in compact_followup
+                and b'Permissionrequired:replace_device_app' in compact_followup
+                and b'physical-device-udid' not in compact_followup
+            ),
+            'cleanExit': os.waitstatus_to_exitcode(status) == 0,
+            'bytes': {
+                'initial': len(initial),
+                'afterEnter': len(after_enter),
+                'exit': len(exit_output),
+            },
+        }
+    finally:
+        cleanup_pty_resources(pid, master, event_path)
 
 
 def run_chat_input_scenario(repo: str, launch_cwd: str) -> dict:
@@ -160,60 +191,61 @@ def run_chat_input_scenario(repo: str, launch_cwd: str) -> dict:
         harness = os.path.join(repo, 'tests/integration/phase6/helpers/renderer-pty-harness.ts')
         os.execvpe('bun', ['bun', harness, 'opentui', event_path, scenario], env)
 
-    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 36, 100, 0, 0))
-    initial = read_available(master, 1.5)
-    prompt = (
-        '用这台真机测试应用：启动后确认“T6.12 Device Lane”可见，点击“Tap Me”，'
-        '确认“Taps: 1”可见，并采集截图。'
-    )
-    os.write(master, prompt.encode('utf-8'))
-    read_available(master, 0.5)
-    os.write(master, b'\r')
-    read_available(master, 0.5)
-    os.write(master, b'allow')
-    after_allow = read_available(master, 0.5)
-    os.write(master, b'\r')
-    read_available(master, 0.5)
-    os.write(master, b'\x03')
-    exit_output = read_available(master, 1.5)
-
-    deadline = time.monotonic() + 2.0
-    status = None
-    while time.monotonic() < deadline:
-        waited, current = os.waitpid(pid, os.WNOHANG)
-        if waited == pid:
-            status = current
-            break
-        time.sleep(0.05)
-    if status is None:
-        os.kill(pid, signal.SIGKILL)
-        _, status = os.waitpid(pid, 0)
-
     try:
+        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 36, 100, 0, 0))
+        initial, startup_ms, input_ready = read_initial_frame(master, 'opentui')
+        prompt = (
+            '用这台真机测试应用：启动后确认“T6.12 Device Lane”可见，点击“Tap Me”，'
+            '确认“Taps: 1”可见，并采集截图。'
+        )
+        os.write(master, prompt.encode('utf-8'))
+        read_available(master, 0.5)
+        os.write(master, b'\r')
+        read_available(master, 0.5)
+        os.write(master, b'allow')
+        after_allow = read_available(master, 0.5)
+        os.write(master, b'\r')
+        read_available(master, 0.5)
+        os.write(master, b'\x03')
+        exit_output = read_available(master, 1.5)
+
+        deadline = time.monotonic() + 2.0
+        status = None
+        while time.monotonic() < deadline:
+            waited, current = os.waitpid(pid, os.WNOHANG)
+            if waited == pid:
+                status = current
+                break
+            time.sleep(0.05)
+        if status is None:
+            os.kill(pid, signal.SIGKILL)
+            _, status = os.waitpid(pid, 0)
+
         with open(event_path, encoding='utf-8') as stream:
             events = [json.loads(line) for line in stream if line.strip()]
-    finally:
-        os.unlink(event_path)
-        os.close(master)
 
-    inputs = [event.get('text') for event in events if event.get('type') == 'input']
-    submit_count = sum(1 for event in events if event == {'type': 'submit'})
-    return {
-        'scenario': scenario,
-        'selected': b'PTY_SELECTED:opentui' in initial,
-        'firstFrame': len(initial) > 1000,
-        'enterEvent': inputs == [prompt, 'allow'] and submit_count == 2,
-        'enterEventCount': submit_count,
-        'forbiddenEventCount': 0,
-        'followupPlanConfirmCount': 0,
-        'followupRendered': b'allow' in visible_text(after_allow),
-        'cleanExit': os.waitstatus_to_exitcode(status) == 0,
-        'bytes': {
-            'initial': len(initial),
-            'afterEnter': len(after_allow),
-            'exit': len(exit_output),
-        },
-    }
+        inputs = [event.get('text') for event in events if event.get('type') == 'input']
+        submit_count = sum(1 for event in events if event == {'type': 'submit'})
+        return {
+            'scenario': scenario,
+            'selected': b'PTY_SELECTED:opentui' in initial,
+            'firstFrame': len(initial) > 1000,
+            'inputReady': input_ready,
+            'startupMs': startup_ms,
+            'enterEvent': inputs == [prompt, 'allow'] and submit_count == 2,
+            'enterEventCount': submit_count,
+            'forbiddenEventCount': 0,
+            'followupPlanConfirmCount': 0,
+            'followupRendered': b'allow' in visible_text(after_allow),
+            'cleanExit': os.waitstatus_to_exitcode(status) == 0,
+            'bytes': {
+                'initial': len(initial),
+                'afterEnter': len(after_allow),
+                'exit': len(exit_output),
+            },
+        }
+    finally:
+        cleanup_pty_resources(pid, master, event_path)
 
 
 def main() -> int:
@@ -233,7 +265,7 @@ def main() -> int:
             run_chat_input_scenario(repo, launch_cwd),
         ]
     print(json.dumps(results, separators=(',', ':')))
-    required = ('selected', 'firstFrame', 'enterEvent', 'cleanExit')
+    required = ('selected', 'firstFrame', 'inputReady', 'enterEvent', 'cleanExit')
     return 0 if all(
         all(result[key] for key in required)
         and result['forbiddenEventCount'] == 0

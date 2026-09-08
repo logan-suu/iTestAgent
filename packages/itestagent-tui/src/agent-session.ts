@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createOpenAI } from '@ai-sdk/openai';
 import { type LanguageModel, generateText } from 'ai';
 import type {
@@ -7,11 +7,13 @@ import type {
   DeviceBackend,
   DeviceDiscoverySnapshot,
   DeviceInfo,
+  RunStatus,
   TargetKind,
   TestPlan,
   ToolCall,
   ToolResult,
 } from 'itestagent-contracts';
+import { RunStatusSchema } from 'itestagent-contracts';
 import {
   AiSdkAgentRuntime,
   BackendRegistry,
@@ -42,6 +44,21 @@ import { loadTuiRuntimeConfig } from './runtime-config.js';
 interface SessionConfig {
   baseURL?: string;
   model?: string;
+}
+
+interface CommittedRunNotice {
+  runId: string;
+  runDir: string;
+  runStatus?: RunStatus;
+}
+
+function reportLocationNotice(committedRun: { runDir: string } | null): string {
+  if (!committedRun) return 'No report was saved for this execution.';
+  return [
+    `Report directory: ${committedRun.runDir}`,
+    `Summary: ${join(committedRun.runDir, 'summary.md')}`,
+    `Evidence directory: ${join(committedRun.runDir, 'artifacts')}`,
+  ].join('\n');
 }
 
 async function loadApiKey(): Promise<string | null> {
@@ -187,7 +204,10 @@ export interface TuiAgentSession {
   processMessage(input: string): AsyncIterable<TuiStatePatch>;
   getDevices(): readonly DeviceInfo[];
   confirmCandidates(candidates: readonly CandidateLink[]): readonly TuiStatePatch[];
-  selectDevice(udid: string): Promise<readonly TuiStatePatch[]>;
+  selectDevice(
+    udid: string,
+    switchDecision?: { token: string; allow: boolean },
+  ): Promise<readonly TuiStatePatch[]>;
   refreshDevices(): Promise<readonly TuiStatePatch[]>;
   modifyPlan(input: string): readonly TuiStatePatch[];
   confirmPlan(): readonly TuiStatePatch[];
@@ -221,6 +241,7 @@ export interface TuiStatePatch {
     | 'intent_update'
     | 'candidates_update'
     | 'device_selection_request'
+    | 'device_target_switch_request'
     | 'device_selected'
     | 'plan_update'
     | 'permission_request'
@@ -327,9 +348,9 @@ export async function createAgentSession(
   const targetKindForCurrentPlan = (): TargetKind | null =>
     planningSession?.getSnapshot().plan?.device.kind ?? null;
 
-  const refreshUntilTargetSettles = async (selectedUdid?: string) => {
+  const refreshUntilTargetSettles = async (selectedUdid?: string, requestedKind?: TargetKind) => {
     await refreshDiscovery();
-    const targetKind = targetKindForCurrentPlan();
+    const targetKind = requestedKind ?? targetKindForCurrentPlan();
     if (!targetKind) return;
     for (const delayMs of [250, 750, 1_500]) {
       if (
@@ -358,6 +379,14 @@ export async function createAgentSession(
   let activeDirectExecutionAbort: AbortController | null = null;
   let discoveryNoticeEmitted = false;
   let planningSession: PlanningSession | null = null;
+  let deviceSelectionRevision = 0;
+  let pendingTargetSwitch: {
+    token: string;
+    udid: string;
+    kind: TargetKind;
+    session: PlanningSession;
+    plan: string;
+  } | null = null;
   let cachedAnalysis: ProjectAnalysisResult | null = null;
   const transcript: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
@@ -365,8 +394,8 @@ export async function createAgentSession(
     if (!cachedAnalysis) cachedAnalysis = await analyzeWorkspace(workspace);
     return cachedAnalysis;
   };
-  let latestCommittedRun: { runId: string; runDir: string } | null = null;
-  const getLatestCommittedRun = (): { runId: string; runDir: string } | null => latestCommittedRun;
+  let latestCommittedRun: CommittedRunNotice | null = null;
+  const getLatestCommittedRun = (): CommittedRunNotice | null => latestCommittedRun;
   let activeExecutionActivityId: string | null = null;
 
   const confirmedExecutionContext = () => {
@@ -415,7 +444,7 @@ export async function createAgentSession(
         preparesWda: preparesWda(device),
         suggest:
           dependencies.suggestExplorationAction ??
-          (({ caseId, goal, assertions, uiTree, history, signal: suggestionSignal }) =>
+          (({ caseId, goal, assertions, uiTree, history, signal: suggestionSignal, onProgress }) =>
             suggestExplorationAction({
               generate: async (prompt, runSignal) =>
                 (await generateText({ model, prompt, abortSignal: runSignal })).text,
@@ -425,6 +454,7 @@ export async function createAgentSession(
               uiTree,
               history,
               signal: suggestionSignal,
+              onProgress,
             })),
         authorize: (action, resource) =>
           authorizedByExecutionTool.has(`${action}\u0000${resource}`)
@@ -446,7 +476,6 @@ export async function createAgentSession(
         signal,
         onProgress: ({ message }) => onProgress?.(message),
       });
-      latestCommittedRun = { runId: plan.runId, runDir: executed.runDir };
       return executed;
     });
 
@@ -541,9 +570,17 @@ export async function createAgentSession(
             result &&
             typeof result === 'object' &&
             'runDir' in result &&
-            typeof result.runDir === 'string'
+            typeof result.runDir === 'string' &&
+            result.runDir.trim().length > 0
           ) {
-            latestCommittedRun = { runId: plan.runId, runDir: result.runDir };
+            const runStatus = RunStatusSchema.safeParse(
+              'runStatus' in result ? result.runStatus : undefined,
+            );
+            latestCommittedRun = {
+              runId: plan.runId,
+              runDir: resolve(result.runDir),
+              ...(runStatus.success ? { runStatus: runStatus.data } : {}),
+            };
           }
           return result;
         },
@@ -688,26 +725,86 @@ export async function createAgentSession(
       return planningPatches(planningSession.confirmCandidates(candidates), devices);
     },
 
-    async selectDevice(udid) {
+    async selectDevice(udid, switchDecision) {
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      const plan = planningSession.getSnapshot().plan;
+      const session = planningSession;
+      const initial = session.getSnapshot();
+      const plan = initial.plan;
       if (!plan) throw new Error('plan_unavailable: there is no draft plan to update');
-      await refreshUntilTargetSettles(udid);
+      if (initial.status !== 'awaiting_plan_confirmation')
+        throw new Error('invalid_transition: device selection requires a draft plan');
+      const revision = ++deviceSelectionRevision;
+      const planIdentity = JSON.stringify(plan);
+      const candidate = devices.find((device) => device.udid === udid);
+      const pending = pendingTargetSwitch;
+      pendingTargetSwitch = null;
+      if (
+        switchDecision &&
+        (!pending ||
+          pending.token !== switchDecision.token ||
+          pending.udid !== udid ||
+          pending.session !== session ||
+          pending.plan !== planIdentity ||
+          candidate?.targetKind !== pending.kind)
+      ) {
+        throw new Error(
+          'target_switch_stale: select the device again to confirm a fresh target switch',
+        );
+      }
+      if (switchDecision && !switchDecision.allow) {
+        return [
+          { type: 'device_selection_request', payload: { devices, targetKind: plan.device.kind } },
+        ];
+      }
+      if (candidate && candidate.targetKind !== plan.device.kind && !switchDecision) {
+        const token = crypto.randomUUID();
+        pendingTargetSwitch = {
+          token,
+          udid,
+          kind: candidate.targetKind,
+          session,
+          plan: planIdentity,
+        };
+        return [
+          {
+            type: 'device_target_switch_request',
+            payload: {
+              token,
+              udid,
+              name: candidate.name ?? 'Unnamed device',
+              from: plan.device.kind,
+              to: candidate.targetKind,
+            },
+          },
+        ];
+      }
+      const selectedKind = candidate?.targetKind ?? plan.device.kind;
+      await refreshUntilTargetSettles(udid, selectedKind);
+      if (
+        revision !== deviceSelectionRevision ||
+        planningSession !== session ||
+        session.getSnapshot().status !== 'awaiting_plan_confirmation' ||
+        JSON.stringify(session.getSnapshot().plan) !== planIdentity
+      )
+        return [];
       const selected = devices.find(
         (device) =>
-          device.udid === udid && device.targetKind === plan.device.kind && isDeviceReady(device),
+          device.udid === udid && device.targetKind === selectedKind && isDeviceReady(device),
       );
       if (!selected) {
         const snapshot = planningSession.getSnapshot();
         return [
           deviceUpdatePatch(plan.device.kind, devices, discovery),
-          ...planningPatches(snapshot, devices),
+          {
+            type: 'device_selection_request',
+            payload: { devices, targetKind: snapshot.plan?.device.kind ?? plan.device.kind },
+          },
           {
             type: 'error',
             payload: {
-              message: `device_not_ready: selected ${plan.device.kind} target is not ready after refresh; keep it connected and press r to retry`,
+              message: `device_not_ready: selected ${selectedKind} target is not ready after refresh; connect or boot it and press r to retry`,
             },
           },
         ];
@@ -722,17 +819,26 @@ export async function createAgentSession(
               kind: 'simulator' as const,
               simulator: { selector: 'by_udid' as const, udid: selected.udid },
             };
-      const snapshot = planningSession.selectDevice(device);
-      selectedDeviceUdid = selected.udid;
+      const snapshot =
+        selectedKind === plan.device.kind
+          ? session.selectDevice(device)
+          : session.switchDeviceTarget(device);
+      selectedDeviceUdid = snapshot.plan ? selected.udid : null;
       return [
-        deviceUpdatePatch(plan.device.kind, devices, discovery),
-        { type: 'device_selected', payload: { udid: selected.udid } },
+        deviceUpdatePatch(selectedKind, devices, discovery),
+        ...(snapshot.plan
+          ? [{ type: 'device_selected' as const, payload: { udid: selected.udid } }]
+          : []),
         ...planningPatches(snapshot, devices),
       ];
     },
 
     async refreshDevices() {
+      const revision = ++deviceSelectionRevision;
+      const session = planningSession;
+      pendingTargetSwitch = null;
       await refreshUntilTargetSettles();
+      if (revision !== deviceSelectionRevision || session !== planningSession) return [];
       const targetKind = targetKindForCurrentPlan();
       const patches: TuiStatePatch[] = [
         {
@@ -813,14 +919,18 @@ export async function createAgentSession(
             const retryHint =
               output?.code === 'permission_timeout'
                 ? ' To retry, submit /plan <your test goal>, confirm the plan, and answer each permission prompt separately.'
-                : '';
+                : String(output?.error ?? '').startsWith('exploration_suggestion_invalid:')
+                  ? ' To retry, submit /plan <your test goal> and confirm the new plan. Invalid suggestions were not executed.'
+                  : '';
             queue.push({
               type: 'error',
               payload: {
-                message:
+                message: [
                   (committedRun
                     ? `${String(output?.error ?? 'Confirmed TestPlan execution failed')}. Run ${committedRun.runId} was committed with the failure result.`
                     : String(output?.error ?? 'Confirmed TestPlan execution failed')) + retryHint,
+                  reportLocationNotice(committedRun),
+                ].join('\n'),
                 id: callId,
               },
             });
@@ -851,25 +961,36 @@ export async function createAgentSession(
               ? (deviceResult.assertion as Record<string, unknown>)
               : null;
           const assertionStatus =
-            typeof assertion?.status === 'string' ? assertion.status : 'inconclusive';
+            committedRun?.runStatus ??
+            (typeof assertion?.status === 'string' ? assertion.status : 'inconclusive');
           queue.push({
             type: 'message_add',
             payload: {
               role: 'system',
-              text:
+              ...(!controller.signal.aborted &&
+              executionOutput?.status === 'completed' &&
+              committedRun?.runStatus
+                ? { runStatus: committedRun.runStatus }
+                : {}),
+              text: [
                 (terminationReason === 'no_progress' || terminationReason === 'step_limit') &&
                 typeof terminationMessage === 'string'
-                  ? `${terminationMessage} Run ${committedRun?.runId ?? 'result'} committed with status ${assertionStatus}.`
+                  ? terminationMessage +
+                    (committedRun
+                      ? ` Run ${committedRun.runId} committed with status ${assertionStatus}.`
+                      : '')
                   : committedRun
                     ? `Execution completed. Run ${committedRun.runId} committed.`
                     : 'Execution completed.',
+                reportLocationNotice(committedRun),
+              ].join('\n'),
             },
           });
         } catch (error: unknown) {
           queue.push({
             type: 'error',
             payload: {
-              message: error instanceof Error ? error.message : String(error),
+              message: `${error instanceof Error ? error.message : String(error)}\n${reportLocationNotice(getLatestCommittedRun())}`,
               id: callId,
             },
           });
@@ -888,6 +1009,8 @@ export async function createAgentSession(
     cancelPlan() {
       if (!planningSession) return [];
       planningSession.cancel();
+      deviceSelectionRevision += 1;
+      pendingTargetSwitch = null;
       selectedDeviceUdid = null;
       return [
         { type: 'plan_update', payload: { plan: null, confirmed: false } },
@@ -927,6 +1050,8 @@ export async function createAgentSession(
     },
 
     dispose() {
+      deviceSelectionRevision += 1;
+      pendingTargetSwitch = null;
       for (const callId of pendingPermissionIds) {
         permissionEngine.cancel(callId, 'session closed');
       }

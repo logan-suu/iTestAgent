@@ -823,9 +823,21 @@ export class AppiumDeviceBackend implements DeviceBackend {
         : observedWdaBaseBundleId
           ? `${observedWdaBaseBundleId}.xctrunner`
           : undefined;
+      if (!this.activeSession?.deviceUdid || !observedWdaBundleId) {
+        return {
+          route,
+          stage: 'wda_status',
+          ready: false,
+          targetDeviceUdid: this.activeSession?.deviceUdid || 'unobserved',
+          targetWdaBundleId: observedWdaBundleId ?? 'unobserved',
+          waitedMs: Date.now() - startedAt,
+          failureCode: 'wda_status_failed',
+          details:
+            'The active route did not expose device and WDA identities. Verify the WDA status endpoint or diagnostic session identity reporting before retrying; readiness cannot be proved.',
+        };
+      }
       if (
         this.activeSession?.deviceUdid !== this.opts.udid ||
-        !observedWdaBundleId ||
         (expectedWdaBundleId !== undefined && observedWdaBundleId !== expectedWdaBundleId)
       ) {
         return {

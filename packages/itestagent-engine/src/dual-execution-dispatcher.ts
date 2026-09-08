@@ -1,5 +1,8 @@
 import type { BackendCleanupOutcome, BuildDestination, TestPlan } from 'itestagent-contracts';
+import { DeviceBackendExecutionError } from './device-execution-error.js';
 import type { XcunitFlowInput, XcunitFlowResult } from './test-flow/run-xcunit-flow.js';
+
+export { DeviceBackendExecutionError } from './device-execution-error.js';
 
 export interface XcuitestReadinessResult {
   ready: boolean;
@@ -55,13 +58,13 @@ export interface DualExecutionDispatcherDeps {
 }
 
 /** Carries a completed DeviceBackend result when teardown makes the backend terminal. */
-export class DeviceBackendCleanupError extends Error {
+export class DeviceBackendCleanupError extends DeviceBackendExecutionError {
   constructor(
     message: string,
-    readonly partialResult: unknown,
+    partialResult: unknown,
     readonly cleanupOutcome: BackendCleanupOutcome,
   ) {
-    super(message);
+    super(message, partialResult);
     this.name = 'DeviceBackendCleanupError';
   }
 }
@@ -175,7 +178,7 @@ export function createDualExecutionDispatcher(deps: DualExecutionDispatcherDeps)
         return {
           status: input.signal?.aborted ? 'cancelled' : 'failed',
           path,
-          ...(error instanceof DeviceBackendCleanupError ? { result: error.partialResult } : {}),
+          ...(error instanceof DeviceBackendExecutionError ? { result: error.partialResult } : {}),
           ...(error instanceof DeviceBackendCleanupError
             ? { cleanupOutcome: error.cleanupOutcome }
             : {}),

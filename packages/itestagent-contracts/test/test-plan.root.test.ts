@@ -98,6 +98,19 @@ function loadPublished(): JsonRecord {
 }
 
 describe('published schemas/test-plan.schema.json parity (B04)', () => {
+  it('publishes the same nonblank goal constraint as the runtime', () => {
+    const published = loadPublished();
+    const definition = (published.$defs as JsonRecord).ExecutionPlan as JsonRecord;
+    const goal = (definition.properties as JsonRecord).goal as JsonRecord;
+    expect(goal.pattern).toBe('\\S');
+    for (const value of ['', ' \t\n', '验证 Login']) {
+      const plan = makeValidTestPlan();
+      plan.execution.goal = value;
+      expect(TestPlanSchema.safeParse(plan).success).toBe(
+        new RegExp(String(goal.pattern)).test(value),
+      );
+    }
+  });
   it('exists and pins JSON Schema metadata', () => {
     const published = loadPublished();
     expect(published.$schema).toBe('https://json-schema.org/draft/2020-12/schema');

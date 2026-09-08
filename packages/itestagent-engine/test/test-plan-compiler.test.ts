@@ -363,6 +363,51 @@ describe('compileTestPlan', () => {
       expect(plan.execution.goal).not.toContain('123456');
       expect(plan.execution.goal).toContain('[REDACTED]');
     });
+
+    it('blocks sensitive assertion literals without echoing them or making placeholder assertions', () => {
+      for (const secret of [
+        `sk-${'A'.repeat(32)}`,
+        'OTP 123456',
+        'tester@example.com',
+        '[REDACTED]',
+      ]) {
+        let failure: unknown;
+        try {
+          compileTestPlan(
+            makeIntent({ sourceText: `confirm "${secret}" is visible` }),
+            makeProfile(),
+          );
+        } catch (error) {
+          failure = error;
+        }
+        expect(failure).toBeInstanceOf(Error);
+        expect(String(failure)).toContain('assertion_sensitive_target');
+        expect(String(failure)).not.toContain(secret);
+      }
+    });
+
+    it('requires reconfirmation rather than assigning multi-case conditions to the first case', () => {
+      const profile = makeProfile();
+      for (const feature of profile.features) feature.confirmed = true;
+      expect(() =>
+        compileTestPlan(
+          makeIntent({
+            features: ['Login', 'Checkout'],
+            sourceText:
+              'Login: confirm "Welcome" is visible. Checkout: confirm "Order sent" is visible.',
+          }),
+          profile,
+        ),
+      ).toThrow('assertion_case_ambiguous');
+      const plan = compileTestPlan(
+        makeIntent({
+          features: ['Login', 'Checkout'],
+          sourceText: 'Explore Login and Checkout',
+        }),
+        profile,
+      );
+      expect(plan.execution.assertions).toEqual([]);
+    });
   });
 
   // ── confirmedOnly filter ───────────────────────────────────

@@ -29,6 +29,35 @@ def read_available(fd: int, duration: float) -> bytes:
     return b''.join(chunks)
 
 
+def read_initial_frame(fd: int, renderer: str, timeout: float = 5.0) -> tuple[bytes, int, bool]:
+    """Wait for observable renderer output and input readiness, not import timing."""
+    started = time.monotonic()
+    deadline = started + timeout
+    output = bytearray()
+    input_ready = False
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([fd], [], [], max(0.0, min(0.05, deadline - time.monotonic())))
+        if ready:
+            try:
+                data = os.read(fd, 65536)
+            except OSError:
+                break
+            if not data:
+                break
+            output.extend(data)
+        selected = f'PTY_SELECTED:{renderer}'.encode() in output
+        first_frame = len(output) > 1000 if renderer == 'opentui' else b'iTestAgent' in output
+        try:
+            # Ink can paint before its useInput effect enables raw mode.
+            raw_input = not (termios.tcgetattr(fd)[3] & (termios.ICANON | termios.ECHO))
+        except termios.error:
+            break
+        if selected and first_frame and raw_input:
+            input_ready = True
+            break
+    return bytes(output), round((time.monotonic() - started) * 1000), input_ready
+
+
 def run_renderer(repo: str, renderer: str) -> dict:
     event_fd, event_path = tempfile.mkstemp(prefix=f'itestagent-{renderer}-', suffix='.jsonl')
     os.close(event_fd)
@@ -50,7 +79,7 @@ def run_renderer(repo: str, renderer: str) -> dict:
         )
 
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
-    initial = read_available(master, 1.5)
+    initial, startup_ms, input_ready = read_initial_frame(master, renderer)
     for byte in b'hello':
         os.write(master, bytes([byte]))
         time.sleep(0.05)
@@ -92,6 +121,8 @@ def run_renderer(repo: str, renderer: str) -> dict:
         # guaranteed to remain plain UTF-8; a substantial post-selection frame
         # is the portable observable there.
         'firstFrame': 'iTestAgent' in all_initial or (renderer == 'opentui' and len(initial) > 1000),
+        'inputReady': input_ready,
+        'startupMs': startup_ms,
         'input': {'type': 'input', 'text': 'hello'} in events and {'type': 'submit'} in events,
         'resize': len(resize_output) > 0,
         'bufferPreserved': renderer != 'ansi' or b'hello' in resize_output,
@@ -109,7 +140,7 @@ def main() -> int:
     repo = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.')
     results = [run_renderer(repo, renderer) for renderer in ('opentui', 'ink', 'ansi')]
     print(json.dumps(results, separators=(',', ':')))
-    return 0 if all(all(result[key] for key in ('selected', 'firstFrame', 'input', 'resize', 'bufferPreserved', 'cleanExit')) for result in results) else 1
+    return 0 if all(all(result[key] for key in ('selected', 'firstFrame', 'inputReady', 'input', 'resize', 'bufferPreserved', 'cleanExit')) for result in results) else 1
 
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import {
   DeviceInfoSchema,
+  RunStatusSchema,
   TargetKindSchema,
   parseIntentResult,
   parseTestPlan,
@@ -12,7 +13,7 @@ import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
 import { DEFAULT_API_KEY_TARGET, loadApiKey as loadStoredApiKey } from './api-key-loader.js';
 import { formatPersistenceAuthorizationNotice } from './credential-prompt.js';
-import { devicesForTarget, isDeviceReady } from './device-review.js';
+import { devicesForReview, isDeviceReady } from './device-review.js';
 import {
   PERSISTENCE_CONFIRMATION_TOKEN,
   authorizePersistence,
@@ -349,11 +350,19 @@ export async function startTui(workspace?: string): Promise<void> {
       return;
     }
 
-    if (event.type === 'device_confirm' && agentSession) {
+    if (
+      (event.type === 'device_confirm' || event.type === 'device_target_switch_decision') &&
+      agentSession
+    ) {
+      if (state.mode !== 'device_review') return;
       if (deviceSelectionPending) return;
-      const targetKind = state.deviceSelectionTargetKind;
-      const candidates = targetKind ? devicesForTarget(state.devices, targetKind) : [];
-      const selected = candidates[state.deviceSelectionIndex];
+      const pending = state.deviceTargetSwitch;
+      if (event.type === 'device_confirm' && pending) return;
+      if (event.type === 'device_target_switch_decision' && !pending) return;
+      const candidates = devicesForReview(state.devices);
+      const selected = pending
+        ? candidates.find((device) => device.udid === pending.udid)
+        : candidates[state.deviceSelectionIndex];
       if (!selected) {
         state = tuiShellReducer(state, {
           type: 'system_message',
@@ -364,7 +373,12 @@ export async function startTui(workspace?: string): Promise<void> {
         deviceSelectionPending = true;
         state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
         void agentSession
-          .selectDevice(selected.udid)
+          .selectDevice(
+            selected.udid,
+            event.type === 'device_target_switch_decision' && pending
+              ? { token: pending.token, allow: event.allow }
+              : undefined,
+          )
           .then((patches) => {
             if (!deviceOperationGate.isCurrent(operationToken)) return;
             for (const patch of patches) state = applyAgentPatch(state, patch);
@@ -389,6 +403,7 @@ export async function startTui(workspace?: string): Promise<void> {
     if (event.type === 'device_refresh' && agentSession) {
       const operationToken = deviceOperationGate.begin();
       deviceSelectionPending = false;
+      state = tuiShellReducer(state, event);
       state = tuiShellReducer(state, { type: 'device_status_updated', status: 'checking' });
       renderer.update(state);
       void agentSession
@@ -651,6 +666,17 @@ export function applyAgentPatch(
         devices,
       });
     }
+    case 'device_target_switch_request':
+      return tuiShellReducer(state, {
+        type: 'device_target_switch_request',
+        request: {
+          token: String(patch.payload.token),
+          udid: String(patch.payload.udid),
+          name: String(patch.payload.name),
+          from: TargetKindSchema.parse(patch.payload.from),
+          to: TargetKindSchema.parse(patch.payload.to),
+        },
+      });
     case 'device_selected':
       return tuiShellReducer(state, {
         type: 'device_selected',
@@ -681,7 +707,14 @@ export function applyAgentPatch(
         typeof patch.payload.text === 'string'
           ? patch.payload.text
           : String(patch.payload.text ?? '');
-      return tuiShellReducer(state, { type: 'system_message', text });
+      const runStatus = RunStatusSchema.safeParse(patch.payload.runStatus);
+      return tuiShellReducer(state, {
+        type: 'system_message',
+        text,
+        ...(patch.payload.role === 'system' && runStatus.success
+          ? { runStatus: runStatus.data }
+          : {}),
+      });
     }
     case 'activity_update': {
       const callId = typeof patch.payload.id === 'string' ? patch.payload.id : '';

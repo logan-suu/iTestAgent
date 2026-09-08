@@ -39,7 +39,7 @@ export interface PersistConfirmedRunInput {
 
 export async function persistConfirmedRunToDefaultStore(
   input: Omit<PersistConfirmedRunInput, 'store'>,
-): Promise<{ runDir: string }> {
+): Promise<{ runDir: string; runStatus: RunStatus }> {
   const storeRoot = initStore(resolveStoreRoot());
   const core = createStoreCore(join(storeRoot, 'db', 'itestagent.db'));
   await core.driver.migrate();
@@ -69,7 +69,7 @@ function isRealDeviceResult(value: unknown): value is RealDeviceRunResult {
 /** Convert one confirmed production dispatch into the canonical committed TestPlan bundle. */
 export async function persistConfirmedRun(
   input: PersistConfirmedRunInput,
-): Promise<{ runDir: string }> {
+): Promise<{ runDir: string; runStatus: RunStatus }> {
   const { plan, device, dispatch } = input;
   const now = new Date().toISOString();
   let steps: RunStep[] = [];
@@ -181,7 +181,8 @@ export async function persistConfirmedRun(
     status =
       dispatch.status === 'cancelled'
         ? 'cancelled'
-        : dispatch.cleanupOutcome && !dispatch.cleanupOutcome.reusable
+        : dispatch.status === 'failed' ||
+            (dispatch.cleanupOutcome && !dispatch.cleanupOutcome.reusable)
           ? 'infra_failed'
           : result.assertion.status;
     const caseIds = [
@@ -201,8 +202,14 @@ export async function persistConfirmedRun(
         caseId,
         name: caseId,
         status:
-          assertion?.status ??
-          (caseSteps.some((step) => step.status === 'failed') ? 'failed' : 'explored'),
+          dispatch.status === 'cancelled' && (assertion || caseSteps.length > 0)
+            ? 'cancelled'
+            : (assertion?.status ??
+              (dispatch.status === 'failed' || dispatch.status === 'cancelled'
+                ? 'inconclusive'
+                : caseSteps.some((step) => step.status === 'failed')
+                  ? 'failed'
+                  : 'explored')),
         steps: caseSteps.map((step) => step.stepId),
         durationMs: caseSteps.reduce((sum, step) => sum + step.durationMs, 0),
         artifacts: [...new Set([...caseSteps.flatMap((step) => step.artifacts), ...caseArtifacts])],
@@ -227,13 +234,17 @@ export async function persistConfirmedRun(
         status:
           dispatch.status === 'blocked' || dispatch.status === 'cancelled'
             ? 'not_applicable'
-            : 'unsupported',
+            : dispatch.status === 'failed'
+              ? 'failed'
+              : 'unsupported',
         reasonCode:
           dispatch.status === 'blocked'
             ? 'execution.not_started'
             : dispatch.status === 'cancelled'
               ? 'execution.cancelled'
-              : 'route.did_not_collect',
+              : dispatch.status === 'failed'
+                ? 'execution.stopped_before_collection'
+                : 'route.did_not_collect',
       });
     }
   }
@@ -318,7 +329,7 @@ export async function persistConfirmedRun(
     report.cases = adjusted.cases;
     report.explanation = adjusted.explanation;
   }
-  return persistRunBundle({
+  const committed = await persistRunBundle({
     store: input.store,
     plan,
     parentRunId: plan.rerun?.parentRunId,
@@ -330,4 +341,5 @@ export async function persistConfirmedRun(
         : dirname(input.resultBundlePath),
     report,
   });
+  return { ...committed, runStatus: report.status };
 }

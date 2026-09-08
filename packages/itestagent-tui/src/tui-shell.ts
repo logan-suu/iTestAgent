@@ -3,6 +3,7 @@ import type {
   CredentialResponse,
   DeviceInfo,
   IntentParseResult,
+  RunStatus,
   TargetKind,
   TestPlan,
   UserAssertion,
@@ -33,7 +34,12 @@ import {
   toggleCandidateAtIndex,
   unconfirmAllCandidates,
 } from './candidate-review.js';
-import { devicesForTarget, isDeviceReady, navigateDeviceIndex } from './device-review.js';
+import {
+  type DeviceTargetSwitch,
+  devicesForReview,
+  isDeviceReady,
+  navigateDeviceIndex,
+} from './device-review.js';
 import { PLAN_SECTIONS, navigatePlanSection } from './plan-review.js';
 
 // ─── State ─────────────────────────────────────────────────────────────
@@ -65,6 +71,8 @@ export interface Message {
   readonly type: 'user' | 'assistant' | 'system' | 'error';
   readonly text: string;
   readonly timestamp: number;
+  /** Canonical outcome supplied only after the run report has been committed. */
+  readonly runStatus?: RunStatus;
 }
 
 /** TuiShell 完整状态。 */
@@ -79,6 +87,7 @@ export interface TuiShellState {
   readonly devices: readonly DeviceInfo[];
   readonly deviceSelectionTargetKind: TargetKind | null;
   readonly deviceSelectionIndex: number;
+  readonly deviceTargetSwitch: DeviceTargetSwitch | null;
   readonly selectedDeviceUdid: string | null;
   /** Transient, redacted tool activity. Raw tool payloads never enter messages. */
   readonly agentActivity: { readonly callId: string; readonly text: string } | null;
@@ -133,7 +142,11 @@ export type TuiShellEvent =
   | { readonly type: 'submit' }
   | { readonly type: 'quit' }
   | { readonly type: 'planning_reset' }
-  | { readonly type: 'system_message'; readonly text: string }
+  | {
+      readonly type: 'system_message';
+      readonly text: string;
+      readonly runStatus?: RunStatus;
+    }
   | { readonly type: 'device_status_updated'; readonly status: DeviceStatus }
   | {
       readonly type: 'devices_updated';
@@ -147,6 +160,8 @@ export type TuiShellEvent =
     }
   | { readonly type: 'device_navigate'; readonly direction: 'up' | 'down' }
   | { readonly type: 'device_confirm' }
+  | { readonly type: 'device_target_switch_request'; readonly request: DeviceTargetSwitch }
+  | { readonly type: 'device_target_switch_decision'; readonly allow: boolean }
   | { readonly type: 'device_refresh' }
   | { readonly type: 'device_cancel' }
   | { readonly type: 'device_selected'; readonly udid: string }
@@ -235,6 +250,7 @@ export function createInitialState(workspace?: string): TuiShellState {
     running: true,
     devices: [],
     deviceSelectionTargetKind: null,
+    deviceTargetSwitch: null,
     deviceSelectionIndex: 0,
     selectedDeviceUdid: null,
     agentActivity: null,
@@ -323,6 +339,7 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         type: 'system',
         text: event.text,
         timestamp: Date.now(),
+        ...(event.runStatus ? { runStatus: event.runStatus } : {}),
       };
       return {
         ...state,
@@ -367,20 +384,27 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       return {
         ...state,
         devices: event.devices,
+        deviceTargetSwitch: null,
         deviceStatus: selectedReady ? 'healthy' : event.status,
         ...(selectedReady ? {} : { selectedDeviceUdid: null }),
       };
     }
 
     case 'enter_device_review': {
-      const candidates = devicesForTarget(event.devices, event.targetKind);
-      const firstReady = candidates.findIndex(isDeviceReady);
+      const candidates = devicesForReview(event.devices);
+      const firstReady = candidates.findIndex(
+        (device) => device.targetKind === event.targetKind && isDeviceReady(device),
+      );
+      const firstMatching = candidates.findIndex(
+        (device) => device.targetKind === event.targetKind,
+      );
       return {
         ...state,
         mode: 'device_review',
         devices: event.devices,
         deviceSelectionTargetKind: event.targetKind,
-        deviceSelectionIndex: firstReady >= 0 ? firstReady : 0,
+        deviceSelectionIndex: firstReady >= 0 ? firstReady : Math.max(0, firstMatching),
+        deviceTargetSwitch: null,
         selectedDeviceUdid: null,
         deviceStatus:
           candidates.length === 0 ? 'no_device' : firstReady >= 0 ? 'discovered' : 'unavailable',
@@ -388,8 +412,8 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
     }
 
     case 'device_navigate': {
-      if (!state.deviceSelectionTargetKind) return state;
-      const candidates = devicesForTarget(state.devices, state.deviceSelectionTargetKind);
+      if (!state.deviceSelectionTargetKind || state.deviceTargetSwitch) return state;
+      const candidates = devicesForReview(state.devices);
       return {
         ...state,
         deviceSelectionIndex: navigateDeviceIndex(
@@ -401,14 +425,21 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
     }
 
     case 'device_confirm':
-    case 'device_refresh':
+    case 'device_target_switch_decision':
       return state;
+
+    case 'device_target_switch_request':
+      return { ...state, deviceTargetSwitch: event.request, deviceStatus: 'discovered' };
+
+    case 'device_refresh':
+      return { ...state, deviceTargetSwitch: null };
 
     case 'device_cancel':
       return {
         ...state,
         mode: 'chat',
         deviceSelectionTargetKind: null,
+        deviceTargetSwitch: null,
         deviceSelectionIndex: 0,
         selectedDeviceUdid: null,
       };
@@ -417,6 +448,7 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
       return {
         ...state,
         selectedDeviceUdid: event.udid,
+        deviceTargetSwitch: null,
         deviceStatus: 'healthy',
       };
 
@@ -446,6 +478,7 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
               : 'unavailable',
         currentIntent: null,
         deviceSelectionTargetKind: null,
+        deviceTargetSwitch: null,
         deviceSelectionIndex: 0,
         selectedDeviceUdid: null,
         agentActivity: null,
