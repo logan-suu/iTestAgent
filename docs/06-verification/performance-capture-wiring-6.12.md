@@ -317,3 +317,124 @@ TUI与专用Appium正常退出，复查本轮xcodebuild/iproxy/xctrace进程已�
 用户要求先提交推送到现有PR，再提供新session交接文档。本次重新运行typecheck、lint（888 files）、build及schema/依赖架构/脱敏专项（32 pass / 0 fail）。沙箱首跑3976 pass / 29 skip / 0 fail，其中22项本地服务测试因loopback受限额外跳过；随后在允许本地loopback/PTY的环境重跑全库：**3998 pass / 7 existing skip / 0 fail，12205 assertions，367 files，104.65s**。日志分别为 `/private/tmp/itestagent-handoff-tests.log` 和 `/private/tmp/itestagent-handoff-tests-full.log`，其他门禁日志同前缀。
 
 本次没有新增真机运行或新生产逻辑，提交范围为§15–19的已批准实现、回归与实证。提交沿用PR #82和当前分支，保持T6.12 in_progress；DEF-035保持open，使用changed/index提交范围扫描，不宣称全库literal CLI已修复。历史各节“未提交”保留为当时状态。本次handoff见 `docs/05-planning/handoff-6.12-memory-2026-09-08.md`，交接包含已验证链路、下一步优先建议、未完成边界及必须重新取得的一次性授权；不传递secret或原始设备证据。
+
+
+## 21. 有效零扫描证据调查（交接接续，2026-09-08）
+
+用户确认分阶段计划：先寻找可机器读取的真实扫描完成证据，证据充分后才设计并接入 `not_detected`；不把空详情、录制成功、导出 exit 0 或 App 释放回执当作有效零扫描。本轮继续 T6.12，不启动 T6.13。
+
+恢复点核对：工作区起始干净，HEAD `7ca4945`，分支 `docs/def034-physical-cancellation-evidence`；GitHub 只读查询确认 PR #82 OPEN、非 draft、base `dev-1.0`。T6.11 done、T6.12 in_progress、T6.13 pending，无可级联 ready 的任务；DEF-035 保持 open。
+
+### 21.1 既有公开证据的有界复核
+
+复用 §10 的阳性 `memory-control-1788892616156` 和释放对照 `memory-control-1788892740364`。仅调用公开 `xcrun xctrace export`，每条命令超时 30 秒；原始输出仅在本地内存中处理，模型只接收元素/属性名称、大小、退出状态及计数，未打开 trace 二进制内部。没有新设备录制、工作负载、构建、签名、安装、WDA 准备或 baseline 写入。
+
+| 查询/证据 | 阳性 | 释放对照 | 判断 |
+| --- | --- | --- | --- |
+| App 回执 | 4批、20分配、0释放 | 4批、20分配、20释放 | 仅证明工作负载执行 |
+| 公开 TOC | exit0、5616bytes、16种 data/table schema、1个 Leaks detail | 相同结构和计数 | 未暴露独立扫描完成节点；结构存在不证明扫描完成 |
+| Leaks detail XPath | exit0、4748bytes、20 row | exit0、148bytes、只有空 node | 仍只证实阳性与空结果的差异 |
+| Leaks track 父节点 XPath | exit0、181bytes、1个 message，无 row | 进程被 SIGSEGV 终止（Python returncode=-11），无 stdout/stderr | 不构成零结果，也不将父节点查询接入生产；原详情查询仍成功 |
+| os-log table | exit0、1341bytes、0 row | 同左 | 无可用扫描状态证据 |
+| os-signpost table | exit0、1692bytes、0 row | 同左 | 无可用扫描状态证据 |
+
+上表 TOC、os-log、os-signpost 在交接恢复调查中完成，父节点/详情对照在用户确认后完成。查询根为 `/trace-toc/run[@number="1"]`，详情为 `/tracks/track[@name="Leaks"]/details/detail[@name="Leaks"]`，父节点为 `/tracks/track[@name="Leaks"]`，日志表为 `/data/table[@schema="os-log"]` 和 `/data/table[@schema="os-signpost"]`。不将可查询父节点等同于官方保证该节点可导出诊断。
+
+初次沙箱内 TOC 导出两次均退出 -6、无 stdout；允许本地工具正常访问后，两份相同 trace 的 TOC 均成功。该环境失败与上述释放对照父节点 SIGSEGV 分开记录；没有修改工具权限、系统安全设置或原有 trace。
+
+### 21.2 工具与生产接线核查
+
+本机 `xcodebuild -version` 为 Xcode26.5 / 17F42；`xctrace version` 为16.0 / 17F42。当前公开 `record` 帮助没有扫描状态或记录选项查询参数；`export` 帮助提供 TOC/XPath。Apple 的 Xcode27 beta 发布说明介绍了新的 `--show-recording-options`，但本机未安装/验证该能力，也不能据此承诺能导出零扫描；本轮未升级 Xcode。
+
+本机 Instruments 的公开 `Instruments.sdef` 只在标准文档接口上声明 name/modified/file，没有 Leaks 扫描结果接口。使用公开 `AXIsProcessTrusted()` 在沙箱内外分别进行只读检查，当前本地检查进程均未获辅助功能访问；没有触发授权 prompt、修改权限或打开 Instruments trace 窗口。该结果不表示其他已授权自动化进程均不可用。
+
+代码核查：`leaks-detail.ts` 只接受验证过的逐分配阳性格式，runtime/published `MemoryLeaks` schema 的 status 均固定 detected，summary 也只格式化阳性。历史 `parseLeaksReport` 虽可解析文本 `0 leaks totaling 0 bytes`，但只是输入文本解析器，没有物理 iOS 自动采集来源，不能拿其单测作为生产零扫描证据。
+
+参考：[Apple Finding Memory Leaks](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/ManagingMemory/Articles/FindingLeaks.html) 描述定期扫描以及在详情中展示发现的泄漏；这是行为背景，不证明本次空详情对应扫描成功。[Xcode27 beta release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-27-release-notes) 仅作为新公开选项的调查线索，不改变当前工具链。
+
+### 21.3 结论与下一步边界
+
+结论为 **inconclusive：尚无可信零扫描样本**。按证据强弱仍保留三种解释：完成扫描且零发现、未完成有效扫描、公开导出范围未暴露扫描状态；三者尚不能区分。上述失败不能外推为所有自动化通道均不可行，不能补零、放宽 parser 或用内存下降代替泄漏结论。
+
+已批准方案的证据前置条件尚未满足，因此本轮没有修改 parser、契约、生产采集或报告逻辑，不重跑既有3998项全库门禁。新增内容仅为调查留档；文档差异和任务JSON另行校验，不宣称新增 G5/G5-SIM 通过。
+
+下一候选是本地 Instruments UI 自动化读取已保存 trace 的扫描状态：需先确认是否接受该新自动化依赖，并核实实际自动化进程权限；仅允许固定状态/时间/计数的确定性脱敏投影，原始 AX tree/截图不得进入模型。它是待评估通道，不是已证明的产品方案，也不要求用户每次手动导出。若能获得真实扫描完成与零发现证据，再明确可验证格式、目标/时间绑定及取消语义后接入批准的最小实现；否则维持 not_exportable。新录制和其他高风险动作仍需具体的一次性授权。
+
+
+## 22. 已有 trace 的 Instruments UI 自动化调查（2026-09-08）
+
+用户明确允许为本轮验证配置辅助功能访问。实际调用 Codex Computer Use 后，既有本地工具已能读取 System Settings 和 Instruments；无需新增系统授权。§21 的 AXIsProcessTrusted=false 仅针对独立 Swift 检查进程，不能用来判定 Codex Computer Use 不可用。本轮没有修改辅助功能列表或其他系统安全设置。
+
+使用电脑操作工具自动启动 Instruments、关闭首次 What's New 提示，通过文件选择器分别打开 §10 的 control.trace 和 positive.trace，仅查看既有诊断。选择 Leaks 的 container 可切换详情，单击标题 text 未切换；Snapshots 按钮展开的是采样配置面板，不是历史扫描完成列表。下表为确定性脱敏投影：
+
+| 检查 | 结果 | 证明范围 |
+| --- | --- | --- |
+| 释放对照 Leaks 详情 | 无分配诊断行，与公开 XML 空节点一致 | 不证明有效零扫描 |
+| 释放对照快照配置 | Automatic Snapshotting=1，Snapshot Interval=10 | 仅证明界面配置，不能推断完成7次扫描或其他次数 |
+| 阳性 Leaks 详情 | 可通过 AX 读取分配诊断行 | 与已有阳性一致；界面可能只暴露可见行，不拿 AX 行数替代20条完整 XML 结果 |
+| 阳性 Snapshots 面板 | Automatic Snapshotting=1，Status=Idle | 当前空闲状态，不能用来证明过去扫描完成 |
+| Leaks 详情菜单 | Leaks、Cycles & Roots、Call Tree | 已检查菜单未提供独立历史扫描完成列表 |
+| Leak Checks 轨道 | 可访问标签存在；本轮 AX 树未暴露已完成扫描事件/时间/零发现记录 | 未获得可接入生产的零扫描证据，不等于证明图形时间线绝无此信息 |
+
+打开 trace 后所有 AX 观察使用 emit:false，只把预定义标签、控件类型/索引及允许的状态/计数投影给模型；未输出原始诊断树、地址、栈或截图，未点击 Record 或 Snapshot Now。文件选择器只用于定位已知文件。一次快捷键导航未进入文件打开面板，关闭临时面板后改用实际 File > Open 菜单，未据此操作未知录制控件。
+
+结束时放弃本轮未保存的文档/视图改动，关闭两份 trace；工具随后读取 app state 可能重新启动空白 Instruments，因此再次退出，并通过不激活 app 的应用清单核对清理。没有覆盖原始 trace、历史 canonical 结果或 baseline，没有启动手机工作负载、构建、签名、安装或新录制。
+
+结论：**本地 UI 自动化访问可用，但本轮仍未取得机器可验证的历史零扫描证据**。不再把“需要新增辅助功能权限”列为当前阻塞，不要求用户重复授权同一访问。不得因空详情+自动快照配置+Idle拼接出not_detected；生产契约仍为detected-only，证据不足保持not_exportable。UI调查不是已完成的生产采集backend或G5/G5-SIM，不把Codex工具可操作界面等同于itestagent已经具备自动采集能力。
+
+后续零结果接线仍以真实扫描完成证据为前提。当前公开CLI及本次AX可访问表面未满足该前提；若继续评估图形时间线，必须先设计本地确定性脱敏/状态提取与正负/未扫描对照，不能把原始截图传给模型、要求用户每轮手工导出或直接修改检测契约。T6.12保持in_progress，DEF-035保持open，T6.13不启动。本轮仅同步调查文档与任务记录，不运行或宣称新增生产代码全库门禁。
+
+
+## 23. 性能等待职责与 DEF-035 修复（2026-09-08，用户确认实施）
+
+批准范围：明确已确认性能观察/settling与业务等待的职责，保留用户原始目标和断言；修复全库G2扫描路径误报并证明真实违规仍被检出。原文约束为US-12.3 AC1“确认计划显示指标、观察时间及操作后等待区间”、AC3“不静默重复探索动作”及ADR-040“普通探索只执行确认的操作一次”。本轮不更改上述要求。
+
+### 23.1 实现
+
+- production-run-executor将确认计划中的minimumDurationMs/settleDurationMs和采集启动结果传入动作建议。`captureStatus=started`只表示采集工厂已经返回会话，不表示录制永不中断或导出覆盖必定完整；无工厂/启动失败为unavailable。TUI与engine默认模型适配器均转发该上下文。没有观察配置的旧计划保留原有提示。
+- 动作提示说明采集器负责性能观察、settling和采样余量，模型只完成已确认业务操作及成功检查；明确保留业务等待，即使其秒数恰好与性能参数相同。采集不可用时不能用wait或重复操作替代缺失指标。一次格式纠正保留同一上下文。原始goal、TestPlan/result schema、动作契约与PermissionEngine不变，不按时长粗暴删除wait。
+- 这是动作模型的职责提示，不是确定性禁止额外wait的保证。现有真实run中的70/10秒额外等待现象尚未由新真机实测复核；30秒采样余量、严格导出覆盖、失败/inconclusive和baseline门禁均保持。
+- DEF-035：generic/all扫描先将collectFiles的绝对路径转换为repo-relative，再执行原有scenario排除规则，与changed模式一致。豁免目录未扩大；相邻scenarios-extra仍作为generic surface扫描。
+
+### 23.2 回归与门禁
+
+新增红测23 pass/4 fail：generic/all两项真实CLI误报、started/unavailable两项提示缺失。修复后定向59 pass/0 fail/364 assertions（3文件）：临时Git仓库验证generic/all/worktree/index、豁免目录、相邻目录和真实违规；动作提示验证原目标/20秒业务wait/70秒观察/10秒settling及格式纠正；生产执行器验证启动成功、finish期间取消、启动失败、未配置工厂时的上下文、owner顺序和canonical指标状态。CI设备/采集/模型传输为测试替身，不作G5证明。
+
+真实仓库`bun run gate:g2`与`--scope all`通过，均扫描79文件；`--base HEAD --worktree --scope changed`通过（本批generic生产表面变更数0，违规检测由临时CLI仓库测试另证）。初次typecheck发现新增测试的两个可选字段期望值类型未收窄，已改为与生产接口一致的默认值，不更改业务行为；最终检查结果另附。
+
+本轮未执行真实设备、构建/签名/安装或新采集，未改写历史run/baseline，未提交推送。DEF-035可按已验证修复关闭并保留审计条目；T6.12保持in_progress、T6.13不启动。有效零扫描、短工作负载G5、可复现多轮、Simulator/其他路线采集、TUI接受baseline和其余出口证据仍待完成。
+
+最终门禁：typecheck、lint（889 files）通过；允许本地loopback/PTY的全库回归 **4006 pass / 7 existing skip / 0 fail，12320 assertions，368 files，99.54s**。未新增skip。日志 `/private/tmp/itestagent-t612-waits-{red,targeted,typecheck,lint,full}.log`。G2 generic/all通过（79文件）；任务JSON字段/状态及文档diff-check复核另行通过。
+
+## 24. 等待职责修复后的短工作负载真机 G5（2026-09-08）
+
+用户为本轮明确授权独立MemoryProbe构建、沿用既有Team签名、替换安装、准备WDA及一次阳性工作负载；未授权覆盖baseline或操作其他App。正常生产CLI从临时Xcode项目目录启动，经真实TUI候选确认、ready physical目标选择、TestPlan审阅及三个实际一次性permission checkpoint执行。PTY仅承担正常键盘输入；设备、模型、构建和采集均使用生产实现。目标prompt与§18–19一致：一次Run Leak Workload、20秒业务等待、标题/完成状态检查及截图，70秒观察、10秒settling。
+
+| 核验 | 实际结果 |
+| --- | --- |
+| canonical run | `run_01a08345-914d-7000-bae0-bb3394627f9e` |
+| run / case | passed / passed |
+| 完整性 | 生产RunStore.loadRunBundle通过schema、跨文件引用及所有artifact哈希/大小验证 |
+| canonical步骤 | launch 99ms；tap一次4327ms；wait一次，waitMs=20000、实际20004ms |
+| 额外性能wait | 没有70秒或10秒UI wait，没有重复tap |
+| 确认配置 | minimumDurationMs=70000、settleDurationMs=10000 |
+| 实际采样 | 49个样本，首末跨度82168.982375ms；录制100003.296167ms；coverage=complete |
+| 内存 | peak=47.813026428222656MiB；start=10.016128540039062MiB；end=47.813026428222656MiB；delta=37.796897888183594MiB |
+| Leaks | detected，17个观测分配，4456448bytes（4.25MiB）；仅代表observed_allocations，不保证涵盖fixture的全部20个分配 |
+| 指标/证据 | memory_peak、memory_growth、memory_leaks均collected；1份截图、1份trace |
+| baseline | 自动比较已存在；growth差值-0.5625MiB、peak差值-0.546875MiB；前后均1个文件，文件名和SHA256不变 |
+
+本次短工作负载没有依赖模型额外等待掩盖采样缺口：采集器按70秒+30秒有界余量录制约100秒，导出有效跨度82.169秒满足确认窗口。该单次G5支持§23提示接线和采样余量在此环境有效，不构成模型永不额外等待或30秒余量总能补足覆盖的保证。泄漏阳性数17与历史19/20不同，保留真实观测，不用fixture预设数量补齐。
+
+原始PTY/Appium日志及本轮设备进程核验输出仅存本地`~/.itestagent/runs/memory-waits-tui-1788908546/artifacts/`；未输出原始UI tree、截图、诊断XML、个人签名或设备标识。模型仅收到固定标签、聚合数值和生成的run ID。canonical原始截图/trace保持raw-local-only，未改写历史报告或baseline。
+
+清理：正常Ctrl+C退出TUI后，PTY driver与其专用Appium均exit0；已确认本轮driver/CLI/Appium进程不存在、4723监听关闭、xctrace进程数0，Appium日志显示DELETE session。退出后只读进程核验发现MemoryProbe仍运行，因此本轮验证清理显式终止唯一匹配的fixture进程，再次核验为0；不能把此手工收尾记为产品自动终止AUT的证明。应用安装和证据保留，未卸载或操作其他App。
+
+本轮没有新增生产代码；沿用§23已通过的4006项回归，不重复运行全库测试。文档与任务JSON另行校验。T6.12保持in_progress、T6.13保持pending；DEF-035已在§23解决。有效零扫描、已确认资产多轮执行、Simulator/XCUITest新增采集、TUI接受新baseline及其余性能出口仍待完成，不能据此宣布整个T6.12完成。上述一次性真机授权已消费，后续新录制需具体授权。
+
+
+## 25. 等待职责/G2与短工作负载证据提交（2026-09-08）
+
+用户要求先提交推送。本次沿用分支docs/def034-physical-cancellation-evidence与OPEN的PR #82（base dev-1.0），提交§21–24的已批准代码、回归与脱敏证据；不创建新PR、不自动合并。DEF-035已修复并resolved，T6.12保持in_progress、T6.13保持pending。
+
+重新运行typecheck、lint（889文件）通过；允许本地loopback/PTY的全库回归 **4006 pass / 7 existing skip / 0 fail，12320 assertions，368文件，112.14s**。G2 generic/all均通过（79文件）；固定版本gitleaks工具完整性校验通过。日志`/private/tmp/itestagent-t612-submit-{typecheck,lint,full}.log`；暂存树的秘密扫描、changed/index扫描与Git hook receipt在提交阶段继续核验并保存在Git目录。未增加skip，未新增真机操作或改变此前证据边界。

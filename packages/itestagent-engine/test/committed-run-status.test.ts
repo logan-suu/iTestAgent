@@ -622,13 +622,21 @@ describe('committed canonical run status', () => {
 });
 
 describe('production executor committed status propagation', () => {
-  for (const cancel of [false, true]) {
-    test(`performance capture stops before cleanup and persistence (cancel=${cancel})`, async () => {
+  for (const outcome of ['started', 'cancelled', 'unavailable', 'no_factory'] as const) {
+    const cancel = outcome === 'cancelled';
+    const started = outcome === 'started' || cancel;
+    test(`performance capture context and finalization remain truthful (${outcome})`, async () => {
       const { root, store } = await storage();
-      const confirmed = plan(`physical-performance-${cancel}`);
+      const confirmed = plan(`physical-performance-${outcome}`);
       confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: 'FIXTURE' } };
       confirmed.performance.baselineDomain = 'physical';
       confirmed.execution.metrics = ['memory_peak'];
+      confirmed.performance.memoryObservation = {
+        minimumDurationMs: 70000,
+        settleDurationMs: 10000,
+      };
+      confirmed.execution.goal =
+        'Wait 20 seconds and confirm Ready is visible. Observe memory for 70 seconds; wait 10 seconds after actions.';
       const target: DeviceInfo = { ...device, udid: 'FIXTURE', targetKind: 'physical' };
       const controller = new AbortController();
       const order: string[] = [];
@@ -650,24 +658,40 @@ describe('production executor committed status propagation', () => {
         storeRoot: root,
         signal: controller.signal,
         authorize: async () => true,
-        suggest: async () =>
-          suggestions++ === 0 ? { action: 'wait', target: 'Ready', waitMs: 1 } : 'done',
-        createPerformanceCapture: async (captureInput) => {
-          expect(captureInput.signal).toBe(controller.signal);
-          expect(captureInput.executable).toBe('Demo');
-          expect(order).toEqual(['preflight']);
-          order.push('recording');
-          return {
-            finish: async () => {
-              order.push('finalized');
-              if (cancel) controller.abort();
-              return {
-                artifacts: [],
-                metrics: cancel ? {} : { memoryPeakMB: 12, approximate: true },
-              };
-            },
-          };
+        suggest: async (suggestion) => {
+          expect(suggestion.goal).toBe(confirmed.execution.goal ?? '');
+          expect(suggestion.assertions).toEqual(confirmed.execution.assertions ?? []);
+          expect(suggestion.signal).toBe(controller.signal);
+          expect(suggestion.performanceObservation).toEqual({
+            minimumDurationMs: 70000,
+            settleDurationMs: 10000,
+            captureStatus: started ? 'started' : 'unavailable',
+          });
+          expect(order).toEqual(
+            outcome === 'no_factory' ? ['preflight'] : ['preflight', 'recording'],
+          );
+          return suggestions++ === 0 ? { action: 'wait', target: 'Ready', waitMs: 1 } : 'done';
         },
+        createPerformanceCapture:
+          outcome === 'no_factory'
+            ? undefined
+            : async (captureInput) => {
+                expect(captureInput.signal).toBe(controller.signal);
+                expect(captureInput.executable).toBe('Demo');
+                expect(order).toEqual(['preflight']);
+                order.push('recording');
+                if (outcome === 'unavailable') throw new Error('Fixture capture unavailable');
+                return {
+                  finish: async () => {
+                    order.push('finalized');
+                    if (cancel) controller.abort();
+                    return {
+                      artifacts: [],
+                      metrics: cancel ? {} : { memoryPeakMB: 12, approximate: true },
+                    };
+                  },
+                };
+              },
         production: {
           analyzeWorkspace: async () => {
             throw new Error('No replanning');
@@ -705,12 +729,25 @@ describe('production executor committed status propagation', () => {
           },
         },
       });
-      expect(order).toEqual(['preflight', 'recording', 'finalized', 'closed']);
-      expect(result.runStatus).toBe(cancel ? 'cancelled' : 'passed');
+      expect(suggestions).toBe(2);
+      expect(order).toEqual(
+        started
+          ? ['preflight', 'recording', 'finalized', 'closed']
+          : outcome === 'no_factory'
+            ? ['preflight', 'closed']
+            : ['preflight', 'recording', 'closed'],
+      );
+      expect(result.runStatus).toBe(cancel ? 'cancelled' : started ? 'passed' : 'inconclusive');
       expect(existsSync(join(root, 'runs', confirmed.runId, 'staging'))).toBe(false);
       const bundle = await store.loadRunBundle(confirmed.runId);
       expect(bundle.result.metrics.collection?.[0]?.status).toBe(
-        cancel ? 'cancelled' : 'collected',
+        cancel
+          ? 'cancelled'
+          : started
+            ? 'collected'
+            : outcome === 'no_factory'
+              ? 'not_exportable'
+              : 'failed',
       );
     });
   }

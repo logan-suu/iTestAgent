@@ -165,6 +165,46 @@ describe('model-safe exploration boundary', () => {
     expect(received).toBe(controller.signal);
   });
 
+  it.each(['started', 'unavailable'] as const)(
+    'separates collector waits from the confirmed workload when capture is %s',
+    async (captureStatus) => {
+      const prompts: string[] = [];
+      const goal = '点击按钮，等待20秒，确认完成；采集内存增长，观察70秒，操作后等待10秒。';
+      const action = await suggestExplorationAction({
+        caseId: 'validation',
+        goal,
+        performanceObservation: {
+          captureStatus,
+          minimumDurationMs: 70000,
+          settleDurationMs: 10000,
+        },
+        uiTree: '<App/>',
+        history: [],
+        generate: async (prompt) => {
+          prompts.push(prompt);
+          return prompts.length === 1 ? '{}' : '{"action":"wait","waitMs":20000}';
+        },
+      });
+      expect(action).toEqual({ action: 'wait', target: 'wait_20000ms', waitMs: 20000 });
+      expect(prompts).toHaveLength(2);
+      for (const prompt of prompts) {
+        expect(prompt).toContain(`GOAL: ${goal}`);
+        expect(prompt).toContain(`captureStatus=${captureStatus}`);
+        expect(prompt).toContain('minimumDurationMs=70000; settleDurationMs=10000');
+        expect(prompt).toContain(
+          'Do not convert performance observation, settling, or sampling allowance into UI wait actions.',
+        );
+        expect(prompt).toContain(
+          'Keep explicit workload waits, even if their duration equals a performance duration.',
+        );
+        if (captureStatus === 'unavailable')
+          expect(prompt).toContain(
+            'Do not try to replace missing capture with waits or repeated workload actions.',
+          );
+      }
+    },
+  );
+
   it('normalizes targetless observation actions while keeping element actions strict', async () => {
     const screenshot = await suggestExplorationAction({
       caseId: 'validation',

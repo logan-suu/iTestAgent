@@ -1,5 +1,14 @@
 # T6.12 内存性能能力交接 — 2026-09-08
 
+## 接续增量（2026-09-08，优先于下方历史快照）
+
+- 本次提交前锚点`7ca4945`；用户已要求将本次接续的代码/文档提交推送到现有PR #82，最终提交SHA通过`git log -1`核对。T6.12仍in_progress，T6.13仍pending。
+- 已检查历史公开CLI导出与Instruments AX界面，尚无有效零扫描完成证据；Codex Computer Use访问可用，无需再次索要同一辅助功能授权。detected-only不变，空详情不能判not_detected。证据见性能验证报告§21–22。
+- 用户确认的等待职责修复已完成：将确认的性能观察配置和实际capture启动结果传至动作模型，保留原始目标和业务等待。DEF-035扫描路径修复已验证并resolved，保留审计。typecheck/lint/G2通过；全库4006 pass / 7 existing skip / 0 fail。见§23。
+- 用户单独授权后的短工作负载真实TUI G5已通过：`run_01a08345-914d-7000-bae0-bb3394627f9e`。仅launch/tap一次/wait20s，无额外70/10s UI wait；49样本跨82.169s、录制100.003s、coverage complete，三项内存指标collected，17个观测泄漏分配/4.25MiB；canonical完整性通过、baseline文件名/哈希不变。详见§24，不把此单次结果泛化为全部T6.12通过。
+- 新PTY socket和driver会话已结束，不复用旧授权。driver/CLI/Appium已退出、4723关闭、xctrace为0；测试App退出需本轮显式fixture进程收尾，已核验为0，不声称产品自动终止AUT。新raw证据只在`~/.itestagent/runs/memory-waits-tui-1788908546/artifacts/`，只能输出确定性脱敏投影。
+- 后续优先明确有效零扫描可验证通道、已确认资产的多轮语义，以及Simulator/XCUITest、TUI接受baseline和剩余性能出口。下方§6第3项与DEF-035已经完成本次增量，勿重复实现或重跑旧阳性验收。新的真机录制和高风险动作需要新的具体授权。
+
 ## 1. 接续目标与状态
 
 本文件是本轮提交的交接快照，不替代规格、ADR和task-status。新session先核对Git及最新文档，保留用户后续修改。

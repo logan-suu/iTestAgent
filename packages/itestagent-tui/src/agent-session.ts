@@ -447,13 +447,23 @@ export async function createAgentSession(
         preparesWda: preparesWda(device),
         suggest:
           dependencies.suggestExplorationAction ??
-          (({ caseId, goal, assertions, uiTree, history, signal: suggestionSignal, onProgress }) =>
+          (({
+            caseId,
+            goal,
+            assertions,
+            performanceObservation,
+            uiTree,
+            history,
+            signal: suggestionSignal,
+            onProgress,
+          }) =>
             suggestExplorationAction({
               generate: async (prompt, runSignal) =>
                 (await generateText({ model, prompt, abortSignal: runSignal })).text,
               caseId,
               goal,
               assertions,
+              performanceObservation,
               uiTree,
               history,
               signal: suggestionSignal,

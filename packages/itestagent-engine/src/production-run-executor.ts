@@ -29,6 +29,7 @@ import {
   DeviceBackendCleanupError,
   DeviceBackendExecutionError,
 } from './dual-execution-dispatcher.js';
+import type { PerformanceObservationContext } from './exploration/action-suggestion.js';
 import { assertProviderUrl } from './exploration/assertion-suggester.js';
 import {
   type ExplorationAction,
@@ -49,6 +50,7 @@ export type ProductionActionSuggestion = (input: {
   caseId: string;
   goal: string;
   assertions: readonly UserAssertion[];
+  performanceObservation?: PerformanceObservationContext;
   uiTree: string;
   history: readonly import('itestagent-contracts').RunStep[];
   signal?: AbortSignal;
@@ -65,13 +67,23 @@ export function createProductionActionSuggestion(input: {
   const model = createOpenAI({ apiKey: input.apiKey, baseURL: input.baseURL }).chat(
     input.model ?? 'gpt-4o',
   );
-  return ({ caseId, goal, assertions, uiTree, history, signal, onProgress }) =>
+  return ({
+    caseId,
+    goal,
+    assertions,
+    performanceObservation,
+    uiTree,
+    history,
+    signal,
+    onProgress,
+  }) =>
     suggestExplorationAction({
       generate: async (prompt, runSignal) =>
         (await generateText({ model, prompt, abortSignal: runSignal })).text,
       caseId,
       goal,
       assertions,
+      performanceObservation,
       uiTree,
       history,
       signal,
@@ -346,6 +358,14 @@ export async function executeProductionTestPlan(
               assertions: (plan.execution.assertions ?? []).filter(
                 (assertion) => assertion.caseId === caseId,
               ),
+              ...(plan.performance.memoryObservation
+                ? {
+                    performanceObservation: {
+                      ...plan.performance.memoryObservation,
+                      captureStatus: capture ? ('started' as const) : ('unavailable' as const),
+                    },
+                  }
+                : {}),
               uiTree,
               history,
               signal,

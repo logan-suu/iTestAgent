@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-08T15:44:02Z",
+  "last_updated": "2026-09-08T22:53:40Z",
   "items": [
     {
       "id": "DEF-001",
@@ -644,9 +644,12 @@
       "item": "Full-corpus forbidden-literal CLI scan does not exclude scenario paths",
       "detail": "During the documentation-only DEF-034 submission, bun run gate:g2 reports feed-memory in packages/itestagent-contracts/src/scenarios/{feed-memory,index,scenario-registry}.ts and schemas/scenarios/feed-memory.schema.json. The generic/all branch passes absolute collectFiles paths to isUnderExcludedScenarioSurface, whose prefixes are repository-relative; scenario directories explicitly exempt by policy are therefore scanned. The changed/index mode uses relative Git paths and the architecture tests pass. scripts/scan-forbidden-literals.ts is byte-identical to origin/dev-1.0 (SHA-256 aec5014d30d7f15a902d4b46c84b2304d480440a025fc79a430250aba49eeb61), so this is not introduced by the evidence changes. Deferral is required because the current authorization is limited to submitting already-approved physical verification documentation; changing the shared quality-gate implementation requires a separate approved code/test plan. Normalize corpus paths to repository-relative before exclusion and add subprocess CLI regression coverage for generic/all and changed modes, preserving detection of actual forbidden literals on generic surfaces. Do not describe the current full-corpus CLI result as passing.",
       "target_phase": 6,
-      "status": "open",
+      "status": "resolved",
       "created_at": "2026-09-08T15:41:05Z",
-      "last_updated": "2026-09-08T15:41:05Z"
+      "last_updated": "2026-09-08T22:53:40Z",
+      "resolved_at": "2026-09-08T22:53:40Z",
+      "resolved_by": "T6.12 approved G2 path normalization and subprocess CLI regression; docs/06-verification/performance-capture-wiring-6.12.md section23",
+      "notes": "2026-09-08 Approved separate code/test plan completed: normalize full-corpus paths to repository-relative before scenario exclusion. Real CLI regression covers generic/all/changed worktree/index, scenario exemptions, adjacent non-exempt paths and actual forbidden literals. Repository generic/all gates pass with79 files; no scanner scope bypass. Original detail retained as historical diagnosis. Commit/PR merge pending."
     }
   ]
 }
