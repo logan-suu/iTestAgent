@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { Intent, TestPlan } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
+import { parseIntent } from '../src/intent-parser.js';
 import {
   compileTestPlan as compileTestPlanCore,
   parseTestPlanYaml,
@@ -107,6 +108,35 @@ function makeSimulatorIntent(): Intent {
 // ─── Tests ───────────────────────────────────────────────────
 
 describe('compileTestPlan', () => {
+  it('preserves explicit memory requests and bounded observation in the confirmed plan', () => {
+    const plan = compileTestPlan(
+      makeIntent({ requestedMetrics: ['memory_peak', 'memory_growth', 'memory_leaks'] }),
+      makeProfile(),
+    );
+    expect(plan.execution.metrics).toEqual(['memory_peak', 'memory_growth', 'memory_leaks']);
+    expect(plan.performance.thresholdRequired).toBe(false);
+    expect(plan.artifacts.collect).toContain('trace');
+    expect(plan.performance.memoryObservation).toEqual({
+      minimumDurationMs: 30000,
+      settleDurationMs: 5000,
+    });
+    expect(parseTestPlanYaml(testPlanToYaml(plan)).performance.memoryObservation).toEqual(
+      plan.performance.memoryObservation,
+    );
+  });
+  it('keeps workload waiting separate from the post-action interval through plan serialization', () => {
+    const request =
+      '用这台真机测试应用：点击按钮，等待20秒，确认完成；采集内存增长和泄漏，观察70秒，操作后等待10秒';
+    const { intent } = parseIntent(request);
+    // Model the candidate confirmation step before compiling the fixture plan.
+    const plan = compileTestPlan({ ...intent, features: ['Login'] }, makeProfile());
+    const reloaded = parseTestPlanYaml(testPlanToYaml(plan));
+    expect(reloaded.performance.memoryObservation).toEqual({
+      minimumDurationMs: 70000,
+      settleDurationMs: 10000,
+    });
+    expect(reloaded.execution.goal).toContain('等待20秒');
+  });
   // ── AC1: Unified TestPlan ──────────────────────────────────
 
   describe('AC1: unified TestPlan from Intent + Profile', () => {
@@ -309,6 +339,77 @@ describe('compileTestPlan', () => {
   // ── Assertion policy ───────────────────────────────────────
 
   describe('assertion policy', () => {
+    it.each([
+      '确认 Workload complete 可见',
+      '用这台真机测试应用：启动后确认 Workload complete 可见。',
+      '启动后确认iTest Memory Probe可见，确认 Workload complete 已显示。',
+      'verify Workload complete is visible',
+      'Check that Workload complete is visible.',
+    ])('compiles bounded unquoted visibility conditions: %s', (sourceText) => {
+      const compiled = compileTestPlan(makeIntent({ sourceText }), makeProfile());
+      const restored = parseTestPlanYaml(testPlanToYaml(compiled));
+      expect(restored.execution.assertions?.[0]?.conditions.at(-1)?.target).toBe(
+        'Workload complete',
+      );
+      expect(restored.execution.assertions?.[0]?.source).toBe('user');
+    });
+
+    it.each([
+      '不要确认 Workload complete 可见',
+      '如果确认 Workload complete 可见，就继续',
+      '确认 Ready 或 Done 可见',
+      '确认按钮是否可见',
+      'do not verify Workload complete is visible',
+      'if verify Workload complete is visible, continue',
+      'verify Ready or Done is visible',
+      'verify Ready is not visible',
+      'verify Ready is visible or hidden',
+    ])('keeps ambiguous unquoted conditions as goals, not assertions: %s', (sourceText) => {
+      const compiled = compileTestPlan(makeIntent({ sourceText }), makeProfile());
+      expect(compiled.execution.assertions).toEqual([]);
+      expect(compiled.execution.goal).toBe(sourceText);
+    });
+
+    it('rejects sensitive unquoted conditions and ambiguous case ownership', () => {
+      expect(() =>
+        compileTestPlan(makeIntent({ sourceText: '确认 OTP 123456 可见' }), makeProfile()),
+      ).toThrow('assertion_sensitive_target');
+      const profile = makeProfile();
+      for (const feature of profile.features) feature.confirmed = true;
+      expect(() =>
+        compileTestPlan(
+          makeIntent({ features: ['Login', 'Checkout'], sourceText: '确认 Ready 可见' }),
+          profile,
+        ),
+      ).toThrow('assertion_case_ambiguous');
+    });
+
+    it('preserves ordered mixed targets, punctuation and deduplicates repeated conditions', () => {
+      const compiled = compileTestPlan(
+        makeIntent({
+          sourceText: '确认 T6.12 Device Lane 可见，确认“Taps: 1”可见；确认 Taps: 1 可见。',
+        }),
+        makeProfile(),
+      );
+      expect(compiled.execution.assertions?.[0]?.conditions.map((c) => c.target)).toEqual([
+        'T6.12 Device Lane',
+        'Taps: 1',
+      ]);
+    });
+
+    it('never echoes sensitive unquoted targets in compile errors', () => {
+      for (const target of ['tester@example.com', '[REDACTED]', `sk-${'A'.repeat(32)}`]) {
+        let failure: unknown;
+        try {
+          compileTestPlan(makeIntent({ sourceText: `verify ${target} is visible` }), makeProfile());
+        } catch (error) {
+          failure = error;
+        }
+        expect(String(failure)).toContain('assertion_sensitive_target');
+        expect(String(failure)).not.toContain(target);
+      }
+    });
+
     it('uses explore_only for explore scope', () => {
       const plan = compileTestPlan(makeIntent({ scope: 'explore' }), makeProfile());
       expect(plan.execution.assertion.policy).toBe('explore_only');

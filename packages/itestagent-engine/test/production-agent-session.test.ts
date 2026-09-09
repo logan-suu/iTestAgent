@@ -38,8 +38,40 @@ describe('production WDA permission facts', () => {
     expect(production.preparesWda?.(physical)).toBe(true);
   });
 
-  test('never reports Simulator execution as managed physical WDA preparation', () => {
+  test('reports Simulator WDA build and launch as a separate preparation action', () => {
     const production = createProductionAgentSessionDependencies();
-    expect(production.preparesWda?.(simulator)).toBe(false);
+    expect(production.preparesWda?.(simulator)).toBe(true);
   });
+});
+
+test('isolated Simulator settings are validated and do not alter the physical route', () => {
+  const options = {
+    appiumServerUrl: 'http://127.0.0.1:4727',
+    wdaLocalPort: 8213,
+    mjpegServerPort: 9213,
+    derivedDataPath: '/tmp/fixture-wda',
+  };
+  const production = createProductionAgentSessionDependencies({ simulatorAppium: options });
+  expect(production.preparesWda?.(physical)).toBe(true);
+  const simBackend = production.createDeviceBackend(simulator) as unknown as {
+    opts: Record<string, unknown>;
+  };
+  const physicalBackend = production.createDeviceBackend(physical) as unknown as {
+    opts: Record<string, unknown>;
+  };
+  expect(simBackend.opts.wdaLocalPort).toBe(8213);
+  expect(simBackend.opts.derivedDataPath).toBe(options.derivedDataPath);
+  expect(physicalBackend.opts.wdaLocalPort).toBe(8100);
+  expect(physicalBackend.opts.derivedDataPath).toBeUndefined();
+  for (const patch of [
+    { appiumServerUrl: 'https://example.com' },
+    { appiumServerUrl: 'http://token@127.0.0.1:4727' },
+    { wdaLocalPort: 9213 },
+    { mjpegServerPort: 4727 },
+    { derivedDataPath: 'relative' },
+    { wdaLocalPort: Number.NaN },
+  ])
+    expect(() =>
+      createProductionAgentSessionDependencies({ simulatorAppium: { ...options, ...patch } }),
+    ).toThrow('simulator_connection.');
 });

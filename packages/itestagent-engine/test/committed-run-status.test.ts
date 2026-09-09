@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,14 +10,22 @@ import type {
   DeviceInfo,
   TestPlan,
 } from 'itestagent-contracts';
-import { TestPlanSchema } from 'itestagent-contracts';
-import { createRunStore, createStoreCore, initStore } from 'itestagent-store';
+import { PerformanceCaptureStartError, TestPlanSchema } from 'itestagent-contracts';
+import { createBaselineStore, createRunStore, createStoreCore, initStore } from 'itestagent-store';
+import { analyzeMemoryGrowth } from '../../itestagent-backends/performance-xctrace-analyzer/src/memory-growth.js';
+import { AssertionEvaluator } from '../src/assertion/assertion-evaluator.js';
+import { BaselineManager } from '../src/baseline/baseline-manager.js';
 import { persistConfirmedRun } from '../src/confirmed-run-bundle.js';
 import type { ConfirmedExecutionDispatchResult } from '../src/dual-execution-dispatcher.js';
 import type { RealDeviceRunResult } from '../src/exploration/real-run.js';
 import { createProductionPhysicalPreflight } from '../src/production-physical-preflight.js';
 import { executeProductionTestPlan } from '../src/production-run-executor.js';
 import { createRerunPlan } from '../src/rerun.js';
+import {
+  extractExplicitUserAssertions,
+  parseTestPlanYaml,
+  testPlanToYaml,
+} from '../src/test-plan-compiler.js';
 
 const roots: string[] = [];
 const databases: Array<ReturnType<typeof createStoreCore>['sqlite']> = [];
@@ -129,6 +138,324 @@ function xcuitestDispatch(status: 'passed' | 'failed'): ConfirmedExecutionDispat
 }
 
 describe('committed canonical run status', () => {
+  test.each([true, false, undefined])(
+    'unquoted conditions require observations before a successful baseline (visible=%s)',
+    async (visible) => {
+      const { root, store } = await storage();
+      const baselineStore = createBaselineStore(root);
+      const confirmed = plan('unquoted-baseline');
+      confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: device.udid } };
+      confirmed.performance = {
+        baseline: 'local_auto',
+        baselineDomain: 'physical',
+        thresholdRequired: false,
+      };
+      confirmed.execution.metrics = ['memory_peak'];
+      confirmed.execution.assertions = extractExplicitUserAssertions(
+        '确认 Workload complete 可见',
+        caseId,
+      );
+      const reloaded = parseTestPlanYaml(testPlanToYaml(confirmed));
+      const assertion = new AssertionEvaluator().evaluate({
+        policy: reloaded.execution.assertion.policy,
+        userAssertions: reloaded.execution.assertions,
+        observations: {
+          [caseId]: visible === undefined ? {} : { 'Workload complete_visible': visible },
+        },
+      });
+      const result = { ...deviceResult(root, assertion.status), assertion };
+      await persistConfirmedRun({
+        store,
+        baselineStore,
+        plan: reloaded,
+        device: { ...device, targetKind: 'physical' },
+        resultBundlePath: join(root, 'missing.xcresult'),
+        dispatch: { status: 'completed', path: 'device_backend', fallbackHistory: [], result },
+        performance: {
+          artifacts: [],
+          metrics: { memoryPeakMB: 10, memoryPeakUnit: 'MiB', approximate: true },
+        },
+      });
+      const bundle = await store.loadRunBundle(confirmed.runId);
+      expect(bundle.result.status).toBe(
+        visible === true ? 'passed' : visible === false ? 'failed' : 'inconclusive',
+      );
+      expect(await baselineStore.list()).toHaveLength(visible === true ? 1 : 0);
+    },
+  );
+  test('partial memory facts cannot override incomplete coverage or create a baseline', async () => {
+    const { root, store } = await storage();
+    const baselineStore = createBaselineStore(root);
+    const confirmed = plan('memory-partial-window');
+    confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: device.udid } };
+    confirmed.performance = {
+      baseline: 'local_auto',
+      baselineDomain: 'physical',
+      thresholdRequired: false,
+    };
+    confirmed.execution.metrics = ['memory_growth'];
+    const growth = analyzeMemoryGrowth([
+      { timestampMs: 0, footprintMiB: 10 },
+      { timestampMs: 7000, footprintMiB: 12 },
+    ]);
+    if (!growth) throw new Error('Expected fixture growth');
+    const committed = await persistConfirmedRun({
+      store,
+      baselineStore,
+      plan: confirmed,
+      device: { ...device, targetKind: 'physical' },
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [],
+        metrics: {
+          memoryGrowth: { ...growth, coverage: 'partial', recordingDurationMs: 30000 },
+          collection: [
+            {
+              metric: 'memory_growth',
+              status: 'not_exportable',
+              reasonCode: 'xctrace.memory_window_incomplete',
+            },
+          ],
+        },
+      },
+    });
+    expect(committed.runStatus).toBe('inconclusive');
+    expect((await store.loadRunResult(confirmed.runId)).metrics.memoryGrowth?.samples).toHaveLength(
+      2,
+    );
+    expect(await baselineStore.list()).toHaveLength(0);
+    expect(await Bun.file(join(committed.runDir, 'summary.md')).text()).toContain(
+      'Partial: samples do not span',
+    );
+  });
+  test('positive leak diagnostics survive canonical reload and are visible in the report', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('positive-leak-diagnostics');
+    confirmed.execution.metrics = ['memory_leaks'];
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [],
+        metrics: {
+          memoryLeaks: {
+            source: 'xctrace-leaks-detail',
+            status: 'detected',
+            scope: 'observed_allocations',
+            allocationCount: 20,
+            totalBytes: 5242880,
+          },
+        },
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(bundle.result.metrics.memoryLeaks?.allocationCount).toBe(20);
+    expect(bundle.result.metrics.collection?.[0]?.status).toBe('collected');
+    const summary = await Bun.file(join(committed.runDir, 'summary.md')).text();
+    expect(summary).toContain('Detected: 20 allocations, 5242880 bytes');
+    expect(summary).toContain('not all retain cycles');
+  });
+
+  test('growth facts reach the canonical report while missing leak evidence remains inconclusive', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('memory-growth-leaks');
+    confirmed.execution.metrics = ['memory_growth', 'memory_leaks'];
+    const growth = analyzeMemoryGrowth([
+      { timestampMs: 0, footprintMiB: 10 },
+      { timestampMs: 30000, footprintMiB: 12 },
+    ]);
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [],
+        metrics: {
+          memoryGrowth: growth,
+          collection: [
+            {
+              metric: 'memory_leaks',
+              status: 'not_exportable',
+              reasonCode: 'xctrace.leaks_diagnostic_not_exportable',
+            },
+          ],
+        },
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(bundle.result.metrics.memoryGrowth?.deltaMiB).toBe(2);
+    expect(bundle.result.metrics.memoryGrowth?.samples).toHaveLength(2);
+    expect(committed.runStatus).toBe('inconclusive');
+    expect(bundle.result.cases[0]?.status).toBe('passed');
+    const summary = await Bun.file(join(committed.runDir, 'summary.md')).text();
+    expect(summary).toContain('Memory Growth (approximate)');
+    expect(summary).toContain('No zero-leak conclusion');
+  });
+
+  test('committed physical memory runs establish then compare a baseline without overwriting it', async () => {
+    const { root, store } = await storage();
+    const baselineStore = createBaselineStore(root);
+    const target: DeviceInfo = { ...device, targetKind: 'physical' };
+    for (const [runId, peak] of [
+      ['baseline-memory-first', 10],
+      ['baseline-memory-second', 12],
+    ] as const) {
+      const confirmed = plan(runId);
+      confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: device.udid } };
+      confirmed.performance = {
+        baseline: 'local_auto',
+        baselineDomain: 'physical',
+        thresholdRequired: false,
+      };
+      confirmed.execution.metrics = ['memory_peak'];
+      if (runId === 'baseline-memory-first') {
+        const hash = (value: unknown) =>
+          createHash('sha256').update(JSON.stringify(value)).digest('hex');
+        await new BaselineManager({ baselineStore }).establishBaseline(
+          { memoryPeakMB: 999 },
+          {
+            projectId: hash(confirmed.projectProfileRef),
+            targetKind: 'physical',
+            deviceModel: hash({ udid: target.udid, model: target.model }),
+            iosVersion: target.osVersion as string,
+            scenario: hash({
+              version: 'memory-observation-v1',
+              execution: confirmed.execution,
+              observation: confirmed.performance.memoryObservation,
+              peakUnit: 'MiB',
+              appSource: confirmed.appSource,
+            }),
+            runId: 'legacy-policy-baseline',
+          },
+        );
+      }
+      await persistConfirmedRun({
+        store,
+        baselineStore,
+        plan: confirmed,
+        device: target,
+        resultBundlePath: join(root, 'missing.xcresult'),
+        dispatch: {
+          status: 'completed',
+          path: 'device_backend',
+          fallbackHistory: [],
+          result: deviceResult(root, 'passed'),
+        },
+        performance: {
+          artifacts: [],
+          metrics: { memoryPeakMB: peak, memoryPeakUnit: 'MiB', approximate: true },
+        },
+      });
+    }
+    const records = await baselineStore.list();
+    expect(records).toHaveLength(2);
+    expect(records.find((r) => r.updatedFromRun === 'baseline-memory-first')?.memoryPeakMB).toBe(
+      10,
+    );
+    expect(records.find((r) => r.updatedFromRun === 'legacy-policy-baseline')?.memoryPeakMB).toBe(
+      999,
+    );
+    const second = await store.loadRunResult('baseline-memory-second');
+    expect(second.baselineDelta?.deltas.memoryPeakMB).toBe(2);
+    expect(second.metrics.memoryPeakUnit).toBe('MiB');
+    const summary = await Bun.file(
+      join(root, 'runs', 'baseline-memory-second', 'summary.md'),
+    ).text();
+    expect(summary).toContain('12 MiB');
+    expect(summary).toContain('+2MiB');
+    expect(second.status).toBe('passed');
+  });
+  test('missing requested metrics make UI success inconclusive and appear in the report', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('missing-performance');
+    confirmed.execution.metrics = ['memory_peak', 'crash'];
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(committed.runStatus).toBe('inconclusive');
+    expect(bundle.result.cases[0]?.status).toBe('passed');
+    expect(bundle.result.metrics.crashDetected).toBeUndefined();
+    expect(bundle.result.metrics.collection?.map((outcome) => outcome.status)).toEqual([
+      'not_exportable',
+      'not_exportable',
+    ]);
+    expect(await Bun.file(join(committed.runDir, 'summary.md')).text()).toContain(
+      'Missing data is not evidence',
+    );
+  });
+
+  test('verified performance facts survive canonical persistence', async () => {
+    const { root, store } = await storage();
+    const confirmed = plan('collected-performance');
+    confirmed.execution.metrics = ['memory_peak'];
+    const tracePath = join(root, 'fixture.trace');
+    mkdirSync(tracePath);
+    await Bun.write(join(tracePath, 'fixture.data'), 'synthetic trace evidence');
+    const committed = await persistConfirmedRun({
+      store,
+      plan: confirmed,
+      device,
+      resultBundlePath: join(root, 'missing.xcresult'),
+      dispatch: {
+        status: 'completed',
+        path: 'device_backend',
+        fallbackHistory: [],
+        result: deviceResult(root, 'passed'),
+      },
+      performance: {
+        artifacts: [
+          {
+            id: 'fixture-trace',
+            type: 'trace',
+            path: tracePath,
+            redactionStatus: 'raw-local-only',
+            backend: 'xctrace',
+          },
+        ],
+        metrics: { memoryPeakMB: 42, approximate: true },
+      },
+    });
+    const bundle = await store.loadRunBundle(confirmed.runId);
+    expect(committed.runStatus).toBe('passed');
+    expect(bundle.result.metrics.memoryPeakMB).toBe(42);
+    expect(bundle.result.metrics.collection?.[0]?.status).toBe('collected');
+    const savedTrace = bundle.artifactIndex.artifacts.find(
+      (artifact) => artifact.id === 'fixture-trace',
+    );
+    expect(savedTrace?.redactionStatus).toBe('raw-local-only');
+    expect(savedTrace?.path.startsWith('artifacts/')).toBe(true);
+  });
   for (const assertionStatus of [
     'passed',
     'failed',
@@ -295,6 +622,190 @@ describe('committed canonical run status', () => {
 });
 
 describe('production executor committed status propagation', () => {
+  for (const outcome of [
+    'started',
+    'cancelled',
+    'unavailable',
+    'no_factory',
+    'start_audit',
+    'capture_failed',
+  ] as const) {
+    const cancel = outcome === 'cancelled';
+    const captureFailed = outcome === 'capture_failed';
+    const started = outcome === 'started' || cancel || captureFailed;
+    test(`performance capture context and finalization remain truthful (${outcome})`, async () => {
+      const { root, store } = await storage();
+      const confirmed = plan(`physical-performance-${outcome}`);
+      confirmed.device = { kind: 'physical', physical: { selector: 'by_udid', udid: 'FIXTURE' } };
+      confirmed.performance.baselineDomain = 'physical';
+      confirmed.execution.metrics = ['memory_peak'];
+      confirmed.performance.memoryObservation = {
+        minimumDurationMs: 70000,
+        settleDurationMs: 10000,
+      };
+      confirmed.execution.goal =
+        'Wait 20 seconds and confirm Ready is visible. Observe memory for 70 seconds; wait 10 seconds after actions.';
+      const target: DeviceInfo = { ...device, udid: 'FIXTURE', targetKind: 'physical' };
+      const controller = new AbortController();
+      const captureController = new AbortController();
+      const order: string[] = [];
+      let suggestions = 0;
+      const backend = {
+        launchApp: async () => ({ success: true }),
+        getUiTree: async () => ({
+          raw: '<XCUIElementTypeApplication><XCUIElementTypeStaticText name="Ready" label="Ready" /></XCUIElementTypeApplication>',
+          format: 'xml',
+          capturedAt: timestamp,
+        }),
+      } as unknown as DeviceBackend;
+      const result = await executeProductionTestPlan({
+        plan: confirmed,
+        device: target,
+        workspace: root,
+        bundleId: 'com.example.Demo',
+        store,
+        storeRoot: root,
+        signal: controller.signal,
+        authorize: async () => true,
+        suggest: async (suggestion) => {
+          expect(suggestion.goal).toBe(confirmed.execution.goal ?? '');
+          expect(suggestion.assertions).toEqual(confirmed.execution.assertions ?? []);
+          if (captureFailed) {
+            expect(suggestion.signal).not.toBe(controller.signal);
+            captureController.abort();
+          } else expect(suggestion.signal).toBe(controller.signal);
+          expect(suggestion.performanceObservation).toEqual({
+            minimumDurationMs: 70000,
+            settleDurationMs: 10000,
+            captureStatus: started ? 'started' : 'unavailable',
+          });
+          expect(order).toEqual(
+            outcome === 'no_factory' ? ['preflight'] : ['preflight', 'recording'],
+          );
+          return suggestions++ === 0 ? { action: 'wait', target: 'Ready', waitMs: 1 } : 'done';
+        },
+        createPerformanceCapture:
+          outcome === 'no_factory'
+            ? undefined
+            : async (captureInput) => {
+                expect(captureInput.signal).toBe(controller.signal);
+                expect(captureInput.executable).toBe('Demo');
+                expect(order).toEqual(['preflight']);
+                order.push('recording');
+                if (outcome === 'unavailable') throw new Error('Fixture capture unavailable');
+                if (outcome === 'start_audit') {
+                  mkdirSync(captureInput.stagingDir, { recursive: true });
+                  const auditPath = join(captureInput.stagingDir, 'fixture-capture-audit.log');
+                  writeFileSync(auditPath, 'private fixture diagnostic');
+                  throw new PerformanceCaptureStartError({
+                    metrics: {
+                      collection: [
+                        {
+                          metric: 'memory_peak',
+                          status: 'failed',
+                          reasonCode: 'performance.recording_not_ready',
+                        },
+                      ],
+                    },
+                    artifacts: [
+                      {
+                        id: 'failed-capture-audit',
+                        type: 'log',
+                        path: auditPath,
+                        backend: 'xctrace',
+                        redactionStatus: 'raw-local-only',
+                      },
+                    ],
+                  });
+                }
+                return {
+                  ...(captureFailed ? { signal: captureController.signal } : {}),
+                  finish: async () => {
+                    order.push('finalized');
+                    if (cancel) controller.abort();
+                    return {
+                      artifacts: [],
+                      metrics: captureFailed
+                        ? {
+                            collection: [
+                              {
+                                metric: 'memory_peak',
+                                status: 'failed',
+                                reasonCode: 'performance.recording_incomplete',
+                              },
+                            ],
+                          }
+                        : cancel
+                          ? {}
+                          : { memoryPeakMB: 12, approximate: true },
+                    };
+                  },
+                };
+              },
+        production: {
+          analyzeWorkspace: async () => {
+            throw new Error('No replanning');
+          },
+          deviceDiscovery: {} as never,
+          createDeviceBackend: () => backend,
+          physicalPreflight: async () => {
+            order.push('preflight');
+            return {
+              status: 'ready',
+              stage: 'ready',
+              artifact: {
+                sourceKind: 'build',
+                sourcePath: join(root, 'Demo.app'),
+                appPath: join(root, 'Demo.app'),
+                bundleId: 'com.example.Demo',
+                executable: 'Demo',
+                supportedPlatforms: ['iPhoneOS'],
+                architectures: ['arm64'],
+                signingValid: true,
+              },
+              wda: {
+                route: 'route_b_wda_manager_managed',
+                stage: 'ready',
+                ready: true,
+                targetDeviceUdid: target.udid,
+                targetWdaBundleId: 'fixture.wda',
+                waitedMs: 1,
+              },
+            };
+          },
+          closeDeviceBackend: async () => {
+            order.push('closed');
+            return { status: 'closed', reusable: true, issues: [] };
+          },
+        },
+      });
+      expect(suggestions).toBe(captureFailed ? 1 : started ? 2 : 0);
+      expect(order).toEqual(
+        started
+          ? ['preflight', 'recording', 'finalized', 'closed']
+          : outcome === 'no_factory'
+            ? ['preflight', 'closed']
+            : ['preflight', 'recording', 'closed'],
+      );
+      expect(result.runStatus).toBe(
+        cancel ? 'cancelled' : started && !captureFailed ? 'passed' : 'infra_failed',
+      );
+      expect(existsSync(join(root, 'runs', confirmed.runId, 'staging'))).toBe(false);
+      const bundle = await store.loadRunBundle(confirmed.runId);
+      if (outcome === 'start_audit') {
+        expect(
+          bundle.artifactIndex.artifacts.some(
+            (a) => a.id === 'failed-capture-audit' && a.redactionStatus === 'raw-local-only',
+          ),
+        ).toBe(true);
+        expect(JSON.stringify(bundle.result)).not.toContain('private fixture diagnostic');
+        expect(bundle.result.baselineDelta).toBeUndefined();
+      }
+      expect(bundle.result.metrics.collection?.[0]?.status).toBe(
+        cancel ? 'cancelled' : started && !captureFailed ? 'collected' : 'failed',
+      );
+    });
+  }
   test('commits cancelled and closes the backend when AUT preparation is aborted', async () => {
     const { root, store } = await storage();
     const confirmed = plan('preparation-cancelled');

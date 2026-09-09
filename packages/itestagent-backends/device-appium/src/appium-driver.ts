@@ -201,6 +201,8 @@ export interface AppiumScreenSize {
  * catches and converts to iTestAgent ActionResult.
  */
 export interface AppiumDriver {
+  /** Whitelisted active app identity from the public Appium execute method. */
+  getActiveAppInfo?(): Promise<{ bundleId: string; pid: number }>;
   // ── Session ──────────────────────────────────────────────────────
 
   /**

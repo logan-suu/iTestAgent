@@ -132,25 +132,31 @@ export async function collectStepEvidenceResult(
   deviceId: string,
   correlation: EvidenceCorrelation,
   signal?: AbortSignal,
+  types: readonly string[] = ['screenshot', 'uitree'],
 ): Promise<EvidenceCollectionResult> {
   const artifacts: ArtifactRef[] = [];
   const outcomes: ReplayEvidenceOutcome[] = [];
 
-  try {
-    const ref = validateRawArtifact(await backend.screenshot({ deviceId }, signal), correlation);
-    artifacts.push(ref);
-    outcomes.push({ type: 'screenshot', status: 'success', artifact: ref });
-  } catch (error) {
-    outcomes.push(failedOutcome('screenshot', error));
-  }
+  if (types.includes('screenshot'))
+    try {
+      const ref = validateRawArtifact(await backend.screenshot({ deviceId }, signal), correlation);
+      artifacts.push(ref);
+      outcomes.push({ type: 'screenshot', status: 'success', artifact: ref });
+    } catch (error) {
+      outcomes.push(failedOutcome('screenshot', error));
+    }
 
-  try {
-    const ref = await persistRawUiTree(await backend.getUiTree({ deviceId }, signal), correlation);
-    artifacts.push(ref);
-    outcomes.push({ type: 'uitree', status: 'success', artifact: ref });
-  } catch (error) {
-    outcomes.push(failedOutcome('uitree', error));
-  }
+  if (types.includes('uitree'))
+    try {
+      const ref = await persistRawUiTree(
+        await backend.getUiTree({ deviceId }, signal),
+        correlation,
+      );
+      artifacts.push(ref);
+      outcomes.push({ type: 'uitree', status: 'success', artifact: ref });
+    } catch (error) {
+      outcomes.push(failedOutcome('uitree', error));
+    }
 
   return { artifacts, outcomes };
 }

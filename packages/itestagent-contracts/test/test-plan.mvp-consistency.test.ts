@@ -36,11 +36,13 @@ function sortedStrings(values: readonly string[]): string[] {
 }
 
 describe('metric vocabulary consistency', () => {
-  it('runtime constant matches AGENTS.md §6 performance metric list', () => {
+  it('runtime constant matches the performance vocabulary including US-12.3', () => {
     expect(sortedStrings(TEST_PLAN_METRIC_VALUES)).toEqual(
       sortedStrings([
         'launch_time',
         'memory_peak',
+        'memory_growth',
+        'memory_leaks',
         'crash',
         'test_duration',
         'hitches',

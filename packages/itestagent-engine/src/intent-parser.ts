@@ -1,5 +1,6 @@
 import type { Clarification, Intent, IntentParseResult, Scope } from 'itestagent-contracts';
 import type { ProjectProfile } from 'itestagent-project-analyzer';
+import { parsePerformanceRequest } from './performance-intent.js';
 
 /**
  * parseIntent — rule-based intent parser (Phase 2.5, no AI SDK dependency).
@@ -28,7 +29,9 @@ export function parseIntent(input: string, profile?: ProjectProfile): IntentPars
 
   // ── 3. Extract metrics request ───────────────────────────
 
-  const metricsRequested = extractMetricsRequest(normalized, scope);
+  const performanceRequest = parsePerformanceRequest(input);
+  const metricsRequested =
+    !!performanceRequest.requestedMetrics?.length || extractMetricsRequest(normalized, scope);
 
   // ── 4. Match features against profile ────────────────────
 
@@ -47,6 +50,7 @@ export function parseIntent(input: string, profile?: ProjectProfile): IntentPars
     targetKind,
     features,
     metricsRequested,
+    ...performanceRequest,
     scope,
     ...executionSelection,
     sourceText,

@@ -347,13 +347,18 @@ describe('Phase 2 integration: S3 → TestPlan compilation', () => {
 
     const plan = compileTestPlan(intentResult.intent, profile);
 
-    expect(plan.execution.metrics).toBeDefined();
-    if (plan.execution.metrics) {
-      expect(plan.execution.metrics).toContain('launch_time');
-      expect(plan.execution.metrics).toContain('memory_peak');
-    }
-    expect(plan.performance.thresholdRequired).toBe(true);
+    expect(plan.execution.metrics).toEqual(['fps']);
+    expect(plan.performance.thresholdRequired).toBe(false);
 
+    makeValidTestPlan(plan);
+  });
+
+  it('retains the broad performance bundle when no individual metric is named', () => {
+    const intent = parseIntent('test login performance', profile).intent;
+    const plan = compileTestPlan(intent, profile);
+    expect(plan.execution.metrics).toContain('launch_time');
+    expect(plan.execution.metrics).toContain('memory_peak');
+    expect(plan.performance.thresholdRequired).toBe(false);
     makeValidTestPlan(plan);
   });
 

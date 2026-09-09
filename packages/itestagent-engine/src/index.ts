@@ -143,6 +143,14 @@ export type {
 } from './evidence/index.js';
 
 export { BaselineManager } from './baseline/index.js';
+export {
+  createMemoryBaselineAcceptance,
+  createDefaultMemoryBaselineAcceptance,
+} from './baseline/baseline-acceptance.js';
+export type {
+  BaselineAcceptanceDependencies,
+  BaselineAcceptanceInput,
+} from './baseline/baseline-acceptance.js';
 
 export { FailureExplainer } from './explanation/index.js';
 
@@ -296,3 +304,11 @@ export type {
   ProductionAgentSessionOptions,
   ProductionExecutionTransports,
 } from './production-agent-session.js';
+
+export { prepareMemoryRounds, loadReviewedMemoryFlow, runMemoryRounds } from './memory-rounds.js';
+
+export {
+  validateSimulatorAppiumOptions,
+  simulatorConnectionSummary,
+  type SimulatorAppiumOptions,
+} from './simulator-appium-options.js';

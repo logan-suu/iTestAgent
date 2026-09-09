@@ -66,8 +66,12 @@ export function generateSummary(input: ReportSynthesizerInput): string {
       lines.push(`| Launch Duration | ${formatDelta(d.launchDurationMs, 'ms')} |`);
     }
     if (d.memoryPeakMB !== undefined) {
-      lines.push(`| Memory Peak | ${formatDelta(d.memoryPeakMB, 'MB')} |`);
+      lines.push(
+        `| Memory Peak | ${formatDelta(d.memoryPeakMB, input.metrics.memoryPeakUnit ?? 'MB')} |`,
+      );
     }
+    if (d.memoryGrowthMiB !== undefined)
+      lines.push(`| Memory Growth | ${formatDelta(d.memoryGrowthMiB, 'MiB')} |`);
     if (d.hangCount !== undefined) {
       lines.push(`| Hang Count | ${formatDelta(d.hangCount, '')} |`);
     }
@@ -201,6 +205,7 @@ function conclusionText(input: ReportSynthesizerInput): string {
 function metricsTable(input: ReportSynthesizerInput): string[] {
   const m = input.metrics;
   const rows: string[] = ['| Metric | Value |', '|--------|-------|'];
+  if (m.testDurationMs !== undefined) rows.push(`| Test Duration | ${m.testDurationMs}ms |`);
 
   if (m.launchDurationMs !== undefined) {
     rows.push(
@@ -208,10 +213,30 @@ function metricsTable(input: ReportSynthesizerInput): string[] {
     );
   }
   if (m.memoryPeakMB !== undefined) {
-    rows.push(`| Memory Peak | ${m.memoryPeakMB} MB${m.approximate ? ' (approximate)' : ''} |`);
+    rows.push(
+      `| Memory Peak | ${m.memoryPeakMB} ${m.memoryPeakUnit ?? 'MB'}${m.approximate ? ' (approximate)' : ''} |`,
+    );
   }
   if (m.crashDetected !== undefined) {
     rows.push(`| Crash Detected | ${m.crashDetected ? 'Yes' : 'No'} |`);
+  }
+  if (m.memoryPeakSource) rows.push(`| Memory Source | ${m.memoryPeakSource} |`);
+  if (m.memoryGrowth) {
+    const g = m.memoryGrowth;
+    if (g.source === 'native-footprint')
+      rows.push(
+        '| Memory Sample Time | Host command completion; approximate native footprint with per-sample measurement duration |',
+      );
+    if (g.coverage === 'partial')
+      rows.push(
+        '| Memory Coverage | Partial: samples do not span the requested observation window; no full-window conclusion |',
+      );
+    rows.push(
+      `| Memory Growth (approximate) | ${g.deltaMiB.toFixed(3)} MiB (${g.direction}); ${g.rateMiBPerMinute.toFixed(3)} MiB/min |`,
+    );
+    rows.push(
+      `| Memory Observation | ${g.sampleCount} samples across ${(g.durationMs / 1000).toFixed(3)}s; start ${g.startMiB.toFixed(3)} MiB, end ${g.endMiB.toFixed(3)} MiB, peak ${g.peakMiB.toFixed(3)} MiB |`,
+    );
   }
   if (m.hangCount !== undefined) {
     rows.push(`| Hang Count | ${m.hangCount}${m.approximate ? ' (approximate)' : ''} |`);
@@ -225,10 +250,73 @@ function metricsTable(input: ReportSynthesizerInput): string[] {
     );
   }
 
+  if (m.memoryRounds) {
+    const r = m.memoryRounds;
+    rows.push(
+      `| Memory Rounds | ${r.rounds.filter((row) => row.status === 'passed').length}/${r.plannedCount} complete; ${r.status} |`,
+    );
+    if (r.endpointDeltaMiB !== undefined)
+      rows.push(
+        `| Round Endpoint Change (approximate) | ${r.endpointDeltaMiB.toFixed(3)} MiB; last endpoint minus first endpoint |`,
+      );
+    rows.push(
+      '',
+      '| Round | Status / reason | Steps | Samples / coverage | Peak MiB | Interval change MiB | Leaks | Evidence IDs |',
+      '|---|---|---|---|---|---|---|---|',
+    );
+    for (const row of r.rounds)
+      rows.push(
+        `| ${row.round} | ${row.status} / ${row.reasonCode} | ${row.stepIds.length} | ${row.memoryGrowth ? `${row.memoryGrowth.sampleCount} / ${row.memoryGrowth.coverage ?? 'unknown'}` : 'unavailable'} | ${row.memoryPeakMB?.toFixed(3) ?? 'unavailable'} | ${row.memoryGrowth?.deltaMiB.toFixed(3) ?? 'unavailable'} | ${row.memoryLeaks ? `${row.memoryLeaks.allocationCount} allocations / ${row.memoryLeaks.totalBytes} bytes` : 'unavailable'} | ${row.artifactIds.join(', ') || 'none'} |`,
+      );
+    rows.push(
+      '',
+      'Each round is an independent recording of the confirmed Flow in the same observed process. Gaps between rounds are not sampled. Endpoint change is not a continuous-window measurement or a sum of interval growth. Leaks allocations may overlap between recordings and are never summed. Missing leak evidence does not establish zero leaks. Per-round timestamps, samples, collection outcomes and references are in result.json.',
+    );
+  }
+  if (m.memoryLeaks) {
+    const scan = m.memoryLeaks;
+    rows.push(
+      `| Memory Leaks | ${scan.status === 'not_detected' ? 'Not detected in this completed scan' : `Detected: ${scan.allocationCount} allocations, ${scan.totalBytes} bytes`} (${scan.source}) |`,
+    );
+    if (scan.source === 'native-leaks')
+      rows.push(
+        `| Leak Scan Evidence | Completed ${scan.startedAt} to ${scan.finishedAt}; exit ${scan.exitCode}; artifact ${scan.artifactId} |`,
+      );
+  }
   if (rows.length === 2) {
     rows.push('| — | *No metrics collected* |');
   }
 
+  if (m.collection?.length) {
+    rows.push('', '| Requested metric | Collection status | Reason |', '|---|---|---|');
+    for (const outcome of m.collection) {
+      rows.push(`| ${outcome.metric} | ${outcome.status} | ${outcome.reasonCode} |`);
+    }
+    if (m.collection.some((outcome) => outcome.status !== 'collected')) {
+      rows.push(
+        '',
+        'Performance validation is incomplete. Missing data is not evidence of zero memory growth, no crashes, or no leaks.',
+      );
+    }
+  }
+  if (m.memoryGrowth)
+    rows.push(
+      '',
+      'Memory growth describes only the sampled interval, not a repeated-workload trend, retained allocation diagnosis, or proof of a leak. Sample timestamps and values are in result.json.',
+    );
+  if (m.memoryLeaks)
+    rows.push(
+      '',
+      m.memoryLeaks.source === 'native-leaks'
+        ? 'Native leak findings describe this completed target-bound scan only. A zero result does not prove absence of all leaks. The raw-local-only diagnostic audit is listed in the evidence section.'
+        : 'Leak findings cover only allocations diagnosed by Leaks in this recording, not all retain cycles or all application lifetimes. The raw-local-only performance trace is listed in the evidence section.',
+    );
+  if (m.collection?.some((o) => o.metric === 'memory_leaks' && o.status !== 'collected')) {
+    rows.push(
+      '',
+      'Automatic leak diagnosis is unavailable for this run. No zero-leak conclusion was generated. If a Leaks trace was collected, open the local trace listed in the evidence section with Instruments and inspect its Leaks instrument. A memory-growth curve is not a leak diagnosis.',
+    );
+  }
   return rows;
 }
 

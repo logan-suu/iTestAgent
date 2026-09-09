@@ -9,7 +9,7 @@
  * This module is framework-independent and testable without a renderer.
  * Follows the same pattern as candidate-review.ts.
  */
-import type { TestPlan } from 'itestagent-contracts';
+import { MEMORY_CAPTURE_POLICY, type TestPlan } from 'itestagent-contracts';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -195,11 +195,25 @@ function formatExecutionSection(plan: TestPlan): PlanSection {
               editable: false,
             },
           ]
-        : []),
+        : [
+            {
+              key: 'assertions',
+              label: 'Success Criteria',
+              value: plan.performance.memoryRounds
+                ? 'The confirmed Flow assertions are checked each round. Existing goal conditions, when present, are checked at each round endpoint.'
+                : plan.execution.resolvedPath === 'xcuitest'
+                  ? 'No additional user conditions; results come from the selected XCUITest tests.'
+                  : 'No explicit success conditions recognized. Exploration alone cannot pass or establish a successful baseline. Modify the plan to add an unambiguous condition, such as confirm "Ready" is visible.',
+              kind: 'text' as const,
+              editable: false,
+            },
+          ]),
       {
         key: 'assertion',
         label: 'Assertion',
-        value: plan.execution.assertion.policy,
+        value: plan.performance.memoryRounds
+          ? 'Confirmed Flow assertions and existing goal conditions at each round endpoint'
+          : plan.execution.assertion.policy,
         kind: 'enum',
         editable: true,
       },
@@ -301,16 +315,74 @@ function formatMetricsSection(plan: TestPlan): PlanSection {
 }
 
 function formatPerformanceSection(plan: TestPlan): PlanSection {
+  const nativeMemory =
+    plan.device.kind === 'simulator' &&
+    plan.execution.resolvedPath === 'device_backend' &&
+    plan.execution.metrics?.some((metric) =>
+      ['memory_peak', 'memory_growth', 'memory_leaks'].includes(metric),
+    );
   return {
     id: 'performance',
     title: 'Performance',
     fields: [
+      ...(nativeMemory
+        ? [
+            {
+              key: 'nativeMemory',
+              label: 'Simulator memory',
+              value:
+                'Native footprint snapshots and completed leak scans; approximate Simulator-only observations. Baseline comparison is unavailable. A zero scan is not proof that the app has no leaks.',
+              kind: 'text' as const,
+              editable: false,
+            },
+          ]
+        : []),
+      ...(plan.performance.memoryRounds
+        ? [
+            {
+              key: 'memoryRounds',
+              label: 'Confirmed Flow rounds',
+              kind: 'text' as const,
+              editable: false,
+              value: `${plan.performance.memoryRounds.flowId} (${plan.performance.memoryRounds.source}); SHA256 ${plan.performance.memoryRounds.sha256}\n${plan.performance.memoryRounds.count} rounds in one process; ${plan.performance.memoryRounds.intervalMs / 1000}s unsampled gap; independent capture each round; 9-minute round / 30-minute total cancellation budget. Stops on failure/change/cancel.\n${plan.performance.memoryRounds.steps.join('\n')}`,
+            },
+          ]
+        : [
+            {
+              key: 'memoryRoundsHelp',
+              label: 'Repeat a confirmed Flow',
+              kind: 'text' as const,
+              editable: false,
+              value:
+                'Modify plan: /memory-rounds <flow-id> <2-10 rounds> <0-60 interval seconds>. Requires physical memory-growth observation; review the amended plan before execution.',
+            },
+          ]),
+      ...(plan.performance.memoryObservation
+        ? [
+            {
+              key: 'memoryObservation',
+              label: 'Memory observation',
+              value: `Minimum ${plan.performance.memoryObservation.minimumDurationMs / 1000}s of exported samples; wait ${plan.performance.memoryObservation.settleDurationMs / 1000}s after actions. ${nativeMemory ? 'Native capture' : 'Physical capture'} reserves ${MEMORY_CAPTURE_POLICY.samplingAllowanceMs / 1000}s sampling allowance; incomplete coverage remains inconclusive. ${plan.performance.memoryRounds ? 'Only the reviewed Flow is repeated for the confirmed count.' : 'Actions execute once; no automatic repetition.'} Leaks export may be unavailable.`,
+              kind: 'text' as const,
+              editable: false,
+            },
+          ]
+        : []),
       {
         key: 'baseline',
         label: 'Baseline',
         value: plan.performance.baseline,
         kind: 'enum',
         editable: true,
+      },
+      {
+        key: 'baselineEditing',
+        label: 'Baseline editing',
+        value: nativeMemory
+          ? 'Modify: baseline=skip (native memory requires skip)'
+          : 'Modify: baseline=skip or baseline=local_auto',
+        kind: 'text',
+        editable: false,
       },
       {
         key: 'baselineDomain',
@@ -357,10 +429,26 @@ function formatSafetySection(plan: TestPlan): PlanSection {
  * @param plan - The compiled TestPlan to display
  * @returns 7 ordered sections for TUI navigation
  */
-export function formatPlanSections(plan: TestPlan): PlanSection[] {
+export function formatPlanSections(plan: TestPlan, connectionSummary?: string): PlanSection[] {
   return [
     formatOverviewSection(plan),
-    formatDeviceSection(plan),
+    {
+      ...formatDeviceSection(plan),
+      fields: [
+        ...formatDeviceSection(plan).fields,
+        ...(plan.device.kind === 'simulator' && connectionSummary
+          ? [
+              {
+                key: 'connection',
+                label: 'Simulator connection',
+                value: connectionSummary,
+                kind: 'text' as const,
+                editable: false,
+              },
+            ]
+          : []),
+      ],
+    },
     formatExecutionSection(plan),
     formatFeaturesSection(plan),
     formatMetricsSection(plan),

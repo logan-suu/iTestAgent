@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-07T21:32:25Z",
+  "last_updated": "2026-09-09T15:58:35Z",
   "items": [
     {
       "id": "DEF-001",
@@ -625,10 +625,50 @@
       "item": "Production physical AUT build and artifact validation do not bind the run AbortSignal",
       "detail": "Verified while tracing the DerivedData artifact failure: production-run-executor.ts passes the run signal into createProductionPhysicalPreflight, but the preflight only checks it on entry before passing the unbound deps.runCommand to buildForPhysical and normalizePhysicalAppArtifact. buildForPhysical supplies cwd without a signal, and artifact validation also does not bind that signal; runProductionPhysicalCommand forwards only options.signal to Bun.spawn. Cancellation during an already-running AUT build, build-settings query, or validation command therefore cannot cancel that owned process through the run signal. The later coordinator does receive the signal, so this finding is about the newly composed AUT preparation stages, not a reversal of the historical DEF-033 device/WDA teardown evidence. Deferral rationale: the approved repair is limited to consistent build/settings arguments and artifact validation; completing this independent lifecycle fix also requires cancellation classification and owner-cleanup checks, plus a separately authorized physical build/cancellation revalidation. Keep it open in T6.12 and PR #81 before physical acceptance, rather than claiming the path regression tests prove cancellation. Next step: obtain approval for the scoped lifecycle repair, bind the same signal through build/settings and normalization, preserve an aborted terminal outcome, prove no later install/launch/WDA work occurs after abort, and verify child termination and staging cleanup with process-seam tests and authorized physical G5 evidence.",
       "target_phase": 6,
-      "status": "open",
+      "status": "resolved",
       "created_at": "2026-09-07T21:32:25Z",
-      "last_updated": "2026-09-08T03:10:42Z",
-      "notes": "PR #81 review remediation: run signal now binds build/settings and artifact-validation commands with before/after checks; cancelled preparation does not reach install/launch/WDA and remains cancelled in the committed report. The owned Bun command is terminated and reaped with a 1s SIGTERM-to-SIGKILL grace, verified using a real child that ignores SIGTERM. Local stage and canonical-report regressions pass. Retain open: real iPhone/xcodebuild process-tree cancellation, partial staging evidence and owner cleanup still require separately authorized G5; no claim that the generic child test closes physical acceptance. See docs/06-verification/pr81-review-remediation-6.12.md."
+      "last_updated": "2026-09-08T14:02:10Z",
+      "notes": "PR #81 review remediation: run signal now binds build/settings and artifact-validation commands with before/after checks; cancelled preparation does not reach install/launch/WDA and remains cancelled in the committed report. The owned Bun command is terminated and reaped with a 1s SIGTERM-to-SIGKILL grace, verified using a real child that ignores SIGTERM. Local stage and canonical-report regressions pass. Retain open: real iPhone/xcodebuild process-tree cancellation, partial staging evidence and owner cleanup still require separately authorized G5; no claim that the generic child test closes physical acceptance. See docs/06-verification/pr81-review-remediation-6.12.md. 2026-09-08T14:02:10Z Authorized real-device-target validation completed on iPhone 14 Plus / iOS 18.2.1 with Xcode 26.5 and Bun 1.3.14. Three production-executor runs cancelled active non-zombie build/settings/codesign processes, committed schema-valid cancelled reports, removed populated staging directories, and left no observed owned process residue at immediate and delayed checks; no manual rescue was used. Device operations were sealed by the verification safety boundary, with zero install/launch/WDA/model calls. Source and protected sibling files remained unchanged. Real runs produced no UI artifacts before cancellation; prior-evidence retention and SIGKILL escalation remain separately covered by passing regression tests. Evidence and explicit TUI/permission/Simulator exclusions: docs/06-verification/g5-def034-physical-cancellation-6.12.md. No production code changed in this verification.",
+      "resolved_at": "2026-09-08T14:02:10Z",
+      "resolved_by": "PR #81 commit 4e61146 plus authorized physical-target build/settings/artifact cancellation verification: docs/06-verification/g5-def034-physical-cancellation-6.12.md"
+    },
+    {
+      "id": "DEF-035",
+      "source": "Codex (self-review)",
+      "pr": 82,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/82",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.12",
+      "severity": "minor",
+      "item": "Full-corpus forbidden-literal CLI scan does not exclude scenario paths",
+      "detail": "During the documentation-only DEF-034 submission, bun run gate:g2 reports feed-memory in packages/itestagent-contracts/src/scenarios/{feed-memory,index,scenario-registry}.ts and schemas/scenarios/feed-memory.schema.json. The generic/all branch passes absolute collectFiles paths to isUnderExcludedScenarioSurface, whose prefixes are repository-relative; scenario directories explicitly exempt by policy are therefore scanned. The changed/index mode uses relative Git paths and the architecture tests pass. scripts/scan-forbidden-literals.ts is byte-identical to origin/dev-1.0 (SHA-256 aec5014d30d7f15a902d4b46c84b2304d480440a025fc79a430250aba49eeb61), so this is not introduced by the evidence changes. Deferral is required because the current authorization is limited to submitting already-approved physical verification documentation; changing the shared quality-gate implementation requires a separate approved code/test plan. Normalize corpus paths to repository-relative before exclusion and add subprocess CLI regression coverage for generic/all and changed modes, preserving detection of actual forbidden literals on generic surfaces. Do not describe the current full-corpus CLI result as passing.",
+      "target_phase": 6,
+      "status": "resolved",
+      "created_at": "2026-09-08T15:41:05Z",
+      "last_updated": "2026-09-08T22:53:40Z",
+      "resolved_at": "2026-09-08T22:53:40Z",
+      "resolved_by": "T6.12 approved G2 path normalization and subprocess CLI regression; docs/06-verification/performance-capture-wiring-6.12.md section23",
+      "notes": "2026-09-08 Approved separate code/test plan completed: normalize full-corpus paths to repository-relative before scenario exclusion. Real CLI regression covers generic/all/changed worktree/index, scenario exemptions, adjacent non-exempt paths and actual forbidden literals. Repository generic/all gates pass with79 files; no scanner scope bypass. Original detail retained as historical diagnosis. Commit/PR merge pending."
+    },
+    {
+      "id": "DEF-036",
+      "source": "Codex (self-review and normal production TUI verification)",
+      "pr": 82,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/82",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.12",
+      "severity": "major",
+      "item": "Simulator execution without an install still requests replace_device_app",
+      "detail": "The normal CLI/TUI on the existing dedicated Simulator and installed MemoryProbe reviewed native memory, minimum 70s, settle 10s and baseline=skip, then requested replace_device_app before any backend creation or capture. productionPermissionActions correctly returns no App install/build actions for this Simulator DeviceBackend route, but agent-session.ts executeTestPlan.action uses actions[0] ?? replace_device_app. Thus an empty high-risk action set becomes a spurious installation permission. The request was denied; no AUT launch/tap, native capture, Appium session or canonical run report was produced. A real-PTY fixture independently reproduces the extra permission and passes only after a fixture-only allow; it is not real G5-SIM evidence. Deferral is required because the explicitly approved simulator-memory-production-plan-6.12.md requires stopping if the normal entry requests additional installation/build or incompatible permissions, and forbids automatic retries. Follow-up must map confirmed non-install execution truthfully while retaining all actual per-action installation/build/WDA/sensitive UI gates, test physical/XCUITest and persistent-deny/cancel boundaries, then obtain approval for the concrete changed plan and one new normal-TUI G5-SIM pair. Also audit the normal-entry transport configuration: TUI currently creates production dependencies with defaults and cannot select the approved isolated Appium/WDA ports and derived-data path; do not inject mocks or substitute a backend probe to pass acceptance. Evidence: performance-capture-wiring-6.12.md section37; local artifacts sim-native-tui-1788967379.",
+      "target_phase": 6,
+      "status": "resolved",
+      "created_at": "2026-09-09T15:29:00Z",
+      "last_updated": "2026-09-09T15:58:35Z",
+      "notes": "Keep within T6.12; do not transfer this acceptance blocker to T6.13 or mark G5-SIM complete. Dedicated Simulator shut down; CLI exit0, owner live processes0, other device states and both baseline hashes unchanged. No commit/push/merge. 2026-09-09T15:58:35Z Approved follow-up implemented. Simulator execution no longer fabricates AUT installation; actual WDA preparation remains one-shot. Real CLI transient options reach Simulator production composition, preserve physical defaults, and reject unsafe endpoints/port conflicts. Full gates4077 pass/7 existing skip/0 fail. Normal production TUI positive and released runs both passed; 36 valid samples per run, positive20 leaks/5242880bytes, completed control0/0. Each workload exactly1 tap/1 round/20s wait; canonical and raw-value checks pass. CLI/Appium/AUT/shutdown exit0, owner processes0, ports free, other devices and both baselines unchanged. Historical failure detail retained; no commit/push/merge.",
+      "resolved_at": "2026-09-09T15:58:35Z",
+      "resolved_by": "T6.12 approved Simulator entry permission/isolated CLI settings fix and normal production TUI G5-SIM pair run_01a086d5-92dc-7000-ae89-a57bda35ec22 / run_01a086dd-4659-7000-bad9-de8ca341315f; performance-capture-wiring-6.12.md section38"
     }
   ]
 }

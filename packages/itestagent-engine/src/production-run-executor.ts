@@ -6,14 +6,19 @@ import type {
   BackendCleanupOutcome,
   DeviceBackend,
   DeviceInfo,
+  PerformanceCapture,
+  PerformanceCaptureFactory,
+  PerformanceCaptureResult,
   RunResult,
   RunStatus,
   TestPlan,
   UserAssertion,
 } from 'itestagent-contracts';
+import { PerformanceCaptureStartError } from 'itestagent-contracts';
 import { loadProfile } from 'itestagent-project-analyzer';
 import type { RunStore } from 'itestagent-store';
 import {
+  createBaselineStore,
   createDefaultRunStore,
   createStoreCore,
   initStore,
@@ -25,6 +30,7 @@ import {
   DeviceBackendCleanupError,
   DeviceBackendExecutionError,
 } from './dual-execution-dispatcher.js';
+import type { PerformanceObservationContext } from './exploration/action-suggestion.js';
 import { assertProviderUrl } from './exploration/assertion-suggester.js';
 import {
   type ExplorationAction,
@@ -33,6 +39,7 @@ import {
   runRealDeviceExploration,
   suggestExplorationAction,
 } from './exploration/index.js';
+import { loadReviewedMemoryFlow, runMemoryRounds } from './memory-rounds.js';
 import {
   type ProductionAgentSessionDependencies,
   type ProductionExecutionTransports,
@@ -45,6 +52,7 @@ export type ProductionActionSuggestion = (input: {
   caseId: string;
   goal: string;
   assertions: readonly UserAssertion[];
+  performanceObservation?: PerformanceObservationContext;
   uiTree: string;
   history: readonly import('itestagent-contracts').RunStep[];
   signal?: AbortSignal;
@@ -61,13 +69,23 @@ export function createProductionActionSuggestion(input: {
   const model = createOpenAI({ apiKey: input.apiKey, baseURL: input.baseURL }).chat(
     input.model ?? 'gpt-4o',
   );
-  return ({ caseId, goal, assertions, uiTree, history, signal, onProgress }) =>
+  return ({
+    caseId,
+    goal,
+    assertions,
+    performanceObservation,
+    uiTree,
+    history,
+    signal,
+    onProgress,
+  }) =>
     suggestExplorationAction({
       generate: async (prompt, runSignal) =>
         (await generateText({ model, prompt, abortSignal: runSignal })).text,
       caseId,
       goal,
       assertions,
+      performanceObservation,
       uiTree,
       history,
       signal,
@@ -86,13 +104,14 @@ export interface ProductionRunExecutorInput {
   store: RunStore;
   storeRoot: string;
   suggest: ProductionActionSuggestion;
-  authorize(action: string, resource: string): Promise<boolean>;
+  authorize(action: string, resource: string, signal?: AbortSignal): Promise<boolean>;
   /** True when this invocation will build, sign, or launch a managed WDA. */
   preparesWda?: boolean;
   /** Injectable production adapters for deterministic transport tests. */
   production?: ProductionAgentSessionDependencies;
   /** Injectable external transport boundaries; orchestration and persistence remain production. */
   transports?: ProductionExecutionTransports;
+  createPerformanceCapture?: PerformanceCaptureFactory;
   signal?: AbortSignal;
   /** Non-sensitive lifecycle updates for the TUI or another interactive caller. */
   onProgress?: (progress: ProductionRunProgress) => void;
@@ -105,6 +124,7 @@ export interface ProductionRunProgress {
     | 'preparing_route'
     | 'running_xcuitest'
     | 'connecting_device'
+    | 'collecting_performance'
     | ProductionPhysicalPreflightProgress['stage']
     | 'cleaning_up'
     | 'saving_result';
@@ -157,7 +177,7 @@ export function productionPermissionActions(
   if (plan.execution.resolvedPath === 'xcuitest') {
     return ['execute_project_build', 'replace_device_app'];
   }
-  if (plan.device.kind !== 'physical') return [];
+  if (plan.device.kind === 'simulator') return preparesWda ? ['prepare_wda'] : [];
   return [
     ...(plan.appSource.strategy === 'auto_from_workspace' ? ['execute_project_build'] : []),
     'replace_device_app',
@@ -182,6 +202,17 @@ export async function executeProductionTestPlan(
       'execution_goal_missing: this legacy TestPlan has no confirmed execution goal; create and confirm a new plan',
     );
   }
+  const roundConfig = input.plan.performance.memoryRounds;
+  const reviewedFlow = roundConfig
+    ? await loadReviewedMemoryFlow(roundConfig, input.workspace, input.storeRoot)
+    : undefined;
+  if (
+    roundConfig &&
+    (input.plan.device.kind !== 'physical' ||
+      input.plan.execution.resolvedPath !== 'device_backend' ||
+      !input.createPerformanceCapture)
+  )
+    throw new Error('memory_rounds.route_or_capture_unsupported');
   const highRiskActions = productionPermissionActions(input.plan, input.preparesWda);
   for (const action of highRiskActions) {
     if (!(await input.authorize(action, `${input.bundleId}@${input.device.udid}`))) {
@@ -219,6 +250,27 @@ export async function executeProductionTestPlan(
     mkdirSync(dirname(resultBundlePath), { recursive: true });
   }
   const production = input.production ?? createProductionAgentSessionDependencies();
+  let capture: PerformanceCapture | undefined;
+  let performance: PerformanceCaptureResult | undefined;
+  const requestedMetrics = input.plan.execution.metrics ?? [];
+  const finishPerformance = async () => {
+    if (!capture) return;
+    try {
+      performance = await capture.finish();
+    } catch {
+      performance = {
+        artifacts: [],
+        metrics: {
+          collection: requestedMetrics.map((metric) => ({
+            metric,
+            status: input.signal?.aborted ? 'cancelled' : 'failed',
+            reasonCode: 'performance.finalization_failed',
+          })),
+        },
+      };
+    }
+    capture = undefined;
+  };
   const closeBackend = async (
     backend: DeviceBackend,
   ): Promise<BackendCleanupOutcome | undefined> => {
@@ -242,6 +294,7 @@ export async function executeProductionTestPlan(
       artifactDirectory: join(stagingDir, 'artifacts'),
     });
     let result: Awaited<ReturnType<typeof runRealDeviceExploration>>;
+    let actionSignal = input.signal;
     try {
       if (input.device.targetKind === 'physical') {
         const physicalPreflight = production.physicalPreflight;
@@ -265,37 +318,153 @@ export async function executeProductionTestPlan(
         if (preflight.status !== 'ready') {
           throw new Error(`physical_preflight_${preflight.stage}: ${preflight.failure.message}`);
         }
+        if (!roundConfig && requestedMetrics.some((metric) => metric !== 'test_duration')) {
+          try {
+            if (!input.createPerformanceCapture) throw new Error('performance.capture_unavailable');
+            capture = await input.createPerformanceCapture({
+              runId: plan.runId,
+              deviceId: input.device.udid,
+              targetKind: input.device.targetKind,
+              executable: preflight.artifact.executable,
+              stagingDir,
+              metrics: requestedMetrics,
+              memoryObservation: plan.performance.memoryObservation,
+              signal: input.signal,
+              onProgress: (message) =>
+                input.onProgress?.({ stage: 'collecting_performance', message }),
+            });
+            actionSignal = capture.signal
+              ? AbortSignal.any([capture.signal, ...(input.signal ? [input.signal] : [])])
+              : input.signal;
+            actionSignal?.throwIfAborted();
+          } catch (error) {
+            performance =
+              error instanceof PerformanceCaptureStartError
+                ? error.result
+                : {
+                    artifacts: [],
+                    metrics: {
+                      collection: requestedMetrics
+                        .filter((metric) => metric !== 'test_duration')
+                        .map((metric) => ({
+                          metric,
+                          status: input.signal?.aborted ? 'cancelled' : 'failed',
+                          reasonCode: 'performance.recording_not_ready',
+                        })),
+                    },
+                  };
+            throw new Error('performance.preparation_failed');
+          }
+        }
       }
-      result = await runRealDeviceExploration({
-        backend,
-        toolDispatcher: createBackendToolDispatcher(backend, input.signal),
-        runDir: stagingDir,
-        runId: plan.runId,
-        bundleId: input.bundleId,
-        deviceId: input.device.udid,
-        targetKind: input.device.targetKind,
-        dynamicActions: {
-          cases: plan.rerun?.selectedCaseIds ?? plan.execution.features,
-          suggest: ({ caseId, uiTree, history, signal }) =>
-            input.suggest({
-              caseId,
-              goal: plan.execution.goal ?? '',
-              assertions: (plan.execution.assertions ?? []).filter(
-                (assertion) => assertion.caseId === caseId,
-              ),
-              uiTree,
-              history,
-              signal,
-              onProgress: input.onProgress,
-            }),
-          authorizeSensitiveAction: ({ action, resource }) => input.authorize(action, resource),
-        },
-        policy: plan.execution.assertion.policy,
-        assertions: plan.execution.assertions,
-        signal: input.signal,
-        onProgress: input.onProgress,
-      });
+      if (
+        input.device.targetKind === 'simulator' &&
+        requestedMetrics.some((metric) => metric !== 'test_duration')
+      ) {
+        try {
+          if (!input.createPerformanceCapture || !backend.getAppProcessId)
+            throw new Error('native_memory.capture_unavailable');
+          const launched = await backend.launchApp(
+            { deviceId: input.device.udid, bundleId: input.bundleId },
+            input.signal,
+          );
+          if (!launched.success) throw new Error('native_memory.launch_failed');
+          const pid = await backend.getAppProcessId(
+            { deviceId: input.device.udid, bundleId: input.bundleId },
+            input.signal,
+          );
+          capture = await input.createPerformanceCapture({
+            runId: plan.runId,
+            deviceId: input.device.udid,
+            targetKind: 'simulator',
+            bundleId: input.bundleId,
+            executable: String(pid),
+            stagingDir,
+            metrics: requestedMetrics,
+            memoryObservation: plan.performance.memoryObservation,
+            signal: input.signal,
+            onProgress: (message) =>
+              input.onProgress?.({ stage: 'collecting_performance', message }),
+          });
+          actionSignal = capture.signal
+            ? AbortSignal.any([capture.signal, ...(input.signal ? [input.signal] : [])])
+            : input.signal;
+          actionSignal?.throwIfAborted();
+        } catch (error) {
+          performance =
+            error instanceof PerformanceCaptureStartError
+              ? error.result
+              : {
+                  artifacts: [],
+                  metrics: {
+                    collection: requestedMetrics
+                      .filter((metric) => metric !== 'test_duration')
+                      .map((metric) => ({
+                        metric,
+                        status: input.signal?.aborted ? 'cancelled' : 'failed',
+                        reasonCode: 'native_memory.preparation_failed',
+                      })),
+                  },
+                };
+          throw new Error('native_memory.preparation_failed');
+        }
+      }
+      if (roundConfig && reviewedFlow && input.createPerformanceCapture) {
+        await loadReviewedMemoryFlow(roundConfig, input.workspace, input.storeRoot);
+        const replay = await runMemoryRounds({
+          plan,
+          flow: reviewedFlow,
+          backend,
+          deviceId: input.device.udid,
+          bundleId: input.bundleId,
+          stagingDir,
+          capture: input.createPerformanceCapture,
+          authorize: input.authorize,
+          signal: input.signal,
+          progress: (message) => input.onProgress?.({ stage: 'collecting_performance', message }),
+        });
+        result = replay.result;
+        performance = replay.performance;
+      } else
+        result = await runRealDeviceExploration({
+          backend,
+          toolDispatcher: createBackendToolDispatcher(backend, actionSignal),
+          runDir: stagingDir,
+          runId: plan.runId,
+          bundleId: input.bundleId,
+          deviceId: input.device.udid,
+          targetKind: input.device.targetKind,
+          dynamicActions: {
+            cases: plan.rerun?.selectedCaseIds ?? plan.execution.features,
+            suggest: ({ caseId, uiTree, history, signal }) =>
+              input.suggest({
+                caseId,
+                goal: plan.execution.goal ?? '',
+                assertions: (plan.execution.assertions ?? []).filter(
+                  (assertion) => assertion.caseId === caseId,
+                ),
+                ...(plan.performance.memoryObservation
+                  ? {
+                      performanceObservation: {
+                        ...plan.performance.memoryObservation,
+                        captureStatus: capture ? ('started' as const) : ('unavailable' as const),
+                      },
+                    }
+                  : {}),
+                uiTree,
+                history,
+                signal,
+                onProgress: input.onProgress,
+              }),
+            authorizeSensitiveAction: ({ action, resource }) => input.authorize(action, resource),
+          },
+          policy: plan.execution.assertion.policy,
+          assertions: plan.execution.assertions,
+          signal: actionSignal,
+          onProgress: input.onProgress,
+        });
     } catch (executionError) {
+      await finishPerformance();
       input.onProgress?.({
         stage: 'cleaning_up',
         message: 'Execution stopped; cleaning up the device session…',
@@ -312,6 +481,7 @@ export async function executeProductionTestPlan(
       }
       throw executionError;
     }
+    await finishPerformance();
     input.onProgress?.({
       stage: 'cleaning_up',
       message: 'Cleaning up the device session…',
@@ -322,6 +492,12 @@ export async function executeProductionTestPlan(
         `backend_cleanup_incomplete: ${cleanup.status}: ${cleanup.issues.join('; ') || 'backend is terminal'}`,
         result,
         cleanup,
+      );
+    }
+    if (actionSignal?.aborted) {
+      throw new DeviceBackendExecutionError(
+        input.signal?.aborted ? 'performance.cancelled' : 'performance.capture_failed',
+        result,
       );
     }
     return result;
@@ -352,9 +528,17 @@ export async function executeProductionTestPlan(
       device: input.device,
       dispatch,
       resultBundlePath,
+      performance,
+      baselineStore: createBaselineStore(input.storeRoot),
+      onBaselineWarning: () =>
+        input.onProgress?.({
+          stage: 'saving_result',
+          message: 'Memory baseline storage unavailable; no comparison or update is claimed.',
+        }),
     });
     return { ...dispatch, ...committed };
   } finally {
+    await finishPerformance();
     rmSync(stagingDir, { recursive: true, force: true });
   }
 }

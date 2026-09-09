@@ -599,3 +599,33 @@ export { createId } from './ids.js';
 // B37 (guide §9 Stage 2A): persisted schema migration types (generic only —
 // scenario symbols stay behind the scenarios subpath, ADR-020).
 export type { MigrationIssue, MigrationResult } from './migrations/types.js';
+export {
+  PerformanceCaptureStartError,
+  MetricCollectionOutcomeSchema,
+  PerformanceMetricNameSchema,
+} from './performance-capture.js';
+export type {
+  MetricCollectionOutcome,
+  PerformanceCapture,
+  PerformanceCaptureFactory,
+  PerformanceCaptureInput,
+  PerformanceCaptureResult,
+} from './performance-capture.js';
+export {
+  MEMORY_CAPTURE_POLICY,
+  MemoryGrowthSchema,
+  MemoryLeaksSchema,
+  MemoryObservationSchema,
+  MemorySampleSchema,
+  type MemoryGrowth,
+  type MemoryLeaks,
+} from './memory-analysis.js';
+
+export {
+  MemoryRoundsPlanSchema,
+  MemoryRoundSchema,
+  MemoryRoundsResultSchema,
+} from './memory-analysis.js';
+export type { MemoryRoundsPlan, MemoryRound, MemoryRoundsResult } from './memory-analysis.js';
+
+export { memoryRoundsMetricIssues } from './memory-rounds-validation.js';

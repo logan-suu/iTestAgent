@@ -134,6 +134,7 @@ export class BaselineManager {
   async establishBaseline(
     summary: TraceSummary,
     context: EstablishBaselineContext,
+    onlyIfAbsent = false,
   ): Promise<BaselineRecord> {
     const key = this.buildBaselineKeyFromContext(context);
     const now = new Date().toISOString();
@@ -144,6 +145,7 @@ export class BaselineManager {
       targetKind: context.targetKind,
       launchDurationMs: summary.launchDurationMs,
       memoryPeakMB: summary.memoryPeakMB,
+      memoryGrowthMiB: summary.memoryGrowthMiB,
       hangCount: summary.hangCount,
       hitchesSummary: summary.hitchesSummary,
       fpsApproximate: summary.fpsApproximate,
@@ -163,7 +165,16 @@ export class BaselineManager {
       record.runtimeIdentifier = context.runtimeIdentifier;
     }
 
-    await this.baselineStore.save(record);
+    if (onlyIfAbsent) {
+      if (!this.baselineStore.compareAndSwap) throw new Error('baseline_atomic_unavailable');
+      if (!(await this.baselineStore.compareAndSwap(record, null))) {
+        const current = await this.baselineStore.get(key);
+        if (!current) throw new Error('baseline_changed: initial baseline changed concurrently');
+        return current;
+      }
+    } else {
+      await this.baselineStore.save(record);
+    }
     return record;
   }
 
@@ -207,20 +218,27 @@ export class BaselineManager {
       baseline.launchDurationMs,
     );
     const memoryPeakMB = computeNumericDelta(summary.memoryPeakMB, baseline.memoryPeakMB);
+    const memoryGrowthMiB = computeNumericDelta(summary.memoryGrowthMiB, baseline.memoryGrowthMiB);
     const hangCount = computeNumericDelta(summary.hangCount, baseline.hangCount);
     const fpsApproximate = computeNumericDelta(summary.fpsApproximate, baseline.fpsApproximate);
     const hitches = computeHitchesDelta(summary.hitchesSummary, baseline.hitchesSummary);
 
     // Determine overall summary
-    const deltaSummary = computeOverallSummary(
+    let deltaSummary = computeOverallSummary(
       launchDurationMs,
       memoryPeakMB,
       hangCount,
       fpsApproximate,
       hitches,
     );
+    if (memoryGrowthMiB !== undefined) {
+      if (memoryGrowthMiB > 0) deltaSummary = 'regressed';
+      else if (deltaSummary !== 'regressed' && memoryGrowthMiB < 0) deltaSummary = 'improved';
+      else if (deltaSummary === 'inconclusive') deltaSummary = 'unchanged';
+    }
 
     const deltas: BaselineDelta['deltas'] = {};
+    if (memoryGrowthMiB !== undefined) deltas.memoryGrowthMiB = memoryGrowthMiB;
     if (launchDurationMs !== undefined) deltas.launchDurationMs = launchDurationMs;
     if (memoryPeakMB !== undefined) deltas.memoryPeakMB = memoryPeakMB;
     if (hangCount !== undefined) deltas.hangCount = hangCount;
@@ -246,13 +264,17 @@ export class BaselineManager {
    * R7: Accepting a new baseline requires user confirmation.
    * Pass `confirmed: true` to proceed. Throws if called without explicit confirmation.
    *
-   * Prepends runId to reachableRuns and bumps updatedAt.
+   * Replaces measured values (including clearing absent metrics), tracks the run and bumps updatedAt.
+   * Production callers pass the reviewed expected record for atomic conflict detection.
    * Returns null if no baseline exists for the key.
    */
   async acceptNewBaseline(
     runId: string,
     key: string,
     confirmed?: boolean,
+    summary?: TraceSummary,
+    expected?: BaselineRecord,
+    signal?: AbortSignal,
   ): Promise<BaselineRecord | null> {
     // R7: baseline acceptance requires explicit user confirmation
     if (confirmed !== true) {
@@ -262,17 +284,33 @@ export class BaselineManager {
       );
     }
 
-    const existing = await this.baselineStore.get(key);
+    if (!summary) throw new Error('baseline_metrics_required: provide the selected run metrics');
+    signal?.throwIfAborted();
+    const existing = expected ?? (await this.baselineStore.get(key));
     if (!existing) return null;
 
     const updated: BaselineRecord = {
       ...existing,
+      launchDurationMs: summary.launchDurationMs,
+      memoryPeakMB: summary.memoryPeakMB,
+      memoryGrowthMiB: summary.memoryGrowthMiB,
+      hangCount: summary.hangCount,
+      hitchesSummary: summary.hitchesSummary,
+      fpsApproximate: summary.fpsApproximate,
+      approximate: summary.approximate ?? true,
       updatedFromRun: runId,
       updatedAt: new Date().toISOString(),
-      reachableRuns: [runId, ...existing.reachableRuns],
+      reachableRuns: [runId, ...existing.reachableRuns.filter((id) => id !== runId)],
     };
 
-    await this.baselineStore.save(updated);
+    signal?.throwIfAborted();
+    if (expected) {
+      if (!this.baselineStore.compareAndSwap) throw new Error('baseline_atomic_unavailable');
+      if (!(await this.baselineStore.compareAndSwap(updated, expected, signal)))
+        throw new Error('baseline_changed: review the current baseline again');
+    } else {
+      await this.baselineStore.save(updated);
+    }
     return updated;
   }
 }
