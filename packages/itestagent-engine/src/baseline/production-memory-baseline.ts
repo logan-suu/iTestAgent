@@ -6,18 +6,18 @@ import type {
   PerformanceMetrics,
   RunStatus,
   TestPlan,
+  TraceSummary,
 } from 'itestagent-contracts';
 import { BaselineManager } from './baseline-manager.js';
 
 /** No identifiers or free-form goals become baseline filenames. */
-export async function prepareMemoryBaseline(input: {
-  store: BaselineStore;
+export function memoryBaselineCandidate(input: {
   plan: TestPlan;
   device: DeviceInfo;
   metrics: PerformanceMetrics;
   status: RunStatus;
 }) {
-  const { plan, device, metrics, status, store } = input;
+  const { plan, device, metrics, status } = input;
   if (
     plan.performance.baseline !== 'local_auto' ||
     device.targetKind !== 'physical' ||
@@ -31,7 +31,6 @@ export async function prepareMemoryBaseline(input: {
   )
     return;
   const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  const manager = new BaselineManager({ baselineStore: store });
   const context = {
     projectId: hash(plan.projectProfileRef),
     targetKind: device.targetKind,
@@ -46,11 +45,26 @@ export async function prepareMemoryBaseline(input: {
     }),
     runId: plan.runId,
   };
-  const summary = {
+  const summary: TraceSummary = {
     memoryPeakMB: metrics.memoryPeakMB,
     memoryGrowthMiB: metrics.memoryGrowth?.deltaMiB,
     approximate: true,
   };
+  return { context, summary };
+}
+
+export async function prepareMemoryBaseline(input: {
+  store: BaselineStore;
+  plan: TestPlan;
+  device: DeviceInfo;
+  metrics: PerformanceMetrics;
+  status: RunStatus;
+}) {
+  const candidate = memoryBaselineCandidate(input);
+  if (!candidate) return;
+  const { context, summary } = candidate;
+  const { store } = input;
+  const manager = new BaselineManager({ baselineStore: store });
   const key = manager.buildBaselineKeyFromContext(context);
   const existing = await store.get(key);
   if (existing)
@@ -62,7 +76,7 @@ export async function prepareMemoryBaseline(input: {
     delta: undefined,
     // Only a committed successful run may become the baseline. Never replace an existing one.
     afterCommit: async () => {
-      if (!(await store.get(key))) await manager.establishBaseline(summary, context);
+      await manager.establishBaseline(summary, context, true);
     },
   };
 }

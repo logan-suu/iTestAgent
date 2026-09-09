@@ -57,6 +57,7 @@
 | T6.12 用户确认、既有真机成功 run 完整性复核、历史证据边界与收尾事项 | `06-verification/g5-physical-closed-loop-report-6.12.md` |
 | 性能采集生命周期、逐指标证据状态与 UI 成功不等于性能通过 | `decisions/ADR-039-performance-capture-lifecycle-and-evidence-status.md` |
 | 内存增长/泄漏产品契约、TUI自动阳性诊断实证、零结果及baseline剩余边界 | `decisions/ADR-040-memory-growth-and-leak-diagnostics.md` |
+| TUI审阅并接受真机内存baseline、一次性权限与原子竞争保护 | `decisions/ADR-041-reviewed-baseline-replacement.md` |
 | T6.12 性能生产接线、采样覆盖限制（§7）、正常TUI真机内存增长与阳性Leaks报告（§13） | `06-verification/performance-capture-wiring-6.12.md` |
 | T6.12 内存性能session交接、首次/后续baseline实证（§18–19）、剩余工作与授权边界 | `05-planning/handoff-6.12-memory-2026-09-08.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |

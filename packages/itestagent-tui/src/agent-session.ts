@@ -20,6 +20,7 @@ import {
   AiSdkAgentRuntime,
   BackendRegistry,
   BackendSelector,
+  type BaselineAcceptanceDependencies,
   PermissionEngine,
   PlanningSession,
   type ProductionActionSuggestion,
@@ -27,6 +28,8 @@ import {
   type ProductionExecutionTransports,
   ToolDispatcher,
   assertProviderUrl,
+  createDefaultMemoryBaselineAcceptance,
+  createMemoryBaselineAcceptance,
   createProductionAgentSessionDependencies,
   executeProductionTestPlanToDefaultStore,
   productionPermissionActions,
@@ -54,12 +57,13 @@ interface CommittedRunNotice {
   runStatus?: RunStatus;
 }
 
-function reportLocationNotice(committedRun: { runDir: string } | null): string {
+function reportLocationNotice(committedRun: { runDir: string; runId: string } | null): string {
   if (!committedRun) return 'No report was saved for this execution.';
   return [
     `Report directory: ${committedRun.runDir}`,
     `Summary: ${join(committedRun.runDir, 'summary.md')}`,
     `Evidence directory: ${join(committedRun.runDir, 'artifacts')}`,
+    `Review a memory baseline replacement: /baseline accept ${committedRun.runId}`,
   ].join('\n');
 }
 
@@ -176,6 +180,7 @@ export function selectConfirmedPlanDevice(
 }
 
 export interface AgentSessionDependencies {
+  baselineAcceptance?: BaselineAcceptanceDependencies;
   loadApiKey?: () => Promise<string | null>;
   createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
@@ -645,6 +650,10 @@ export async function createAgentSession(
     },
   });
 
+  const acceptMemoryBaseline = dependencies.baselineAcceptance
+    ? createMemoryBaselineAcceptance(dependencies.baselineAcceptance)
+    : createDefaultMemoryBaselineAcceptance(workspace);
+
   const agentRuntime = new AiSdkAgentRuntime({
     model,
     tools: AGENT_TOOLS,
@@ -682,6 +691,45 @@ export async function createAgentSession(
 
       void (async () => {
         try {
+          if (/^\/baseline(?:\s|$)/.test(input.trim())) {
+            const match = /^\/baseline\s+accept\s+(\S+)\s*$/.exec(input.trim());
+            if (!match) throw new Error('Usage: /baseline accept <run-id>');
+            const controller = new AbortController();
+            activeDirectExecutionAbort = controller;
+            try {
+              await acceptMemoryBaseline({
+                runId: match[1] ?? '',
+                permissionEngine,
+                signal: controller.signal,
+                preview: (text) =>
+                  queue.push({ type: 'message_add', payload: { role: 'system', text } }),
+                requested: (request) => {
+                  pendingPermissionIds.add(request.callId);
+                  pendingPermissions.set(request.callId, {
+                    action: request.action,
+                    resource: request.resource,
+                  });
+                  queue.push({
+                    type: 'permission_request',
+                    payload: { ...request, timeoutMs: permissionEngine.getAskTimeoutMs() },
+                  });
+                },
+                resolved: (callId, effect, reason) => {
+                  pendingPermissionIds.delete(callId);
+                  pendingPermissions.delete(callId);
+                  queue.push({ type: 'permission_resolved', payload: { callId, effect, reason } });
+                  queue.push({ type: 'activity_update', payload: { complete: true, id: callId } });
+                },
+              });
+              queue.push({
+                type: 'message_add',
+                payload: { role: 'system', text: `Memory baseline updated from ${match[1]}.` },
+              });
+            } finally {
+              if (activeDirectExecutionAbort === controller) activeDirectExecutionAbort = null;
+            }
+            return;
+          }
           const analysis = await analyzeOnce();
           const explicitGoal = explicitPlanGoal(input);
           let planningSnapshot = null;

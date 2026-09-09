@@ -438,3 +438,62 @@ TUI与专用Appium正常退出，复查本轮xcodebuild/iproxy/xctrace进程已�
 用户要求先提交推送。本次沿用分支docs/def034-physical-cancellation-evidence与OPEN的PR #82（base dev-1.0），提交§21–24的已批准代码、回归与脱敏证据；不创建新PR、不自动合并。DEF-035已修复并resolved，T6.12保持in_progress、T6.13保持pending。
 
 重新运行typecheck、lint（889文件）通过；允许本地loopback/PTY的全库回归 **4006 pass / 7 existing skip / 0 fail，12320 assertions，368文件，112.14s**。G2 generic/all均通过（79文件）；固定版本gitleaks工具完整性校验通过。日志`/private/tmp/itestagent-t612-submit-{typecheck,lint,full}.log`；暂存树的秘密扫描、changed/index扫描与Git hook receipt在提交阶段继续核验并保存在Git目录。未增加skip，未新增真机操作或改变此前证据边界。
+
+## 26. TUI接受内存baseline与原子写入（2026-09-08，用户确认实施）
+
+恢复点为已推送的3a01a7e，工作区起始干净；6.11已done，6.12保持in_progress，Phase6无open延期项。原文US-12.2 AC4“用户可在 TUI 接受某次结果为新 baseline（高风险操作需确认）”。核查发现旧acceptNewBaseline只替换来源和时间，未替换指标，且生产TUI没有入口；已向用户提出具体修复/权限/竞争/测试计划并获确认。
+
+实现见ADR-041：新增`/baseline accept <run-id>`，在规划/模型之前处理；从完整canonical bundle计算当前physical DeviceBackend内存候选，校验当前项目版本、真实目标、操作/采集配置、passed/no-crash、所需指标事实和覆盖。展示新旧MiB值及来源，经PermissionEngine的update_baseline逐次询问。允许后重读报告/项目并通过同key锁内compare-and-swap复核baseline；变化则要求重新审阅。
+
+BaselineManager现在替换实际summary指标，清除新结果未提供的旧指标，保留创建时间/目标元数据及去重来源历史。原生BaselineStore的save/delete/CAS共用独占锁；同目录临时文件sync/close后原子rename，权限0600。生产首次创建使用create-if-absent，竞争不覆盖；坏文件、占用锁、路径逃逸、取消均失败关闭。没有新增持久化schema或外部依赖；锁崩溃残留不自动抢占，rename之后的取消不承诺回滚。
+
+验证分层：
+
+- 初始存储红测3 fail，新增CAS接口尚不存在；修复后原存储与新原子回归通过。
+- 既有Manager/Phase4集成与canonical执行器109 pass；存储、Manager、Phase4、接受集成及AgentSession组合定向202 pass。随后补充持久deny、session dispose及独立进程竞争，最终新专项21 pass / 0 fail。
+- 真实PTY通过生产startTui、AgentSession、OpenTUI、正常文本输入及权限解析，临时canonical/基线fixture验证allow、deny、pending Ctrl+C退出：各1次询问，预览显示50→30MiB，允许后峰值/增长为30/10，拒绝/退出仍50/25。退出dispose session、取消待处理权限。
+- 首次PTY退出超时先考虑未消费权限、renderer生命周期和PTY输出背压；继续读取退出期输出后在未增加等待上限的情况下3条路径通过，确定为测试驱动背压问题。没有用kill或延长timeout冒充正常退出；异常清理仍仅作用于测试子进程。
+- 新增跨包覆盖允许/拒绝/超时/取消、每次重新询问、持久deny、不调用规划/模型、报告篡改、baseline变化、跨项目/设备/场景、失败/crash/partial/缺失指标/Simulator拒绝；存储覆盖独立子进程并发首次创建、占用锁、损坏数据、取消与路径保护。
+
+长key边界修复前门禁：typecheck、lint（896文件）通过；允许本地loopback/PTY的全库回归 **4028 pass / 7 existing skip / 0 fail，12450 assertions，371文件，95.32s**。未增加skip。日志`/private/tmp/itestagent-baseline-{typecheck-final,lint-final,full}.log`，专项日志同baseline前缀。全库已包含schema parity、架构、秘密脱敏及新PTY测试，未改变后重复跑同一批检查。
+
+真实数据只读预审：生产RunStore完整校验§24的run_01a08345-914d-7000-bae0-bb3394627f9e；临时MemoryProbe项目版本引用与run一致。兼容既有baseline来源run_01a082ed-5ee5-7000-be47-00b41954a634，旧/新峰值48.359901428222656→47.813026428222656MiB，旧/新增长38.359397888183594→37.796897888183594MiB。只向模型输出固定身份校验结果、生成run ID及数值，未启动设备、模型工作负载或新采集。
+
+最终长key边界复核发现：在生产三段64位hash key后继续附加UUID临时文件后缀，遇到26.0.1等补丁版本可超过单文件名长度限制。改为同目录短的唯一临时名，新增真实文件系统回归通过。最终再次typecheck/lint通过，全库 **4029 pass / 7 existing skip / 0 fail，12452 assertions，371文件，95.55s**；日志`/private/tmp/itestagent-baseline-full-final.log`，未新增skip。G2 generic扫描79文件及文档diff-check通过。
+
+**真实baseline未覆盖，生产TUI真实数据接受验收待本次update_baseline授权**。上述单元/集成/PTY使用临时fixture，不算新G5/G5-SIM。T6.12保持in_progress、T6.13不启动；零扫描、多轮、Simulator/XCUITest新增采集、其他性能出口仍未完成。本增量尚未提交推送。
+
+
+## 27. 已授权真实baseline接受验收（2026-09-08本地时间，UTC 2026-09-09）
+
+用户在具体来源run及新旧值展示后回复“授权”。本次仅消费对应的update_baseline一次性授权；从同一临时MemoryProbe项目目录启动正常生产CLI/OpenTUI，输入`/baseline accept run_01a08345-914d-7000-bae0-bb3394627f9e`。没有注入测试服务/报告/store/permission替身。PTY只发送正常键盘输入并将原始输出保存在本地，模型仅收到固定标记、生成run ID及聚合数值。
+
+真实界面出现Accept memory baseline、physical target、Current source/Selected source和四个预审数值，随后出现Permission required/update_baseline。核对与已授权范围一致后仅输入一次allow；TUI返回Permission allow与Memory baseline updated，无baseline错误或权限超时。生产实现完成允许后的canonical重读与baseline CAS。
+
+| 核验 | 实际结果 |
+| --- | --- |
+| 旧来源 | run_01a082ed-5ee5-7000-be47-00b41954a634 |
+| 新来源 | run_01a08345-914d-7000-bae0-bb3394627f9e |
+| 峰值（MiB，approximate） | 48.359901428222656 → 47.813026428222656 |
+| 增长（MiB，approximate） | 38.359397888183594 → 37.796897888183594 |
+| 文件变化范围 | baseline总数仍1，只有已审阅同key文件SHA256改变 |
+| 元数据 | createdAt保留、updatedAt变化、physical域保留；reachableRuns中旧/新来源各1次 |
+| 历史报告 | 两个来源run各5份plan/steps/result/summary/artifact-index，共10份文件SHA256不变 |
+| 完整性 | 更新后RunStore.loadRunBundle及所有artifact哈希/大小校验通过；当前项目版本仍匹配 |
+| 文件安全/清理 | baseline权限0600，无.lock/.tmp残留 |
+| 退出 | 正常Ctrl+C，持续消费PTY输出，CLI/driver均exit0；所属PID不存在、UNIX socket已移除 |
+
+本地证据目录`~/.itestagent/runs/baseline-accept-tui-1788913935/artifacts/`含terminal.raw与仅白名单字段的verification.json。原始终端内容保持raw-local-only；未输出设备标识、个人签名、原始截图/trace或凭证。前后文件摘要快照只用于本地核验，不提交原始身份路径或baseline文件内容。
+
+本次未重新执行设备工作负载、构建/安装/WDA准备或采集，因此不是新增G5/G5-SIM。没有修改生产代码，沿用§26最终typecheck/lint及4029 pass / 7 existing skip / 0 fail门禁；文档与任务JSON另作校验。历史报告的baselineDelta保留当时对比结果，不回填新基线。本次具体替换已完成且授权已消费，后续替换需重新展示并确认。
+
+T6.12保持in_progress，T6.13保持pending；有效零扫描、可复现多轮、Simulator/XCUITest新增采集与其余性能出口仍未完成。本增量尚未提交推送，现有PR不自动合并。
+
+
+## 28. baseline接受增量提交（2026-09-08本地时间，UTC 2026-09-09）
+
+用户要求先提交推送。本次沿用docs/def034-physical-cancellation-evidence和OPEN的PR #82（base dev-1.0），提交§26–27代码、回归、ADR-041及脱敏真实接受证据。任务保持in_progress，T6.13保持pending，不创建重复PR或自动合并，不重复消费已执行的baseline/设备授权。
+
+提交前重新运行typecheck、lint（896文件）通过；允许本地loopback/PTY的全库回归 **4029 pass / 7 existing skip / 0 fail，12452 assertions，371文件，98.60s**，未新增skip。G2 generic/all通过（79文件），固定版本gitleaks归档/二进制完整性核验通过。日志`/private/tmp/itestagent-baseline-submit-{typecheck,lint,full}.log`。暂存内容的秘密扫描、changed/index扫描、任务字段与whitespace核验及树绑定Git hook receipt在提交阶段保存于Git目录；不绕过hook。
+
+本次提交范围不包含本地baseline文件、原始PTY/设备证据、个人签名项目或凭证；没有新增生产代码修复或设备验证。自检未发现需新增延期的条目，DEF-034/035保持resolved；零扫描、多轮、其他路线和性能出口仍按既有T6.12责任推进。

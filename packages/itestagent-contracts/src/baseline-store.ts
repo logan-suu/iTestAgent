@@ -116,6 +116,12 @@ export type BaselineListFilter = z.infer<typeof BaselineListFilterSchema>;
  * field matches the storage subdirectory (ADR-011).
  */
 export interface BaselineStore {
+  /** Atomically replace only the reviewed record; null means create-if-absent. */
+  compareAndSwap?(
+    record: BaselineRecord,
+    expected: BaselineRecord | null,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
   /**
    * Retrieve a baseline record by key.
    * Returns null if no baseline exists for this key.
