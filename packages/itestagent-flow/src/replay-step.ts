@@ -123,7 +123,20 @@ export async function executeStep(
   if (action === 'wait') {
     const ms = step.durationMs ?? 1000;
     const start = Date.now();
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    if (signal?.aborted) return skippedStep(stepIndex, action, target, 'Replay cancelled');
+    await new Promise<void>((resolve) => {
+      const abort = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', abort);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', abort);
+        resolve();
+      }, ms);
+      signal?.addEventListener('abort', abort, { once: true });
+    });
+    if (signal?.aborted) return skippedStep(stepIndex, action, target, 'Replay cancelled');
     return passedStep(stepIndex, action, target, Date.now() - start, [], `Waited ${ms}ms`);
   }
 

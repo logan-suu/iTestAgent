@@ -26,14 +26,18 @@ import {
   type ProductionActionSuggestion,
   type ProductionAgentSessionDependencies,
   type ProductionExecutionTransports,
+  type SimulatorAppiumOptions,
   ToolDispatcher,
   assertProviderUrl,
   createDefaultMemoryBaselineAcceptance,
   createMemoryBaselineAcceptance,
   createProductionAgentSessionDependencies,
   executeProductionTestPlanToDefaultStore,
+  prepareMemoryRounds,
   productionPermissionActions,
+  simulatorConnectionSummary,
   suggestExplorationAction,
+  validateSimulatorAppiumOptions,
 } from 'itestagent-engine';
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
 import { isDeviceReady } from './device-review.js';
@@ -180,7 +184,11 @@ export function selectConfirmedPlanDevice(
 }
 
 export interface AgentSessionDependencies {
+  /** Validated transient CLI settings, applied only by the real Simulator composition. */
+  simulatorAppium?: SimulatorAppiumOptions;
   baselineAcceptance?: BaselineAcceptanceDependencies;
+  /** Alternate local Flow root for isolated transport tests. */
+  flowDataRoot?: string;
   loadApiKey?: () => Promise<string | null>;
   createModel?: (config: SessionConfig, apiKey: string) => LanguageModel;
   analyzeWorkspace?: (workspace: string) => Promise<ProjectAnalysisResult>;
@@ -218,6 +226,7 @@ export interface TuiAgentSession {
   ): Promise<readonly TuiStatePatch[]>;
   refreshDevices(): Promise<readonly TuiStatePatch[]>;
   modifyPlan(input: string): readonly TuiStatePatch[];
+  configureMemoryRounds?(input: string): Promise<readonly TuiStatePatch[]>;
   confirmPlan(): readonly TuiStatePatch[];
   executeConfirmedPlan(): AsyncIterable<TuiStatePatch>;
   cancelPlan(): readonly TuiStatePatch[];
@@ -299,7 +308,11 @@ export async function createAgentSession(
   workspace: string,
   dependencies: AgentSessionDependencies = {},
 ): Promise<TuiAgentSession> {
-  const production = dependencies.production ?? createProductionAgentSessionDependencies();
+  const simulatorAppium = dependencies.simulatorAppium
+    ? validateSimulatorAppiumOptions(dependencies.simulatorAppium)
+    : undefined;
+  const production =
+    dependencies.production ?? createProductionAgentSessionDependencies({ simulatorAppium });
   const runtimeConfig = loadTuiRuntimeConfig({ workspace });
   const config: SessionConfig = {
     baseURL: runtimeConfig.model.baseURL ?? DEFAULT_PROVIDER_BASE_URL,
@@ -474,14 +487,14 @@ export async function createAgentSession(
               signal: suggestionSignal,
               onProgress,
             })),
-        authorize: (action, resource) =>
+        authorize: (action, resource, permissionSignal = signal) =>
           authorizedByExecutionTool.has(`${action}\u0000${resource}`)
             ? Promise.resolve(true)
             : toolDispatcher.authorize(
                 `execution-${crypto.randomUUID()}`,
                 action,
                 resource,
-                signal,
+                permissionSignal,
               ),
         production: {
           analyzeWorkspace,
@@ -570,7 +583,7 @@ export async function createAgentSession(
         },
       },
       executeTestPlan: {
-        action: () => confirmedExecutionContext().actions[0] ?? 'replace_device_app',
+        action: () => confirmedExecutionContext().actions[0] ?? 'execute_confirmed_test_plan',
         additionalActions: () => confirmedExecutionContext().actions.slice(1),
         resource: () => confirmedExecutionContext().resource,
         backendName: 'itestagent-engine',
@@ -663,7 +676,51 @@ export async function createAgentSession(
     maxSteps: 15,
   });
 
+  let disposed = false;
+  let roundPreparationPending = false;
+  const configureMemoryRounds = async (input: string): Promise<readonly TuiStatePatch[]> => {
+    const match = /^\/memory-rounds\s+([a-zA-Z0-9][a-zA-Z0-9_-]{0,127})\s+(\d+)\s+(\d+)\s*$/.exec(
+      input.trim(),
+    );
+    if (!match)
+      throw new Error(
+        'Usage in Plan Review: /memory-rounds <flow-id> <2-10 rounds> <0-60 interval seconds>',
+      );
+    const session = planningSession;
+    const snapshot = session?.getSnapshot();
+    if (
+      disposed ||
+      !session ||
+      snapshot?.status !== 'awaiting_plan_confirmation' ||
+      !snapshot.plan ||
+      roundPreparationPending
+    )
+      throw new Error('memory_rounds.draft_required: configure rounds in a draft Plan Review');
+    const identity = JSON.stringify(snapshot.plan);
+    roundPreparationPending = true;
+    try {
+      const config = await prepareMemoryRounds(
+        match[1] ?? '',
+        Number(match[2]),
+        Number(match[3]) * 1000,
+        workspace,
+        dependencies.flowDataRoot,
+      );
+      if (
+        disposed ||
+        session.getSnapshot().status !== 'awaiting_plan_confirmation' ||
+        planningSession !== session ||
+        JSON.stringify(session.getSnapshot().plan) !== identity
+      )
+        throw new Error('memory_rounds.draft_changed: review the current draft again');
+      return planningPatches(session.configureMemoryRounds(config), devices, simulatorAppium);
+    } finally {
+      roundPreparationPending = false;
+    }
+  };
+
   return {
+    configureMemoryRounds,
     processMessage(input: string): AsyncIterable<TuiStatePatch> {
       if (activeTurn) throw new Error('An agent turn is already in progress');
       activeTurn = true;
@@ -691,6 +748,10 @@ export async function createAgentSession(
 
       void (async () => {
         try {
+          if (/^\/memory-rounds(?:\s|$)/.test(input.trim())) {
+            for (const patch of await configureMemoryRounds(input)) queue.push(patch);
+            return;
+          }
           if (/^\/baseline(?:\s|$)/.test(input.trim())) {
             const match = /^\/baseline\s+accept\s+(\S+)\s*$/.exec(input.trim());
             if (!match) throw new Error('Usage: /baseline accept <run-id>');
@@ -749,7 +810,8 @@ export async function createAgentSession(
               selectedDeviceUdid = null;
               queue.push({ type: 'planning_reset', payload: {} });
             }
-            for (const patch of planningPatches(planningSnapshot, devices)) queue.push(patch);
+            for (const patch of planningPatches(planningSnapshot, devices, simulatorAppium))
+              queue.push(patch);
           }
 
           transcript.push({ role: 'user', content: input });
@@ -788,7 +850,11 @@ export async function createAgentSession(
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      return planningPatches(planningSession.confirmCandidates(candidates), devices);
+      return planningPatches(
+        planningSession.confirmCandidates(candidates),
+        devices,
+        simulatorAppium,
+      );
     },
 
     async selectDevice(udid, switchDecision) {
@@ -895,7 +961,7 @@ export async function createAgentSession(
         ...(snapshot.plan
           ? [{ type: 'device_selected' as const, payload: { udid: selected.udid } }]
           : []),
-        ...planningPatches(snapshot, devices),
+        ...planningPatches(snapshot, devices, simulatorAppium),
       ];
     },
 
@@ -918,7 +984,7 @@ export async function createAgentSession(
         },
       ];
       const snapshot = planningSession?.getSnapshot();
-      if (snapshot?.plan) patches.push(...planningPatches(snapshot, devices));
+      if (snapshot?.plan) patches.push(...planningPatches(snapshot, devices, simulatorAppium));
       return patches;
     },
 
@@ -926,10 +992,11 @@ export async function createAgentSession(
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
-      return planningPatches(planningSession.modifyPlan(input), devices);
+      return planningPatches(planningSession.modifyPlan(input), devices, simulatorAppium);
     },
 
     confirmPlan() {
+      if (roundPreparationPending) throw new Error('memory_rounds.review_pending');
       if (!planningSession) {
         throw new Error('planning_session_unavailable: submit a test goal first');
       }
@@ -942,7 +1009,17 @@ export async function createAgentSession(
       selectConfirmedPlanDevice(snapshot.plan, devices);
       const plan = planningSession.confirmPlan();
       return [
-        { type: 'plan_update', payload: { plan, confirmed: true } },
+        {
+          type: 'plan_update',
+          payload: {
+            plan,
+            confirmed: true,
+            connectionSummary:
+              plan.device.kind === 'simulator' && simulatorAppium
+                ? simulatorConnectionSummary(simulatorAppium)
+                : undefined,
+          },
+        },
         { type: 'mode_change', payload: { mode: 'chat' } },
         {
           type: 'message_add',
@@ -1116,6 +1193,7 @@ export async function createAgentSession(
     },
 
     dispose() {
+      disposed = true;
       deviceSelectionRevision += 1;
       pendingTargetSwitch = null;
       for (const callId of pendingPermissionIds) {
@@ -1132,6 +1210,7 @@ export async function createAgentSession(
 function planningPatches(
   snapshot: ReturnType<PlanningSession['getSnapshot']>,
   devices: readonly DeviceInfo[],
+  simulatorAppium?: SimulatorAppiumOptions,
 ): TuiStatePatch[] {
   const patches: TuiStatePatch[] = [
     { type: 'intent_update', payload: { result: snapshot.intentResult } },
@@ -1207,7 +1286,17 @@ function planningPatches(
       });
       patches.push({ type: 'mode_change', payload: { mode: 'device_review' } });
     } else {
-      patches.push({ type: 'plan_update', payload: { plan: snapshot.plan, confirmed: false } });
+      patches.push({
+        type: 'plan_update',
+        payload: {
+          plan: snapshot.plan,
+          confirmed: false,
+          connectionSummary:
+            snapshot.plan.device.kind === 'simulator' && simulatorAppium
+              ? simulatorConnectionSummary(simulatorAppium)
+              : undefined,
+        },
+      });
       patches.push({ type: 'mode_change', payload: { mode: 'plan_review' } });
     }
   }

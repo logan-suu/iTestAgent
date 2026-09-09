@@ -58,6 +58,28 @@ describe('RealAppiumDriver', () => {
     }));
   });
 
+  it('returns only validated foreground identity and strips launch arguments', async () => {
+    await driver.createSession({ platformName: 'iOS', 'appium:udid': 'TEST-UDID' });
+    mockClient.execute = mock(
+      async <T>() =>
+        ({
+          bundleId: 'com.example.fixture',
+          pid: 42,
+          processArguments: { env: { PRIVATE: 'fixture-private-value' } },
+        }) as T,
+    );
+    expect(await driver.getActiveAppInfo()).toEqual({ bundleId: 'com.example.fixture', pid: 42 });
+    expect(mockClient.execute).toHaveBeenCalledWith('mobile: activeAppInfo');
+    for (const pid of [0, -1, 1.5, '42', undefined]) {
+      mockClient.execute = mock(async <T>() => ({ bundleId: 'com.example.fixture', pid }) as T);
+      await expect(driver.getActiveAppInfo()).rejects.toThrow('active_app_identity_unavailable');
+    }
+    mockClient.execute = mock(async () => {
+      throw new Error('fixture-private-value');
+    });
+    await expect(driver.getActiveAppInfo()).rejects.toThrow('active_app_identity_unavailable');
+  });
+
   // ── Session lifecycle ──────────────────────────────────────
 
   describe('createSession', () => {

@@ -600,6 +600,7 @@ export { createId } from './ids.js';
 // scenario symbols stay behind the scenarios subpath, ADR-020).
 export type { MigrationIssue, MigrationResult } from './migrations/types.js';
 export {
+  PerformanceCaptureStartError,
   MetricCollectionOutcomeSchema,
   PerformanceMetricNameSchema,
 } from './performance-capture.js';
@@ -619,3 +620,12 @@ export {
   type MemoryGrowth,
   type MemoryLeaks,
 } from './memory-analysis.js';
+
+export {
+  MemoryRoundsPlanSchema,
+  MemoryRoundSchema,
+  MemoryRoundsResultSchema,
+} from './memory-analysis.js';
+export type { MemoryRoundsPlan, MemoryRound, MemoryRoundsResult } from './memory-analysis.js';
+
+export { memoryRoundsMetricIssues } from './memory-rounds-validation.js';

@@ -38,3 +38,6 @@ rename是不可回滚的提交点：之前观察到取消则不发布，之后�
 这些测试不是新G5/G5-SIM。真实baseline替换需展示具体旧值、新值及run后另获本次授权；不沿用之前构建/安装/录制的allow。零扫描、多轮可复现操作、Simulator/XCUITest新增采集与完整环境指纹等剩余项仍归ADR-040/T6.12，不以本增量关闭任务。
 
 真实数据验收：用户针对已展示来源和新旧数值授权后，正常生产CLI/OpenTUI通过一次update_baseline allow完成替换，峰值47.813026428222656MiB、增长37.796897888183594MiB。只有兼容的一个baseline改变，创建时间/来源历史保留，两次历史run的10份canonical报告文件哈希不变；完整性验证通过，无锁/临时文件残留，CLI与driver正常exit0。本次复用既有真机报告，没有新设备工作负载或采集，不扩张G5/G5-SIM结论。具体一次性授权已消费；后续其他替换仍需独立确认。
+
+
+T6.12基线草稿编辑补充（2026-09-09，用户确认）：正常TUI的Modify输入支持精确baseline=skip或baseline=local_auto，只修改未确认计划；显式选择在本planning session的重新编译/目标选择/多轮配置后保留，新会话不继承。Simulator native内存仍强制skip、拒绝开启local_auto。策略编辑不写baseline，既有执行与高风险替换权限保持。真实PTY已验证skip进入canonical且无测试基线新增；无schema/Intent扩展。证据见性能报告§41。

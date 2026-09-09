@@ -1,7 +1,10 @@
 import type { MemoryGrowth } from 'itestagent-contracts';
 
 /** Observed interval facts only: no pass/fail threshold and no inference of leaks. */
-export function analyzeMemoryGrowth(samples: MemoryGrowth['samples']): MemoryGrowth | undefined {
+export function analyzeMemoryGrowth(
+  samples: MemoryGrowth['samples'],
+  source: MemoryGrowth['source'] = 'activity-monitor-process-live',
+): MemoryGrowth | undefined {
   if (samples.length < 2 || samples.length > 10000) return;
   for (let i = 0; i < samples.length; i++) {
     const s = samples[i];
@@ -23,7 +26,10 @@ export function analyzeMemoryGrowth(samples: MemoryGrowth['samples']): MemoryGro
   const rateMiBPerMinute = (deltaMiB / durationMs) * 60000;
   if (!Number.isFinite(rateMiBPerMinute)) return;
   return {
-    source: 'activity-monitor-process-live',
+    source,
+    ...(source === 'native-footprint'
+      ? { sampleTimestamp: 'host_command_completed' as const }
+      : {}),
     approximate: true,
     scope: 'observed_interval',
     samples: samples.map((s) => ({ ...s })),

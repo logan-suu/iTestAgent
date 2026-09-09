@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
-import { MemoryGrowthSchema, MemoryLeaksSchema } from './memory-analysis.js';
+import {
+  MemoryGrowthSchema,
+  MemoryLeaksSchema,
+  MemoryRoundsResultSchema,
+} from './memory-analysis.js';
 import { BaselineDeltaSchema } from './performance-backend.js';
 import { MetricCollectionOutcomeSchema } from './performance-capture.js';
 import { RunIdSchema } from './run-id.js';
@@ -89,6 +93,7 @@ export type CaseStatus = z.infer<typeof CaseStatusSchema>;
  * 技术选型 §11：主推 hitches/hangs/launch/memory/crash/duration；FPS 标 approximate。
  */
 export const PerformanceMetricsSchema = z.object({
+  memoryRounds: MemoryRoundsResultSchema.optional(),
   memoryGrowth: MemoryGrowthSchema.optional(),
   memoryLeaks: MemoryLeaksSchema.optional(),
   collection: z.array(MetricCollectionOutcomeSchema).optional(),
@@ -99,6 +104,7 @@ export const PerformanceMetricsSchema = z.object({
   /** Legacy field name; new collectors specify the actual unit explicitly. */
   memoryPeakMB: z.number().nonnegative().optional(),
   memoryPeakUnit: z.enum(['MB', 'MiB']).optional(),
+  memoryPeakSource: z.enum(['activity-monitor-process-live', 'native-footprint']).optional(),
   /** 是否检测到 crash */
   crashDetected: z.boolean().optional(),
   /** 卡顿次数，非负整数 */
@@ -303,6 +309,47 @@ export const RunResultSchema = z
     explanation: FailureExplanationSchema.optional(),
   })
   .superRefine((result, ctx) => {
+    const peakSource = result.metrics.memoryPeakSource;
+    const growthSource = result.metrics.memoryGrowth?.source;
+    if (
+      growthSource &&
+      result.metrics.memoryPeakMB !== undefined &&
+      ((growthSource === 'native-footprint' && peakSource !== growthSource) ||
+        (peakSource === 'native-footprint' && growthSource !== peakSource))
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['metrics'],
+        message: 'Native peak and growth sources must agree',
+      });
+    const native =
+      result.metrics.memoryPeakSource === 'native-footprint' ||
+      result.metrics.memoryGrowth?.source === 'native-footprint' ||
+      result.metrics.memoryLeaks?.source === 'native-leaks';
+    if (
+      native &&
+      (result.device.targetKind !== 'simulator' ||
+        result.execution.targetKind !== 'simulator' ||
+        result.environment.targetKind !== 'simulator' ||
+        result.environment.comparisonScope !== 'simulator_only' ||
+        result.environment.representativeOfPhysicalDevice ||
+        result.baselineDelta)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['metrics'],
+        message:
+          'Native memory requires an isolated Simulator environment without baseline comparison',
+      });
+    if (
+      result.metrics.memoryPeakSource === 'native-footprint' &&
+      (result.metrics.memoryPeakUnit !== 'MiB' || result.metrics.memoryPeakMB === undefined)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['metrics'],
+        message: 'Native peak requires a measured MiB value',
+      });
     if (result.parentRunId === result.runId) {
       ctx.addIssue({
         code: 'custom',

@@ -470,3 +470,62 @@ describe('PlanningSession', () => {
     expect(planned.plan?.execution.features).toEqual(['Account Login']);
   });
 });
+
+function memoryDraft() {
+  const session = new PlanningSession(analysis());
+  const initial = session.begin('用本机 iPhone 测试登录，确认 Ready 可见，采集内存增长，观察70秒');
+  session.confirmCandidates(
+    initial.candidates.map((c) => ({ ...c, confirmed: c.name === 'Login' })),
+  );
+  return session;
+}
+
+it('baseline editing changes only the draft policy and survives recompilation and target selection', () => {
+  const session = memoryDraft();
+  const original = session.getSnapshot().plan;
+  if (!original) throw new Error('Expected draft');
+  expect(original?.performance.baseline).toBe('local_auto');
+  const edited = session.modifyPlan('baseline=skip').plan;
+  expect(edited).toEqual({
+    ...original,
+    performance: { ...original?.performance, baseline: 'skip' },
+  });
+  expect(session.getConfirmedPlan()).toBeNull();
+  session.modifyPlan('测试登录，确认 Ready 可见，采集内存增长，观察80秒');
+  expect(session.getSnapshot().plan?.performance.baseline).toBe('skip');
+  session.selectDevice({ kind: 'physical', physical: { selector: 'by_udid', udid: 'fixture' } });
+  expect(session.confirmPlan().performance.baseline).toBe('skip');
+  expect(() => session.modifyPlan('baseline=local_auto')).toThrow('invalid_transition');
+  expect(memoryDraft().getSnapshot().plan?.performance.baseline).toBe('local_auto');
+});
+
+it('invalid baseline commands leave the entire snapshot unchanged', () => {
+  const session = memoryDraft();
+  const before = session.getSnapshot();
+  for (const input of ['baseline=invalid', 'baseline=skip; extra', 'baseline=']) {
+    expect(() => session.modifyPlan(input)).toThrow('invalid_transition');
+    expect(session.getSnapshot()).toEqual(before);
+  }
+  expect(() => new PlanningSession(analysis()).modifyPlan('baseline=skip')).toThrow(
+    'invalid_transition',
+  );
+  session.cancel();
+  expect(() => session.modifyPlan('baseline=skip')).toThrow('invalid_transition');
+});
+
+it('explicit baseline preferences never enable native Simulator automatic baselines', () => {
+  const session = memoryDraft();
+  session.modifyPlan('baseline=local_auto');
+  session.switchDeviceTarget({ kind: 'simulator', simulator: { selector: 'booted' } });
+  const before = session.getSnapshot();
+  expect(before.plan?.performance.baseline).toBe('skip');
+  expect(() => session.modifyPlan('baseline=local_auto')).toThrow('requires baseline=skip');
+  expect(session.getSnapshot()).toEqual(before);
+  session.modifyPlan('baseline=skip');
+  session.switchDeviceTarget({
+    kind: 'physical',
+    physical: { selector: 'by_udid', udid: 'fixture' },
+  });
+  expect(session.getSnapshot().plan?.performance.baseline).toBe('skip');
+  expect(session.modifyPlan('baseline=local_auto').plan?.performance.baseline).toBe('local_auto');
+});

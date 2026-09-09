@@ -194,7 +194,9 @@ export async function persistConfirmedRun(
           : result.assertion.status;
     const caseIds = [
       ...new Set([
-        ...(plan.rerun?.selectedCaseIds ?? plan.execution.features),
+        ...(plan.performance.memoryRounds
+          ? []
+          : (plan.rerun?.selectedCaseIds ?? plan.execution.features)),
         ...result.assertion.cases.map((testCase) => testCase.caseId),
         ...steps.flatMap((step) => (step.caseId ? [step.caseId] : [])),
       ]),
@@ -245,6 +247,14 @@ export async function persistConfirmedRun(
       })),
     );
   }
+  if (dispatch.status === 'completed' && metrics.memoryRounds) {
+    if (
+      ['cancelled', 'blocked', 'inconclusive'].includes(metrics.memoryRounds.status) &&
+      status !== 'infra_failed' &&
+      status !== 'failed'
+    )
+      status = metrics.memoryRounds.status;
+  }
   const metricFields = {
     launch_time: 'launchDurationMs',
     memory_peak: 'memoryPeakMB',
@@ -266,7 +276,12 @@ export async function persistConfirmedRun(
       if (metric !== 'test_duration' && reported && reported.status !== 'collected')
         return reported;
       const field = metric === 'xctrace_summary' ? undefined : metricFields[metric];
-      const value = field ? metrics[field] : undefined;
+      const roundCollected = metrics.memoryRounds?.rounds.every(
+        (r) =>
+          r.status === 'passed' &&
+          r.collection?.some((o) => o.metric === metric && o.status === 'collected'),
+      );
+      const value = roundCollected ? true : field ? metrics[field] : undefined;
       if (value !== undefined && value !== 'inconclusive') {
         return { metric, status: 'collected', reasonCode: 'performance.observed_value' };
       }

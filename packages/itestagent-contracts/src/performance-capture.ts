@@ -29,14 +29,18 @@ export interface PerformanceCaptureResult {
 /** Backend owns its processes; finish is idempotent and waits for teardown. */
 export interface PerformanceCapture {
   finish(): Promise<PerformanceCaptureResult>;
+  /** Aborted when continuous capture fails; dependent actions must stop. */
+  signal?: AbortSignal;
 }
 
 export interface PerformanceCaptureInput {
   memoryObservation?: { minimumDurationMs: number; settleDurationMs: number };
+  /** Confirmed bundle identifier, required for Simulator host-process binding. */
+  bundleId?: string;
   runId: string;
   deviceId: string;
   targetKind: 'physical' | 'simulator';
-  /** Validated executable name, NOT a guessed bundle identifier. */
+  /** Validated executable name or exact live PID, never a guessed bundle identifier. */
   executable: string;
   stagingDir: string;
   metrics: MetricCollectionOutcome['metric'][];
@@ -48,3 +52,11 @@ export interface PerformanceCaptureInput {
 export type PerformanceCaptureFactory = (
   input: PerformanceCaptureInput,
 ) => Promise<PerformanceCapture>;
+
+/** Carries only safe status and local artifact references, never raw tool output. */
+export class PerformanceCaptureStartError extends Error {
+  constructor(readonly result: PerformanceCaptureResult) {
+    super('performance.preparation_failed');
+    this.name = 'PerformanceCaptureStartError';
+  }
+}

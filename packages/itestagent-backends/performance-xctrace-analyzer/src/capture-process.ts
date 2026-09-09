@@ -1,3 +1,16 @@
+export interface CaptureProcess {
+  completed: Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    failure: string | undefined;
+  }>;
+  stop(): void;
+  cancel(): void;
+  isRunning?(): boolean;
+  exited?: Promise<number>;
+}
+
 /** Owned, bounded subprocess transport. Raw output never enters progress or error messages. */
 export function startCaptureProcess(
   command: string[],
@@ -7,7 +20,7 @@ export function startCaptureProcess(
     stopGraceMs?: number;
     onOutput?: (text: string) => void;
   },
-) {
+): CaptureProcess {
   options.signal?.throwIfAborted();
   const child = Bun.spawn(command, { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
   let escalation: ReturnType<typeof setTimeout> | undefined;
@@ -66,6 +79,8 @@ export function startCaptureProcess(
     });
   return {
     completed,
+    exited: child.exited,
+    isRunning: () => child.exitCode === null && child.signalCode === null,
     stop: () => terminate(undefined, 'SIGINT'),
     cancel: () => terminate('performance.cancelled'),
   };

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PerformanceCaptureInput } from 'itestagent-contracts';
 import { startCaptureProcess } from '../src/capture-process.js';
-import { createProductionPerformanceCapture } from '../src/production-capture.js';
+import { createFixtureCapture as createProductionPerformanceCapture } from './capture-notification-fixture.js';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -106,7 +106,7 @@ test('non-memory recording keeps the Animation Hitches template without VM Track
     };
   });
   await expect(factory({ ...input(), metrics: ['hitches'] })).rejects.toThrow(
-    'performance.recording_not_ready',
+    'performance.preparation_failed',
   );
 });
 
@@ -124,7 +124,7 @@ test('recording early exit rejects without exporting or pretending readiness', a
       cancelled = true;
     },
   }));
-  await expect(factory(input())).rejects.toThrow('performance.recording_not_ready');
+  await expect(factory(input())).rejects.toThrow('performance.preparation_failed');
   expect(cancelled).toBe(true);
 });
 
@@ -176,7 +176,7 @@ for (const cancelled of [false, true]) {
     });
     const capture = await factory(args);
     const result = await capture.finish();
-    expect(result.artifacts).toHaveLength(1);
+    expect(result.artifacts).toHaveLength(2);
     expect(
       result.metrics.collection?.every(
         (outcome) => outcome.status === (cancelled ? 'cancelled' : 'failed'),
@@ -196,7 +196,7 @@ test('transport rejection clears readiness and completes teardown without an unh
       cancelled = true;
     },
   }));
-  await expect(factory(input())).rejects.toThrow('performance.recording_not_ready');
+  await expect(factory(input())).rejects.toThrow('performance.preparation_failed');
   expect(cancelled).toBe(true);
 });
 

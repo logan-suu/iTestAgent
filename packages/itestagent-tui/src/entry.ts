@@ -9,6 +9,7 @@ import {
   parseIntentResult,
   parseTestPlan,
 } from 'itestagent-contracts';
+import type { SimulatorAppiumOptions } from 'itestagent-engine';
 import { assertProviderUrl } from 'itestagent-engine';
 import type { CandidateLink } from 'itestagent-project-analyzer';
 import { DEFAULT_API_KEY_TARGET, loadApiKey as loadStoredApiKey } from './api-key-loader.js';
@@ -102,7 +103,10 @@ export function createLatestOperationGate(): LatestOperationGate {
 
 // ── TUI entry ───────────────────────────────────────────────
 
-export async function startTui(workspace?: string): Promise<void> {
+export async function startTui(
+  workspace?: string,
+  options: { simulatorAppium?: SimulatorAppiumOptions } = {},
+): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.log('iTestAgent TUI requires a terminal.');
     console.log("Run 'itestagent --help' for available commands.");
@@ -150,7 +154,7 @@ export async function startTui(workspace?: string): Promise<void> {
   if (!needsSetup) {
     try {
       const { createAgentSession } = await import('./agent-session.js');
-      agentSession = await createAgentSession(ws);
+      agentSession = await createAgentSession(ws, { simulatorAppium: options.simulatorAppium });
       // Show loaded config so user knows what's active
       state = tuiShellReducer(state, {
         type: 'system_message',
@@ -181,6 +185,7 @@ export async function startTui(workspace?: string): Promise<void> {
       const currentKey = sessionApiKey;
       const { createAgentSession } = await import('./agent-session.js');
       agentSession = await createAgentSession(ws, {
+        simulatorAppium: options.simulatorAppium,
         loadApiKey: async () => currentKey,
       });
       state = tuiShellReducer(state, { type: 'setup_complete' });
@@ -200,6 +205,7 @@ export async function startTui(workspace?: string): Promise<void> {
     }
   };
 
+  let rendererFinished = false;
   await renderer
     .start(state, (event: TuiShellEvent) => {
       // ── Setup mode handling ──────────────────────────────
@@ -439,6 +445,25 @@ export async function startTui(workspace?: string): Promise<void> {
 
       if (event.type === 'plan_modify_submit' && agentSession) {
         state = tuiShellReducer(state, event);
+        if (state.planModifyDraft.trim().startsWith('/memory-rounds')) {
+          void agentSession
+            .configureMemoryRounds?.(state.planModifyDraft)
+            .then((patches) => {
+              if (rendererFinished) return;
+              for (const patch of patches) state = applyAgentPatch(state, patch);
+              renderer.update(state);
+            })
+            .catch((error: unknown) => {
+              if (rendererFinished) return;
+              state = tuiShellReducer(state, {
+                type: 'system_message',
+                text: error instanceof Error ? error.message : 'Memory rounds preparation failed',
+              });
+              renderer.update(state);
+            });
+          renderer.update(state);
+          return;
+        }
         try {
           for (const patch of agentSession.modifyPlan(state.planModifyDraft)) {
             state = applyAgentPatch(state, patch);
@@ -573,7 +598,10 @@ export async function startTui(workspace?: string): Promise<void> {
       state = tuiShellReducer(state, event);
       if (state.mode !== 'setup') renderer.update(state);
     })
-    .finally(() => agentSession?.dispose());
+    .finally(() => {
+      rendererFinished = true;
+      agentSession?.dispose();
+    });
 }
 
 // ── Agent message processing ────────────────────────────────
@@ -692,7 +720,14 @@ export function applyAgentPatch(
         return tuiShellReducer(state, { type: 'plan_cancel' });
       }
       const plan = parseTestPlan(patch.payload.plan);
-      const reviewing = tuiShellReducer(state, { type: 'enter_plan_review', plan });
+      const reviewing = tuiShellReducer(state, {
+        type: 'enter_plan_review',
+        plan,
+        connectionSummary:
+          typeof patch.payload.connectionSummary === 'string'
+            ? patch.payload.connectionSummary
+            : undefined,
+      });
       return patch.payload.confirmed === true
         ? tuiShellReducer(reviewing, { type: 'plan_confirm' })
         : reviewing;

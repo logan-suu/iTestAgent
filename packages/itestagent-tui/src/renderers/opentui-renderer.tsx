@@ -452,7 +452,7 @@ function PlanReviewPanel(props: {
   const sections = () => {
     const plan = s().plan;
     if (!plan) return [];
-    return formatPlanSections(plan);
+    return formatPlanSections(plan, s().planConnectionSummary);
   };
   const sectionIndex = () => s().planSectionIndex;
   const planScrollRef = useReviewScroll(() => `plan-review-${sectionIndex()}`);

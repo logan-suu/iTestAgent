@@ -61,8 +61,11 @@ export function createMemoryBaselineAcceptance(deps: BaselineAcceptanceDependenc
         plan.device.physical.udid !== result.device.udid) ||
       ((plan.execution.metrics ?? []).includes('memory_peak') &&
         result.metrics.memoryPeakMB === undefined) ||
-      ((plan.execution.metrics ?? []).includes('memory_leaks') && !result.metrics.memoryLeaks) ||
+      ((plan.execution.metrics ?? []).includes('memory_leaks') &&
+        !result.metrics.memoryLeaks &&
+        !result.metrics.memoryRounds?.rounds.every((r) => r.memoryLeaks)) ||
       ((plan.execution.metrics ?? []).includes('memory_growth') &&
+        !result.metrics.memoryRounds &&
         (!result.metrics.memoryGrowth ||
           result.metrics.memoryGrowth.coverage !== 'complete' ||
           result.metrics.memoryGrowth.durationMs <

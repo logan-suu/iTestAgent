@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resolve } from 'node:path';
 import * as aiReal from 'ai';
 import type { DeviceBackend, DeviceInfo, TestPlan } from 'itestagent-contracts';
@@ -1315,4 +1318,89 @@ describe('session lifecycle seams', () => {
     expect(mod.retainSessionTranscript(['a', 'b', 'c'], 2)).toEqual(['b', 'c']);
     expect(session.dispose()).toBeUndefined();
   });
+});
+
+describe('confirmed memory Flow plan editing', () => {
+  it('keeps editing a draft until explicit confirmation and pins its reviewed source', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'itestagent-round-plan-'));
+    const session = await createAgentSession(root, dependencies({ flowDataRoot: root }));
+    try {
+      await mkdir(join(root, 'flows'));
+      await writeFile(
+        join(root, 'flows/round-workload.yaml'),
+        JSON.stringify({
+          schemaVersion: 'itestagent.flow.v2',
+          flowId: 'round-workload',
+          source: 'user-authored',
+          status: 'confirmed',
+          supportedTargetKinds: ['physical'],
+          requiredCapabilities: ['uiTree'],
+          lastValidatedTargets: [],
+          steps: [{ action: 'assertVisible', locator: { strategy: 'label', value: 'Ready' } }],
+        }),
+      );
+      await expect(
+        session.configureMemoryRounds?.('/memory-rounds round-workload 3 1'),
+      ).rejects.toThrow('draft_required');
+      await collectMessagePatches(
+        session,
+        '用本机 iPhone 跑登录测试，确认 Ready 可见，采集内存增长，观察 1 秒',
+      );
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(PHYSICAL_DEVICE.udid);
+      if (!session.configureMemoryRounds) throw new Error('Missing rounds command');
+      const pending = session.configureMemoryRounds('/memory-rounds round-workload 3 1');
+      expect(() => session.confirmPlan()).toThrow('review_pending');
+      const patches = await pending;
+      expect(patches.some((p) => p.type === 'plan_update' && p.payload.confirmed === false)).toBe(
+        true,
+      );
+      expect(session.getConfirmedPlan()).toBeNull();
+      session.confirmPlan();
+      expect(session.getConfirmedPlan()?.performance.memoryRounds?.count).toBe(3);
+      expect(session.getConfirmedPlan()?.performance.memoryRounds?.steps[0]).toContain('Ready');
+      await expect(
+        session.configureMemoryRounds?.('/memory-rounds round-workload 2 0'),
+      ).rejects.toThrow('draft_required');
+    } finally {
+      session.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Simulator execution permissions reflect actual actions', () => {
+  for (const mode of ['no_wda', 'allow', 'deny', 'cancel'] as const)
+    it(mode, async () => {
+      let executed = 0;
+      const session = await createAgentSession(
+        '/workspace',
+        dependencies({
+          preparesWda: () => mode !== 'no_wda',
+          executeConfirmedPlan: async () => {
+            executed++;
+            return { status: 'completed' };
+          },
+        }),
+      );
+      await collectMessagePatches(session, '/plan 用 Simulator 跑登录测试');
+      session.confirmCandidates(confirmedFakeCandidates());
+      await session.selectDevice(SIMULATOR_DEVICE.udid);
+      session.confirmPlan();
+      const asks: string[] = [];
+      for await (const patch of session.executeConfirmedPlan()) {
+        if (patch.type === 'permission_request') {
+          asks.push(String(patch.payload.action));
+          if (mode === 'cancel') session.dispose();
+          else
+            await session.resolvePermission(
+              String(patch.payload.callId),
+              mode === 'deny' ? 'deny' : 'allow',
+            );
+        }
+      }
+      expect(asks).toEqual(mode === 'no_wda' ? [] : ['prepare_wda']);
+      expect(executed).toBe(mode === 'deny' || mode === 'cancel' ? 0 : 1);
+      session.dispose();
+    });
 });

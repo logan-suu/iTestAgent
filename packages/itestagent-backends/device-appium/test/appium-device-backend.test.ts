@@ -369,6 +369,32 @@ describe('AppiumDeviceBackend', () => {
     await backend.closeSession();
   });
 
+  it('binds foreground PID to the exact app and cancels an unresolved identity read', async () => {
+    const identity = Object.assign(mock, {
+      getActiveAppInfo: async () => ({ bundleId: 'com.example.fixture', pid: 42 }),
+    });
+    expect(
+      await backend.getAppProcessId({
+        deviceId: '00008110-00123456A12B001E',
+        bundleId: 'com.example.fixture',
+      }),
+    ).toBe(42);
+    await expect(
+      backend.getAppProcessId({
+        deviceId: '00008110-00123456A12B001E',
+        bundleId: 'com.example.other',
+      }),
+    ).rejects.toThrow('identity_mismatch');
+    identity.getActiveAppInfo = () => new Promise(() => {});
+    const controller = new AbortController();
+    const pending = backend.getAppProcessId(
+      { deviceId: '00008110-00123456A12B001E', bundleId: 'com.example.fixture' },
+      controller.signal,
+    );
+    controller.abort();
+    await expect(pending).rejects.toBeDefined();
+  });
+
   // ─── Constructor & Metadata ───────────────────────────────────
 
   describe('constructor & metadata', () => {

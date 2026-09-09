@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   MetricCollectionOutcome,
@@ -7,11 +7,17 @@ import type {
   PerformanceCaptureResult,
   PerformanceMetrics,
 } from 'itestagent-contracts';
-import { MEMORY_CAPTURE_POLICY, MemoryObservationSchema } from 'itestagent-contracts';
+import {
+  MEMORY_CAPTURE_POLICY,
+  MemoryObservationSchema,
+  PerformanceCaptureStartError,
+} from 'itestagent-contracts';
 import { parseActivityMonitorMemory } from './activity-monitor-memory.js';
 import { startCaptureProcess } from './capture-process.js';
+import { startReadyRecording } from './capture-readiness.js';
 import { parseLeaksDetail } from './leaks-detail.js';
 import { parsePerformanceMetrics } from './metrics-parser.js';
+import { createNativeMemoryCapture } from './native-memory-capture.js';
 import { waitForObservation } from './observation-wait.js';
 
 const FIELDS = {
@@ -50,6 +56,7 @@ export function createProductionPerformanceCapture(
   },
 ): PerformanceCaptureFactory {
   return async (input) => {
+    if (input.targetKind === 'simulator') return createNativeMemoryCapture({ spawn })(input);
     input.signal?.throwIfAborted();
     const observation = input.memoryObservation
       ? MemoryObservationSchema.parse(input.memoryObservation)
@@ -79,79 +86,76 @@ export function createProductionPerformanceCapture(
     progress(
       `Starting ${template}${extraInstrument ? ` + ${extraInstrument}` : ''} performance recording…`,
     );
-    let ready!: () => void;
-    const readiness = new Promise<void>((resolve) => {
-      ready = resolve;
+    const auditPath = join(dir, 'capture-audit.jsonl');
+    const auditArtifact: PerformanceCaptureResult['artifacts'][number] = {
+      id: `${input.runId}-performance-audit`,
+      type: 'log',
+      path: auditPath,
+      backend: 'xctrace',
+      redactionStatus: 'raw-local-only',
+    };
+    const audit = (value: unknown) =>
+      appendFileSync(auditPath, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+    audit({ event: 'preparing', at: new Date().toISOString() });
+    const auditedSpawn: typeof startCaptureProcess = (command, options) => {
+      const child = spawn(command, options);
+      return {
+        ...child,
+        completed: child.completed.then(
+          (result) => {
+            audit({ command, ...result, at: new Date().toISOString() });
+            return result;
+          },
+          () => {
+            audit({ event: 'transport_failed', command, at: new Date().toISOString() });
+            throw new Error('performance.transport_failed');
+          },
+        ),
+      };
+    };
+    const failed = (reason: string) => ({
+      ...unavailable(input, reason),
+      artifacts: [auditArtifact],
     });
-    let outputTail = '';
-    const recording = spawn(
-      [
-        'xcrun',
-        'xctrace',
-        'record',
-        '--template',
-        template,
-        ...(extraInstrument ? ['--instrument', extraInstrument] : []),
-        '--device',
-        input.deviceId,
-        '--attach',
-        input.executable,
-        '--output',
-        trace,
-        '--time-limit',
-        '600s',
-        '--no-prompt',
-      ],
-      {
-        signal: input.signal,
-        timeoutMs: 630_000,
-        stopGraceMs: 30_000,
-        onOutput: (chunk) => {
-          outputTail = (outputTail + chunk).slice(-2048);
-          if (/Recording started|(?:Hit )?Ctrl-C to stop(?: the recording)?/i.test(outputTail))
-            ready();
-        },
-      },
-    );
-    let readyTimer: ReturnType<typeof setTimeout> | undefined;
-    let started = false;
+    let recording: Awaited<ReturnType<typeof startReadyRecording>> | undefined;
     try {
-      started = await Promise.race([
-        readiness.then(() => true),
-        recording.completed.then(() => false),
-        new Promise<boolean>((resolve) => {
-          readyTimer = setTimeout(() => resolve(false), 30_000);
-        }),
-      ]);
+      recording = await startReadyRecording(
+        auditedSpawn,
+        [
+          'xcrun',
+          'xctrace',
+          'record',
+          '--template',
+          template,
+          ...(extraInstrument ? ['--instrument', extraInstrument] : []),
+          '--device',
+          input.deviceId,
+          '--attach',
+          input.executable,
+          '--output',
+          trace,
+          '--time-limit',
+          '600s',
+          '--no-prompt',
+        ],
+        { signal: input.signal },
+      );
+      audit({ event: 'ready', basis: 'darwin_notification', at: new Date().toISOString() });
     } catch {
-      recording.cancel();
-      await recording.completed.catch(() => {});
-      throw new Error('performance.recording_not_ready');
-    } finally {
-      clearTimeout(readyTimer);
-    }
-    if (!started || input.signal?.aborted) {
-      recording.cancel();
-      await recording.completed;
-      throw new Error(
-        input.signal?.aborted ? 'performance.cancelled' : 'performance.recording_not_ready',
+      recording?.cancel();
+      await recording?.completed.catch(() => {});
+      throw new PerformanceCaptureStartError(
+        failed(input.signal?.aborted ? 'performance.cancelled' : 'performance.recording_not_ready'),
       );
     }
-    let endedEarly = false;
+    const active = recording;
     const startedAt = clock.now();
-    let finishing = false;
-    void recording.completed
-      .then(() => {
-        if (!finishing) endedEarly = true;
-      })
-      .catch(() => {
-        endedEarly = true;
-      });
     let final: Promise<PerformanceCaptureResult> | undefined;
     return {
+      signal: active.signal,
       finish() {
         final ??= (async () => {
-          if (observation && !input.signal?.aborted && !endedEarly) {
+          if (observation && !input.signal?.aborted && !active.signal.aborted) {
             // Readiness is not the first sample. Reserve headroom in this same trace;
             // only exported sample timestamps can establish complete coverage below.
             const waitMs = Math.max(
@@ -162,29 +166,39 @@ export function createProductionPerformanceCapture(
             );
             const deadline = clock.now() + waitMs;
             try {
-              while (clock.now() < deadline && !endedEarly) {
+              while (clock.now() < deadline && !active.signal.aborted) {
                 progress(
                   `Observing memory after actions: ${Math.ceil((deadline - clock.now()) / 1000)}s remaining; includes sampling allowance (${MEMORY_CAPTURE_POLICY.samplingAllowanceMs / 1000}s); coverage is verified after export…`,
                 );
-                await clock.wait(Math.min(1000, Math.max(0, deadline - clock.now())), input.signal);
+                await clock.wait(
+                  Math.min(1000, Math.max(0, deadline - clock.now())),
+                  active.signal,
+                );
               }
             } catch {
-              recording.cancel();
-              await recording.completed;
-              return unavailable(input, 'performance.cancelled');
+              active.cancel();
+              await active.completed;
+              return failed(active.failure() ?? 'performance.cancelled');
             }
           }
-          finishing = true;
           const recordingDurationMs = clock.now() - startedAt;
           progress('Finalizing performance recording…');
-          recording.stop();
-          const recorded = await recording.completed;
-          if (recorded.failure || recorded.exitCode !== 0 || endedEarly || !existsSync(trace)) {
-            return unavailable(input, recorded.failure ?? 'performance.recording_incomplete');
+          active.stop();
+          const recorded = await active.completed;
+          if (
+            recorded.failure ||
+            recorded.exitCode !== 0 ||
+            active.signal.aborted ||
+            !existsSync(trace)
+          ) {
+            return failed(
+              active.failure() ?? recorded.failure ?? 'performance.recording_incomplete',
+            );
           }
           const result: PerformanceCaptureResult = {
             metrics: {},
             artifacts: [
+              auditArtifact,
               {
                 id: `${input.runId}-performance-trace`,
                 type: 'trace',
@@ -240,6 +254,7 @@ export function createProductionPerformanceCapture(
                   ? memory
                     ? {
                         memoryPeakMB: memory.peakMiB,
+                        memoryPeakSource: 'activity-monitor-process-live' as const,
                         memoryPeakUnit: 'MiB' as const,
                         ...(memory.growth ? { memoryGrowth: memory.growth } : {}),
                         approximate: true,
@@ -298,7 +313,11 @@ export function createProductionPerformanceCapture(
             ).metrics.collection;
           }
           return result;
-        })();
+        })().catch(() =>
+          failed(
+            input.signal?.aborted ? 'performance.cancelled' : 'performance.finalization_failed',
+          ),
+        );
         return final;
       },
     };

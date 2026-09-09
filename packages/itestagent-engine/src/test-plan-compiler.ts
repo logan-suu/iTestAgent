@@ -55,11 +55,18 @@ export function compileTestPlan(
 
   // ── Performance plan (ADR-011: baselineDomain) ─────────────
   const targetKind = intent.targetKind ?? 'physical';
+  const nativeMemory =
+    targetKind === 'simulator' &&
+    execution.resolvedPath === 'device_backend' &&
+    execution.metrics?.some((metric) =>
+      ['memory_peak', 'memory_growth', 'memory_leaks'].includes(metric),
+    );
   const performance = {
-    baseline: 'local_auto' as const,
+    baseline: nativeMemory ? ('skip' as const) : ('local_auto' as const),
     baselineDomain: targetKind,
     thresholdRequired: false,
-    ...(execution.metrics?.some((m) => m === 'memory_growth' || m === 'memory_leaks')
+    ...(nativeMemory ||
+    execution.metrics?.some((m) => m === 'memory_growth' || m === 'memory_leaks')
       ? {
           memoryObservation: intent.memoryObservation ?? {
             minimumDurationMs: 30_000,
@@ -84,7 +91,9 @@ export function compileTestPlan(
         'uitree',
         'crashlog',
         'xcresult',
-        ...(execution.metrics?.some((m) => m !== 'test_duration') ? ['trace' as const] : []),
+        ...(!nativeMemory && execution.metrics?.some((m) => m !== 'test_duration')
+          ? ['trace' as const]
+          : []),
       ],
       report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
     },

@@ -1,3 +1,4 @@
+import { assertSimulatorPortsAvailable } from './simulator-port-check.js';
 /**
  * AppiumDeviceBackend — DeviceBackend implementation for physical + simulator iOS devices.
  *
@@ -161,6 +162,7 @@ export interface AppiumDeviceBackendOptions {
    * Required for parallel simulator sessions (G5-SIM T1.6 finding #5).
    */
   derivedDataPath?: string;
+  exclusiveSimulatorPorts?: boolean;
   /**
    * Path to WDA .xcodeproj for managed-xcodebuild mode.
    * Required when wdaStartupMode is 'managed-xcodebuild'.
@@ -310,6 +312,7 @@ export class AppiumDeviceBackend implements DeviceBackend {
       deviceName: options.deviceName ?? '',
       platformVersion: options.platformVersion ?? '',
       derivedDataPath: options.derivedDataPath,
+      exclusiveSimulatorPorts: options.exclusiveSimulatorPorts ?? false,
       webDriverAgentUrl: options.webDriverAgentUrl,
       wdaProjectPath: options.wdaProjectPath,
       xcodeOrgId: options.xcodeOrgId,
@@ -375,6 +378,11 @@ export class AppiumDeviceBackend implements DeviceBackend {
       let caps: Record<string, unknown>;
 
       if (this.targetKind === 'simulator') {
+        if (this.opts.exclusiveSimulatorPorts)
+          await assertSimulatorPortsAvailable(
+            [this.opts.wdaLocalPort, this.opts.mjpegServerPort],
+            signal,
+          );
         caps = this.buildSimulatorCaps();
       } else {
         caps = await this.buildPhysicalCaps(signal);
@@ -1042,6 +1050,16 @@ export class AppiumDeviceBackend implements DeviceBackend {
   }
 
   // ────────── launchApp ───────────────────────────────────────────
+
+  async getAppProcessId(input: LaunchAppInput, signal?: AbortSignal): Promise<number> {
+    if (input.deviceId !== this.opts.udid) throw new Error('app_process_target_mismatch');
+    await this.ensureSession(signal);
+    if (!this.driver.getActiveAppInfo) throw new Error('app_process_identity_unsupported');
+    const value = await this.awaitAbortable(this.driver.getActiveAppInfo(), signal);
+    if (value.bundleId !== input.bundleId || !Number.isSafeInteger(value.pid) || value.pid <= 0)
+      throw new Error('app_process_identity_mismatch');
+    return value.pid;
+  }
 
   async launchApp(input: LaunchAppInput, signal?: AbortSignal): Promise<ActionResult> {
     try {

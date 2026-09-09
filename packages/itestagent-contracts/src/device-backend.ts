@@ -40,6 +40,9 @@ export interface DeviceBackend {
   /** 设备健康检查 */
   healthcheck(deviceId: string, signal?: AbortSignal): Promise<HealthCheckResult>;
 
+  /** Exact foreground process for the requested app; no raw launch arguments are returned. */
+  getAppProcessId?(input: LaunchAppInput, signal?: AbortSignal): Promise<number>;
+
   /** 已安装 App 列表 */
   listApps(deviceId: string, signal?: AbortSignal): Promise<AppInfo[]>;
 

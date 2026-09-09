@@ -216,6 +216,24 @@ export class RealAppiumDriver implements AppiumDriver {
 
   // ── App management ────────────────────────────────────────────────
 
+  async getActiveAppInfo(): Promise<{ bundleId: string; pid: number }> {
+    try {
+      const value = await this.requireClient().execute<{ bundleId?: unknown; pid?: unknown }>(
+        'mobile: activeAppInfo',
+      );
+      if (
+        typeof value?.bundleId !== 'string' ||
+        typeof value.pid !== 'number' ||
+        !Number.isSafeInteger(value.pid) ||
+        value.pid <= 0
+      )
+        throw new Error('invalid active app identity');
+      return { bundleId: value.bundleId, pid: value.pid };
+    } catch {
+      throw new AppiumDriverError('command_failed', 'active_app_identity_unavailable');
+    }
+  }
+
   async launchApp(bundleId: string): Promise<AppiumActionResult> {
     const c = this.requireClient();
     try {

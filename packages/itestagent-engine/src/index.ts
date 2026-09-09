@@ -304,3 +304,11 @@ export type {
   ProductionAgentSessionOptions,
   ProductionExecutionTransports,
 } from './production-agent-session.js';
+
+export { prepareMemoryRounds, loadReviewedMemoryFlow, runMemoryRounds } from './memory-rounds.js';
+
+export {
+  validateSimulatorAppiumOptions,
+  simulatorConnectionSummary,
+  type SimulatorAppiumOptions,
+} from './simulator-appium-options.js';

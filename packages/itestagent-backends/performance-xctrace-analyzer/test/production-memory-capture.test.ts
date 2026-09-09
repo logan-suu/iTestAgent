@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createProductionPerformanceCapture } from '../src/production-capture.js';
+import { createFixtureCapture as createProductionPerformanceCapture } from './capture-notification-fixture.js';
 
 const roots: string[] = [];
 afterEach(() => {

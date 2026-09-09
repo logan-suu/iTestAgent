@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-08T22:53:40Z",
+  "last_updated": "2026-09-09T15:58:35Z",
   "items": [
     {
       "id": "DEF-001",
@@ -650,6 +650,25 @@
       "resolved_at": "2026-09-08T22:53:40Z",
       "resolved_by": "T6.12 approved G2 path normalization and subprocess CLI regression; docs/06-verification/performance-capture-wiring-6.12.md section23",
       "notes": "2026-09-08 Approved separate code/test plan completed: normalize full-corpus paths to repository-relative before scenario exclusion. Real CLI regression covers generic/all/changed worktree/index, scenario exemptions, adjacent non-exempt paths and actual forbidden literals. Repository generic/all gates pass with79 files; no scanner scope bypass. Original detail retained as historical diagnosis. Commit/PR merge pending."
+    },
+    {
+      "id": "DEF-036",
+      "source": "Codex (self-review and normal production TUI verification)",
+      "pr": 82,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/82",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.12",
+      "severity": "major",
+      "item": "Simulator execution without an install still requests replace_device_app",
+      "detail": "The normal CLI/TUI on the existing dedicated Simulator and installed MemoryProbe reviewed native memory, minimum 70s, settle 10s and baseline=skip, then requested replace_device_app before any backend creation or capture. productionPermissionActions correctly returns no App install/build actions for this Simulator DeviceBackend route, but agent-session.ts executeTestPlan.action uses actions[0] ?? replace_device_app. Thus an empty high-risk action set becomes a spurious installation permission. The request was denied; no AUT launch/tap, native capture, Appium session or canonical run report was produced. A real-PTY fixture independently reproduces the extra permission and passes only after a fixture-only allow; it is not real G5-SIM evidence. Deferral is required because the explicitly approved simulator-memory-production-plan-6.12.md requires stopping if the normal entry requests additional installation/build or incompatible permissions, and forbids automatic retries. Follow-up must map confirmed non-install execution truthfully while retaining all actual per-action installation/build/WDA/sensitive UI gates, test physical/XCUITest and persistent-deny/cancel boundaries, then obtain approval for the concrete changed plan and one new normal-TUI G5-SIM pair. Also audit the normal-entry transport configuration: TUI currently creates production dependencies with defaults and cannot select the approved isolated Appium/WDA ports and derived-data path; do not inject mocks or substitute a backend probe to pass acceptance. Evidence: performance-capture-wiring-6.12.md section37; local artifacts sim-native-tui-1788967379.",
+      "target_phase": 6,
+      "status": "resolved",
+      "created_at": "2026-09-09T15:29:00Z",
+      "last_updated": "2026-09-09T15:58:35Z",
+      "notes": "Keep within T6.12; do not transfer this acceptance blocker to T6.13 or mark G5-SIM complete. Dedicated Simulator shut down; CLI exit0, owner live processes0, other device states and both baseline hashes unchanged. No commit/push/merge. 2026-09-09T15:58:35Z Approved follow-up implemented. Simulator execution no longer fabricates AUT installation; actual WDA preparation remains one-shot. Real CLI transient options reach Simulator production composition, preserve physical defaults, and reject unsafe endpoints/port conflicts. Full gates4077 pass/7 existing skip/0 fail. Normal production TUI positive and released runs both passed; 36 valid samples per run, positive20 leaks/5242880bytes, completed control0/0. Each workload exactly1 tap/1 round/20s wait; canonical and raw-value checks pass. CLI/Appium/AUT/shutdown exit0, owner processes0, ports free, other devices and both baselines unchanged. Historical failure detail retained; no commit/push/merge.",
+      "resolved_at": "2026-09-09T15:58:35Z",
+      "resolved_by": "T6.12 approved Simulator entry permission/isolated CLI settings fix and normal production TUI G5-SIM pair run_01a086d5-92dc-7000-ae89-a57bda35ec22 / run_01a086dd-4659-7000-bad9-de8ca341315f; performance-capture-wiring-6.12.md section38"
     }
   ]
 }

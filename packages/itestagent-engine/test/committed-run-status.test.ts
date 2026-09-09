@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +10,7 @@ import type {
   DeviceInfo,
   TestPlan,
 } from 'itestagent-contracts';
-import { TestPlanSchema } from 'itestagent-contracts';
+import { PerformanceCaptureStartError, TestPlanSchema } from 'itestagent-contracts';
 import { createBaselineStore, createRunStore, createStoreCore, initStore } from 'itestagent-store';
 import { analyzeMemoryGrowth } from '../../itestagent-backends/performance-xctrace-analyzer/src/memory-growth.js';
 import { AssertionEvaluator } from '../src/assertion/assertion-evaluator.js';
@@ -622,9 +622,17 @@ describe('committed canonical run status', () => {
 });
 
 describe('production executor committed status propagation', () => {
-  for (const outcome of ['started', 'cancelled', 'unavailable', 'no_factory'] as const) {
+  for (const outcome of [
+    'started',
+    'cancelled',
+    'unavailable',
+    'no_factory',
+    'start_audit',
+    'capture_failed',
+  ] as const) {
     const cancel = outcome === 'cancelled';
-    const started = outcome === 'started' || cancel;
+    const captureFailed = outcome === 'capture_failed';
+    const started = outcome === 'started' || cancel || captureFailed;
     test(`performance capture context and finalization remain truthful (${outcome})`, async () => {
       const { root, store } = await storage();
       const confirmed = plan(`physical-performance-${outcome}`);
@@ -639,6 +647,7 @@ describe('production executor committed status propagation', () => {
         'Wait 20 seconds and confirm Ready is visible. Observe memory for 70 seconds; wait 10 seconds after actions.';
       const target: DeviceInfo = { ...device, udid: 'FIXTURE', targetKind: 'physical' };
       const controller = new AbortController();
+      const captureController = new AbortController();
       const order: string[] = [];
       let suggestions = 0;
       const backend = {
@@ -661,7 +670,10 @@ describe('production executor committed status propagation', () => {
         suggest: async (suggestion) => {
           expect(suggestion.goal).toBe(confirmed.execution.goal ?? '');
           expect(suggestion.assertions).toEqual(confirmed.execution.assertions ?? []);
-          expect(suggestion.signal).toBe(controller.signal);
+          if (captureFailed) {
+            expect(suggestion.signal).not.toBe(controller.signal);
+            captureController.abort();
+          } else expect(suggestion.signal).toBe(controller.signal);
           expect(suggestion.performanceObservation).toEqual({
             minimumDurationMs: 70000,
             settleDurationMs: 10000,
@@ -681,13 +693,51 @@ describe('production executor committed status propagation', () => {
                 expect(order).toEqual(['preflight']);
                 order.push('recording');
                 if (outcome === 'unavailable') throw new Error('Fixture capture unavailable');
+                if (outcome === 'start_audit') {
+                  mkdirSync(captureInput.stagingDir, { recursive: true });
+                  const auditPath = join(captureInput.stagingDir, 'fixture-capture-audit.log');
+                  writeFileSync(auditPath, 'private fixture diagnostic');
+                  throw new PerformanceCaptureStartError({
+                    metrics: {
+                      collection: [
+                        {
+                          metric: 'memory_peak',
+                          status: 'failed',
+                          reasonCode: 'performance.recording_not_ready',
+                        },
+                      ],
+                    },
+                    artifacts: [
+                      {
+                        id: 'failed-capture-audit',
+                        type: 'log',
+                        path: auditPath,
+                        backend: 'xctrace',
+                        redactionStatus: 'raw-local-only',
+                      },
+                    ],
+                  });
+                }
                 return {
+                  ...(captureFailed ? { signal: captureController.signal } : {}),
                   finish: async () => {
                     order.push('finalized');
                     if (cancel) controller.abort();
                     return {
                       artifacts: [],
-                      metrics: cancel ? {} : { memoryPeakMB: 12, approximate: true },
+                      metrics: captureFailed
+                        ? {
+                            collection: [
+                              {
+                                metric: 'memory_peak',
+                                status: 'failed',
+                                reasonCode: 'performance.recording_incomplete',
+                              },
+                            ],
+                          }
+                        : cancel
+                          ? {}
+                          : { memoryPeakMB: 12, approximate: true },
                     };
                   },
                 };
@@ -729,7 +779,7 @@ describe('production executor committed status propagation', () => {
           },
         },
       });
-      expect(suggestions).toBe(2);
+      expect(suggestions).toBe(captureFailed ? 1 : started ? 2 : 0);
       expect(order).toEqual(
         started
           ? ['preflight', 'recording', 'finalized', 'closed']
@@ -737,17 +787,22 @@ describe('production executor committed status propagation', () => {
             ? ['preflight', 'closed']
             : ['preflight', 'recording', 'closed'],
       );
-      expect(result.runStatus).toBe(cancel ? 'cancelled' : started ? 'passed' : 'inconclusive');
+      expect(result.runStatus).toBe(
+        cancel ? 'cancelled' : started && !captureFailed ? 'passed' : 'infra_failed',
+      );
       expect(existsSync(join(root, 'runs', confirmed.runId, 'staging'))).toBe(false);
       const bundle = await store.loadRunBundle(confirmed.runId);
+      if (outcome === 'start_audit') {
+        expect(
+          bundle.artifactIndex.artifacts.some(
+            (a) => a.id === 'failed-capture-audit' && a.redactionStatus === 'raw-local-only',
+          ),
+        ).toBe(true);
+        expect(JSON.stringify(bundle.result)).not.toContain('private fixture diagnostic');
+        expect(bundle.result.baselineDelta).toBeUndefined();
+      }
       expect(bundle.result.metrics.collection?.[0]?.status).toBe(
-        cancel
-          ? 'cancelled'
-          : started
-            ? 'collected'
-            : outcome === 'no_factory'
-              ? 'not_exportable'
-              : 'failed',
+        cancel ? 'cancelled' : started && !captureFailed ? 'collected' : 'failed',
       );
     });
   }

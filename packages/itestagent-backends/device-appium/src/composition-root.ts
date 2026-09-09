@@ -62,6 +62,8 @@ export interface ProductionAppiumConfig {
   platformVersion?: string;
   /** Custom derived data path for WDA builds. */
   derivedDataPath?: string;
+  /** Require unoccupied WDA/MJPEG ports for a dedicated Simulator session. */
+  exclusiveSimulatorPorts?: boolean;
   /** Appium server URL (default: http://127.0.0.1:4723). */
   appiumServerUrl?: string;
   /** Staging directory for WDA build artifacts. */
@@ -225,6 +227,7 @@ export function createAppiumDeviceBackend(config: ProductionAppiumConfig): Appiu
     deviceName: config.deviceName,
     platformVersion: config.platformVersion,
     derivedDataPath: config.derivedDataPath,
+    exclusiveSimulatorPorts: config.exclusiveSimulatorPorts,
     wdaProjectPath,
     xcodeOrgId: config.xcodeOrgId,
     xcodeSigningId: config.xcodeSigningId,

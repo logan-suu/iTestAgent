@@ -21,19 +21,22 @@ __attribute__((noinline)) static BOOL runAllocation(BOOL control) {
 @property(assign, nonatomic) NSInteger batches;
 @property(assign, nonatomic) BOOL control;
 @property(assign, nonatomic) BOOL started;
+@property(assign, nonatomic) BOOL running;
+@property(assign, nonatomic) NSInteger completedRounds;
 @end
 
 @implementation MemoryProbeViewController
 - (void)saveReceipt {
-    NSDictionary *receipt = @{@"schemaVersion": @"itestagent.memory-control.v1",
+    NSDictionary *receipt = @{@"schemaVersion": @"itestagent.memory-control.v2",
       @"mode": self.control ? @"freed" : @"unreachable",
       @"allocations": @(self.allocations), @"bytesPerAllocation": @262144,
       @"batches": @(self.batches), @"freed": @(self.control ? self.allocations : 0),
-      @"started": @(self.started), @"complete": @(self.batches == 4)};
+      @"started": @(self.started), @"running": @(self.running),
+      @"completedRounds": @(self.completedRounds), @"maximumRounds": @10, @"complete": @(self.batches == 4)};
     NSData *data = [NSJSONSerialization dataWithJSONObject:receipt options:0 error:nil];
     NSString *dir = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
     [data writeToFile:[dir stringByAppendingPathComponent:@"workload.json"] atomically:YES];
-    self.label.text = [NSString stringWithFormat:@"Mode: %@\nBatches: %ld / 4\nAllocations: %ld\nMaximum workload: 5 MiB", self.started ? (self.control ? @"freed control" : @"known unreachable") : @"idle", (long)self.batches, (long)self.allocations];
+    self.label.text = [NSString stringWithFormat:@"Mode: %@\nBatches: %ld / 4\nAllocations: %ld\nMaximum workload per round: 5 MiB\nCompleted rounds: %ld / 10", self.started ? (self.control ? @"freed control" : @"known unreachable") : @"idle", (long)self.batches, (long)self.allocations, (long)self.completedRounds];
     self.statusLabel.text = self.batches == 4 ? @"Workload complete" : (self.started ? @"Workload running" : @"Ready for recording");
 }
 - (void)viewDidLoad {
@@ -70,8 +73,11 @@ __attribute__((noinline)) static BOOL runAllocation(BOOL control) {
 - (void)startLeak { [self startWorkload:NO]; }
 - (void)startControl { [self startWorkload:YES]; }
 - (void)startWorkload:(BOOL)control {
-    // A process can run only one bounded workload, even after repeated UI taps.
-    if (self.started) return;
+    // Each explicit tap starts one bounded round; concurrent taps and mode switches are ignored.
+    if (self.running || self.completedRounds >= 10 || (self.started && self.control != control)) return;
+    self.running = YES;
+    self.allocations = 0;
+    self.batches = 0;
     self.started = YES;
     self.control = control;
     self.leakButton.enabled = NO;
@@ -81,6 +87,12 @@ __attribute__((noinline)) static BOOL runAllocation(BOOL control) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, batch * 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             for (NSInteger i = 0; i < 5; i++) if (runAllocation(self.control)) self.allocations++;
             self.batches++;
+            if (self.batches == 4) {
+                self.running = NO;
+                self.completedRounds++;
+                self.leakButton.enabled = !self.control && self.completedRounds < 10;
+                self.controlButton.enabled = self.control && self.completedRounds < 10;
+            }
             [self saveReceipt];
         });
     }

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { MEMORY_CAPTURE_POLICY } from 'itestagent-contracts';
+import { MEMORY_CAPTURE_POLICY, memoryRoundsMetricIssues } from 'itestagent-contracts';
 import type {
   BaselineStore,
   DeviceInfo,
@@ -21,11 +21,19 @@ export function memoryBaselineCandidate(input: {
   if (
     plan.performance.baseline !== 'local_auto' ||
     device.targetKind !== 'physical' ||
+    metrics.memoryPeakSource === 'native-footprint' ||
+    metrics.memoryGrowth?.source === 'native-footprint' ||
+    metrics.memoryLeaks?.source === 'native-leaks' ||
     !device.osVersion ||
     !device.model ||
     plan.performance.baselineDomain !== device.targetKind ||
     status !== 'passed' ||
     metrics.crashDetected === true ||
+    memoryRoundsMetricIssues(plan, metrics).length > 0 ||
+    (plan.performance.memoryRounds &&
+      (metrics.memoryRounds?.endpointDeltaMiB === undefined ||
+        metrics.memoryRounds.plannedCount !== plan.performance.memoryRounds.count ||
+        metrics.memoryRounds.rounds.some((r) => r.status !== 'passed'))) ||
     metrics.collection?.some((o) => o.status !== 'collected') ||
     (!metrics.memoryGrowth && metrics.memoryPeakMB === undefined)
   )
@@ -40,6 +48,9 @@ export function memoryBaselineCandidate(input: {
       version: MEMORY_CAPTURE_POLICY.id,
       execution: plan.execution,
       observation: plan.performance.memoryObservation,
+      ...(plan.performance.memoryRounds
+        ? { rounds: plan.performance.memoryRounds, roundPolicy: 'memory-rounds-v1' }
+        : {}),
       peakUnit: metrics.memoryPeakUnit ?? 'MB',
       appSource: plan.appSource,
     }),
@@ -47,7 +58,7 @@ export function memoryBaselineCandidate(input: {
   };
   const summary: TraceSummary = {
     memoryPeakMB: metrics.memoryPeakMB,
-    memoryGrowthMiB: metrics.memoryGrowth?.deltaMiB,
+    memoryGrowthMiB: metrics.memoryRounds?.endpointDeltaMiB ?? metrics.memoryGrowth?.deltaMiB,
     approximate: true,
   };
   return { context, summary };

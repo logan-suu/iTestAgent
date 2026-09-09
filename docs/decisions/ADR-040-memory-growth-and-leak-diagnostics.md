@@ -1,6 +1,14 @@
 # ADR-040：内存增长与泄漏诊断产品链路
 
+**当前结论**：2026-09-09最新实证（性能报告§38）：DEF-036修复完成；正常生产CLI/TUI Simulator单次阳性与释放两组均passed，36个有效native-footprint样本/组，真实扫描分别20项/5MiB与完成0/0。目标/数值/原始证据/canonical/owner收口均核验，baseline=skip且既有基线未变。本结论仅覆盖Simulator DeviceBackend单次内存路径，未关闭全部T6.12出口；下方旧“未接线/G5-SIM阻塞”均是历史阶段描述。
+
+
+**当前状态（覆盖下文历史阶段描述）**：2026-09-09生产接线更新（ADR-043）：用户已确认Simulator原生内存方案。代码现支持native-footprint和native-leaks完成扫描，目标绑定、共享abort、raw-local-only证据、报告和baseline=skip已接入；旧xctrace-leaks-detail仍只允许detected。该增量不代表正常TUI G5-SIM或全部T6.12出口通过，实测/门禁结论见性能报告§37。
+
+
 状态：已批准设计，实施及真机验证中。日期：2026-09-08。关联：T6.12、US-12.1/12.2/12.3、ADR-039。
+
+**2026-09-09当前能力覆盖**：正常生产TUI的同进程三轮内存G5已通过（ADR-042、性能报告§31），三轮各自完成真实工作负载、有效采样及阳性Leaks，报告18steps/9项证据完整性通过；新多轮baseline与旧单轮隔离。首次建立、自动比较、TUI接受baseline和短窗口等待职责也已分别验收。本文后续旧“多轮/TUI/baseline尚未完成”仅描述当时阶段，不覆盖上述事实。最新工具spike已取得Simulator宿主进程本地leaks阳性17项/4456448bytes及有效零扫描0/0，均有目标/完成绑定（性能报告§34）；这不改变生产detected-only契约，不等于物理零扫描或正常TUI G5-SIM。Simulator设备目的地Activity Monitor实测不支持；生产零扫描接线、Simulator/XCUITest新增性能及其余指标出口仍未完成。后续已授权宿主PID Activity Monitor在工作负载前exit21，门禁与owner清理通过、采集未通过（§35）；未静默重试。后续已授权footprint工具spike通过41样本/101.68秒及一次阳性工作负载（§36）。新的Simulator生产source/零扫描接线与正常TUI计划见`docs/06-verification/simulator-memory-production-plan-6.12.md`，待确认；现有生产契约尚未改变。
 
 **接受baseline增量（ADR-041，用户批准）**：TUI命令`/baseline accept <run-id>`已接入完整报告校验、新旧内存值展示、update_baseline一次性权限、确认后重读及原子替换；实际替换指标，不只更改来源run。原生首次创建和覆盖共享每key锁，避免先读后写竞争。当前限定physical DeviceBackend内存报告；用户针对具体值另行授权后，正常生产TUI真实替换已通过（§27），历史报告未变且退出清理通过。该一次性授权已消费。下方历史“尚无TUI入口”按此增量更新，Simulator/其他路线和零扫描/多轮边界不变。
 
@@ -61,3 +69,9 @@
 - 已选型候选 [memorydetective](https://github.com/carloshpdoc/memorydetective) 的公开说明也将自动 memgraph 捕获限于 Mac/Simulator，物理 iOS 需 Xcode Memory Graph 导出。未安装新依赖；不能声称简单切换该 backend 即解决真机自动采集。引导导入 memgraph 或 App 内集成属于下一步待确认方案，不在本轮隐式实施。
 - 多轮已确认 Flow/测试工作负载尚未接线；真实 TUI→canonical 内存性能 G5、受影响 Simulator/XCUITest G5-SIM/G5 仍待完成。本次 probe 不是正式产品入口验收，不能据此关闭 US-12.3 或 T6.12。
 - 后续纯 Leaks 模板真机对照已完成录制，官方 Allocations 详情有数据而 Leaks 仍为空；与旧 trace 的文件导出对照一起，说明只改组合参数或 stdout/文件模式不足以修复。需要独立已知泄漏阳性与修复后对照验证真实诊断通路；测试 App 的构建、既有 Team 签名、首次安装等待逐项授权，不覆盖原验收 App。详见验证报告 §9；未新增生产代码或宣称自动诊断通过。
+
+
+**physical采集失败传播补充（2026-09-09，用户确认）**：按ADR-039公开通知门禁，单次或已确认多轮在录制未就绪时不消耗业务动作，采集中断停止后续动作/轮次。内部失败保持failed/blocked，不因借用AbortSignal误标用户cancelled；已有步骤及失败采集审计进入canonical，禁止建立成功baseline。本单元不改变泄漏零扫描、采样覆盖或跨域baseline规则；新增G5待独立授权，见性能报告§39。
+
+
+T6.12基线草稿编辑补充（2026-09-09，用户确认）：正常TUI的Modify输入支持精确baseline=skip或baseline=local_auto，只修改未确认计划；显式选择在本planning session的重新编译/目标选择/多轮配置后保留，新会话不继承。Simulator native内存仍强制skip、拒绝开启local_auto。策略编辑不写baseline，既有执行与高风险替换权限保持。真实PTY已验证skip进入canonical且无测试基线新增；无schema/Intent扩展。证据见性能报告§41。
