@@ -34,6 +34,7 @@
 | 如果你需要... | 请查阅... |
 |---|---|
 | T6.12 正常TUI父运行、实际failed-only与血缘G5 | `06-verification/g5-xcuitest-lineage-6.12.md` |
+| T6.12 完成确认、单次CI豁免与待修复项 | `decisions/ADR-052-t612-one-time-ci-waiver.md`、`05-planning/deferred-items.json` DEF-042 |
 | T6.12 当前最终交付检查与完整回归 | `06-verification/t6.12-final-gates-2026-09-17.md` |
 | T6.12 已验证范围收口与保留的产品发布门禁 | `decisions/ADR-051-t612-verified-exit-and-product-gates.md`、`06-verification/t6.12-remaining-performance-review.md` |
 | T6.12 当前正常入口XCUITest/解释/failed-only批次 | `06-verification/t6.12-xcuitest-exit-plan.md` |
