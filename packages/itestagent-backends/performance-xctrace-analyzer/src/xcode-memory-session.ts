@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
+import { type MemoryClosureProof, MemoryResourceClosure } from './xcode-memory-resource-closure.js';
 
 const identitySchema = z
   .object({
@@ -27,6 +28,18 @@ const identitySchema = z
   })
   .strict();
 const targetSchema = identitySchema.omit({ pid: true, generation: true });
+const captureCleanupSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+    scope: z.literal('capture'),
+    identity: identitySchema,
+    document: z.literal('closed'),
+    debugger: z.literal('exited'),
+    aut: z.literal('exited'),
+    xcode: z.literal('exited'),
+    helper: z.literal('exited'),
+  })
+  .strict();
 export type MemorySessionTarget = z.infer<typeof targetSchema>;
 export type MemoryProcessIdentity = z.infer<typeof identitySchema>;
 export type MemoryIdentityObservation =
@@ -65,10 +78,16 @@ export class MemorySessionProtocol {
   #target: MemorySessionTarget;
   #cancelled = false;
   #cleanupVerified = false;
+  readonly scope: 'capture' | 'owned_app_only';
 
-  constructor(sessionId: string, target: MemorySessionTarget) {
+  constructor(
+    sessionId: string,
+    target: MemorySessionTarget,
+    scope: 'capture' | 'owned_app_only' = 'capture',
+  ) {
     this.#target = targetSchema.parse(target);
     this.sessionId = z.string().uuid().parse(sessionId);
+    this.scope = z.enum(['capture', 'owned_app_only']).parse(scope);
   }
   get state() {
     return this.#state;
@@ -83,7 +102,11 @@ export class MemorySessionProtocol {
     this.#cancelled = true;
   }
 
-  accept(raw: string, observation: MemoryIdentityObservation = { status: 'unknown' }): void {
+  accept(
+    raw: string,
+    observation: MemoryIdentityObservation = { status: 'unknown' },
+    cleanupProof?: unknown,
+  ): void {
     if (Buffer.byteLength(raw, 'utf8') > 1024) throw new Error('session.protocol_invalid');
     let event: z.infer<typeof eventSchema>;
     try {
@@ -107,7 +130,28 @@ export class MemorySessionProtocol {
     if (!next[this.#state].includes(event.state)) throw new Error('session.transition_invalid');
     if ((event.state === 'closed') !== (event.cleanupVerified !== undefined))
       throw new Error('session.protocol_invalid');
-    if (['prepared', 'capturing', 'exported'].includes(event.state)) this.verifyTarget(observation);
+    if (['prepared', 'capturing', 'exported'].includes(event.state)) {
+      if (this.scope !== 'capture') throw new Error('session.scope_invalid');
+      this.verifyTarget(observation);
+    }
+    if (cleanupProof !== undefined && (event.state !== 'closed' || !event.cleanupVerified))
+      throw new Error('session.cleanup_proof_invalid');
+    if (event.state === 'closed' && event.cleanupVerified && this.scope === 'capture') {
+      const proof = captureCleanupSchema.safeParse(cleanupProof);
+      if (
+        !proof.success ||
+        proof.data.sessionId !== this.sessionId ||
+        !this.#identity ||
+        Object.keys(this.#identity).some(
+          (key) =>
+            proof.data.identity[key as keyof MemoryProcessIdentity] !==
+            this.#identity?.[key as keyof MemoryProcessIdentity],
+        )
+      )
+        throw new Error('session.cleanup_unverified');
+    }
+    if (this.scope === 'owned_app_only' && cleanupProof !== undefined)
+      throw new Error('session.scope_invalid');
     this.#state = event.state;
     this.#sequence = event.sequence;
     this.#cleanupVerified = event.state === 'closed' && event.cleanupVerified === true;
@@ -143,7 +187,7 @@ export class MemorySessionProtocol {
 }
 
 /** The caller supplies the common helpers root, never a version or request directory. */
-export function reserveXcodeMemoryLease(helpersRoot: string) {
+export function reserveXcodeMemoryLease(helpersRoot: string, target?: MemorySessionTarget) {
   if (resolve(helpersRoot) !== helpersRoot || realpathSync(helpersRoot) !== helpersRoot)
     throw new Error('session.root_invalid');
   const root = lstatSync(helpersRoot);
@@ -162,38 +206,50 @@ export function reserveXcodeMemoryLease(helpersRoot: string) {
   // Publication errors retain the reservation; an unknown lease is never reclaimed.
   writeFileSync(owner, contents, { mode: 0o600, flag: 'wx' });
   let released = false;
+  const resources = new MemoryResourceClosure(sessionId, target);
+  function removeReservation() {
+    const current = lstatSync(path);
+    if (current.isSymbolicLink() || current.dev !== inode.dev || current.ino !== inode.ino)
+      throw new Error('session.lease_changed');
+    const fd = openSync(owner, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const stat = fstatSync(fd);
+      if (
+        !stat.isFile() ||
+        stat.nlink !== 1 ||
+        stat.size > 1024 ||
+        stat.uid !== process.getuid?.() ||
+        (stat.mode & 0o077) !== 0 ||
+        readFileSync(fd, 'utf8') !== contents
+      )
+        throw new Error('session.lease_changed');
+    } finally {
+      closeSync(fd);
+    }
+    unlinkSync(owner);
+    // Unknown children prevent removal. No recursive deletion or stale-lock takeover.
+    rmdirSync(path);
+    released = true;
+  }
   return {
     sessionId,
+    resources,
+    releaseResources(proof: MemoryClosureProof) {
+      if (released) throw new Error('session.already_released');
+      resources.consume(proof);
+      removeReservation();
+    },
     release(protocol: MemorySessionProtocol) {
       if (released) return;
       if (
+        resources.active ||
+        !(protocol instanceof MemorySessionProtocol) ||
         protocol.sessionId !== sessionId ||
         !protocol.cleanupVerified ||
         protocol.state !== 'closed'
       )
         throw new Error('session.cleanup_unverified');
-      const current = lstatSync(path);
-      if (current.isSymbolicLink() || current.dev !== inode.dev || current.ino !== inode.ino)
-        throw new Error('session.lease_changed');
-      const fd = openSync(owner, constants.O_RDONLY | constants.O_NOFOLLOW);
-      try {
-        const stat = fstatSync(fd);
-        if (
-          !stat.isFile() ||
-          stat.nlink !== 1 ||
-          stat.size > 1024 ||
-          stat.uid !== process.getuid?.() ||
-          (stat.mode & 0o077) !== 0 ||
-          readFileSync(fd, 'utf8') !== contents
-        )
-          throw new Error('session.lease_changed');
-      } finally {
-        closeSync(fd);
-      }
-      unlinkSync(owner);
-      // Unknown children prevent removal. No recursive deletion or stale-lock takeover.
-      rmdirSync(path);
-      released = true;
+      removeReservation();
     },
   };
 }

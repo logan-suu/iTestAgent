@@ -2,6 +2,7 @@ import fcntl
 import json
 import os
 import pty
+import re
 import select
 import struct
 import sys
@@ -22,11 +23,12 @@ with tempfile.TemporaryDirectory(prefix='itestagent-rounds-pty-') as home:
         os.execvpe('bun', ['bun', os.path.join(sys.argv[1], 'tests/integration/phase6/helpers/memory-rounds-pty.ts'), audit], env)
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', 70, 180, 0, 0))
     content = b''
-    def until(label):
+    def until(label, pattern=None):
         global content
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline:
-            if label.replace(b' ', b'') in b''.join(visible_text(content).split()):
+            normalized = b''.join(visible_text(content).split())
+            if (re.search(pattern, normalized) if pattern else label.replace(b' ', b'') in normalized):
                 content = b''
                 return
             ready, _, _ = select.select([master], [], [], 0.1)
@@ -65,8 +67,10 @@ with tempfile.TemporaryDirectory(prefix='itestagent-rounds-pty-') as home:
             os.write(master, b'allow\r')
             until(b'Permission required: replace_device_app')
             os.write(master, b'allow\r')
-            for _ in range(3):
-                until(b'Permission required: interact_sensitive_ui')
+            for round_index in range(1, 4):
+                # Match this round, not a redraw of an earlier permission transcript.
+                pattern = rb'Permissionrequired:interact_sensitive_uionmemory-round:[A-Za-z0-9._-]+:' + str(round_index).encode() + rb':1:'
+                until(b'Permission required: interact_sensitive_ui', pattern)
                 os.write(master, b'allow\r')
         until(b'Execution completed')
         os.write(master, b'\x03')

@@ -1,5 +1,11 @@
 # T6.12 真机闭环验收收尾记录
 
+## 最新检查点：2026-09-17 新批次已完成
+
+签名名额释放后，用户明确授权的新批次已完成。正常 TUI 父运行 `run_01a0b272-454d-7000-ac38-8155c35656e2` 一条指定失败、一条控制通过；CLI failed-only 子运行 `run_01a0b274-6a95-7000-900e-ec7f8f8e9224` 仅执行指定失败用例。两份 canonical/真实 xcresult、血缘、父 result 哈希及进程清理均通过。CLI explain 成功消费真实证据但归因为 inconclusive/low，不能宣称有效根因归类。详见 `g5-xcuitest-lineage-6.12.md`（docs/06-verification）。以下“等待授权/尚无当前 XCUITest”等段落为历史检查点，已由本节覆盖。性能剩余范围及最终交付门禁仍待完成；T6.12 保持 in_progress。
+
+> 当前范围（2026-09-17，ADR-050）：用户已批准将 physical 有效零扫描及独立 memgraph 自动化延期至 T7.8/DEF-037；T6.12 优先补齐当前 XCUITest/解释/failed-only 出口。以下相关研究记录作为历史证据保留，不再要求继续 probe；未完成能力不标通过。当前清单见 `docs/06-verification/t6.12-exit-matrix.md`。
+
 **归档日期：2026-09-08。任务状态：in_progress，UI 已通过，性能仍待补充；本报告不触发重复真机测试。**
 
 ## 1. 结论与确认来源

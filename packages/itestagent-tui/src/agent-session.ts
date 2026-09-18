@@ -42,6 +42,7 @@ import {
 import type { CandidateLink, ProjectAnalysisResult } from 'itestagent-project-analyzer';
 import { isDeviceReady } from './device-review.js';
 import { persistGlobalDeniedRule } from './global-deny-store.js';
+import { createTuiMemoryQueryPermission } from './memory-query-permission.js';
 import { retainMessages } from './message-retention.js';
 import {
   DEFAULT_PROVIDER_BASE_URL,
@@ -184,6 +185,8 @@ export function selectConfirmedPlanDevice(
 }
 
 export interface AgentSessionDependencies {
+  /** Internal query composition hook; does not enable a capture route or UI command. */
+  bindMemoryQueryPermission?(permission: ReturnType<typeof createTuiMemoryQueryPermission>): void;
   /** Validated transient CLI settings, applied only by the real Simulator composition. */
   simulatorAppium?: SimulatorAppiumOptions;
   baselineAcceptance?: BaselineAcceptanceDependencies;
@@ -396,6 +399,18 @@ export async function createAgentSession(
   const pendingPermissionIds = new Set<string>();
   const pendingPermissions = new Map<string, { action: string; resource: string }>();
   let activeQueue: ActivePatchQueue | null = null;
+  let disposed = false;
+  dependencies.bindMemoryQueryPermission?.(
+    createTuiMemoryQueryPermission({
+      engine: permissionEngine,
+      pendingIds: pendingPermissionIds,
+      pending: pendingPermissions,
+      publish(patch) {
+        if (disposed || !activeQueue) throw new Error('query.permission_view_unavailable');
+        activeQueue.queue.push(patch);
+      },
+    }),
+  );
   let activeTurn = false;
   let activeDirectExecutionAbort: AbortController | null = null;
   let discoveryNoticeEmitted = false;
@@ -676,7 +691,6 @@ export async function createAgentSession(
     maxSteps: 15,
   });
 
-  let disposed = false;
   let roundPreparationPending = false;
   const configureMemoryRounds = async (input: string): Promise<readonly TuiStatePatch[]> => {
     const match = /^\/memory-rounds\s+([a-zA-Z0-9][a-zA-Z0-9_-]{0,127})\s+(\d+)\s+(\d+)\s*$/.exec(

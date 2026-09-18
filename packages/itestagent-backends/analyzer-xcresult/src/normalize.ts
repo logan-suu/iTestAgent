@@ -96,7 +96,11 @@ function normalizeCaseId(
   const authoritativeMatches = authoritativeCaseIds.filter((caseId) => {
     const [target, className, method] = caseId.split('/');
     if (!target || !className || method !== methodName) return false;
-    return test.classname === target || test.classname === `${target}.${className}`;
+    return (
+      test.classname === target ||
+      test.classname === `${target}.${className}` ||
+      test.classname === className
+    );
   });
   if (authoritativeMatches.length === 1) return authoritativeMatches[0] as string;
 

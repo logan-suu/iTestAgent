@@ -41,6 +41,59 @@ function fixture() {
 }
 
 describe('memory session protocol', () => {
+  test('capture cleanup rejects missing resources, stale instances and foreign sessions without consuming sequence', () => {
+    const { protocol, event } = fixture();
+    protocol.accept(event(1, 'preparing'));
+    protocol.accept(event(2, 'prepared'), proof);
+    protocol.cancel();
+    protocol.accept(event(3, 'closing'));
+    if (proof.status !== 'verified') throw new Error('fixture');
+    const cleanup = {
+      sessionId: protocol.sessionId,
+      scope: 'capture',
+      identity: proof.identity,
+      document: 'closed',
+      debugger: 'exited',
+      aut: 'exited',
+      xcode: 'exited',
+      helper: 'exited',
+    };
+    const bad = [
+      { ...cleanup, sessionId: randomUUID() },
+      { ...cleanup, scope: 'owned_app_only' },
+      { ...cleanup, identity: { ...proof.identity, generation: 'reused' } },
+      { ...cleanup, rawAX: 'not-allowed' },
+      ...['document', 'debugger', 'aut', 'xcode', 'helper'].flatMap((resource) => [
+        { ...cleanup, [resource]: undefined },
+        { ...cleanup, [resource]: 'unknown' },
+      ]),
+    ];
+    for (const value of bad) {
+      expect(() =>
+        protocol.accept(
+          event(4, 'closed', { cleanupVerified: true }),
+          metadataMemoryIdentity(),
+          value,
+        ),
+      ).toThrow('cleanup_unverified');
+      expect(protocol.state).toBe('closing');
+      expect(protocol.cleanupVerified).toBe(false);
+    }
+    protocol.accept(
+      event(4, 'closed', { cleanupVerified: true }),
+      metadataMemoryIdentity(),
+      cleanup,
+    );
+    expect(protocol.cleanupVerified).toBe(true);
+  });
+  test('App-only mode cannot enter preparation-complete or capture states', () => {
+    const protocol = new MemorySessionProtocol(randomUUID(), target, 'owned_app_only');
+    const event = (sequence: number, state: string) =>
+      JSON.stringify({ protocolVersion: 2, sessionId: protocol.sessionId, sequence, state });
+    protocol.accept(event(1, 'preparing'));
+    expect(() => protocol.accept(event(2, 'prepared'), proof)).toThrow('scope_invalid');
+    expect(protocol.state).toBe('preparing');
+  });
   test('requires generation evidence before prepared; missing proof does not consume sequence', () => {
     const { protocol, event } = fixture();
     protocol.accept(event(1, 'preparing'));
@@ -110,7 +163,20 @@ describe('memory session protocol', () => {
     ].entries())
       protocol.accept(event(i + 1, state), proof);
     expect(protocol.cleanupVerified).toBe(false);
-    protocol.accept(event(6, 'closed', { cleanupVerified: true }));
+    expect(() => protocol.accept(event(6, 'closed', { cleanupVerified: true }))).toThrow(
+      'cleanup_unverified',
+    );
+    if (proof.status !== 'verified') throw new Error('fixture');
+    protocol.accept(event(6, 'closed', { cleanupVerified: true }), metadataMemoryIdentity(), {
+      sessionId: protocol.sessionId,
+      scope: 'capture',
+      identity: proof.identity,
+      document: 'closed',
+      debugger: 'exited',
+      aut: 'exited',
+      xcode: 'exited',
+      helper: 'exited',
+    });
     expect(protocol.cleanupVerified).toBe(true);
   });
 });
@@ -120,7 +186,7 @@ describe('global Xcode lease', () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'memory-session-')));
     try {
       const lease = reserveXcodeMemoryLease(root);
-      const protocol = new MemorySessionProtocol(lease.sessionId, target);
+      const protocol = new MemorySessionProtocol(lease.sessionId, target, 'owned_app_only');
       expect(() => reserveXcodeMemoryLease(root)).toThrow('instance_conflict');
       expect(() => lease.release(protocol)).toThrow('cleanup_unverified');
       for (const [i, state] of ['closing', 'closed'].entries())
@@ -147,7 +213,7 @@ describe('global Xcode lease', () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'memory-session-')));
     try {
       const lease = reserveXcodeMemoryLease(root);
-      const protocol = new MemorySessionProtocol(lease.sessionId, target);
+      const protocol = new MemorySessionProtocol(lease.sessionId, target, 'owned_app_only');
       protocol.accept(
         JSON.stringify({
           protocolVersion: 2,

@@ -33,7 +33,23 @@
 
 | 如果你需要... | 请查阅... |
 |---|---|
-| 真机 memgraph 独立自动化与生产接线提案（待确认） | `decisions/ADR-044-physical-memgraph-automation.md`、`06-verification/physical-memgraph-production-plan-6.12.md`、`06-verification/physical-memgraph-helper-install-plan-6.12.md`、`06-verification/physical-memgraph-launch-plan-6.12.md`、`06-verification/physical-memgraph-helper-upgrade-plan-6.12.md`、`06-verification/physical-memgraph-capture-plan-6.12.md` |
+| T6.12 正常TUI父运行、实际failed-only与血缘G5 | `06-verification/g5-xcuitest-lineage-6.12.md` |
+| T6.12 当前最终交付检查与完整回归 | `06-verification/t6.12-final-gates-2026-09-17.md` |
+| T6.12 已验证范围收口与保留的产品发布门禁 | `decisions/ADR-051-t612-verified-exit-and-product-gates.md`、`06-verification/t6.12-remaining-performance-review.md` |
+| T6.12 当前正常入口XCUITest/解释/failed-only批次 | `06-verification/t6.12-xcuitest-exit-plan.md` |
+| T6.12 已批准范围收敛、T7.8延期及当前出口矩阵 | `decisions/ADR-050-t612-exit-scope-and-memgraph-follow-up.md`、`06-verification/t6.12-exit-matrix.md` |
+| T6.12 历史完整出口、生产接线与双路径证据清单 | `06-verification/t6.12-completion-plan.md` |
+| 所属 Xcode 的只读文档/scheme/目的地元数据与单次宿主候选 | `decisions/ADR-048-read-only-xcode-metadata.md`、`06-verification/physical-memgraph-metadata-probe-plan-6.12.md` |
+| 所属 Xcode 文档的进程终止关闭证据（已确认 ADR-049） | `decisions/ADR-049-xcode-document-process-closure.md` |
+| 文档会话连续性/关闭观察（离线实现及21种情形验证通过） | `06-verification/physical-memgraph-document-session-plan-6.12.md` |
+| 原调试进程保留观察（实现及一次宿主LLDB验证通过） | `06-verification/physical-memgraph-owned-observation-plan-6.12.md` |
+| v4 App回执/临时lease释放（单次真实正常关闭实测通过） | `06-verification/physical-memgraph-query-v4-app-plan-6.12.md` |
+| launcher所属退出回执（ADR-047，v4无目标关闭离线实现通过） | `decisions/ADR-047-query-launcher-owned-closure-receipt.md`、`06-verification/physical-memgraph-query-closure-receipt-plan-6.12.md` |
+| 独立query App生命周期（normal/启动前EOF实证通过） | `06-verification/physical-memgraph-query-app-lifecycle-plan-6.12.md` |
+| 查询完整组合与候选清单（离线接线/候选编译通过） | `06-verification/physical-memgraph-query-composition-plan-6.12.md` |
+| 查询helper IPC与逐资源关闭账本（ADR-046离线实现通过） | `decisions/ADR-046-memory-query-ipc-and-resource-closure.md`、`06-verification/physical-memgraph-query-ipc-plan-6.12.md` |
+| Xcode 无 AXConfirm 后的受限原生 Return 实验（离线通过，真实事件待验证） | `decisions/ADR-045-bounded-native-console-return.md`、`06-verification/physical-memgraph-native-return-plan-6.12.md`、`06-verification/physical-memgraph-return-fixture-plan-6.12.md`、`06-verification/physical-memgraph-query-session-plan-6.12.md` |
+| 真机 memgraph 独立自动化与生产接线提案（待确认） | `decisions/ADR-044-physical-memgraph-automation.md`、`06-verification/physical-memgraph-production-plan-6.12.md`、`06-verification/physical-memgraph-helper-install-plan-6.12.md`、`06-verification/physical-memgraph-launch-plan-6.12.md`、`06-verification/physical-memgraph-helper-upgrade-plan-6.12.md`、`06-verification/physical-memgraph-capture-plan-6.12.md`、`06-verification/physical-memgraph-xcode-console-plan-6.12.md` |
 | 用户故事与 AC（哪个 US 在做什么） | `01-spec/全量用户故事与验收标准规格书.md` E1~E20 |
 | MVP 19 条完成标准 | `01-spec/全量用户故事与验收标准规格书.md` MVP 验收总表 |
 | 第一版明确不做的事 | `01-spec/全量用户故事与验收标准规格书.md` 第一版明确不做 |

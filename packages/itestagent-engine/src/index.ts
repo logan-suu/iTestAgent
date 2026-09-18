@@ -312,3 +312,5 @@ export {
   simulatorConnectionSummary,
   type SimulatorAppiumOptions,
 } from './simulator-appium-options.js';
+
+export { createMemoryQueryPermission } from './memory-query-permission-wiring.js';

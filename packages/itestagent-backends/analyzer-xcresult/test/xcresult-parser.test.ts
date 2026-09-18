@@ -269,6 +269,50 @@ describe('parse', () => {
     expect(result.execution.targetNames).toEqual(['SpikeAppUITests']);
   });
 
+  it.each([
+    {
+      className: 'ExitTests',
+      targets: ['FixtureUITests'],
+      expected: 'FixtureUITests/ExitTests/testFailure',
+    },
+    {
+      className: 'ExitTests',
+      targets: ['FixtureUITests', 'OtherUITests'],
+      expected: 'ExitTests/testFailure()',
+    },
+    {
+      className: 'UnrelatedTests',
+      targets: ['FixtureUITests'],
+      expected: 'UnrelatedTests/testFailure()',
+    },
+  ])(
+    'maps an unqualified JUnit class only with unique authoritative ownership: $expected',
+    async ({ className, targets, expected }) => {
+      const junitXml = `<testsuites><testsuite tests="1"><testcase classname="${className}" name="testFailure()" time="1"><failure message="Intentional fixture failure"/></testcase></testsuite></testsuites>`;
+      const xcodeTests = JSON.stringify({
+        testNodes: targets.map((target) => ({
+          nodeType: 'Test Case',
+          nodeIdentifierURL: `test://com.apple.xcode/Fixture/${target}/ExitTests/testFailure`,
+        })),
+      });
+      const parser = createParser(
+        createMockSpawn(
+          new Map([
+            ['-o junit', { exitCode: 0, stdout: junitXml, stderr: '' }],
+            ['--target-info', { exitCode: 1, stdout: '', stderr: 'no coverage report' }],
+            [
+              'xcresulttool get test-results tests',
+              { exitCode: 0, stdout: xcodeTests, stderr: '' },
+            ],
+          ]),
+        ),
+      );
+      const result = await parser.parse({ xcresultPath: validXcresultPath });
+      expect(result.cases[0]?.caseId).toBe(expected);
+      expect(result.cases[0]?.status).toBe('failed');
+    },
+  );
+
   it('rejects malformed and non-Xcode authoritative node URLs', () => {
     expect(
       parseAuthoritativeCaseIds(

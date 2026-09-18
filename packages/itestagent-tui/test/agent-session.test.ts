@@ -1404,3 +1404,44 @@ describe('Simulator execution permissions reflect actual actions', () => {
       session.dispose();
     });
 });
+
+it('injected query uses the session permission queue once and cannot ask after disposal', async () => {
+  let request!: Parameters<NonNullable<AgentSessionDependencies['bindMemoryQueryPermission']>>[0];
+  const resource = JSON.stringify({
+    sessionId: crypto.randomUUID(),
+    requestId: crypto.randomUUID(),
+    strategy: 'pidReturn',
+    commandSHA256: 'a'.repeat(64),
+  });
+  const session = await createAgentSession(
+    '/workspace',
+    dependencies({
+      preparesWda: () => false,
+      bindMemoryQueryPermission: (permission) => {
+        request = permission;
+      },
+      executeConfirmedPlan: async ({ signal }) => {
+        expect((await request('interact_sensitive_ui', resource, signal)).effect).toBe('allow');
+        return { status: 'completed' };
+      },
+    }),
+  );
+  await collectMessagePatches(session, '/plan 用 Simulator 跑登录测试');
+  session.confirmCandidates(confirmedFakeCandidates());
+  await session.selectDevice(SIMULATOR_DEVICE.udid);
+  session.confirmPlan();
+  let asks = 0;
+  let resolved = 0;
+  for await (const patch of session.executeConfirmedPlan()) {
+    if (patch.type === 'permission_request') {
+      asks++;
+      expect(patch.payload.resource).toBe(resource);
+      await session.resolvePermission(String(patch.payload.callId), 'allow');
+    }
+    if (patch.type === 'permission_resolved') resolved++;
+  }
+  expect(asks).toBe(1);
+  expect(resolved).toBe(1);
+  session.dispose();
+  await expect(request('interact_sensitive_ui', resource)).rejects.toThrow();
+});
