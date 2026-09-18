@@ -1,0 +1,1292 @@
+{
+  "schemaVersion": "itestagent.def034-acceptance-evidence.v1",
+  "testedCommit": "4e611465df65c50c1dc5115fb4aafa1911116857",
+  "xcode": {
+    "version": "26.5",
+    "build": "17F42"
+  },
+  "executedLocalHarnessSha256": "b1e0f2b14dcaf99d336b78f478241bb162d6fb1426bbdb4648cc36dd38e556e3",
+  "scope": "Real physical-target AUT preparation through the production executor; no TUI/permission acceptance, no installation, no WDA session, no Simulator run.",
+  "runs": [
+    {
+      "schemaVersion": "itestagent.def034-physical-verification.v1",
+      "stage": "build",
+      "runId": "def034-build-1788875702344",
+      "timestamp": "2026-09-08T13:55:02.344Z",
+      "runtime": "1.3.14",
+      "target": {
+        "kind": "physical",
+        "model": "iPhone14,8",
+        "osVersion": "18.2.1",
+        "availability": "ready"
+      },
+      "permissionsScope": "Build authorized by project owner; fixture confirmation adapter with all device writes blocked. Not a permission/TUI acceptance test.",
+      "commands": [
+        {
+          "executable": "xcodebuild",
+          "action": "build",
+          "pids": [
+            94427
+          ],
+          "startedMs": 10,
+          "signalMatches": true,
+          "endedMs": 2046
+        }
+      ],
+      "progress": [
+        {
+          "stage": "preparing_route",
+          "atMs": 9
+        },
+        {
+          "stage": "connecting_device",
+          "atMs": 9
+        },
+        {
+          "stage": "resolving_app_source",
+          "atMs": 10
+        },
+        {
+          "stage": "building_app",
+          "atMs": 10
+        },
+        {
+          "stage": "cleaning_up",
+          "atMs": 2046
+        },
+        {
+          "stage": "saving_result",
+          "atMs": 2047
+        }
+      ],
+      "abort": {
+        "reason": "compiler-descendant-observed",
+        "pid": 94427,
+        "command": "xcodebuild",
+        "targetAliveAtRequest": true,
+        "targetState": "S",
+        "observed": [
+          {
+            "pid": 94427,
+            "ppid": 94418,
+            "command": "xcodebuild",
+            "state": "S"
+          },
+          {
+            "pid": 94450,
+            "ppid": 94427,
+            "command": "SWBBuildService",
+            "state": "S"
+          },
+          {
+            "pid": 94456,
+            "ppid": 94450,
+            "command": "swift-driver",
+            "state": "R"
+          },
+          {
+            "pid": 94457,
+            "ppid": 94450,
+            "command": "clang",
+            "state": "U"
+          }
+        ],
+        "stagingExists": true,
+        "stagingEntryCount": 29,
+        "stagingEntryLimit": 250,
+        "stagingEntriesSample": [
+          "DerivedData",
+          "DerivedData/Build",
+          "DerivedData/Build/Intermediates.noindex"
+        ]
+      },
+      "deviceGuardHits": 0,
+      "modelCalls": 0,
+      "backendCloses": 1,
+      "processSamples": 52,
+      "manualRescue": [],
+      "result": {
+        "dispatchStatus": "cancelled",
+        "runStatus": "cancelled",
+        "elapsedAfterAbortMs": 180
+      },
+      "bundle": {
+        "schemaValidated": true,
+        "status": "cancelled",
+        "artifacts": 0,
+        "files": [
+          "plan.yaml",
+          "artifacts",
+          "result.json",
+          "summary.md",
+          "steps.json",
+          "artifact-index.json"
+        ],
+        "cleanupOutcome": null
+      },
+      "ownedProcesses": [
+        {
+          "pid": 94427,
+          "ppid": 94418,
+          "start": "Tue Sep  8 08:55:02 2026",
+          "command": "(xcodebuild)",
+          "state": "?E"
+        },
+        {
+          "pid": 94450,
+          "ppid": 94427,
+          "start": "Tue Sep  8 08:55:03 2026",
+          "command": "SWBBuildService",
+          "state": "R"
+        },
+        {
+          "pid": 94456,
+          "ppid": 94450,
+          "start": "Tue Sep  8 08:55:04 2026",
+          "command": "swiftc",
+          "state": "R"
+        },
+        {
+          "pid": 94457,
+          "ppid": 94450,
+          "start": "Tue Sep  8 08:55:04 2026",
+          "command": "clang",
+          "state": "R"
+        }
+      ],
+      "survivors": [],
+      "stagingAfter": false,
+      "sentinelUnchanged": true,
+      "sourceUnchanged": true,
+      "pass": true,
+      "rawLocalAuditSha256": "fe680877720510b8f41ea92ef1b22cf846598684fcd613888a25ebb7cc174819",
+      "localAuditDirectory": "/private/tmp/itestagent-def034-7fg83q"
+    },
+    {
+      "schemaVersion": "itestagent.def034-physical-verification.v1",
+      "stage": "settings",
+      "runId": "def034-settings-1788875735854",
+      "timestamp": "2026-09-08T13:55:35.854Z",
+      "runtime": "1.3.14",
+      "target": {
+        "kind": "physical",
+        "model": "iPhone14,8",
+        "osVersion": "18.2.1",
+        "availability": "ready"
+      },
+      "permissionsScope": "Build authorized by project owner; fixture confirmation adapter with all device writes blocked. Not a permission/TUI acceptance test.",
+      "commands": [
+        {
+          "executable": "xcodebuild",
+          "action": "build",
+          "pids": [
+            94790
+          ],
+          "startedMs": 15,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 8143
+        },
+        {
+          "executable": "xcodebuild",
+          "action": "-showBuildSettings",
+          "pids": [
+            94992
+          ],
+          "startedMs": 8143,
+          "signalMatches": true,
+          "endedMs": 8183
+        }
+      ],
+      "progress": [
+        {
+          "stage": "preparing_route",
+          "atMs": 13
+        },
+        {
+          "stage": "connecting_device",
+          "atMs": 13
+        },
+        {
+          "stage": "resolving_app_source",
+          "atMs": 14
+        },
+        {
+          "stage": "building_app",
+          "atMs": 15
+        },
+        {
+          "stage": "cleaning_up",
+          "atMs": 8183
+        },
+        {
+          "stage": "saving_result",
+          "atMs": 8183
+        }
+      ],
+      "abort": {
+        "reason": "target-process-spawned",
+        "pid": 94992,
+        "command": "xcodebuild",
+        "targetAliveAtRequest": true,
+        "targetState": "R",
+        "observed": [
+          {
+            "pid": 94992,
+            "ppid": 94786,
+            "command": "xcodebuild",
+            "state": "R"
+          }
+        ],
+        "stagingExists": true,
+        "stagingEntryCount": 250,
+        "stagingEntryLimit": 250,
+        "stagingEntriesSample": [
+          "DerivedData"
+        ]
+      },
+      "deviceGuardHits": 0,
+      "modelCalls": 0,
+      "backendCloses": 1,
+      "processSamples": 112,
+      "manualRescue": [],
+      "result": {
+        "dispatchStatus": "cancelled",
+        "runStatus": "cancelled",
+        "elapsedAfterAbortMs": 143
+      },
+      "bundle": {
+        "schemaValidated": true,
+        "status": "cancelled",
+        "artifacts": 0,
+        "files": [
+          "plan.yaml",
+          "artifacts",
+          "result.json",
+          "summary.md",
+          "steps.json",
+          "artifact-index.json"
+        ],
+        "cleanupOutcome": null
+      },
+      "ownedProcesses": [
+        {
+          "pid": 94790,
+          "ppid": 94786,
+          "start": "Tue Sep  8 08:55:35 2026",
+          "command": "xcodebuild",
+          "state": "S"
+        },
+        {
+          "pid": 94843,
+          "ppid": 94790,
+          "start": "Tue Sep  8 08:55:37 2026",
+          "command": "SWBBuildService",
+          "state": "R"
+        },
+        {
+          "pid": 94850,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:38 2026",
+          "command": "clang",
+          "state": "U"
+        },
+        {
+          "pid": 94851,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:38 2026",
+          "command": "(swift-driver)",
+          "state": "R"
+        },
+        {
+          "pid": 94855,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:38 2026",
+          "command": "ld",
+          "state": "R"
+        },
+        {
+          "pid": 94857,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:38 2026",
+          "command": "clang-stat-cache",
+          "state": "U"
+        },
+        {
+          "pid": 94859,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:38 2026",
+          "command": "(clang)",
+          "state": "S"
+        },
+        {
+          "pid": 94860,
+          "ppid": 94859,
+          "start": "Tue Sep  8 08:55:38 2026",
+          "command": "(ld)",
+          "state": "R"
+        },
+        {
+          "pid": 94870,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94871,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94872,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94873,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94874,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94875,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94876,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94877,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94879,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94880,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94881,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94883,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94889,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94891,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94894,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94895,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:39 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94900,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94903,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94904,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94906,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94908,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94913,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94914,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94916,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94919,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94920,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94921,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94922,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94923,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94924,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94925,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94926,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94929,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "?E"
+        },
+        {
+          "pid": 94930,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94932,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 94936,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94937,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:40 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94940,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:41 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94945,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:41 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94947,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:41 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94948,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:41 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 94976,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:43 2026",
+          "command": "clang",
+          "state": "S"
+        },
+        {
+          "pid": 94977,
+          "ppid": 94976,
+          "start": "Tue Sep  8 08:55:43 2026",
+          "command": "ld",
+          "state": "R"
+        },
+        {
+          "pid": 94980,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:43 2026",
+          "command": "(clang)",
+          "state": "S"
+        },
+        {
+          "pid": 94982,
+          "ppid": 94980,
+          "start": "Tue Sep  8 08:55:43 2026",
+          "command": "(ld)",
+          "state": "R"
+        },
+        {
+          "pid": 94985,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:43 2026",
+          "command": "codesign",
+          "state": "S"
+        },
+        {
+          "pid": 94988,
+          "ppid": 94843,
+          "start": "Tue Sep  8 08:55:43 2026",
+          "command": "codesign",
+          "state": "S"
+        },
+        {
+          "pid": 94992,
+          "ppid": 94786,
+          "start": "Tue Sep  8 08:55:44 2026",
+          "command": "xcodebuild",
+          "state": "R"
+        }
+      ],
+      "survivors": [],
+      "stagingAfter": false,
+      "sentinelUnchanged": true,
+      "sourceUnchanged": true,
+      "pass": true,
+      "rawLocalAuditSha256": "2db549d20a8265ab52d4dba50c064c443970994a91e20ee302a2eefae584650a",
+      "localAuditDirectory": "/private/tmp/itestagent-def034-hqIutq"
+    },
+    {
+      "schemaVersion": "itestagent.def034-physical-verification.v1",
+      "stage": "validation",
+      "runId": "def034-validation-1788875771008",
+      "timestamp": "2026-09-08T13:56:11.008Z",
+      "runtime": "1.3.14",
+      "target": {
+        "kind": "physical",
+        "model": "iPhone14,8",
+        "osVersion": "18.2.1",
+        "availability": "ready"
+      },
+      "permissionsScope": "Build authorized by project owner; fixture confirmation adapter with all device writes blocked. Not a permission/TUI acceptance test.",
+      "commands": [
+        {
+          "executable": "xcodebuild",
+          "action": "build",
+          "pids": [
+            95291
+          ],
+          "startedMs": 12,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 7501
+        },
+        {
+          "executable": "xcodebuild",
+          "action": "-showBuildSettings",
+          "pids": [
+            95489
+          ],
+          "startedMs": 7501,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 8357
+        },
+        {
+          "executable": "/usr/bin/plutil",
+          "action": "-extract",
+          "pids": [
+            95501
+          ],
+          "startedMs": 8358,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 8364
+        },
+        {
+          "executable": "/usr/bin/plutil",
+          "action": "-extract",
+          "pids": [
+            95502
+          ],
+          "startedMs": 8360,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 8364
+        },
+        {
+          "executable": "/usr/bin/plutil",
+          "action": "-extract",
+          "pids": [
+            95503
+          ],
+          "startedMs": 8360,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 8364
+        },
+        {
+          "executable": "/usr/bin/lipo",
+          "action": "-archs",
+          "pids": [
+            95504
+          ],
+          "startedMs": 8364,
+          "signalMatches": true,
+          "exitCode": 0,
+          "endedMs": 8372
+        },
+        {
+          "executable": "/usr/bin/codesign",
+          "action": "--verify",
+          "pids": [
+            95505
+          ],
+          "startedMs": 8372,
+          "signalMatches": true,
+          "endedMs": 8414
+        }
+      ],
+      "progress": [
+        {
+          "stage": "preparing_route",
+          "atMs": 10
+        },
+        {
+          "stage": "connecting_device",
+          "atMs": 10
+        },
+        {
+          "stage": "resolving_app_source",
+          "atMs": 11
+        },
+        {
+          "stage": "building_app",
+          "atMs": 11
+        },
+        {
+          "stage": "validating_app",
+          "atMs": 8357
+        },
+        {
+          "stage": "cleaning_up",
+          "atMs": 8414
+        },
+        {
+          "stage": "saving_result",
+          "atMs": 8414
+        }
+      ],
+      "abort": {
+        "reason": "target-process-spawned",
+        "pid": 95505,
+        "command": "codesign",
+        "targetAliveAtRequest": true,
+        "targetState": "R",
+        "observed": [
+          {
+            "pid": 95505,
+            "ppid": 95287,
+            "command": "(codesign)",
+            "state": "R"
+          }
+        ],
+        "stagingExists": true,
+        "stagingEntryCount": 250,
+        "stagingEntryLimit": 250,
+        "stagingEntriesSample": [
+          "DerivedData"
+        ]
+      },
+      "deviceGuardHits": 0,
+      "modelCalls": 0,
+      "backendCloses": 1,
+      "processSamples": 115,
+      "manualRescue": [],
+      "result": {
+        "dispatchStatus": "cancelled",
+        "runStatus": "cancelled",
+        "elapsedAfterAbortMs": 169
+      },
+      "bundle": {
+        "schemaValidated": true,
+        "status": "cancelled",
+        "artifacts": 0,
+        "files": [
+          "plan.yaml",
+          "artifacts",
+          "result.json",
+          "summary.md",
+          "steps.json",
+          "artifact-index.json"
+        ],
+        "cleanupOutcome": null
+      },
+      "ownedProcesses": [
+        {
+          "pid": 95291,
+          "ppid": 95287,
+          "start": "Tue Sep  8 08:56:11 2026",
+          "command": "xcodebuild",
+          "state": "S"
+        },
+        {
+          "pid": 95313,
+          "ppid": 95291,
+          "start": "Tue Sep  8 08:56:12 2026",
+          "command": "SWBBuildService",
+          "state": "R"
+        },
+        {
+          "pid": 95317,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:12 2026",
+          "command": "swiftc",
+          "state": "R"
+        },
+        {
+          "pid": 95318,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:12 2026",
+          "command": "clang",
+          "state": "R"
+        },
+        {
+          "pid": 95324,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:13 2026",
+          "command": "(ld)",
+          "state": "R"
+        },
+        {
+          "pid": 95326,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:13 2026",
+          "command": "clang-stat-cache",
+          "state": "R"
+        },
+        {
+          "pid": 95328,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:13 2026",
+          "command": "(clang)",
+          "state": "S"
+        },
+        {
+          "pid": 95329,
+          "ppid": 95328,
+          "start": "Tue Sep  8 08:56:13 2026",
+          "command": "(ld)",
+          "state": "?E"
+        },
+        {
+          "pid": 95337,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95338,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95339,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95340,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95341,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95342,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95343,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95344,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95348,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95349,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95354,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95355,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95356,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95357,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95360,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95362,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95363,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95369,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "?"
+        },
+        {
+          "pid": 95372,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95379,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95380,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95383,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95384,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95385,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:14 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95387,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95388,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95389,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95395,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95396,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95397,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95398,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95399,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95400,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95401,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95402,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95404,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95405,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95406,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95409,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95411,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95415,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95416,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:15 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95421,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:16 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95423,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:16 2026",
+          "command": "swift-frontend",
+          "state": "R"
+        },
+        {
+          "pid": 95424,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:16 2026",
+          "command": "(swift-frontend)",
+          "state": "R"
+        },
+        {
+          "pid": 95474,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:18 2026",
+          "command": "clang",
+          "state": "S"
+        },
+        {
+          "pid": 95475,
+          "ppid": 95474,
+          "start": "Tue Sep  8 08:56:18 2026",
+          "command": "ld",
+          "state": "R"
+        },
+        {
+          "pid": 95482,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:18 2026",
+          "command": "(appintentsnltrai)",
+          "state": "R"
+        },
+        {
+          "pid": 95486,
+          "ppid": 95313,
+          "start": "Tue Sep  8 08:56:18 2026",
+          "command": "codesign",
+          "state": "S"
+        },
+        {
+          "pid": 95489,
+          "ppid": 95287,
+          "start": "Tue Sep  8 08:56:18 2026",
+          "command": "xcodebuild",
+          "state": "S"
+        },
+        {
+          "pid": 95498,
+          "ppid": 95489,
+          "start": "Tue Sep  8 08:56:19 2026",
+          "command": "SWBBuildService",
+          "state": "R"
+        },
+        {
+          "pid": 95505,
+          "ppid": 95287,
+          "start": "Tue Sep  8 08:56:19 2026",
+          "command": "(codesign)",
+          "state": "R"
+        }
+      ],
+      "survivors": [],
+      "stagingAfter": false,
+      "sentinelUnchanged": true,
+      "sourceUnchanged": true,
+      "pass": true,
+      "rawLocalAuditSha256": "53a5fe125de118f40c588afc0fc1157a367e724043e4fee27861d6f7eaa42637",
+      "localAuditDirectory": "/private/tmp/itestagent-def034-T8TAwn"
+    }
+  ],
+  "delayedRecheck": {
+    "timestamp": "2026-09-08T13:59:25.812Z",
+    "method": "Read-only ps PID/start-time match against all recorded owned identities, plus filesystem existence check.",
+    "runs": [
+      {
+        "stage": "build",
+        "survivors": [],
+        "stagingExists": false
+      },
+      {
+        "stage": "settings",
+        "survivors": [],
+        "stagingExists": false
+      },
+      {
+        "stage": "validation",
+        "survivors": [],
+        "stagingExists": false
+      }
+    ]
+  }
+}

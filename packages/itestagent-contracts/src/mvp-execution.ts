@@ -50,6 +50,8 @@ export type MvpDeviceSelector = z.infer<typeof MvpDeviceSelectorSchema>;
 const MVP_METRIC_VALUES: readonly [TestPlanMetric, ...TestPlanMetric[]] = [
   'launch_time',
   'memory_peak',
+  'memory_growth',
+  'memory_leaks',
   'crash',
   'test_duration',
   'hitches',

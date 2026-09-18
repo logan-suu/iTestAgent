@@ -1,0 +1,47 @@
+// Reviewed no-provider source snapshot. Changes require an explicit profile review.
+export const noTargetSourceDigests: Readonly<Record<string, string>> = Object.freeze({
+  'itestagent-memory-ax-capabilities.swift':
+    '3b1d9dedf839b343b7963723f47332d50a7fb81878f0a0fb4bef067637bdfe9e',
+  'itestagent-memory-ax-context.swift':
+    '54762f4f6e31f7a7ea51d3e418f623c5618b692edec1b1f2660daad86ed10a07',
+  'itestagent-memory-local-document.swift':
+    '0edba471af06ab5cbb64a9146ca33ee079e695b6e599d1a051a342e18bef98bc',
+  'itestagent-memory-identity-script.swift':
+    '25454fcf32936ed30a86cf98b5c7cbff58afdc1d43c84ce101678343f5934bf9',
+  'itestagent-memory-console-response.swift':
+    '6cfdf8b652150c2a06d5172ba048ce60f633240894f4f24d9b7436ffab7aae88',
+  'itestagent-memory-console-location.swift':
+    'cb07be69b21e3574515bed109cd11803c011967ed9fe0979ff5d799728dcbf67',
+  'itestagent-memory-console-submit.swift':
+    '51d0b6cffcd7368e2ce3103aaa732a8dec3fc6fd97fc166f7be73edf340fcc5d',
+  'itestagent-memory-console-return.swift':
+    '5e31e38880038eceb9bd13711fadba865c79291fd60f8e4dbd52f2c500ae60bd',
+  'itestagent-memory-owned-app.swift':
+    'c1ca68e46100e90436a8f7cfaf4ff902032e0562bbf0b42f4be4d8968d0c836a',
+  'itestagent-memory-query-session.swift':
+    'ad97919b28725b967a4640c35806c25c9f51e8dd3034a4befe20e6629748ea51',
+  'itestagent-memory-parent-lifetime.swift':
+    '3600f19d4330093c12f086e5f12792193c6d38474e157c52b7a16960d5d14864',
+  'itestagent-memory-query-ipc.swift':
+    'af6ad1072725593275ef2b34310ab4a1e221a88b96fd9f3576c9f1baf6cb8d00',
+  'itestagent-memory-query-ipc-grant.swift':
+    'e38296660cde3b86342ef4969a939a238353b8b1ec6971eef7daadf58668c555',
+  'itestagent-memory-query-launcher.swift':
+    'd53fbdf7a5ea468c2cf35b98dda2bdd2e051ba1509d303c5ae77517ad026a5d1',
+  'itestagent-memory-query-app-launch.swift':
+    'ec6452565583a73d27675a9962a442963a72a62fa3e5cb6f57bfdebba34aadc7',
+  'itestagent-memory-query-control.swift':
+    '0d0a0686edc41838062a10d1a56277f369a67fc794e14107fb5f90bbc2b5ae14',
+  'itestagent-memory-query-candidate.swift':
+    'c78a379539d4b0005e1599b7fa231ae71b9fbf894e5d9a16249b4ab9c685c9a2',
+  'itestagent-memory-query-helper-session.swift':
+    'f7cbb4db243e9a616968eccc29b2aa711efc66edff45b7a5250044ef1aeb6f7b',
+  'itestagent-memory-query-closure-receipt.swift':
+    'e0618c3588782e1c9b798abd65972ea1d6bd6dd3ef292725efa7deb50ab186d1',
+  'itestagent-memory-query-launcher-main.swift':
+    '81721e78e942edc19c199d2649a485d6e6ccb55769aaebc3d259008e6c10e722',
+  'itestagent-memory-query-helper-main.swift':
+    'd3dfef6adc8eff522717ad5a5c3015c00e473b6aae7ff68530ab57816c67c1b3',
+  'itestagent_memory_identity.py':
+    '79db65f1e0287380150d12bb5a931e826b210ced13de0c2623c61f8cf837a3c7',
+});

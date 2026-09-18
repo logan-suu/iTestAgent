@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { TargetKindSchema } from './device-types.js';
+import { MemoryObservationSchema } from './memory-analysis.js';
+import { PerformanceMetricNameSchema } from './performance-capture.js';
 
 /**
  * Intent schema — S1 phase: natural language → structured intent.
@@ -56,6 +58,8 @@ export const IntentSchema = z.object({
   features: z.array(z.string()).optional().default([]),
   /** Whether performance metrics were requested */
   metricsRequested: z.boolean(),
+  requestedMetrics: z.array(PerformanceMetricNameSchema).optional(),
+  memoryObservation: MemoryObservationSchema.optional(),
   /** Detailed metrics hint from user input (e.g. 'fps+hitches' vs 'memory only') */
   metricsHint: z.string().optional(),
   /** Test scope */

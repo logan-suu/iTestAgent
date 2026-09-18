@@ -45,6 +45,7 @@ import {
   TargetKindSchema,
 } from '../src/device-artifacts.js';
 import { BaselineDeltaSchema } from '../src/performance-backend.js';
+import { MetricCollectionOutcomeSchema } from '../src/performance-capture.js';
 import {
   ExecutionSummarySchema,
   FailureExplanationSchema,
@@ -377,7 +378,7 @@ test('published metrics section matches PerformanceMetricsSchema with all-option
     Object.keys(PerformanceMetricsSchema.shape).sort(),
   );
   const metricProps = metrics.properties as JsonRecord;
-  for (const key of ['launchDurationMs', 'hangCount'] as const) {
+  for (const key of ['launchDurationMs', 'hangCount', 'testDurationMs'] as const) {
     const prop = metricProps[key] as JsonRecord;
     expect(prop.type).toBe('integer');
     expect(prop.minimum).toBe(0);
@@ -390,6 +391,21 @@ test('published metrics section matches PerformanceMetricsSchema with all-option
   expect((metricProps.crashDetected as JsonRecord).type).toBe('boolean');
   expect((metricProps.approximate as JsonRecord).type).toBe('boolean');
   expect((metricProps.rawTracePath as JsonRecord).type).toBe('string');
+  const collection = metricProps.collection as JsonRecord;
+  expect(collection.type).toBe('array');
+  const outcome = collection.items as JsonRecord;
+  expect((outcome.required as string[]).slice().sort()).toEqual(['metric', 'reasonCode', 'status']);
+  const fields = outcome.properties as Record<string, JsonRecord>;
+  expect(fields.metric?.enum).toEqual(MetricCollectionOutcomeSchema.shape.metric.options);
+  expect(fields.status?.enum).toEqual(MetricCollectionOutcomeSchema.shape.status.options);
+  expect(fields.reasonCode?.pattern).toBe('^[a-z0-9_.]+$');
+  expect(
+    MetricCollectionOutcomeSchema.safeParse({
+      metric: 'memory_peak',
+      status: 'failed',
+      reasonCode: 'raw secret text',
+    }).success,
+  ).toBe(false);
   const hitches = metricProps.hitchesSummary as JsonRecord;
   expect(hitches.type).toBe('string');
   expect((hitches.enum as string[]).slice().sort()).toEqual([

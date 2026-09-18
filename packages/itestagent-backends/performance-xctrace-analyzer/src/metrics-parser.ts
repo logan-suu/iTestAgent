@@ -60,7 +60,7 @@ function extractFromXmlElement(xml: string, tagPattern: RegExp): number | undefi
   const match = tagPattern.exec(xml);
   if (!match || match[1] === undefined) return undefined;
   const value = Number.parseFloat(match[1]);
-  return Number.isNaN(value) ? undefined : value;
+  return Number.isFinite(value) ? value : undefined;
 }
 
 /**
@@ -70,7 +70,7 @@ function extractIntFromXmlElement(xml: string, tagPattern: RegExp): number | und
   const match = tagPattern.exec(xml);
   if (!match || match[1] === undefined) return undefined;
   const value = Number.parseInt(match[1], 10);
-  return Number.isNaN(value) ? undefined : value;
+  return Number.isFinite(value) ? value : undefined;
 }
 
 /** Regex to extract hitches ratio: matches <hitch-ratio> or hitchRatio variants. */
@@ -86,10 +86,10 @@ const HANG_COUNT_RE = /<hang[-_]duration[-_]ms\b[^>]*>/gi;
  */
 const MEMORY_PEAK_XML_RE =
   /<peak[-_]?memory[-_]?MB[^>]*>(\d+(?:\.\d+)?)<\/peak[-_]?memory[-_]?MB>/i;
-const MEMORY_PEAK_ALT_RE = /peak[-_]?memory[^>]*?(\d+(?:\.\d+)?)\s*(?:MB|MiB)?/i;
+const MEMORY_PEAK_ALT_RE = /peak[-_]?memory[^>]*?(\d+(?:\.\d+)?)\s*(?:MB|MiB)\b/i;
 
-/** Regex for memory in bytes (from <peak-memory-MB> with large byte values). */
-const MEMORY_BYTES_RE = /peak[-_]?memory[^>]*?(\d{6,})/i;
+/** Bytes must have an explicit unit; magnitude alone cannot establish units. */
+const MEMORY_BYTES_RE = /<peak[-_]?memory[-_]?bytes[^>]*>(\d+)<\/peak[-_]?memory[-_]?bytes>/i;
 
 /**
  * Regex to extract launch duration in ms.
@@ -129,13 +129,14 @@ const FPS_ALT_RE =
 /**
  * Detect crash presence in trace data.
  */
-function detectCrash(xml: string): boolean {
+function detectCrash(xml: string): boolean | undefined {
   for (const pattern of CRASH_PATTERNS) {
     if (pattern.test(xml)) {
       return true;
     }
   }
-  return false;
+  // Absence of a crash event is not proof that crash monitoring was available.
+  return undefined;
 }
 
 /**
@@ -216,9 +217,9 @@ function parseLaunchDuration(xml: string): number | undefined {
 /**
  * Parse hang count from trace XML data.
  */
-function parseHangCount(xml: string): number {
+function parseHangCount(xml: string): number | undefined {
   const matches = xml.match(HANG_COUNT_RE);
-  return matches ? matches.length : 0;
+  return matches ? matches.length : undefined;
 }
 
 /**

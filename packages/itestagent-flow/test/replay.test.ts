@@ -163,12 +163,12 @@ class MockDeviceBackend implements DeviceBackend {
 
 /** Minimal UiTree XML with a button for locator resolution tests. */
 const MINIMAL_UI_TREE_XML = `<?xml version="1.0" encoding="UTF-8"?>
-<App>
+<XCUIElementTypeApplication x="0" y="0" width="428" height="926">
   <XCUIElementTypeWindow>
     <XCUIElementTypeButton type="XCUIElementTypeButton" name="Login" label="Login" enabled="true" visible="true" x="100" y="200" width="80" height="44"/>
     <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" name="Welcome" label="Welcome" value="Welcome to the app" enabled="true" visible="true" x="50" y="100" width="200" height="30"/>
   </XCUIElementTypeWindow>
-</App>`;
+</XCUIElementTypeApplication>`;
 
 /** Minimal UiTreeSnapshot fixture. */
 function makeUiTreeSnapshot(xml = MINIMAL_UI_TREE_XML): UiTreeSnapshot {
@@ -743,6 +743,11 @@ describe('replayFlow — multi-step', () => {
 
   test('overallStatus is failed when any step fails', async () => {
     const backend = new MockDeviceBackend();
+    backend.setUiTree({
+      format: 'xml',
+      raw: '<XCUIElementTypeApplication />',
+      capturedAt: new Date().toISOString(),
+    });
     const flow = makeFlow({
       steps: [
         { action: 'comment', comment: 'ok' },
@@ -751,6 +756,18 @@ describe('replayFlow — multi-step', () => {
     });
     const result = await replayFlow(flow, backend, makeReplayOpts());
     expect(result.overallStatus).toBe('failed');
+  });
+
+  test('a missing UI tree blocks assertion evaluation instead of failing the product', async () => {
+    const result = await replayFlow(
+      makeFlow({
+        steps: [{ action: 'assertVisible', locator: { strategy: 'label', value: 'Ready' } }],
+      }),
+      new MockDeviceBackend(),
+      makeReplayOpts(),
+    );
+    expect(result.overallStatus).toBe('blocked');
+    expect(result.steps[0]?.error).toContain('Failed to get UI tree');
   });
 
   test('overallStatus is blocked when all steps blocked', async () => {

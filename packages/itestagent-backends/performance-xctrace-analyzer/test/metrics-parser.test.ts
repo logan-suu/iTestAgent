@@ -174,20 +174,31 @@ describe('parsePerformanceMetrics — hang count', () => {
     expect(metrics.hangCount).toBe(3);
   });
 
-  it('returns 0 when no Hang elements', () => {
+  it('leaves hang count unknown when no Hang elements exist', () => {
     const metrics = parsePerformanceMetrics(CRASH_XML, config);
-    expect(metrics.hangCount).toBe(0);
+    expect(metrics.hangCount).toBeUndefined();
   });
 
-  it('returns 0 for empty XML', () => {
+  it('leaves hang count unknown for empty XML', () => {
     const metrics = parsePerformanceMetrics(EMPTY_XML, config);
-    expect(metrics.hangCount).toBe(0);
+    expect(metrics.hangCount).toBeUndefined();
   });
 });
 
 // ─── Memory Peak ──────────────────────────────────────────────────
 
 describe('parsePerformanceMetrics — memory peak', () => {
+  it('converts explicit bytes and rejects unitless memory values', () => {
+    expect(
+      parsePerformanceMetrics('<peak-memory-bytes>52428800</peak-memory-bytes>', {
+        isSimulator: false,
+      }).memoryPeakMB,
+    ).toBe(50);
+    expect(
+      parsePerformanceMetrics('<peak-memory>52428800</peak-memory>', { isSimulator: false })
+        .memoryPeakMB,
+    ).toBeUndefined();
+  });
   it('extracts memory peak in MB', () => {
     const metrics = parsePerformanceMetrics(HITCHES_XML, config);
     expect(metrics.memoryPeakMB).toBeCloseTo(418.5, 1);
@@ -236,9 +247,9 @@ describe('parsePerformanceMetrics — crash detection', () => {
     expect(metrics.crashDetected).toBe(true);
   });
 
-  it('returns false when no crash patterns', () => {
+  it('leaves crash status unknown when no crash patterns', () => {
     const metrics = parsePerformanceMetrics(HITCHES_XML, config);
-    expect(metrics.crashDetected).toBe(false);
+    expect(metrics.crashDetected).toBeUndefined();
   });
 });
 
@@ -283,7 +294,7 @@ describe('parseTraceSummary', () => {
 
     expect(summary.launchDurationMs).toBe(1320);
     expect(summary.memoryPeakMB).toBeCloseTo(418.5, 1);
-    expect(summary.crashDetected).toBe(false);
+    expect(summary.crashDetected).toBeUndefined();
     expect(summary.hangCount).toBe(3);
     expect(summary.approximate).toBe(true);
 
@@ -298,7 +309,7 @@ describe('parseTraceSummary', () => {
     expect(summary.launchDurationMs).toBeUndefined();
     expect(summary.memoryPeakMB).toBeUndefined();
     expect(summary.crashDetected).toBeFalsy();
-    expect(summary.hangCount).toBe(0);
+    expect(summary.hangCount).toBeUndefined();
   });
 
   it('includes hitches count in summary structure', () => {
@@ -308,9 +319,9 @@ describe('parseTraceSummary', () => {
     expect(hitches.level).toBe('medium');
   });
 
-  it('returns 0 hangCount when no Hang elements', () => {
+  it('leaves hangCount unknown when no Hang events were exported', () => {
     const summary = parseTraceSummary(CRASH_XML, config);
-    expect(summary.hangCount).toBe(0);
+    expect(summary.hangCount).toBeUndefined();
   });
 });
 
@@ -322,7 +333,7 @@ describe('parseRawMetrics', () => {
 
     expect(metrics.launchDurationMs).toBe(1320);
     expect(metrics.memoryPeakMB).toBeCloseTo(418.5, 1);
-    expect(metrics.crashDetected).toBe(false);
+    expect(metrics.crashDetected).toBeUndefined();
     expect(metrics.hangCount).toBe(3);
     expect(metrics.hitchesSummary).toBe('medium');
     expect(metrics.approximate).toBe(true);
@@ -333,7 +344,7 @@ describe('parseRawMetrics', () => {
 
     expect(metrics.approximate).toBe(true);
     expect(metrics.hitchesSummary).toBe('inconclusive');
-    expect(metrics.hangCount).toBe(0);
+    expect(metrics.hangCount).toBeUndefined();
   });
 });
 
@@ -344,7 +355,7 @@ describe('parsePerformanceMetrics — edge cases', () => {
     const metrics = parsePerformanceMetrics('   \n  ', config);
     expect(metrics.approximate).toBe(true);
     expect(metrics.crashDetected).toBeFalsy();
-    expect(metrics.hangCount).toBe(0);
+    expect(metrics.hangCount).toBeUndefined();
   });
 
   it('handles very large XML input without crashing', () => {
@@ -361,7 +372,7 @@ describe('parsePerformanceMetrics — edge cases', () => {
     </trace-export>`;
     const metrics = parsePerformanceMetrics(xml, config);
     expect(metrics.hitchesSummary).toBe('low');
-    expect(metrics.hangCount).toBe(0);
+    expect(metrics.hangCount).toBeUndefined();
   });
 });
 

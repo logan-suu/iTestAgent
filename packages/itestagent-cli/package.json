@@ -19,6 +19,7 @@
     "build": "bun build src/cli.ts --outdir dist --target bun --external '@opentui/*'"
   },
   "dependencies": {
+    "itestagent-backends-performance-xctrace-analyzer": "workspace:*",
     "commander": "^15.0.0",
     "jsonc-parser": "^3.3.1",
     "itestagent-contracts": "workspace:*",

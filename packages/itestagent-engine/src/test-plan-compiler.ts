@@ -55,10 +55,25 @@ export function compileTestPlan(
 
   // ── Performance plan (ADR-011: baselineDomain) ─────────────
   const targetKind = intent.targetKind ?? 'physical';
+  const nativeMemory =
+    targetKind === 'simulator' &&
+    execution.resolvedPath === 'device_backend' &&
+    execution.metrics?.some((metric) =>
+      ['memory_peak', 'memory_growth', 'memory_leaks'].includes(metric),
+    );
   const performance = {
-    baseline: 'local_auto' as const,
+    baseline: nativeMemory ? ('skip' as const) : ('local_auto' as const),
     baselineDomain: targetKind,
-    thresholdRequired: intent.metricsRequested,
+    thresholdRequired: false,
+    ...(nativeMemory ||
+    execution.metrics?.some((m) => m === 'memory_growth' || m === 'memory_leaks')
+      ? {
+          memoryObservation: intent.memoryObservation ?? {
+            minimumDurationMs: 30_000,
+            settleDurationMs: 5000,
+          },
+        }
+      : {}),
   };
 
   const plan: TestPlan = {
@@ -71,7 +86,15 @@ export function compileTestPlan(
     backendPreference: resolveBackendPreference(profile),
     execution,
     artifacts: {
-      collect: ['screenshot', 'uitree', 'crashlog', 'xcresult'],
+      collect: [
+        'screenshot',
+        'uitree',
+        'crashlog',
+        'xcresult',
+        ...(!nativeMemory && execution.metrics?.some((m) => m !== 'test_duration')
+          ? ['trace' as const]
+          : []),
+      ],
       report: { outputs: ['summary_md', 'result_json', 'artifact_index_json'] },
     },
     performance,
@@ -220,6 +243,7 @@ export class TestPlanConfirmationError extends Error {
 
 /** Select metrics based on Intent.scope and metricsRequested */
 function resolveMetrics(intent: Intent): ExecutionPlan['metrics'] {
+  if (intent.requestedMetrics?.length) return [...new Set(intent.requestedMetrics)];
   // Perf scope always collects all metrics
   if (intent.scope === 'perf') {
     return ['launch_time', 'memory_peak', 'crash', 'test_duration', 'hitches', 'fps'] as const;
@@ -254,7 +278,7 @@ function resolveAssertionPolicy(
   return { policy: 'user_goal_then_profile_then_agent_confirmed' };
 }
 
-/** Compile quoted "confirm … visible" clauses into deterministic tier-1 assertions. */
+/** Compile explicit visibility clauses; unquoted targets require strict clause boundaries. */
 export function extractExplicitUserAssertions(sourceText: string, caseId: string): UserAssertion[] {
   const sanitizedSource = redactSensitiveText(sourceText);
   const targets: string[] = [];
@@ -262,21 +286,37 @@ export function extractExplicitUserAssertions(sourceText: string, caseId: string
     /(?:确认|验证|检查)\s*[“"]([^”"]+)[”"]\s*(?:可见|已显示|显示)/gu,
     /(?:confirm|verify|check)(?:\s+that)?\s*[“"]([^”"]+)[”"]\s+(?:is\s+)?visible/giu,
   ];
-  for (const pattern of patterns) {
-    for (const match of sourceText.matchAll(pattern)) {
-      const target = match[1]?.trim();
-      if (
-        target &&
-        (target.includes('[REDACTED]') ||
-          redactSensitiveText(target) !== target ||
-          !sanitizedSource.includes(target))
-      ) {
-        throw new Error(
-          'assertion_sensitive_target: secret literals cannot be stored as assertion targets; use a non-sensitive visible condition and confirm again',
-        );
-      }
-      if (target && !targets.includes(target)) targets.push(target);
+  const matches = patterns.flatMap((pattern) =>
+    [...sourceText.matchAll(pattern)].map((match) => ({
+      target: match[1]?.trim(),
+      index: match.index,
+    })),
+  );
+  // Do not interpret negated/conditional prose or a trailing alternative as a positive condition.
+  const unquoted =
+    /(?:^|[，,；;。：\n]|\.\s+)\s*(?:(?:启动后|随后|然后|最后)\s*)?(?:(?:确认|验证|检查)\s*([^“”"'‘’\n，,；;。!?！？]{1,120}?)\s*(?:可见|已显示)|(?:confirm|verify|check)(?:\s+that)?\s+([^“”"'‘’\n，,；;。!?！？]{1,120}?)\s+(?:is\s+)?visible)(?=\s*(?:$|[，,；;。\n!?！？]|\.(?:\s|$)))/giu;
+  for (const match of sourceText.matchAll(unquoted)) {
+    const target = (match[1] ?? match[2])?.trim();
+    if (!target) continue;
+    // Leave compound, uncertain, or negative targets in the goal for explicit clarification.
+    if (/是否|或者|或|以及|并且|和|如果|不|未|\b(?:or|and|not|if|whether|unless)\b/iu.test(target))
+      continue;
+    matches.push({ target, index: match.index });
+  }
+  matches.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  for (const match of matches) {
+    const target = match.target;
+    if (
+      target &&
+      (target.includes('[REDACTED]') ||
+        redactSensitiveText(target) !== target ||
+        !sanitizedSource.includes(target))
+    ) {
+      throw new Error(
+        'assertion_sensitive_target: secret literals cannot be stored as assertion targets; use a non-sensitive visible condition and confirm again',
+      );
     }
+    if (target && !targets.includes(target)) targets.push(target);
   }
   if (targets.length === 0) return [];
   return [

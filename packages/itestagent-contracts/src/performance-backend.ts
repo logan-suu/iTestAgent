@@ -99,6 +99,7 @@ export type TraceSummaryInput = z.infer<typeof TraceSummaryInputSchema>;
  * 红线 R5：不静默降级/臆造指标。不确定项使用 approximate 字段显式标注。
  */
 export const TraceSummarySchema = z.object({
+  memoryGrowthMiB: z.number().finite().optional(),
   /** 总采样数 */
   totalSamples: z.number().int().nonnegative().optional(),
   /** 卡顿次数 */
@@ -175,6 +176,7 @@ export const BaselineDeltaSchema = z.object({
   targetKind: TargetKindSchema,
   /** 各指标增量 */
   deltas: z.object({
+    memoryGrowthMiB: z.number().finite().optional(),
     /** 启动耗时增量（毫秒），正值为回归 */
     launchDurationMs: z.number().optional(),
     /** 内存峰值增量（MB），正值为回归 */

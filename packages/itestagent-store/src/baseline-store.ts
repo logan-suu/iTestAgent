@@ -9,6 +9,7 @@ import {
   parseBaselineKey,
 } from 'itestagent-contracts';
 
+import { writeBaselineAtomic } from './baseline-atomic.js';
 import { resolveStoreRoot } from './bootstrap.js';
 
 // ─── Injectable FileSystem ─────────────────────────────────────
@@ -58,6 +59,8 @@ function assertTargetKindMatch(key: string, record: BaselineRecord): void {
 
 /** Resolve the absolute path to a baseline JSON file. */
 function resolvePath(storeRoot: string, targetKind: string, key: string): string {
+  if (/[\\/]/.test(key) || [...key].some((c) => c.charCodeAt(0) < 32))
+    throw new Error('Invalid baseline key path');
   return join(storeRoot, 'baselines', targetKind, `${key}.json`);
 }
 
@@ -84,6 +87,26 @@ export function createBaselineStore(storeRoot?: string, fileSystem?: FileSystem)
   const fs = fileSystem ?? nodeFs;
 
   return {
+    ...(fileSystem
+      ? {}
+      : {
+          async compareAndSwap(
+            record: BaselineRecord,
+            expected: BaselineRecord | null,
+            signal?: AbortSignal,
+          ): Promise<boolean> {
+            const validated = BaselineRecordSchema.parse(record);
+            assertTargetKindMatch(validated.key, validated);
+            if (expected && expected.key !== validated.key)
+              throw new Error('baseline_key_mismatch');
+            return writeBaselineAtomic(
+              resolvePath(root, validated.targetKind, validated.key),
+              validated,
+              expected,
+              signal,
+            );
+          },
+        }),
     async get(key: string): Promise<BaselineRecord | null> {
       const parsed = parseBaselineKey(key);
       if (!parsed) return null;
@@ -116,6 +139,11 @@ export function createBaselineStore(storeRoot?: string, fileSystem?: FileSystem)
 
       const dir = resolveDir(root, record.targetKind);
       const filePath = resolvePath(root, record.targetKind, record.key);
+
+      if (!fileSystem) {
+        await writeBaselineAtomic(filePath, BaselineRecordSchema.parse(record));
+        return;
+      }
 
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(filePath, JSON.stringify(record, null, 2), 'utf-8');
@@ -185,6 +213,11 @@ export function createBaselineStore(storeRoot?: string, fileSystem?: FileSystem)
       if (!parsed) return; // Invalid key → no-op
 
       const filePath = resolvePath(root, parsed.targetKind, key);
+
+      if (!fileSystem) {
+        await writeBaselineAtomic(filePath, null);
+        return;
+      }
 
       try {
         await fs.unlink(filePath);

@@ -133,13 +133,35 @@ export function createProgram(): Command {
     .description(
       'iPhone real-device automated testing TUI Agent — Local-first, TUI-first, Agent-native.',
     )
-    .version(VERSION, '-v, --version', 'output version number');
+    .version(VERSION, '-v, --version', 'output version number')
+    .option('--simulator-appium-url <url>', 'local Simulator Appium URL for this TUI session')
+    .option('--simulator-wda-port <port>', 'exclusive Simulator WDA port', parseReplayPort)
+    .option('--simulator-mjpeg-port <port>', 'exclusive Simulator MJPEG port', parseReplayPort)
+    .option('--simulator-wda-derived-data <path>', 'dedicated absolute WDA build directory');
 
   // US-4.1 AC1 / US-18.1 AC1: default action enters TUI (dynamic import —
   // prevents TUI renderer from blocking non-TUI commands like --version)
   program.action(async () => {
     const { startTui } = await import('itestagent-tui');
-    await startTui();
+    const options = program.opts();
+    const values = [
+      options.simulatorAppiumUrl,
+      options.simulatorWdaPort,
+      options.simulatorMjpegPort,
+      options.simulatorWdaDerivedData,
+    ];
+    if (values.some((value) => value !== undefined) && values.some((value) => value === undefined))
+      throw new PublicCliError('All four --simulator-* connection options are required together.');
+    const { validateSimulatorAppiumOptions } = await import('itestagent-engine');
+    const simulatorAppium = values.every((value) => value === undefined)
+      ? undefined
+      : validateSimulatorAppiumOptions({
+          appiumServerUrl: options.simulatorAppiumUrl,
+          wdaLocalPort: options.simulatorWdaPort,
+          mjpegServerPort: options.simulatorMjpegPort,
+          derivedDataPath: options.simulatorWdaDerivedData,
+        });
+    await startTui(undefined, { simulatorAppium });
   });
 
   // ─── doctor (physical + simulator readiness lanes) ───

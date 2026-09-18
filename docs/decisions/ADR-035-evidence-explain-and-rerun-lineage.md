@@ -151,3 +151,7 @@ child run 聚合规则：仍有任一 `failed` case 时 run 为 `failed`；否�
 - `docs/01-spec/全量用户故事与验收标准规格书.md`
 - `docs/02-architecture/架构设计文档.md`
 - `docs/02-architecture/数据流全链路技术说明文档.md`
+
+## 2026-09-17 authoritative bare-class JUnit mapping
+
+A real Xcode result from the T6.12 fixture exposes bare JUnit classname `ExitTests` and full Apple nodeIdentifierURL target/class/method. Accept the bare class only when the same method maps to exactly one authoritative identifier; multiple targets or unrelated classes do not acquire a guessed target. This preserves exact failed-only semantics. Unit negative cases and read-only reparse pass; the signing-capacity-blocked parent is retained unchanged and does not close T6.12 G5.

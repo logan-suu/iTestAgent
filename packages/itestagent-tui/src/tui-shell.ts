@@ -100,6 +100,7 @@ export interface TuiShellState {
   readonly currentIntent: IntentParseResult | null;
   /** Plan review state (US-5.2: plan_review mode). */
   readonly plan: TestPlan | null;
+  readonly planConnectionSummary?: string;
   readonly planSectionIndex: number;
   readonly planModifyMode: boolean;
   readonly planModifyDraft: string;
@@ -196,7 +197,11 @@ export type TuiShellEvent =
   | { readonly type: 'intent_clarify_response'; readonly text: string }
   | { readonly type: 'intent_cancel' }
   // Plan review events (US-5.2 AC1-AC3)
-  | { readonly type: 'enter_plan_review'; readonly plan: TestPlan }
+  | {
+      readonly type: 'enter_plan_review';
+      readonly plan: TestPlan;
+      readonly connectionSummary?: string;
+    }
   | { readonly type: 'exit_plan_review' }
   | { readonly type: 'plan_confirm' }
   | { readonly type: 'plan_cancel' }
@@ -721,6 +726,7 @@ export function tuiShellReducer(state: TuiShellState, event: TuiShellEvent): Tui
         ...state,
         mode: 'plan_review',
         plan: event.plan,
+        planConnectionSummary: event.connectionSummary,
         planSectionIndex: 0,
         planModifyMode: false,
         planModifyDraft: '',

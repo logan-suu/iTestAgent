@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { UserAssertionSchema } from './assertion.js';
 import { TargetKindSchema } from './device-types.js';
+import { MemoryRoundsPlanSchema } from './memory-analysis.js';
+import { MemoryObservationSchema } from './memory-analysis.js';
 import { RunIdSchema } from './run-id.js';
 
 /**
@@ -29,6 +31,8 @@ export const TEST_PLAN_SCHEMA_VERSION = 'itestagent.test-plan.v3';
 export const TEST_PLAN_METRIC_VALUES = [
   'launch_time',
   'memory_peak',
+  'memory_growth',
+  'memory_leaks',
   'crash',
   'test_duration',
   'hitches',
@@ -202,6 +206,8 @@ export type ArtifactPolicy = z.infer<typeof ArtifactPolicySchema>;
 // ─── Performance Plan ────────────────────────────────────────
 
 export const PerformancePlanSchema = z.object({
+  memoryRounds: MemoryRoundsPlanSchema.optional(),
+  memoryObservation: MemoryObservationSchema.optional(),
   /** Baseline strategy */
   baseline: z.enum(['local_auto', 'skip']),
   /** Baseline domain isolation per ADR-011 */
@@ -302,6 +308,25 @@ export const TestPlanSchema = z
   })
   .strict()
   .superRefine((plan, ctx) => {
+    if (
+      plan.performance.memoryRounds &&
+      (plan.device.kind !== 'physical' ||
+        plan.execution.resolvedPath !== 'device_backend' ||
+        !plan.performance.memoryObservation ||
+        !plan.execution.metrics?.includes('memory_growth') ||
+        plan.rerun ||
+        plan.execution.metrics.some(
+          (m) => !['memory_peak', 'memory_growth', 'memory_leaks', 'test_duration'].includes(m),
+        ))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['performance', 'memoryRounds'],
+        message:
+          'memory rounds require a physical DeviceBackend plan with confirmed memory growth observation',
+      });
+    }
+
     if (plan.rerun?.parentRunId === plan.runId) {
       ctx.addIssue({
         code: 'custom',

@@ -147,7 +147,7 @@ export function findElementInUiTree(xml: string, locator: LocatorV2): UiTreeElem
  * For 'label'/'identifier'/'xpath' strategies: search UiTree XML.
  *
  * Returns coordinates {x, y} or null if resolution fails.
- * Requires screen width/height for UiTree pixel→normalized conversion.
+ * Requires measured application bounds in the same coordinate space as the element.
  */
 export async function resolveTapCoordinates(
   locator: LocatorV2,
@@ -170,28 +170,32 @@ export async function resolveTapCoordinates(
   const element = findElementInUiTree(uiTree.raw, locator);
   if (!element) return null;
 
-  // UiTree bounds are in device pixels — we need normalized [0,1] coordinates
-  // Since we don't have the screen dimensions from the UiTree, we use a rough approximation
-  // by assuming the device screen is the reference. For accurate conversion,
-  // we'd need the device screen size — but the Appium page source's x/y are absolute
-  // pixel coordinates already, so we need to convert to normalized.
-
-  // The UiTreeSnapshot doesn't carry screen dimensions. As a fallback,
-  // we estimate from the max x/width in the tree, or use standard iPhone dimensions.
-  // For simplicity and reliability, we extract the screenSize from a regex search of the page source.
-
-  // Fallback: assume standard iPhone 14 Pro dimensions (393×852 points at 3x = 1179×2556 pixels)
-  // This is imprecise but works for replay — the original recording was done with actual
-  // coordinates, so in practice coordinate-based locators are the primary path.
-  const screenWidth = 1179; // fallback iPhone 14 Pro
-  const screenHeight = 2556; // fallback iPhone 14 Pro
+  // Appium's application bounds and element bounds share the same UI coordinate space.
+  // Missing or ambiguous viewport evidence must block instead of guessing a device model.
+  const applications = [...uiTree.raw.matchAll(/<XCUIElementTypeApplication\b[^>]*>/g)];
+  if (applications.length !== 1) return null;
+  const application = applications[0]?.[0] ?? '';
+  const attribute = (name: string): number => {
+    const raw = application.match(new RegExp(`\\b${name}="([^"\\s]+)"`))?.[1];
+    return raw === undefined ? Number.NaN : Number(raw);
+  };
+  const screenWidth = attribute('width');
+  const screenHeight = attribute('height');
+  if (
+    attribute('x') !== 0 ||
+    attribute('y') !== 0 ||
+    !Number.isFinite(screenWidth) ||
+    !Number.isFinite(screenHeight) ||
+    screenWidth <= 0 ||
+    screenHeight <= 0 ||
+    ![element.x, element.y, element.width, element.height].every(Number.isFinite) ||
+    element.width <= 0 ||
+    element.height <= 0
+  )
+    return null;
 
   const centerX = (element.x + element.width / 2) / screenWidth;
   const centerY = (element.y + element.height / 2) / screenHeight;
-
-  // Clamp to [0, 1]
-  return {
-    x: Math.max(0, Math.min(1, centerX)),
-    y: Math.max(0, Math.min(1, centerY)),
-  };
+  if (centerX < 0 || centerX > 1 || centerY < 0 || centerY > 1) return null;
+  return { x: centerX, y: centerY };
 }

@@ -185,7 +185,8 @@ function main(): void {
       const abs = join(repoRoot, dir);
       if (existsSync(abs)) {
         for (const file of collectFiles(abs)) {
-          if (!isUnderExcludedScenarioSurface(file)) targetFiles.push(relative(repoRoot, file));
+          const repoRelative = relative(repoRoot, file);
+          if (!isUnderExcludedScenarioSurface(repoRelative)) targetFiles.push(repoRelative);
         }
       }
     }

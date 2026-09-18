@@ -1,3 +1,7 @@
+import type { ArtifactIndex } from './artifact-index-contract.js';
+import { ArtifactIndexSchema } from './artifact-index-contract.js';
+import type { FlowReplayPlan } from './flow-replay-plan.js';
+import { FlowReplayPlanSchema } from './flow-replay-plan.js';
 /**
  * json-schema-cross-field.ts — cross-field / cross-document validation for
  * the result + artifact-index pair (promotion guide §11.4
@@ -19,10 +23,7 @@
  * Accept/reject equivalence with the published schemas is unaffected: these
  * checks run ON TOP of already-parsed documents.
  */
-import type { ArtifactIndex } from './artifact-index-contract.js';
-import { ArtifactIndexSchema } from './artifact-index-contract.js';
-import type { FlowReplayPlan } from './flow-replay-plan.js';
-import { FlowReplayPlanSchema } from './flow-replay-plan.js';
+import { memoryRoundsMetricIssues } from './memory-rounds-validation.js';
 import type { RunResult } from './run-result-contracts.js';
 import { RunResultSchema } from './run-result-contracts.js';
 import type { RunStepsDocument } from './run-steps-contract.js';
@@ -109,6 +110,19 @@ export function validateRunResultArtifactIndexPair(
   index: ArtifactIndex,
 ): CrossFieldIssue[] {
   const issues: CrossFieldIssue[] = [];
+  const scan = result.metrics.memoryLeaks;
+  if (scan?.source === 'native-leaks') {
+    const evidence = index.artifacts.find((a) => a.id === scan.artifactId);
+    if (
+      !evidence ||
+      evidence.redactionStatus !== 'raw-local-only' ||
+      !result.artifactRefs.includes(scan.artifactId)
+    )
+      issues.push({
+        path: 'metrics.memoryLeaks.artifactId',
+        message: 'Native scan requires a referenced raw-local-only evidence artifact',
+      });
+  }
 
   if (result.runId !== index.runId) {
     issues.push({
@@ -330,6 +344,83 @@ export function validateRunBundleDocuments(bundle: RunBundleDocuments): CrossFie
   const caseById = new Map(result.cases.map((testCase) => [testCase.caseId, testCase]));
   const caseIds = new Set(caseById.keys());
   const artifactById = new Map(artifactIndex.artifacts.map((artifact) => [artifact.id, artifact]));
+  const rounds = result.metrics.memoryRounds;
+  const roundPlan =
+    plan.schemaVersion === 'itestagent.test-plan.v3' ? plan.performance.memoryRounds : undefined;
+  if (rounds) {
+    if (!roundPlan || plan.schemaVersion !== 'itestagent.test-plan.v3')
+      issues.push({
+        path: 'result.metrics.memoryRounds',
+        message: 'round results require a confirmed TestPlan rounds configuration',
+      });
+    else
+      for (const message of memoryRoundsMetricIssues(plan, result.metrics))
+        issues.push({ path: 'result.metrics.memoryRounds', message });
+    if (result.status === 'passed' && rounds.status !== 'passed')
+      issues.push({ path: 'result.status', message: 'incomplete rounds cannot pass' });
+    const referencedSteps = new Set<string>();
+    const referencedArtifacts = new Set<string>();
+    for (const row of rounds.rounds) {
+      for (const id of row.stepIds) {
+        const step = stepById.get(id);
+        if (
+          !step ||
+          typeof step.input !== 'object' ||
+          step.input === null ||
+          !('round' in step.input) ||
+          step.input.round !== row.round ||
+          referencedSteps.has(id)
+        )
+          issues.push({
+            path: 'result.metrics.memoryRounds.stepIds',
+            message: 'round step references must resolve uniquely to the owning round',
+          });
+        referencedSteps.add(id);
+      }
+      if (row.status === 'passed' && roundPlan) {
+        const replaySteps = row.stepIds.flatMap((id) => {
+          const step = stepById.get(id);
+          return step &&
+            typeof step.input === 'object' &&
+            step.input !== null &&
+            'flowStep' in step.input
+            ? [step]
+            : [];
+        });
+        if (
+          replaySteps.length !== roundPlan.steps.length ||
+          replaySteps.some(
+            (step, i) =>
+              step.status !== 'completed' ||
+              (step.input as { flowStep: unknown }).flowStep !== i + 1,
+          )
+        )
+          issues.push({
+            path: 'result.metrics.memoryRounds.stepIds',
+            message: 'passed round requires every reviewed Flow step in order',
+          });
+      }
+      for (const id of row.artifactIds) {
+        const artifact = artifactById.get(id);
+        if (
+          !artifact ||
+          referencedArtifacts.has(id) ||
+          (artifact.relatedStep && !row.stepIds.includes(artifact.relatedStep))
+        )
+          issues.push({
+            path: 'result.metrics.memoryRounds.artifactIds',
+            message: 'round artifact references must resolve uniquely to the owning round',
+          });
+        referencedArtifacts.add(id);
+      }
+    }
+    if (steps.steps.some((s) => !referencedSteps.has(s.stepId)))
+      issues.push({ path: 'steps', message: 'every executed memory step must belong to a round' });
+  } else if (roundPlan && result.status === 'passed')
+    issues.push({
+      path: 'result.metrics.memoryRounds',
+      message: 'passed rounds plan requires round results',
+    });
   for (const testCase of result.cases) {
     for (const stepId of testCase.steps) {
       const step = stepById.get(stepId);

@@ -26,6 +26,10 @@ import {
   type ProductionPhysicalPreflight,
   createProductionPhysicalPreflight,
 } from './production-physical-preflight.js';
+import {
+  type SimulatorAppiumOptions,
+  validateSimulatorAppiumOptions,
+} from './simulator-appium-options.js';
 import { runXcunitFlow } from './test-flow/run-xcunit-flow.js';
 import {
   type XcunitFlowProcessRunner,
@@ -48,6 +52,7 @@ export interface ProductionAgentSessionDependencies {
 }
 
 export interface ProductionAgentSessionOptions {
+  simulatorAppium?: SimulatorAppiumOptions;
   appium?: Omit<ProductionAppiumConfig, 'udid' | 'targetKind' | 'deviceName'>;
   /** External command/filesystem boundary for deterministic device-discovery tests. */
   deviceDiscoveryRuntime?: DeviceDiscoveryRuntime;
@@ -69,6 +74,9 @@ export interface ProductionExecutionTransports {
 export function createProductionAgentSessionDependencies(
   options: ProductionAgentSessionOptions = {},
 ): ProductionAgentSessionDependencies {
+  const simulatorAppium = options.simulatorAppium
+    ? validateSimulatorAppiumOptions(options.simulatorAppium)
+    : undefined;
   const physicalRoute =
     options.appium?.wdaStartupMode === 'managed-xcodebuild'
       ? 'route_c_appium_managed'
@@ -83,6 +91,9 @@ export function createProductionAgentSessionDependencies(
     createDeviceBackend: (device, context) =>
       createAppiumDeviceBackend({
         ...options.appium,
+        ...(device.targetKind === 'simulator' && simulatorAppium
+          ? { ...simulatorAppium, exclusiveSimulatorPorts: true }
+          : {}),
         udid: device.udid,
         targetKind: device.targetKind,
         ...(context?.bundleId ? { bundleId: context.bundleId } : {}),
@@ -100,7 +111,7 @@ export function createProductionAgentSessionDependencies(
       return outcome ?? { status: 'already_closed', reusable: true, issues: [] };
     },
     preparesWda: (device) => {
-      if (device.targetKind !== 'physical') return false;
+      if (device.targetKind === 'simulator') return true;
       const mode = options.appium?.wdaStartupMode ?? 'external-url';
       return (
         mode === 'managed-xcodebuild' ||

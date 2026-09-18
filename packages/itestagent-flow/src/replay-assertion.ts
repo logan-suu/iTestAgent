@@ -43,14 +43,7 @@ export async function runAssertionAction(
   try {
     uiTree = await backend.getUiTree({ deviceId }, signal);
   } catch {
-    return failedStep(
-      stepIndex,
-      action,
-      target,
-      Date.now() - startTime,
-      'Failed to get UI tree for assertion',
-      [],
-    );
+    return blockedStep(stepIndex, action, target, 'Failed to get UI tree for assertion');
   }
 
   const element = findElementInUiTree(uiTree.raw, step.locator);

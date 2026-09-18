@@ -62,6 +62,7 @@ export class PlanningSession {
   private executionRoute: ExecutionRouteResolution | null = null;
   private pendingIdentity: { runId: string; projectProfileRef: string } | null = null;
   private conversation: string[] = [];
+  private baselinePreference: TestPlan['performance']['baseline'] | undefined;
 
   constructor(analysis: ProjectAnalysisResult) {
     this.analysis = clonePlanningValue(analysis);
@@ -207,6 +208,27 @@ export class PlanningSession {
       throw new PlanningSessionError('plan_unavailable', 'there is no draft plan to modify');
     }
 
+    if (/^baseline\b/i.test(input.trim())) {
+      const match = /^baseline\s*=\s*(skip|local_auto)$/i.exec(input.trim());
+      if (!match)
+        throw new PlanningSessionError(
+          'invalid_transition',
+          'Use baseline=skip or baseline=local_auto',
+        );
+      const policy = match[1]?.toLowerCase() as TestPlan['performance']['baseline'];
+      if (policy === 'local_auto' && isNativeMemoryPlan(this.plan))
+        throw new PlanningSessionError(
+          'invalid_transition',
+          'Simulator native memory requires baseline=skip',
+        );
+      this.plan = parseTestPlan({
+        ...this.plan,
+        performance: { ...this.plan.performance, baseline: policy },
+      });
+      this.baselinePreference = policy;
+      return this.snapshot();
+    }
+
     const currentIntent = this.intentResult.intent;
     const selectedDevice = this.plan.device;
     const parsed = parseIntent(input, this.reviewedProfile);
@@ -244,6 +266,8 @@ export class PlanningSession {
       xcuitestTestPlan: parsed.intent.xcuitestTestPlan ?? currentIntent.xcuitestTestPlan,
       features,
       metricsRequested: parsed.intent.metricsRequested || currentIntent.metricsRequested,
+      requestedMetrics: parsed.intent.requestedMetrics ?? currentIntent.requestedMetrics,
+      memoryObservation: parsed.intent.memoryObservation ?? currentIntent.memoryObservation,
       scope: parsed.intent.scope === 'custom' ? currentIntent.scope : parsed.intent.scope,
       sourceText: `${currentIntent.sourceText}\nModification: ${input}`,
     };
@@ -278,6 +302,19 @@ export class PlanningSession {
     return this.snapshot();
   }
 
+  /** Set a reviewed deterministic workload only while the same draft remains mutable. */
+  configureMemoryRounds(
+    config: NonNullable<TestPlan['performance']['memoryRounds']>,
+  ): PlanningSnapshot {
+    this.requireStatus('awaiting_plan_confirmation', 'configure memory rounds');
+    if (!this.plan) throw new PlanningSessionError('plan_unavailable', 'no draft plan');
+    this.plan = parseTestPlan({
+      ...this.plan,
+      performance: { ...this.plan.performance, memoryRounds: config },
+    });
+    return this.snapshot();
+  }
+
   confirmPlan(): TestPlan {
     this.requireStatus('awaiting_plan_confirmation', 'confirm plan');
     if (!this.plan) {
@@ -297,6 +334,7 @@ export class PlanningSession {
     const draft = new PlanningSession(this.analysis);
     draft.candidates = clonePlanningValue(this.candidates);
     draft.reviewedProfile = clonePlanningValue(this.reviewedProfile);
+    draft.baselinePreference = this.baselinePreference;
     draft.resolvePlan({ ...this.intentResult.intent, targetKind: device.kind }, false, {
       runId: this.plan.runId,
       projectProfileRef: this.plan.projectProfileRef,
@@ -396,6 +434,12 @@ export class PlanningSession {
       executionRoute: resolution,
       ...(this.pendingIdentity ?? {}),
     });
+    if (this.baselinePreference && !isNativeMemoryPlan(this.plan)) {
+      this.plan = parseTestPlan({
+        ...this.plan,
+        performance: { ...this.plan.performance, baseline: this.baselinePreference },
+      });
+    }
     this.status = 'awaiting_plan_confirmation';
     return this.snapshot();
   }
@@ -441,4 +485,14 @@ function isNegated(input: string, term: string): boolean {
     `(?:不要|不跑|排除|去掉|without|exclude|skip|not)(?:\\s|[^,，。;；]){0,12}${escaped}`,
     'i',
   ).test(input);
+}
+
+function isNativeMemoryPlan(plan: TestPlan): boolean {
+  return (
+    plan.device.kind === 'simulator' &&
+    plan.execution.resolvedPath === 'device_backend' &&
+    !!plan.execution.metrics?.some((metric) =>
+      ['memory_peak', 'memory_growth', 'memory_leaks'].includes(metric),
+    )
+  );
 }

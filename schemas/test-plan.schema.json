@@ -302,6 +302,8 @@
             "enum": [
               "launch_time",
               "memory_peak",
+              "memory_growth",
+              "memory_leaks",
               "crash",
               "test_duration",
               "hitches",
@@ -381,12 +383,24 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string" },
-        "caseId": { "type": "string" },
-        "label": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
+        "caseId": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
         "source": {
           "type": "string",
-          "enum": ["user", "profile", "agent", "agent_confirmed", "explore_only"]
+          "enum": [
+            "user",
+            "profile",
+            "agent",
+            "agent_confirmed",
+            "explore_only"
+          ]
         },
         "conditions": {
           "type": "array",
@@ -406,21 +420,39 @@
                   "custom"
                 ]
               },
-              "description": { "type": "string" },
-              "target": { "type": "string" },
+              "description": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
               "expected": {},
-              "satisfied": { "type": "boolean" },
-              "uncheckedReason": { "type": "string" }
+              "satisfied": {
+                "type": "boolean"
+              },
+              "uncheckedReason": {
+                "type": "string"
+              }
             },
-            "required": ["type", "description"]
+            "required": [
+              "type",
+              "description"
+            ]
           }
         },
         "evidence": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       },
-      "required": ["id", "caseId", "source", "conditions"]
+      "required": [
+        "id",
+        "caseId",
+        "source",
+        "conditions"
+      ]
     },
     "ArtifactPolicy": {
       "type": "object",
@@ -488,8 +520,81 @@
           ],
           "description": "ADR-011: Baseline domain isolation. physical and simulator baselines are strictly separated."
         },
+        "memoryObservation": {
+          "type": "object",
+          "required": [
+            "minimumDurationMs",
+            "settleDurationMs"
+          ],
+          "properties": {
+            "minimumDurationMs": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 300000
+            },
+            "settleDurationMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60000
+            }
+          }
+        },
         "thresholdRequired": {
           "type": "boolean"
+        },
+        "memoryRounds": {
+          "type": "object",
+          "properties": {
+            "flowId": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "global",
+                "project"
+              ]
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "steps": {
+              "minItems": 1,
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10
+            },
+            "intervalMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 60000
+            },
+            "processPolicy": {
+              "type": "string",
+              "const": "same_process"
+            }
+          },
+          "required": [
+            "flowId",
+            "source",
+            "sha256",
+            "steps",
+            "count",
+            "intervalMs",
+            "processPolicy"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -630,6 +735,61 @@
                   }
                 }
               }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "performance": {
+            "required": [
+              "memoryRounds"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "rerun"
+          ]
+        },
+        "properties": {
+          "device": {
+            "properties": {
+              "kind": {
+                "const": "physical"
+              }
+            }
+          },
+          "execution": {
+            "required": [
+              "metrics"
+            ],
+            "properties": {
+              "resolvedPath": {
+                "const": "device_backend"
+              },
+              "metrics": {
+                "contains": {
+                  "const": "memory_growth"
+                },
+                "items": {
+                  "enum": [
+                    "memory_peak",
+                    "memory_growth",
+                    "memory_leaks",
+                    "test_duration"
+                  ]
+                }
+              }
+            }
+          },
+          "performance": {
+            "required": [
+              "memoryObservation"
             ]
           }
         }

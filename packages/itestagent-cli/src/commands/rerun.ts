@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { createProductionPerformanceCapture } from 'itestagent-backends-performance-xctrace-analyzer';
+import type { PerformanceCaptureFactory } from 'itestagent-contracts';
 import {
   PermissionEngine,
   type ProductionAgentSessionDependencies,
@@ -20,6 +22,7 @@ export interface RerunCommandDependencies {
   workspace?: string;
   production?: ProductionAgentSessionDependencies;
   transports?: ProductionExecutionTransports;
+  createPerformanceCapture?: PerformanceCaptureFactory;
   authorize?: (action: string, resource: string) => Promise<boolean>;
   runId?: string;
 }
@@ -85,6 +88,9 @@ export async function runRerunCommand(
     authorize,
     production,
     transports: dependencies.transports,
+    createPerformanceCapture:
+      dependencies.createPerformanceCapture ??
+      (dependencies.production ? undefined : createProductionPerformanceCapture()),
   });
   const child = await store.loadRunBundle(childPlan.runId);
   return { parentRunId, childPlan, child, executed };

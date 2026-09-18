@@ -38,6 +38,7 @@ export const BaselineRecordSchema = z
     launchDurationMs: z.number().int().nonnegative().optional(),
     /** Memory peak in MB (approximate per R5) */
     memoryPeakMB: z.number().nonnegative().optional(),
+    memoryGrowthMiB: z.number().finite().optional(),
     /** Number of detected hangs */
     hangCount: z.number().int().nonnegative().optional(),
     /** Hitches summary (structured by parser, experimental per S8) */
@@ -115,6 +116,12 @@ export type BaselineListFilter = z.infer<typeof BaselineListFilterSchema>;
  * field matches the storage subdirectory (ADR-011).
  */
 export interface BaselineStore {
+  /** Atomically replace only the reviewed record; null means create-if-absent. */
+  compareAndSwap?(
+    record: BaselineRecord,
+    expected: BaselineRecord | null,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
   /**
    * Retrieve a baseline record by key.
    * Returns null if no baseline exists for this key.

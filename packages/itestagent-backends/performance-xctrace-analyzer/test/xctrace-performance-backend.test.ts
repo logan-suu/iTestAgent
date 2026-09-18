@@ -265,7 +265,7 @@ describe('summarizeTrace', () => {
     expect(summary.launchDurationMs).toBe(1320);
     expect(summary.memoryPeakMB).toBeCloseTo(418.5, 1);
     expect(summary.fpsApproximate).toBeCloseTo(59.8, 1);
-    expect(summary.crashDetected).toBe(false);
+    expect(summary.crashDetected).toBeUndefined();
     expect(summary.hangCount).toBe(3);
     expect(summary.approximate).toBe(true);
   });
@@ -537,7 +537,7 @@ describe('R5 compliance', () => {
     expect(summary.memoryPeakMB).toBeUndefined();
     expect(summary.fpsApproximate).toBeUndefined();
     expect(summary.crashDetected).toBeFalsy();
-    expect(summary.hangCount).toBe(0);
+    expect(summary.hangCount).toBeUndefined();
     expect(summary.approximate).toBe(true);
   });
 });

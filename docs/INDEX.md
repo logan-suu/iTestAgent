@@ -33,6 +33,23 @@
 
 | 如果你需要... | 请查阅... |
 |---|---|
+| T6.12 正常TUI父运行、实际failed-only与血缘G5 | `06-verification/g5-xcuitest-lineage-6.12.md` |
+| T6.12 当前最终交付检查与完整回归 | `06-verification/t6.12-final-gates-2026-09-17.md` |
+| T6.12 已验证范围收口与保留的产品发布门禁 | `decisions/ADR-051-t612-verified-exit-and-product-gates.md`、`06-verification/t6.12-remaining-performance-review.md` |
+| T6.12 当前正常入口XCUITest/解释/failed-only批次 | `06-verification/t6.12-xcuitest-exit-plan.md` |
+| T6.12 已批准范围收敛、T7.8延期及当前出口矩阵 | `decisions/ADR-050-t612-exit-scope-and-memgraph-follow-up.md`、`06-verification/t6.12-exit-matrix.md` |
+| T6.12 历史完整出口、生产接线与双路径证据清单 | `06-verification/t6.12-completion-plan.md` |
+| 所属 Xcode 的只读文档/scheme/目的地元数据与单次宿主候选 | `decisions/ADR-048-read-only-xcode-metadata.md`、`06-verification/physical-memgraph-metadata-probe-plan-6.12.md` |
+| 所属 Xcode 文档的进程终止关闭证据（已确认 ADR-049） | `decisions/ADR-049-xcode-document-process-closure.md` |
+| 文档会话连续性/关闭观察（离线实现及21种情形验证通过） | `06-verification/physical-memgraph-document-session-plan-6.12.md` |
+| 原调试进程保留观察（实现及一次宿主LLDB验证通过） | `06-verification/physical-memgraph-owned-observation-plan-6.12.md` |
+| v4 App回执/临时lease释放（单次真实正常关闭实测通过） | `06-verification/physical-memgraph-query-v4-app-plan-6.12.md` |
+| launcher所属退出回执（ADR-047，v4无目标关闭离线实现通过） | `decisions/ADR-047-query-launcher-owned-closure-receipt.md`、`06-verification/physical-memgraph-query-closure-receipt-plan-6.12.md` |
+| 独立query App生命周期（normal/启动前EOF实证通过） | `06-verification/physical-memgraph-query-app-lifecycle-plan-6.12.md` |
+| 查询完整组合与候选清单（离线接线/候选编译通过） | `06-verification/physical-memgraph-query-composition-plan-6.12.md` |
+| 查询helper IPC与逐资源关闭账本（ADR-046离线实现通过） | `decisions/ADR-046-memory-query-ipc-and-resource-closure.md`、`06-verification/physical-memgraph-query-ipc-plan-6.12.md` |
+| Xcode 无 AXConfirm 后的受限原生 Return 实验（离线通过，真实事件待验证） | `decisions/ADR-045-bounded-native-console-return.md`、`06-verification/physical-memgraph-native-return-plan-6.12.md`、`06-verification/physical-memgraph-return-fixture-plan-6.12.md`、`06-verification/physical-memgraph-query-session-plan-6.12.md` |
+| 真机 memgraph 独立自动化与生产接线提案（待确认） | `decisions/ADR-044-physical-memgraph-automation.md`、`06-verification/physical-memgraph-production-plan-6.12.md`、`06-verification/physical-memgraph-helper-install-plan-6.12.md`、`06-verification/physical-memgraph-launch-plan-6.12.md`、`06-verification/physical-memgraph-helper-upgrade-plan-6.12.md`、`06-verification/physical-memgraph-capture-plan-6.12.md`、`06-verification/physical-memgraph-xcode-console-plan-6.12.md` |
 | 用户故事与 AC（哪个 US 在做什么） | `01-spec/全量用户故事与验收标准规格书.md` E1~E20 |
 | MVP 19 条完成标准 | `01-spec/全量用户故事与验收标准规格书.md` MVP 验收总表 |
 | 第一版明确不做的事 | `01-spec/全量用户故事与验收标准规格书.md` 第一版明确不做 |
@@ -52,7 +69,18 @@
 | 已确认执行目标与用户断言、动作格式有界纠正、异常部分事实、动态探索停滞保护与 OpenTUI activity | `decisions/ADR-037-confirmed-goal-and-execution-liveness.md` |
 | physical/simulator 同页分组、跨类型一次性确认、草案重编译与过期选择保护 | `decisions/ADR-038-explicit-device-target-switch.md` |
 | T6.12 动作纠正、失败证据保留、TUI 报告入口、启动/成功标识与设备类型切换验证（不替代 G5/G5-SIM） | `06-verification/exploration-action-recovery-report-6.12.md` |
-| PR #81 断言/权限契约、AUT 取消传播、密钥导航键与 PTY 资源修复验证（DEF-034 真机复验未关闭） | `06-verification/pr81-review-remediation-6.12.md` |
+| PR #81 断言/权限契约、AUT 取消传播、密钥导航键与 PTY 资源修复验证 | `06-verification/pr81-review-remediation-6.12.md` |
+| DEF-034 物理目标 AUT build/settings/codesign 取消、进程树与 staging 清理验证及关闭证据 | `06-verification/g5-def034-physical-cancellation-6.12.md` |
+| T6.12 用户确认、既有真机成功 run 完整性复核、历史证据边界与收尾事项 | `06-verification/g5-physical-closed-loop-report-6.12.md` |
+| 性能采集生命周期、公开通知就绪/失败传播、逐指标证据状态 | `decisions/ADR-039-performance-capture-lifecycle-and-evidence-status.md` |
+| 内存增长/泄漏产品契约、TUI自动阳性诊断实证、零结果及baseline剩余边界 | `decisions/ADR-040-memory-growth-and-leak-diagnostics.md` |
+| TUI审阅并接受真机内存baseline、一次性权限与原子竞争保护 | `decisions/ADR-041-reviewed-baseline-replacement.md` |
+| 已确认Flow的同进程多轮内存采集、逐轮证据及独立baseline域 | `decisions/ADR-042-confirmed-memory-rounds.md` |
+| Simulator原生footprint来源、完成零扫描、目标绑定与生产生命周期 | `decisions/ADR-043-simulator-native-memory-capture.md` |
+| T6.12 Simulator footprint/零扫描工具证据、历史xctrace阻断与生产接线计划 | `06-verification/simulator-memory-evidence-plan-6.12.md`、`06-verification/simulator-memory-evidence-6.12.md`、`06-verification/simulator-memory-host-capture-plan-6.12.md`、`06-verification/simulator-memory-footprint-plan-6.12.md`、`06-verification/simulator-memory-production-plan-6.12.md` |
+| Simulator正常入口权限映射、瞬时连接参数及复验计划 | `06-verification/simulator-production-entry-fix-plan-6.12.md` |
+| T6.12 性能生产接线、采样覆盖限制（§7）、正常TUI真机内存增长与阳性Leaks报告（§13） | `06-verification/performance-capture-wiring-6.12.md` |
+| T6.12 内存性能session交接、首次/后续baseline实证（§18–19）、剩余工作与授权边界 | `05-planning/handoff-6.12-memory-2026-09-08.md` |
 | Harness Event Model + Abort/子进程 | `02-architecture/架构设计文档.md` §7.4~7.5 |
 | 运行时原语复用约束 | `02-architecture/技术选型文档.md` §6.1 |
 | Agent Session 模型 | `02-architecture/架构设计文档.md` §4.1 |
@@ -101,7 +129,7 @@
 | E9 | iTestAgent Flow（录制与重放） | US-9.1~9.2 | P0 |
 | E10 | 测试数据与账号 | US-10.1~10.2 | P0/P1 |
 | E11 | 断言策略 | US-11.1 | P1 |
-| E12 | 性能采集与 baseline | US-12.1~12.2 | P0/P1 |
+| E12 | 性能采集、baseline 与内存增长/泄漏诊断 | US-12.1~12.3 | P0/P1 |
 | E13 | 证据采集 | US-13.1 | P0 |
 | E14 | 失败归因与解释 | US-14.1 | P1 |
 | E15 | 报告输出 | US-15.1 | P0 |

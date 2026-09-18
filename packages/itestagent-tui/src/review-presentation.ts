@@ -28,7 +28,7 @@ export function reviewPresentation(state: TuiShellState, height: number): string
     title = '[Plan Review]';
     hint = PLAN_REVIEW_FOOTER_HINTS;
     body = state.plan
-      ? formatPlanSections(state.plan).flatMap((section, index) => [
+      ? formatPlanSections(state.plan, state.planConnectionSummary).flatMap((section, index) => [
           `${index === state.planSectionIndex ? '>' : ' '} ${section.title}`,
           ...section.fields.map((field) => `    ${field.label}: ${field.value}`),
         ])

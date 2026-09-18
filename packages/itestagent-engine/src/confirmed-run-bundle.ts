@@ -2,8 +2,11 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type {
   ArtifactIndex,
+  BaselineStore,
   DeviceInfo,
   EvidenceCollectionOutcome,
+  PerformanceCaptureResult,
+  PerformanceMetrics,
   RunResult,
   RunStatus,
   RunStep,
@@ -23,6 +26,7 @@ import {
   initStore,
   resolveStoreRoot,
 } from 'itestagent-store';
+import { prepareMemoryBaseline } from './baseline/production-memory-baseline.js';
 import type { ConfirmedExecutionDispatchResult } from './dual-execution-dispatcher.js';
 import type { RealDeviceRunResult } from './exploration/real-run.js';
 import { applyRerunFlakiness } from './rerun.js';
@@ -35,6 +39,9 @@ export interface PersistConfirmedRunInput {
   dispatch: ConfirmedExecutionDispatchResult;
   resultBundlePath: string;
   parentResult?: RunResult;
+  performance?: PerformanceCaptureResult;
+  baselineStore?: BaselineStore;
+  onBaselineWarning?: () => void;
 }
 
 export async function persistConfirmedRunToDefaultStore(
@@ -85,7 +92,7 @@ export async function persistConfirmedRun(
   let startedAt = now;
   let endedAt = now;
   let backendUsed = dispatch.path === 'xcuitest' ? 'xcodebuild' : 'device_backend';
-  let metrics = {};
+  let metrics: PerformanceMetrics = {};
   const invalidDeviceResult =
     dispatch.status !== 'blocked' &&
     dispatch.path === 'device_backend' &&
@@ -187,7 +194,9 @@ export async function persistConfirmedRun(
           : result.assertion.status;
     const caseIds = [
       ...new Set([
-        ...(plan.rerun?.selectedCaseIds ?? plan.execution.features),
+        ...(plan.performance.memoryRounds
+          ? []
+          : (plan.rerun?.selectedCaseIds ?? plan.execution.features)),
         ...result.assertion.cases.map((testCase) => testCase.caseId),
         ...steps.flatMap((step) => (step.caseId ? [step.caseId] : [])),
       ]),
@@ -224,6 +233,77 @@ export async function persistConfirmedRun(
       relatedCase: artifact.relatedCase,
     }));
     backendUsed = artifacts[0]?.backend ?? 'appium';
+  }
+
+  if (input.performance) {
+    metrics = { ...metrics, ...input.performance.metrics };
+    artifacts.push(...input.performance.artifacts);
+    outcomes.push(
+      ...input.performance.artifacts.map((artifact) => ({
+        type: artifact.type,
+        status: 'collected' as const,
+        reasonCode: 'performance.collected',
+        artifactId: artifact.id,
+      })),
+    );
+  }
+  if (dispatch.status === 'completed' && metrics.memoryRounds) {
+    if (
+      ['cancelled', 'blocked', 'inconclusive'].includes(metrics.memoryRounds.status) &&
+      status !== 'infra_failed' &&
+      status !== 'failed'
+    )
+      status = metrics.memoryRounds.status;
+  }
+  const metricFields = {
+    launch_time: 'launchDurationMs',
+    memory_peak: 'memoryPeakMB',
+    memory_growth: 'memoryGrowth',
+    memory_leaks: 'memoryLeaks',
+    crash: 'crashDetected',
+    test_duration: 'testDurationMs',
+    hitches: 'hitchesSummary',
+    fps: 'fpsApproximate',
+  } as const;
+  const requestedMetrics = plan.execution.metrics ?? [];
+  if (requestedMetrics.length > 0) {
+    if (requestedMetrics.includes('test_duration') && steps.length > 0) {
+      metrics.testDurationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
+    }
+    const collected = metrics.collection ?? [];
+    metrics.collection = requestedMetrics.map((metric) => {
+      const reported = collected.find((outcome) => outcome.metric === metric);
+      if (metric !== 'test_duration' && reported && reported.status !== 'collected')
+        return reported;
+      const field = metric === 'xctrace_summary' ? undefined : metricFields[metric];
+      const roundCollected = metrics.memoryRounds?.rounds.every(
+        (r) =>
+          r.status === 'passed' &&
+          r.collection?.some((o) => o.metric === metric && o.status === 'collected'),
+      );
+      const value = roundCollected ? true : field ? metrics[field] : undefined;
+      if (value !== undefined && value !== 'inconclusive') {
+        return { metric, status: 'collected', reasonCode: 'performance.observed_value' };
+      }
+      return (
+        collected.find(
+          (outcome) => outcome.metric === metric && outcome.status !== 'collected',
+        ) ?? {
+          metric,
+          status: dispatch.status === 'cancelled' ? 'cancelled' : 'not_exportable',
+          reasonCode:
+            dispatch.status === 'cancelled'
+              ? 'performance.cancelled'
+              : 'performance.route_did_not_collect',
+        }
+      );
+    });
+    if (
+      status === 'passed' &&
+      metrics.collection.some((outcome) => outcome.status !== 'collected')
+    ) {
+      status = 'inconclusive';
+    }
   }
 
   const decidedTypes = new Set(outcomes.map((outcome) => outcome.type));
@@ -329,6 +409,27 @@ export async function persistConfirmedRun(
     report.cases = adjusted.cases;
     report.explanation = adjusted.explanation;
   }
+  let baseline: Awaited<ReturnType<typeof prepareMemoryBaseline>>;
+  const warnBaseline = () => {
+    try {
+      input.onBaselineWarning?.();
+    } catch {
+      /* Preserve the committed run if a UI observer fails. */
+    }
+  };
+  try {
+    if (input.baselineStore)
+      baseline = await prepareMemoryBaseline({
+        store: input.baselineStore,
+        plan,
+        device,
+        metrics,
+        status: report.status,
+      });
+    if (baseline?.delta) report.baselineDelta = baseline.delta;
+  } catch {
+    warnBaseline();
+  }
   const committed = await persistRunBundle({
     store: input.store,
     plan,
@@ -341,5 +442,10 @@ export async function persistConfirmedRun(
         : dirname(input.resultBundlePath),
     report,
   });
+  try {
+    await baseline?.afterCommit();
+  } catch {
+    warnBaseline();
+  }
   return { ...committed, runStatus: report.status };
 }

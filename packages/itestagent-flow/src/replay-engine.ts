@@ -120,6 +120,26 @@ export async function replayFlow(
     const step = flow.steps[i];
     if (!step) continue;
 
+    if (options.beforeStep)
+      try {
+        await options.beforeStep(i, step);
+        signal?.throwIfAborted();
+      } catch {
+        cancelled = signal?.aborted === true;
+        steps.push(
+          correlateReplayStep(
+            skippedStep(
+              i,
+              step.action,
+              step.target,
+              cancelled ? 'Replay cancelled' : 'Replay guard blocked',
+            ),
+            { stepId: `${runId}-step-${i + 1}`, sequence: i + 1, targetKind, caseId: step.caseId },
+          ),
+        );
+        summary.skipped++;
+        break;
+      }
     onStepStart?.(i, step);
     const stepStartedAt = new Date().toISOString();
 
@@ -148,6 +168,18 @@ export async function replayFlow(
       startedAt: stepStartedAt,
     });
     steps.push(correlated);
+
+    if (options.stopOnFailure && correlated.status !== 'passed') {
+      summary[
+        correlated.status === 'skipped'
+          ? 'skipped'
+          : correlated.status === 'blocked'
+            ? 'blocked'
+            : 'failed'
+      ]++;
+      cancelled = signal?.aborted === true;
+      break;
+    }
 
     // Update summary
     switch (correlated.status) {

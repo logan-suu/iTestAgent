@@ -25,6 +25,10 @@ export interface ReplayOptions {
   bundleId?: string;
   /** AbortSignal for cancellation (ADR-010) */
   signal?: AbortSignal;
+  /** Stop at the first unsuccessful step; used for bounded repeat workloads. */
+  stopOnFailure?: boolean;
+  /** Engine-owned process/permission guard, awaited before every attempted step. */
+  beforeStep?: (stepIndex: number, step: FlowStepV2) => Promise<void>;
   /** Called before each step executes */
   onStepStart?: (stepIndex: number, step: FlowStepV2) => void;
   /** Called when a step has safetyGate: 'ask'. Return true to proceed, false to skip. */

@@ -57,6 +57,8 @@
 
 ### 仍需完成的验收
 
+> 后续更新（2026-09-08）：以下为提交时的边界记录。DEF-034 已在独立授权后完成真实物理目标 build/settings/codesign 取消、进程树及 staging 清理验证并关闭，详见 [专项验证报告](g5-def034-physical-cancellation-6.12.md)。保留以下历史，不将此专项证据扩张为全部 T6.12/TUI/G5-SIM 重验。
+
 - DEF-034 的代码与进程边界回归已补齐，但真实 iPhone 上构建/取消/子进程与暂存目录清理仍须单独授权后 G5 复验；保持 open，不把普通 Bun child 测试说成真实 xcodebuild 进程树验证。
 - 受影响路径仍需按 T6.12 的双路径 G5 与共享路径 G5-SIM 责任补齐验收；本轮不声称这些门禁完成。
 - 本轮未产生新的 CodeRabbit CLI 审查；前次登录失败 `Failed to start server. Is port 0 in use?` 不因本地测试通过而视为解决。

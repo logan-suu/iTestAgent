@@ -24,5 +24,7 @@ describe('OpenTUI review confirmation in a real PTY', () => {
       expect(result.forbiddenEventCount).toBe(0);
       expect(result.cleanExit).toBe(true);
     }
-  }, 15_000);
+    // Five separate renderer processes retain their own bounded input/exit deadlines.
+    // The outer suite budget includes startup and cleanup under full-regression load.
+  }, 60_000);
 });

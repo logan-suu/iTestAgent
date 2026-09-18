@@ -392,9 +392,15 @@ describe('Phase 4 Performance + Baseline', () => {
       runId: 'run-001',
     });
 
-    const updated = await mgr.acceptNewBaseline('run-002', established.key, true);
+    const updated = await mgr.acceptNewBaseline(
+      'run-002',
+      established.key,
+      true,
+      makeTraceSummary({ launchDurationMs: 700 }),
+    );
     expect(updated).not.toBeNull();
     expect(updated?.updatedFromRun).toBe('run-002');
+    expect(updated?.launchDurationMs).toBe(700);
     expect(updated?.reachableRuns).toContain('run-001');
     expect(updated?.reachableRuns).toContain('run-002');
 
