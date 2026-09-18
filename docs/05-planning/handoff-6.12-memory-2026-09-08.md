@@ -1,5 +1,7 @@
 # T6.12 内存性能能力交接 — 2026-09-08
 
+> 最新完成状态：PR #82已合并，用户明确单次豁免失败CI（ADR-052）。T6.12已按ADR-050/051范围标done，T6.13为ready；远端CI仍失败，DEF-042保持open，须在Phase6出口前修复。历史“等待合并/确认、in_progress”等记录由本条覆盖，产品级未完成义务不变。本次追踪修改尚未提交推送。
+
 ## 最终门禁检查点（2026-09-17）
 
 2026-09-17 final approved-scope gates: full host suite 4244 pass / 16 skip / 0 fail, 14058 assertions, 414 files, 214.05s. Fixed repeated old permission redraw matching in the rounds PTY test by waiting for each unique round resource; production permissions unchanged. Typecheck/lint968/schema6/architecture19/G7-7/literals80/gitleaks140/diff checks passed. Original sandbox 4216 pass/38 skip/6 fail preserved. See t6.12-final-gates-2026-09-17.md. Code delivery and final human completion confirmation remain; no commit/push/merge.

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Deferred review items tracked across all phases. Each entry maps to a source review comment that was deemed reasonable but deferred to a later phase. Check this file at each phase integration gate to identify items that may have been resolved as a side effect of other work.",
-  "last_updated": "2026-09-17",
+  "last_updated": "2026-09-18T03:26:32.233042Z",
   "items": [
     {
       "id": "DEF-001",
@@ -754,6 +754,23 @@
       "created_at": "2026-09-17",
       "last_updated": "2026-09-17",
       "notes": "Depends on T6.13; T7.7 depends on this task. Product release gate remains unpassed until actual implementation and evidence."
+    },
+    {
+      "id": "DEF-042",
+      "source": "Codex (self-review)",
+      "pr": 82,
+      "pr_url": "https://github.com/logan-suu/iTestAgent/pull/82",
+      "comment_id": null,
+      "comment_url": null,
+      "task": "6.13",
+      "severity": "major",
+      "item": "Merged PR #82 has unresolved remote CI failures",
+      "detail": "GitHub CI run 35302564214 failed test:ci after typecheck/lint passed. Check annotations identify helper-install failures at test lines 62, 104, 146 and 160, including expected helper.cancelled versus helper.installation_failed, and production-agent-session.test.ts physical backend creation failing because Managed Route B requires WebDriverAgent.xcodeproj. The helper root cause is unconfirmed; the generic installer catch hides the underlying cause and the full log download endpoint was unavailable. Local full host regression passed 4244 tests with 16 skips, which does not invalidate remote failures. Deferred solely because the user explicitly requested skipping CI during T6.12 completion, documented in ADR-052. T6.13 must inspect full logs, isolate host/tool prerequisites from test defects, fix the actual causes without weakening production permission/signature checks, and obtain passing remote CI before the Phase 6 exit. Preserve original failing run as evidence.",
+      "target_phase": 6,
+      "status": "open",
+      "created_at": "2026-09-18T03:26:32.233042Z",
+      "last_updated": "2026-09-18T03:26:32.233042Z",
+      "notes": "One-time human waiver for T6.12 only; no global CI bypass, no claim of all G gates passing. Follow-up not yet implemented."
     }
   ]
 }
